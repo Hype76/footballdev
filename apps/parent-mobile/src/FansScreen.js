@@ -7,6 +7,7 @@ import * as Notifications from 'expo-notifications'
 import * as SecureStore from 'expo-secure-store'
 import Constants from 'expo-constants'
 import { parentThemePreference } from './displayThemePreference'
+import { DeviceThemeChoices } from '../../mobile-core/src/DeviceThemeChoices'
 import { resolveDeviceThemeMode } from '../../mobile-core/src/deviceThemeCore'
 import { fanBrandingLink, fanBrandTheme } from '../../../src/lib/fan-branding'
 import QRCode from 'qrcode/lib/core/qrcode'
@@ -158,6 +159,15 @@ function FansScreenContent({ embedded = false, themeTokens, themeMode, onBack, s
   const handledNotification = useRef('')
   const lastNotification = Notifications.useLastNotificationResponse()
   const run = async (action) => { setBusy(true); state.setError(''); try { await action() } catch (e) { state.setError(e.message) } finally { setBusy(false) } }
+  const changeDisplayTheme = async (mode) => {
+    state.setError('')
+    setSavedMode(mode)
+    try {
+      await parentThemePreference.write(mode)
+    } catch {
+      state.setError('Theme preference could not be saved on this device. Please choose it again to retry.')
+    }
+  }
   const hasMatchdayConnection = [...parents, ...state.connections].some((connection) => String(connection?.planKey || connection?.plan_key || '').toLowerCase() === 'matchday')
   useEffect(() => {
     let active = true
@@ -280,6 +290,11 @@ function FansScreenContent({ embedded = false, themeTokens, themeMode, onBack, s
       <Text accessibilityRole="header" style={styles.title}>Settings</Text>
       <Text style={styles.helper}>Manage notifications and your linked players.</Text>
       {state.error && !isTransientConnectionMessage(state.error) ? <Text accessibilityRole="alert" style={styles.error}>{state.error}</Text> : null}
+      {!embedded ? <>
+        <Text accessibilityRole="header" style={styles.heading}>Display</Text>
+        <Text style={styles.helper}>System follows this device's appearance. Your choice is remembered on this device.</Text>
+        <DeviceThemeChoices value={savedMode} onChange={changeDisplayTheme} palette={{ accentText: tokens.accentText, border: tokens.border, textMuted: tokens.textSecondary }} />
+      </> : null}
       {followed.some(c => c.permissions.game_day) ? <View style={{ gap: 8 }}>
         <Text style={styles.label}>Phone notifications</Text>
         <Text accessibilityLiveRegion="polite" style={styles.helper}>{({ checking: 'Checking phone notifications...', enabled: deviceNotifications.quiet ? 'Phone notifications are enabled with quiet delivery in phone settings.' : 'Phone notifications are enabled on this device.', paused: 'Phone notifications are paused in this app.', off: 'Phone notifications are off in phone settings.', not_registered: 'This device is not registered for phone notifications.', unknown: 'Phone notification status could not be checked. Retry to check your saved choice.', web: 'Phone notifications are available in the mobile app.' })[deviceNotifications.status]}</Text>
