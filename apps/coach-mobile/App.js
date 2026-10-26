@@ -239,7 +239,6 @@ function CoachHome() {
   const keyboardViewport = useMemo(() => createCoachKeyboardViewport({
     keyboard: Keyboard, platform: Platform.OS, scrollRef: contentScrollRef,
     getFocusedInput: () => TextInput.State.currentlyFocusedInput?.() || TextInput.State.currentlyFocusedField?.(),
-    getScrollOffset: () => scrollBounds.getOffset(),
     onVisibilityChange: setKeyboardVisible,
     requestFrame: callback => requestAnimationFrame(callback), cancelFrame: frame => cancelAnimationFrame(frame),
   }), [scrollBounds])

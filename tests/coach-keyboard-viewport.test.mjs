@@ -4,15 +4,20 @@ import { createCoachKeyboardViewport } from '../apps/coach-mobile/src/coachKeybo
 
 function fixture(platform = 'ios') {
   const listeners = new Map(), frames = new Map(), visibility = [], scrolls = [], measurements = []
-  let next = 0, offset = 300, reportedOffset = null, isVisible = false, delayed = false
+  let next = 0, offset = 300, reportedOffset = null, isVisible = false, delayed = false, delayedContent = false
+  const contentMeasurements = []
   const input = (id, absoluteY = 778, height = 96) => ({ id,
-    measureInWindow: callback => callback(0, absoluteY - offset, 320, height) })
+    measureInWindow: callback => callback(0, absoluteY - offset, 320, height),
+    measureLayout: (_content, callback) => callback(0, absoluteY - 148, 320, height) })
   let focused = input('summary')
   const scroll = { measureInWindow(callback) {
     if (delayed) measurements.push(callback)
     else callback(0, 148, 320, 330)
   }, scrollTo(options) { scrolls.push(options); offset = options.y },
-  getInnerViewRef: () => ({ measureInWindow: callback => callback(0, 148 - offset, 320, 1800) }) }
+  getInnerViewRef: () => ({ measureInWindow: callback => {
+    if (delayedContent) contentMeasurements.push(callback)
+    else callback(0, 148 - offset, 320, 1800)
+  } }) }
   const controller = createCoachKeyboardViewport({
     platform, keyboard: { isVisible: () => isVisible, metrics: () => ({ screenY: 478 }), addListener(name, callback) {
       listeners.set(name, callback); return { remove: () => listeners.delete(name) }
@@ -27,6 +32,8 @@ function fixture(platform = 'ios') {
     delay: () => { delayed = true },
     focus: input => { focused = input }, visible: value => { isVisible = value },
     reportOffset: value => { reportedOffset = value },
+    delayContent: () => { delayedContent = true }, nativeOffset: value => { offset = value },
+    flushContent: () => { contentMeasurements.splice(0).forEach(callback => callback(0, 148 - offset, 320, 1800)) },
     emit: (name, screenY = 478) => listeners.get(name)?.({endCoordinates:{screenY, height:806-screenY}}), flush: () => { const pending = [...frames.values()]; frames.clear(); pending.forEach(callback => callback()) } }
 }
 
@@ -103,6 +110,28 @@ test('late JS scroll offsets cannot push the team name or opponent behind the he
   const opponent = f.input('opponent', 740, 48)
   f.focus(opponent); f.controller.ensureFocusedField(); f.flush()
   assert.deepEqual(f.bounds(opponent), { top: 406, bottom: 454 })
+  f.controller.dispose()
+})
+
+test('native scrolling between field and content callbacks does not hide an already visible input', () => {
+  const f = fixture(), field = f.input('opponent')
+  f.focus(field); f.delayContent(); f.emit('keyboardDidShow'); f.flush()
+  f.nativeOffset(600)
+  assert.deepEqual(f.bounds(field), { top: 178, bottom: 274 })
+  f.flushContent()
+  assert.equal(f.scrolls.length, 0, 'Use content-relative field coordinates with the latest native origin')
+  assert.deepEqual(f.bounds(field), { top: 178, bottom: 274 })
+  f.controller.dispose()
+})
+
+test('a delayed content-origin callback cannot scroll after focus changes or the keyboard hides', () => {
+  const f = fixture()
+  f.delayContent(); f.emit('keyboardDidShow'); f.flush()
+  f.focus(f.input('venue', 1100)); f.flushContent()
+  assert.equal(f.scrolls.length, 0)
+  f.controller.ensureFocusedField(); f.flush()
+  f.emit('keyboardDidHide'); f.flushContent()
+  assert.equal(f.scrolls.length, 0)
   f.controller.dispose()
 })
 

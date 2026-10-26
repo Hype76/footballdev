@@ -1,6 +1,6 @@
 // Keep navigation out of the keyboard viewport and reveal the active input
 // after native layout has caught up. No polling or stored player values.
-export function createCoachKeyboardViewport({ keyboard, platform, scrollRef, getFocusedInput, getScrollOffset,
+export function createCoachKeyboardViewport({ keyboard, platform, scrollRef, getFocusedInput,
   onVisibilityChange, requestFrame, cancelFrame }) {
   let visible = Boolean(keyboard.isVisible?.())
   let transitioning = false
@@ -24,36 +24,33 @@ export function createCoachKeyboardViewport({ keyboard, platform, scrollRef, get
       const scroll = scrollRef.current
       const current = () => visible && !transitioning && revision === currentRevision
         && getFocusedInput() === input && scrollRef.current === scroll
-      if (!input?.measureInWindow || !scroll?.measureInWindow) return
-      scroll.measureInWindow((_scrollX, scrollY, _scrollWidth, scrollHeight) => {
+      const content = scroll?.getInnerViewRef?.()
+      if (!input?.measureLayout || !scroll?.measureInWindow || !content?.measureInWindow) return
+      // Measure the field in content coordinates, which do not change when
+      // native scrolling moves before the asynchronous callbacks reach JS.
+      input.measureLayout(content, (_inputX, inputContentY, _inputWidth, inputHeight) => {
         if (!current()) return
-        input.measureInWindow((_inputX, inputY, _inputWidth, inputHeight) => {
-          if (!current() || ![scrollY, scrollHeight, inputY, inputHeight].every(Number.isFinite)
-            || scrollHeight <= 0 || inputHeight <= 0) return
-          const top = scrollY + 24
-          const bottom = Math.min(scrollY + scrollHeight, Number.isFinite(keyboardTop) ? keyboardTop : Infinity) - 24
-          if (bottom <= top) return
-          // Use window coordinates because the fixed header means this scroll
-          // view does not fill the screen. Leave oversized visible fields stable.
-          const delta = inputHeight > bottom - top
-            ? (inputY > top || inputY + inputHeight < bottom ? inputY - top : 0)
-            : inputY < top ? inputY - top : Math.max(0, inputY + inputHeight - bottom)
-          if (Math.abs(delta) <= 1) return
-          const reveal = offset => {
-            if (current() && Number.isFinite(offset)) {
-              scroll.scrollTo({ animated: false, y: Math.max(0, offset + delta) })
-            }
-          }
-          // onScroll reaches JS after native scrolling. Derive the offset from
-          // the content origin so a late event cannot add an old offset again.
-          const content = scroll.getInnerViewRef?.()
-          if (content?.measureInWindow) {
-            content.measureInWindow((_x, contentY) => {
-              if (Number.isFinite(contentY)) reveal(scrollY - contentY)
-            })
-          } else reveal(getScrollOffset())
+        scroll.measureInWindow((_scrollX, scrollY, _scrollWidth, scrollHeight) => {
+          if (!current()) return
+          content.measureInWindow((_contentX, contentY) => {
+            const inputY = contentY + inputContentY
+            if (!current() || ![scrollY, scrollHeight, contentY, inputY, inputHeight].every(Number.isFinite)
+              || scrollHeight <= 0 || inputHeight <= 0) return
+            const top = scrollY + 24
+            const bottom = Math.min(scrollY + scrollHeight, Number.isFinite(keyboardTop) ? keyboardTop : Infinity) - 24
+            if (bottom <= top) return
+            // Use window coordinates because the fixed header means this scroll
+            // view does not fill the screen. Leave oversized visible fields stable.
+            const delta = inputHeight > bottom - top
+              ? (inputY > top || inputY + inputHeight < bottom ? inputY - top : 0)
+              : inputY < top ? inputY - top : Math.max(0, inputY + inputHeight - bottom)
+            if (Math.abs(delta) <= 1) return
+            // Both the field's window position and current native offset come
+            // from this content-origin sample, never a late onScroll event.
+            scroll.scrollTo({ animated: false, y: Math.max(0, scrollY - contentY + delta) })
+          })
         })
-      })
+      }, () => {})
     })
   }
   const readKeyboardTop = event => { keyboardTop = event?.endCoordinates?.screenY ?? keyboard.metrics?.()?.screenY }
