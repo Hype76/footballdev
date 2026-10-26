@@ -8,6 +8,7 @@ import { artifactPath, hash, loadRecord, verifySource, verifyCopies, verifyRevie
 export const maintainedTestFiles = [
   'tests/security-reviewed-backports.test.mjs', 'tests/security-reviewed-provisioning.test.mjs',
   'tests/security-backport-runtime.test.mjs', 'tests/security-maintained-source.test.mjs',
+  'tests/security-tooling-updates.test.mjs',
   'tests/security-toml-upstream.test.mjs',
 ]
 export function runRequiredCommands(root, run = spawnSync) {

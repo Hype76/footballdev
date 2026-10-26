@@ -98,6 +98,8 @@ jobs:
         run: npm run security:provision -- --install-mobile
       - name: Install Playwright Chromium
         run: npx playwright install --with-deps chromium
+      - name: Official tooling security and PDF compatibility
+        run: node --test tests/security-tooling-updates.test.mjs && node tests/security-tooling-pdf-browser.mjs
       - name: Club Admin own-club matchday TV
         run: node --test tests/club-matchday-tv.test.mjs tests/club-matchday-tv-weather.test.mjs && node tests/club-matchday-tv-browser.mjs
       - name: Season awards, calendar poll results and compact team pagination
