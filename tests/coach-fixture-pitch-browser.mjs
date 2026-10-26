@@ -8,16 +8,18 @@ const modules = path.join(rootDir, 'apps/coach-mobile/node_modules')
 const entry = `
   import React from 'react'; import {createRoot} from 'react-dom/client';
   import {CoachFixtureForm} from './apps/coach-mobile/src/CoachFixtureForm.js';
+  import {CoachKeyboardFocusContext} from './apps/coach-mobile/src/CoachKeyboardFocusContext.js';
   const styles=new Proxy({input:{color:'#123',borderWidth:1,padding:8},tabs:{flexDirection:'row',flexWrap:'wrap'},chip:{padding:10},card:{padding:16},action:{padding:12},compactAction:{minHeight:44,paddingHorizontal:4,paddingVertical:8,alignSelf:'flex-start'},dangerText:{color:'#b42318'}}, {get:(target,key)=>target[key]||{}});
   const user={id:'staff',activeTeamId:'team'};
   window.saved=null;
+  window.focusRequests=0;
   function App(){const [version,setVersion]=React.useState(0);const [match,setMatch]=React.useState(null);
     window.reopen=()=>{setMatch({...window.saved,kickoffTime:'10:45:00',arrivalTime:'10:00:00'});setVersion(value=>value+1)};
     window.newFixture=()=>{setMatch(null);setVersion(value=>value+1)};
     return <CoachFixtureForm key={version} match={match} matches={[]} players={[]} styles={styles} user={user}
       onCreated={result=>{window.saved=result}} onUpdated={result=>{window.saved=result}} onCancel={()=>{}}/>;
   }
-  createRoot(document.getElementById('root')).render(<App/>);
+  createRoot(document.getElementById('root')).render(<CoachKeyboardFocusContext.Provider value={()=>{window.focusRequests++}}><App/></CoachKeyboardFocusContext.Provider>);
 `
 const mocks = [
   [/coachCarpoolData$/, `let enabled=true; export const getCoachCarpoolDefault=async()=>enabled; export const setCoachCarpoolDefault=async(user,value)=>{enabled=value;return value};`],
@@ -45,25 +47,47 @@ const bundle = await build({ stdin: {contents:entry,resolveDir:rootDir,loader:'j
 })
 const browser = await chromium.launch({headless:true})
 try {
-  const page = await browser.newPage({viewport:{width:390,height:844}})
+  for (const width of [320,390]) {
+  const page = await browser.newPage({viewport:{width,height:844}})
   const errors=[]
   page.on('pageerror',error=>errors.push(error.message))
   await page.setContent('<html><head><meta name="viewport" content="width=device-width,initial-scale=1"></head><body><div id="root"></div></body></html>')
   await page.addScriptTag({content:bundle.outputFiles[0].text})
   await page.getByLabel('Your Team notification name',{exact:true}).waitFor()
   assert.equal(await page.getByLabel('Your Team notification name',{exact:true}).inputValue(), 'Tigers')
-  await page.getByLabel('Opponent',{exact:true}).fill('FP TEST Visitors')
+  const typeField = async (label, text) => {
+    const field = page.getByLabel(label,{exact:true})
+    const focusRequests = await page.evaluate(()=>window.focusRequests)
+    await field.click()
+    assert.ok(await page.evaluate(()=>window.focusRequests) > focusRequests, `${label} requests keyboard visibility on focus`)
+    await field.fill('')
+    await field.pressSequentially(text)
+    assert.equal(await field.inputValue(),text)
+    assert.equal(await field.evaluate(element=>document.activeElement===element),true)
+  }
+  await typeField('Your Team notification name','Tigers')
+  await typeField('Opponent','FP TEST Visitors')
+  await page.setViewportSize({width,height:500})
+  await page.getByLabel('Opponent',{exact:true}).pressSequentially(' United')
+  assert.equal(await page.getByLabel('Opponent',{exact:true}).inputValue(),'FP TEST Visitors United')
+  await page.setViewportSize({width,height:844})
   await page.getByRole('button',{name:'League',exact:true}).click()
   await page.getByLabel('Match date',{exact:true}).fill('2099-09-20')
-  await page.getByLabel('Venue',{exact:true}).fill('FP TEST Ground')
+  await typeField('Venue','FP TEST Ground')
+  await typeField('Address','FP TEST Road')
+  await typeField('Match notes','Bring both kits')
   await page.getByRole('button',{name:'3G',exact:true}).click()
   await page.getByRole('button',{name:'Create fixture and request availability',exact:true}).click()
   await page.waitForFunction(()=>window.saved?.pitchType==='3g')
   assert.equal(await page.evaluate(()=>window.saved.notificationTeamName), 'Tigers')
+  assert.equal(await page.evaluate(()=>window.saved.opponent),'FP TEST Visitors United')
+  assert.equal(await page.evaluate(()=>window.saved.venueAddress),'FP TEST Road')
+  assert.equal(await page.evaluate(()=>window.saved.notes),'Bring both kits')
   await page.evaluate(()=>window.reopen())
   await page.getByText('Edit fixture',{exact:true}).waitFor()
   assert.equal(await page.getByLabel('Your Team notification name',{exact:true}).inputValue(), 'Tigers')
-  await page.getByLabel('Your Team notification name',{exact:true}).fill('Tiger squad')
+  await typeField('Your Team notification name','Tiger squad')
+  await typeField('Opponent','FP TEST Edited Visitors')
   const cancelFixture=page.getByRole('button',{name:'Cancel fixture',exact:true})
   const backWithoutSaving=page.getByRole('button',{name:'Back without saving',exact:true})
   assert.ok((await cancelFixture.boundingBox())?.y > (await backWithoutSaving.boundingBox())?.y)
@@ -76,6 +100,7 @@ try {
   await page.getByRole('button',{name:'Save fixture changes',exact:true}).click()
   await page.waitForFunction(()=>window.saved?.pitchType==='3g')
   assert.equal(await page.evaluate(()=>window.saved.notificationTeamName), 'Tiger squad')
+  assert.equal(await page.evaluate(()=>window.saved.opponent),'FP TEST Edited Visitors')
   await page.getByRole('button',{name:'4G',exact:true}).click()
   await page.getByRole('button',{name:'Save fixture changes',exact:true}).click()
   await page.waitForFunction(()=>window.saved?.pitchType==='4g')
@@ -95,7 +120,9 @@ try {
   await page.getByRole('switch',{name:'Car pool',exact:true}).waitFor();
   await page.waitForFunction(()=>document.querySelector('[role="switch"][aria-label="Car pool"]')?.getAttribute('aria-checked')==='true');
   assert.deepEqual(errors,[])
-  console.log('PASS: Coach fixture pitch create, reopen, edit, and clear at 390px')
+  console.log(`PASS: Coach fixture typing, focus visibility requests, resize, saved values, pitch create/reopen/edit at ${width}px`)
+  await page.close()
+  }
 } finally {
   await browser.close()
 }
