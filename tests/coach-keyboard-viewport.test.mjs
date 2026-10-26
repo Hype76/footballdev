@@ -4,19 +4,20 @@ import { createCoachKeyboardViewport } from '../apps/coach-mobile/src/coachKeybo
 
 function fixture(platform = 'ios') {
   const listeners = new Map(), frames = new Map(), visibility = [], scrolls = [], measurements = []
-  let next = 0, offset = 300, isVisible = false, delayed = false
+  let next = 0, offset = 300, reportedOffset = null, isVisible = false, delayed = false
   const input = (id, absoluteY = 778, height = 96) => ({ id,
     measureInWindow: callback => callback(0, absoluteY - offset, 320, height) })
   let focused = input('summary')
   const scroll = { measureInWindow(callback) {
     if (delayed) measurements.push(callback)
     else callback(0, 148, 320, 330)
-  }, scrollTo(options) { scrolls.push(options); offset = options.y } }
+  }, scrollTo(options) { scrolls.push(options); offset = options.y },
+  getInnerViewRef: () => ({ measureInWindow: callback => callback(0, 148 - offset, 320, 1800) }) }
   const controller = createCoachKeyboardViewport({
     platform, keyboard: { isVisible: () => isVisible, metrics: () => ({ screenY: 478 }), addListener(name, callback) {
       listeners.set(name, callback); return { remove: () => listeners.delete(name) }
     } },
-    scrollRef: { current: scroll }, getScrollOffset: () => offset,
+    scrollRef: { current: scroll }, getScrollOffset: () => reportedOffset ?? offset,
     getFocusedInput: () => focused, onVisibilityChange: value => visibility.push(value),
     requestFrame: callback => { frames.set(++next, callback); return next }, cancelFrame: id => frames.delete(id),
   })
@@ -25,6 +26,7 @@ function fixture(platform = 'ios') {
     bounds: value => { let result; value.measureInWindow((_x, y, _width, height) => { result = {top:y, bottom:y+height} }); return result },
     delay: () => { delayed = true },
     focus: input => { focused = input }, visible: value => { isVisible = value },
+    reportOffset: value => { reportedOffset = value },
     emit: (name, screenY = 478) => listeners.get(name)?.({endCoordinates:{screenY, height:806-screenY}}), flush: () => { const pending = [...frames.values()]; frames.clear(); pending.forEach(callback => callback()) } }
 }
 
@@ -69,10 +71,38 @@ test('third-party keyboard height changes reveal the box without another show ev
   const f = fixture(), comment = f.input('overall-comments')
   f.focus(comment); f.emit('keyboardDidShow'); f.flush()
   f.emit('keyboardWillChangeFrame', 430); f.flush()
+  assert.equal(f.scrolls.length, 1, 'Do not scroll against the keyboard animation')
+  f.emit('keyboardDidChangeFrame', 430); f.flush()
   assert.deepEqual(f.bounds(comment), {top:310, bottom:406})
   assert.equal(f.scrolls.length, 2)
   f.emit('keyboardDidChangeFrame', 430); f.flush()
   assert.equal(f.scrolls.length, 2, 'A settled visible box does not move again')
+  f.controller.dispose()
+})
+
+test('iOS waits for settled layout even when focus and layout callbacks arrive during keyboard opening', () => {
+  const f = fixture(), field = f.input('opponent', 300, 48)
+  f.focus(field)
+  f.emit('keyboardWillShow'); f.flush()
+  f.controller.ensureFocusedField(); f.flush()
+  f.emit('keyboardWillChangeFrame'); f.flush()
+  assert.equal(f.scrolls.length, 0)
+  f.emit('keyboardDidShow'); f.flush()
+  assert.deepEqual(f.bounds(field), { top: 172, bottom: 220 })
+  assert.equal(f.scrolls.length, 1)
+  f.emit('keyboardDidChangeFrame'); f.flush()
+  assert.equal(f.scrolls.length, 1, 'A second settled notification does not move the field again')
+  f.controller.dispose()
+})
+
+test('late JS scroll offsets cannot push the team name or opponent behind the header', () => {
+  const f = fixture(), field = f.input('team-name', 300, 48)
+  f.reportOffset(600)
+  f.focus(field); f.emit('keyboardDidShow'); f.flush()
+  assert.deepEqual(f.bounds(field), { top: 172, bottom: 220 })
+  const opponent = f.input('opponent', 740, 48)
+  f.focus(opponent); f.controller.ensureFocusedField(); f.flush()
+  assert.deepEqual(f.bounds(opponent), { top: 406, bottom: 454 })
   f.controller.dispose()
 })
 

@@ -1,5 +1,5 @@
 import { MobileSwitch as Switch } from '../../mobile-core/src/MobileSwitch.js'
-import { useEffect, useRef, useState } from 'react'
+import { useContext, useEffect, useRef, useState } from 'react'
 import { Alert, Keyboard, Pressable, StyleSheet, Text, TextInput, View } from 'react-native'
 import {
   calculateCoachArrivalTime,
@@ -30,6 +30,7 @@ import {
 } from '../../mobile-core/src/coachTeamNotificationData'
 import { deriveTeamNotificationDisplayName } from '../../../src/lib/team-notification-display.js'
 import { getCoachCarpoolDefault, setCoachCarpoolDefault } from '../../mobile-core/src/coachCarpoolData'
+import { CoachKeyboardFocusContext } from './CoachKeyboardFocusContext'
 
 function Button({ disabled = false, label, onPress, secondary = false, styles }) {
   return <Pressable accessibilityRole="button" accessibilityState={{ disabled }} disabled={disabled} onPress={onPress} style={({ pressed }) => [secondary ? styles.secondary : styles.action, disabled && styles.actionDisabled, pressed && { opacity: 0.74 }]}><Text style={secondary ? styles.secondaryText : styles.actionText}>{label}</Text></Pressable>
@@ -40,7 +41,8 @@ function Chips({ onChange, options, styles, value }) {
 }
 
 function Field({ autoCapitalize = 'sentences', keyboardType = 'default', label, multiline = false, onChangeText, placeholder = '', styles, value }) {
-  return <View style={styles.field}><Text style={styles.fieldLabel}>{label}</Text><TextInput accessibilityLabel={label} autoCapitalize={autoCapitalize} keyboardType={keyboardType} multiline={multiline} onChangeText={onChangeText} placeholder={placeholder} placeholderTextColor={StyleSheet.flatten(styles.input).color} style={[styles.input, multiline && styles.inputMultiline]} value={String(value ?? '')} /></View>
+  const revealFocused = useContext(CoachKeyboardFocusContext)
+  return <View style={styles.field}><Text style={styles.fieldLabel}>{label}</Text><TextInput accessibilityLabel={label} autoCapitalize={autoCapitalize} keyboardType={keyboardType} multiline={multiline} onFocus={revealFocused} onContentSizeChange={multiline ? revealFocused : undefined} onChangeText={onChangeText} placeholder={placeholder} placeholderTextColor={StyleSheet.flatten(styles.input).color} style={[styles.input, multiline && styles.inputMultiline]} value={String(value ?? '')} /></View>
 }
 
 function Toggle({ label, onValueChange, styles, value }) {
