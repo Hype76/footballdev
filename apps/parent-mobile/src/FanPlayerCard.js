@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native'
 import { fanBrandingLink, fanBrandTheme } from '../../../src/lib/fan-branding'
-import { getFanAccessForPlan, isFanAccessAllowedForPlan } from '../../../src/lib/fans'
+import { canViewFanNotifications, getFanAccessForPlan, isFanAccessAllowedForPlan } from '../../../src/lib/fans'
 import ParentIcon from './ParentIcon'
 import { TeamLeagueLinkRow } from '../../mobile-core/src/TeamLeagueLink'
 import { parentPlayerTeamLeagueScope } from '../../../src/lib/team-league-link'
@@ -37,8 +37,8 @@ export function FanPlayerCard({ connection, matchdayPolicy, mode, busy, onOpen, 
       </Pressable>)}
       {connection.relationship_type === 'player' && connection.permissions.game_day && isFanAccessAllowedForPlan(connection, 'stats', matchdayPolicy) ? <Pressable accessibilityRole="button" accessibilityLabel={`View stats for ${connection.player_name}`} onPress={() => onOpen('stats')} style={{ borderBottomColor: border, borderBottomWidth: 1, minHeight: 52, alignItems: 'center', flexDirection: 'row', gap: 12 }}><ParentIcon iconKey="parent.match" color={tokens.accentText} size={24} /><Text style={[styles.shortcutLabel, { color: tokens.textPrimary }]}>Stats</Text><ParentIcon iconKey="action.open" color={tokens.textSecondary} size={18} /></Pressable> : null}
     </View>
-    {connection.permissions.game_day && isFanAccessAllowedForPlan(connection, 'notifications', matchdayPolicy) ? <View style={[styles.notifications, { borderTopColor: border }]}>
-      <View style={styles.notificationToggle}><ParentIcon iconKey="notifications" color={tokens.accentText} size={24} /><Text style={[styles.notificationLabel, { color: tokens.textPrimary }]}>Game Day notifications</Text><FanSwitch inline accessibilityLabel={`Game Day notifications for ${connection.player_name}`} value={connection.notifications_enabled} disabled={busy} onValueChange={onNotifications} /></View>
+    {canViewFanNotifications(connection, matchdayPolicy) ? <View style={[styles.notifications, { borderTopColor: border }]}>
+      <View style={styles.notificationToggle}><ParentIcon iconKey="notifications" color={tokens.accentText} size={24} /><Text style={[styles.notificationLabel, { color: tokens.textPrimary }]}>{connection.relationship_type === 'player' ? 'Player notifications' : 'Game Day notifications'}</Text><FanSwitch inline accessibilityLabel={`${connection.relationship_type === 'player' ? 'Player' : 'Game Day'} notifications for ${connection.player_name}`} value={connection.notifications_enabled} disabled={busy} onValueChange={onNotifications} /></View>
       <View style={styles.notificationActions}><Pressable accessibilityRole="button" accessibilityLabel="View notifications" onPress={() => onOpen('notifications')} style={styles.viewNotifications}><ParentIcon iconKey="visibility" color={colours.game_day} size={24} /><Text style={[styles.notificationLabel, { color: tokens.textPrimary }]}>View notifications</Text></Pressable></View>
     </View> : null}
 

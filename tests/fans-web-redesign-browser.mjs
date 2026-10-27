@@ -15,6 +15,7 @@ let emailRequests = 0
 let deleteRequests = 0
 let signupRequests = 0
 let signupShouldFail = true
+let playerResources = false
 await mkdir('output/playwright/fans-local', { recursive: true })
 try {
   const context = await browser.newContext({ viewport: { width: 1280, height: 900 } })
@@ -56,7 +57,11 @@ try {
     }
     if (url.pathname === '/.netlify/functions/fans') {
       const action = route.request().postDataJSON().action
-      if (action === 'schedule') return route.fulfill({ status:200,contentType:'application/json',body:JSON.stringify({schedule:[{id:'training',title:'Shared Fan training',date:new Date(Date.now()+7*86400000).toISOString().slice(0,10),time:'18:00'}]}) })
+      if (action === 'schedule') return route.fulfill({ status:200,contentType:'application/json',body:JSON.stringify({schedule:[{id:'training',title:'Shared Fan training',date:new Date(Date.now()+7*86400000).toISOString().slice(0,10),time:'18:00',...(playerResources?{resources:[{id:'training-card',title:'FP TEST Training card'}]}:{})}]}) })
+      if (action === 'open_resource') {
+        assert.equal(route.request().postDataJSON().resourceId,'training-card')
+        return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({accessUrl:'https://synthetic.test/training-card.pdf'})})
+      }
       if(action === 'matches') return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({matches:[{id:'match1',opponent:'Away United',club_name:'Cambourne Town FC',home_away:'home',match_date:'2026-10-20',kickoff_time:'10:00',status:'second_half',...clockState}]})})
       assert.equal(action,'send_invitation')
       emailRequests++
@@ -123,6 +128,15 @@ try {
   await page.getByRole('button',{name:'Schedule',exact:true}).click()
   await page.getByText('Shared Fan training',{exact:true}).waitFor()
   await page.screenshot({path:'output/playwright/fans-local/redesign-schedule-phone.png',fullPage:true})
+  connections[0].relationship_type='player'
+  playerResources=true
+  await page.reload()
+  await page.getByRole('button',{name:'Schedule',exact:true}).click()
+  await page.getByRole('button',{name:'FP TEST Training card',exact:true}).click()
+  const resourceLink=page.getByRole('link',{name:'Open FP TEST Training card',exact:true})
+  await resourceLink.waitFor()
+  assert.equal(await resourceLink.getAttribute('href'),'https://synthetic.test/training-card.pdf')
+  await page.screenshot({path:'output/playwright/fans-local/player-training-resource.png',fullPage:true})
   await page.getByRole('navigation',{name:'Fan navigation'}).getByRole('button',{name:'Settings',exact:true}).click()
   assert.equal(await page.getByText('Shared Fan training',{exact:true}).count(),0)
   await page.getByRole('button',{name:'Remove my access to Lucas Turner',exact:true}).click()

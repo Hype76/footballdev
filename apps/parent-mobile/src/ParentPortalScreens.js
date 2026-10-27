@@ -1432,7 +1432,7 @@ export function DevelopmentScreen({ isOffline, onDismiss, onOpen, onPrepare, pen
   )
 }
 
-export function ResourcesScreen({ formationBoard, formationViewportHeight = 0, isOffline, onCloseFormation, onDismiss, onOpen, resource, themeTokens }) {
+export function ResourcesScreen({ formationBoard, formationViewportHeight = 0, formationBackLabel = 'Back to Resources', isOffline, onCloseFormation, onDismiss, onOpen, resource, themeTokens }) {
   const { colors, styles } = usePortalStyles(themeTokens)
   const [resourceCategory, setResourceCategory] = useState('all')
   const [resourceScopeState, setResourceScopeState] = useState('')
@@ -1459,7 +1459,7 @@ export function ResourcesScreen({ formationBoard, formationViewportHeight = 0, i
         <View><Text accessibilityRole="header" style={styles.header}>{formationBoard.title}</Text><Text style={styles.helper}>{formationBoard.gameFormat} | {formationBoard.formation}</Text></View>
         {formationBoard.description ? <Text style={styles.body}>{formationBoard.description}</Text> : null}
         <FormationPresentation bench={bench} colors={colors} emptyCopy="No named lineup has been published with this board." placements={placements} styles={styles} title={formationBoard.title} viewportHeight={formationViewportHeight} />
-        <Button label="Back to Resources" onPress={onCloseFormation} outline styles={styles} />
+        <Button label={formationBackLabel} onPress={onCloseFormation} outline styles={styles} />
       </View>
     )
   }

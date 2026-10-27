@@ -487,6 +487,48 @@ export async function listAuthorisedCalendarEventResources({ authUserId, parentL
   }).filter(Boolean)
 }
 
+export async function loadResourceFormationBoard({ resource, resourceId = resource.id, clubId = resource.club_id, supabaseAdmin }) {
+  const unavailableMessage = 'This resource is not available for the selected player.'
+  const { data: publication, error: publicationError } = await supabaseAdmin
+    .from('formation_board_publications')
+    .select('board_id, board_version_id, board_title_snapshot, board_description_snapshot, publication_number')
+    .eq('resource_id', resourceId)
+    .eq('club_id', clubId)
+    .eq('team_id', resource.team_id)
+    .order('publication_number', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (publicationError) throw publicationError
+
+  let formationBoard = null
+  if (publication) {
+    const version = await maybeSingle(
+      supabaseAdmin
+        .from('formation_board_versions')
+        .select('id, board_id, club_id, team_id, game_format, formation_preset_key, pitch_orientation, placements, bench, notes, created_at')
+        .eq('id', publication.board_version_id)
+        .eq('board_id', publication.board_id)
+        .eq('club_id', clubId)
+        .eq('team_id', resource.team_id),
+      unavailableMessage,
+    )
+    formationBoard = {
+      bench: Array.isArray(version.bench) ? version.bench : [],
+      description: normalizeText(publication.board_description_snapshot || resource.description),
+      formation: normalizeText(version.formation_preset_key),
+      gameFormat: normalizeText(version.game_format),
+      id: normalizeText(version.id),
+      notes: normalizeText(version.notes),
+      orientation: normalizeText(version.pitch_orientation) || 'portrait',
+      placements: Array.isArray(version.placements) ? version.placements : [],
+      title: normalizeText(publication.board_title_snapshot || resource.title) || 'Formation Board',
+    }
+  }
+
+  return formationBoard
+}
+
 export async function loadAuthorisedResource({ authUserId, calendarEventId = '', calendarOccurrenceDate = '', calendarSourceType = 'calendar_event', parentLinkId, resourceId, supabaseAdmin, parentClient }) {
   const unavailableMessage = 'This resource is not available for the selected player.'
   const { parentLink, player } = await loadActiveParentContext({ authUserId, parentLinkId, supabaseAdmin })
@@ -562,42 +604,7 @@ export async function loadAuthorisedResource({ authUserId, calendarEventId = '',
     ? validateParentCalendarEventResourceAccess({ authUserId, calendarEvent, calendarInvite, calendarOccurrenceDate, externalLink, parentLink, player, resource, resourceLink })
     : validateParentResourceAccess({ authUserId, externalLink, parentLink, player, resource, resourceLink })
 
-  const { data: publication, error: publicationError } = await supabaseAdmin
-    .from('formation_board_publications')
-    .select('board_id, board_version_id, board_title_snapshot, board_description_snapshot, publication_number')
-    .eq('resource_id', resourceId)
-    .eq('club_id', parentLink.club_id)
-    .eq('team_id', resource.team_id)
-    .order('publication_number', { ascending: false })
-    .limit(1)
-    .maybeSingle()
-
-  if (publicationError) throw publicationError
-
-  let formationBoard = null
-  if (publication) {
-    const version = await maybeSingle(
-      supabaseAdmin
-        .from('formation_board_versions')
-        .select('id, board_id, club_id, team_id, game_format, formation_preset_key, pitch_orientation, placements, bench, notes, created_at')
-        .eq('id', publication.board_version_id)
-        .eq('board_id', publication.board_id)
-        .eq('club_id', parentLink.club_id)
-        .eq('team_id', resource.team_id),
-      unavailableMessage,
-    )
-    formationBoard = {
-      bench: Array.isArray(version.bench) ? version.bench : [],
-      description: normalizeText(publication.board_description_snapshot || resource.description),
-      formation: normalizeText(version.formation_preset_key),
-      gameFormat: normalizeText(version.game_format),
-      id: normalizeText(version.id),
-      notes: normalizeText(version.notes),
-      orientation: normalizeText(version.pitch_orientation) || 'portrait',
-      placements: Array.isArray(version.placements) ? version.placements : [],
-      title: normalizeText(publication.board_title_snapshot || resource.title) || 'Formation Board',
-    }
-  }
+  const formationBoard = await loadResourceFormationBoard({ resource, resourceId, clubId: parentLink.club_id, supabaseAdmin })
 
   return {
     access,

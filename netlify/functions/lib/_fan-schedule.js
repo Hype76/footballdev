@@ -3,6 +3,7 @@ import { getParentProductDateTimeParts } from '../../../apps/mobile-core/src/par
 import { upcomingFanSchedule } from '../../../src/lib/fan-schedule.js'
 import { getMatchDayDisplayName } from '../../../src/lib/matchday-display.js'
 import { FAN_GAME_DAY_STATUSES, isFanGameDayMatch } from '../../../src/lib/fan-game-day.js'
+import { attachPlayerEventResources } from './_player-event-resources.js'
 
 async function rows(query) {
   const { data, error } = await query
@@ -133,7 +134,7 @@ export async function loadFanMatches(client, scope, matchId = '', { includeSched
   const withSquads = await addPlayerSelectedSquads(client, scope, allowed)
   return addPublishedFormationPlans(client, scope, withSquads)
 }
-export async function loadFanSchedule(client, scope, now = new Date(), { featureAllowed = () => true, includePast = false } = {}) {
+export async function loadFanSchedule(client, scope, now = new Date(), { featureAllowed = () => true, includePast = false, includeResources = true } = {}) {
   const isPlayer = scope.fan.relationship_type === 'player'
   const canAssessments = isPlayer && featureAllowed('assessments')
   const canFixtures = featureAllowed('fixtures')
@@ -178,9 +179,11 @@ export async function loadFanSchedule(client, scope, now = new Date(), { feature
   schedule.push(...matches.map((match) => ({ id: match.id, title: getMatchDayDisplayName(match), date: match.match_date, time: match.kickoff_time_tbc ? '' : match.kickoff_time, updated_at: match.updated_at, location: match.venue_name, home_away: match.home_away, selected_player_names: match.selected_player_names, event_type: 'match_day', status: match.status })))
   if (includePast) {
     const earliest = getParentProductDateTimeParts(new Date(now.getTime() - 90 * 86400000)).date
-    return schedule.filter(item => getParentProductDateTimeParts(item.starts_at || item.date).date >= earliest && !['cancelled', 'postponed'].includes(item.status))
+    const visible = schedule.filter(item => getParentProductDateTimeParts(item.starts_at || item.date).date >= earliest && !['cancelled', 'postponed'].includes(item.status))
+    return includeResources ? attachPlayerEventResources(client, scope, visible, { featureAllowed }) : visible
   }
-  return upcomingFanSchedule(schedule, now)
+  const visible = upcomingFanSchedule(schedule, now)
+  return includeResources ? attachPlayerEventResources(client, scope, visible, { featureAllowed }) : visible
 }
 
 export async function loadPlayerAttendance(client, scope, now = new Date(), { featureAllowed = () => true } = {}) {
@@ -188,7 +191,7 @@ export async function loadPlayerAttendance(client, scope, now = new Date(), { fe
   const canFixtures = featureAllowed('fixtures')
   const canTrainingEvents = featureAllowed('trainingEvents')
   const canReadInvitations = canAssessments || canTrainingEvents || featureAllowed('generalEvents')
-  const schedule = await loadFanSchedule(client, scope, now, { featureAllowed, includePast: true })
+  const schedule = await loadFanSchedule(client, scope, now, { featureAllowed, includePast: true, includeResources: false })
   const [matches, training, invitations] = await Promise.all([
     canFixtures ? rows(client.from('match_day_player_availability').select('match_day_id,status').eq('club_id', scope.fan.club_id).eq('player_id', scope.player.id)) : [],
     canTrainingEvents ? rows(client.from('training_availability_request_players').select('request_id,calendar_event_id').eq('club_id', scope.fan.club_id).eq('player_id', scope.player.id).neq('status', 'cancelled')) : [],
