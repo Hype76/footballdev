@@ -1,6 +1,7 @@
 import { createHash, randomBytes } from 'node:crypto'
 import { createSupabaseAdminClient } from './lib/_supabase.js'
 import { loadCoachCalendarAuthority } from './lib/_coach-calendar-authority.js'
+import { changeCalendarSubscriptionToken } from './lib/_calendar-subscription-tokens.js'
 import { buildAcceptedCalendarFeed } from './parent-calendar-feed.js'
 import { buildCoachCalendarEvents } from '../../apps/mobile-core/src/coachCalendarCore.js'
 import { getDateInTimeZone } from '../../apps/mobile-core/src/parentCalendarCore.js'
@@ -81,19 +82,20 @@ export async function handleCoachCalendarFeed(event, { client = createSupabaseAd
     if ((event.body || '').length > 2048) return json(413, { message: 'Request too large.' })
     const body = JSON.parse(event.body || '{}')
     const authority = await loadCoachCalendarAuthority(client, auth.data.user, body.contextId)
+    const previousToken = String(body.previousToken || '')
     if (event.httpMethod === 'DELETE') {
-      const result = await client.from('coach_calendar_feed_tokens').delete().eq('auth_user_id', auth.data.user.id).eq('context_id', authority.contextId)
-      if (result.error) throw result.error
+      if (!previousToken) return json(400, { message: 'Choose the calendar link to revoke.' })
+      await changeCalendarSubscriptionToken(client, { tables: ['coach_calendar_feed_tokens'],
+        scope: { auth_user_id: auth.data.user.id, context_id: authority.contextId }, previousToken })
       return json(200, { success: true })
     }
     const secret = randomBytes(32).toString('hex')
-    const result = await client.from('coach_calendar_feed_tokens').upsert({ auth_user_id: auth.data.user.id, club_id: authority.clubId,
-      team_id: authority.teamId, context_id: authority.contextId, token_hash: sha256(secret), updated_at: now.toISOString() },
-    { onConflict: 'auth_user_id,context_id' })
-    if (result.error) throw result.error
+    await changeCalendarSubscriptionToken(client, { tables: ['coach_calendar_feed_tokens'],
+      scope: { auth_user_id: auth.data.user.id, club_id: authority.clubId, team_id: authority.teamId, context_id: authority.contextId },
+      previousToken, nextToken: secret })
     return json(200, { url: `https://footballplayer.online/.netlify/functions/coach-calendar-feed?token=${secret}` })
   } catch (error) {
-    const statusCode = error instanceof SyntaxError ? 400 : [400, 401, 403].includes(error.statusCode) ? error.statusCode : 500
+    const statusCode = error instanceof SyntaxError ? 400 : [400, 401, 403, 410].includes(error.statusCode) ? error.statusCode : 500
     return json(statusCode, { message: 'Calendar could not be loaded. Check your access and try again.' })
   }
 }

@@ -9,3 +9,7 @@ export function getAppleCalendarSubscriptionUrl(value, appRole = 'parent') {
   }
   return `webcal://${url.host}${url.pathname}${url.search}`
 }
+
+export function getCalendarSubscriptionToken(value, appRole = 'parent') {
+  return new URL(getAppleCalendarSubscriptionUrl(value, appRole)).searchParams.get('token')
+}

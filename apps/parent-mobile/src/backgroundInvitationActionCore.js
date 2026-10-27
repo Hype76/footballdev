@@ -41,6 +41,7 @@ export function getBackgroundInvitationCommand(action, records, now = Date.now()
 export async function performBackgroundInvitationAction(response, dependencies) {
   const action = getBackgroundInvitationAction(response)
   if (!action) return { ignored: true }
+  if (!await dependencies.claimAttempt(action.responseId)) return { duplicate: true }
   const { session, client } = await dependencies.getAuthenticatedClient()
   if (!session?.user?.id || !session?.access_token) throw new Error('invitation_action_sign_in_required')
   const key = `fp.parent.notification-responses.v1.${session.user.id}`

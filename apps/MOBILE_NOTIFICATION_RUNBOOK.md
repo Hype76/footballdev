@@ -20,7 +20,7 @@ Parents can hold an invitation notification and choose Accept or Decline without
 
 Verify match and training invitations on real iPhone and Android devices with the app open, backgrounded and terminated. Check the saved response from Coach after each action. Include repeat presses, expired and cancelled invitations, revoked player links, account switching, locked phones, an expired session and offline conditions. A success notification appears only after the server confirms the write. An unconfirmed result tells the parent to check in the app. Do not mark physical-device QA complete from automated tests or an EAS build alone.
 
-Calendar subscriptions require one connection per player or Coach context. Apple Calendar opens the subscription confirmation from the app. For Google Calendar, copy the private feed link and add it using Other calendars, From URL on a computer. Verify a time change and cancellation after the calendar provider refreshes. Replacing or revoking a link stops the old link.
+Calendar subscriptions require one connection per player or Coach context on each phone. Connecting a second device preserves the first device's link. Apple Calendar opens the subscription confirmation from the app. For Google Calendar, copy the private feed link and add it using Other calendars, From URL on a computer. Verify a time change and cancellation after the calendar provider refreshes. Replacing or revoking a link stops only that link.
 
 ## Client Setup
 

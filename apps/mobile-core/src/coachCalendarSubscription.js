@@ -2,6 +2,7 @@ import * as SecureStore from 'expo-secure-store'
 import { getMobileRuntimeConfig } from './config'
 import { fetchJsonWithTimeout, joinApiPath } from './http'
 import { getAccessToken } from './supabase'
+import { getCalendarSubscriptionToken } from './calendarSubscriptionCore.js'
 
 const keyFor = (user, context) => `fp.coach.calendar.${user.id}.${context.id.replace(':', '.')}`
 
@@ -14,13 +15,16 @@ export async function changeCoachCalendarSubscription(user, context, action = 'g
   const token = await getAccessToken()
   if (!token) throw new Error('Sign in again before connecting your calendar.')
   const config = getMobileRuntimeConfig('coach')
+  const key = keyFor(user, context)
+  const previousUrl = await SecureStore.getItemAsync(key)
+  if (action === 'connect' && previousUrl) return previousUrl
+  const previousToken = previousUrl ? getCalendarSubscriptionToken(previousUrl, 'coach') : ''
   const { ok, result } = await fetchJsonWithTimeout(joinApiPath(config.apiBaseUrl, '/.netlify/functions/coach-calendar-feed'), {
     method: action === 'revoke' ? 'DELETE' : 'POST',
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ contextId: context.id }),
+    body: JSON.stringify({ contextId: context.id, previousToken }),
   })
   if (!ok || result?.success === false) throw new Error(result?.message || 'The calendar could not be connected.')
-  const key = keyFor(user, context)
   if (action === 'revoke') {
     await SecureStore.deleteItemAsync(key)
     return ''

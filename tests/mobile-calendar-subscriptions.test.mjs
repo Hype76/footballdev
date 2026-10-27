@@ -8,12 +8,13 @@ import { buildCoachCalendarOccurrenceDates } from '../apps/mobile-core/src/coach
 process.env.VITE_SUPABASE_URL ||= 'https://example.supabase.co'
 process.env.SUPABASE_SERVICE_ROLE_KEY ||= 'test-service-key'
 const { handleCoachCalendarFeed, loadCoachFeedEvents } = await import('../netlify/functions/coach-calendar-feed.js')
-const { buildAcceptedCalendarFeed } = await import('../netlify/functions/parent-calendar-feed.js')
+const { buildAcceptedCalendarFeed, handleParentCalendarFeed } = await import('../netlify/functions/parent-calendar-feed.js')
 
 const userId = '11111111-1111-4111-8111-111111111111'
 const clubId = '22222222-2222-4222-8222-222222222222'
 const teamId = '33333333-3333-4333-8333-333333333333'
 const otherTeam = '44444444-4444-4444-8444-444444444444'
+const parentLinkId = '55555555-5555-4555-8555-555555555555'
 const contextId = `team:${teamId}`
 const now = new Date('2026-10-27T12:00:00Z')
 
@@ -35,6 +36,9 @@ function fakeClient(overrides = {}) {
     clubs: [{ id: clubId, status: 'active' }], teams: [{ id: teamId, club_id: clubId, status: 'active' }],
     team_staff: [{ id: 'assignment', user_id: userId, team_id: teamId, role_rank: 30 }],
     coach_calendar_feed_tokens: [{ auth_user_id: userId, context_id: contextId, club_id: clubId, team_id: teamId, token_hash: createHash('sha256').update('a'.repeat(64)).digest('hex') }],
+    parent_calendar_feed_tokens: [], parent_calendar_subscription_tokens: [],
+    parent_player_links: [{ id: parentLinkId, auth_user_id: userId, player_id: 'player', club_id: clubId, team_id: teamId, status: 'active' }],
+    players: [{ id: 'player', club_id: clubId, team_id: teamId }],
     calendar_events: [{ id: 'training', club_id: clubId, team_id: teamId, title: 'Training', event_type: 'training',
       starts_at: '2025-01-07T18:00:00Z', ends_at: '2025-01-07T19:00:00Z', recurrence_frequency: 'weekly',
       recurrence_until: '2027-02-01', deleted_occurrence_dates: ['2026-11-03'], notes: 'Private coach notes' },
@@ -48,6 +52,21 @@ function fakeClient(overrides = {}) {
     admin: { getUserById: async () => ({ data: { user: { id: userId } } }) },
   }, from: table => {
     let rows = [...(tables[table] || [])]
+    let operation = '', values
+    const finish = () => {
+      if (operation === 'insert') {
+        const row = { id: `record-${calls.length}`, ...values }
+        tables[table] ||= []
+        tables[table].push(row)
+        rows = [row]
+      } else if (operation === 'update') {
+        for (const row of rows) Object.assign(row, values)
+      } else if (operation === 'delete') {
+        tables[table] = (tables[table] || []).filter(row => !rows.includes(row))
+      }
+      operation = ''
+      return rows
+    }
     const query = {
       select: columns => { calls.push([table, 'select', columns]); return query },
       eq: (key, value) => { calls.push([table, 'eq', key, value]); rows = rows.filter(row => row[key] === value); return query },
@@ -56,10 +75,12 @@ function fakeClient(overrides = {}) {
       gte: (key, value) => { rows = rows.filter(row => row[key] >= value); return query },
       lte: (key, value) => { rows = rows.filter(row => row[key] <= value); return query },
       order: () => query, range: async (from, to) => ({ data: rows.slice(from, to + 1) }),
-      maybeSingle: async () => ({ data: rows[0] || null }),
+      maybeSingle: async () => ({ data: finish()[0] || null }),
+      insert: value => { calls.push([table, 'insert', value]); operation = 'insert'; values = value; return query },
+      update: value => { calls.push([table, 'update', value]); operation = 'update'; values = value; return query },
       upsert: value => { calls.push([table, 'upsert', value]); return query },
-      delete: () => { calls.push([table, 'delete']); return query },
-      then: (resolve, reject) => Promise.resolve({ data: rows }).then(resolve, reject),
+      delete: () => { calls.push([table, 'delete']); operation = 'delete'; return query },
+      then: (resolve, reject) => Promise.resolve({ data: finish() }).then(resolve, reject),
     }
     return query
   } }
@@ -128,24 +149,66 @@ test('feed secrets are hashed, revocable and never stored in plaintext', async (
   assert.equal(result.statusCode, 200)
   const url = JSON.parse(result.body).url
   assert.match(url, /token=[a-f0-9]{64}$/)
-  const record = client.calls.find(call => call[1] === 'upsert')[2]
+  const record = client.calls.find(call => call[1] === 'insert')[2]
   assert.match(record.token_hash, /^[a-f0-9]{64}$/)
   assert.ok(!JSON.stringify(record).includes(new URL(url).searchParams.get('token')))
-  assert.equal((await handleCoachCalendarFeed({ ...event, httpMethod: 'DELETE' }, { client, now })).statusCode, 200)
+  assert.equal((await handleCoachCalendarFeed({ ...event, httpMethod: 'DELETE', body: JSON.stringify({ contextId, previousToken: new URL(url).searchParams.get('token') }) }, { client, now })).statusCode, 200)
   assert.ok(client.calls.some(call => call[1] === 'delete'))
+})
+
+test('connecting, replacing and revoking a second phone never changes another independent subscription', async () => {
+  for (const role of ['coach', 'parent']) {
+    const client = fakeClient({ coach_calendar_feed_tokens: [] })
+    const call = event => role === 'coach' ? handleCoachCalendarFeed(event, { client, now })
+      : handleParentCalendarFeed(event, { createClient: () => client, loadAttendance: async () => [] })
+    const create = async (previousToken = '') => {
+      const result = await call({ httpMethod: 'POST', headers: { authorization: 'Bearer token' },
+        body: JSON.stringify(role === 'coach' ? { contextId, previousToken } : { parentLinkId, subscriptionVersion: 2, previousToken }) })
+      assert.equal(result.statusCode, 200, result.body)
+      return new URL(JSON.parse(result.body).url).searchParams.get('token')
+    }
+    const read = token => call({ httpMethod: 'GET', queryStringParameters: { token } })
+    const first = await create(), second = await create()
+    assert.notEqual(first, second)
+    assert.equal((await read(first)).statusCode, 200)
+    assert.equal((await read(second)).statusCode, 200)
+    const replaced = await create(first)
+    assert.equal((await read(first)).statusCode, 404)
+    assert.equal((await read(replaced)).statusCode, 200)
+    assert.equal((await read(second)).statusCode, 200)
+    assert.equal((await call({ httpMethod: 'DELETE', headers: { authorization: 'Bearer token' }, body: JSON.stringify(role === 'coach'
+      ? { contextId, previousToken: replaced } : { parentLinkId, subscriptionVersion: 2, previousToken: replaced }) })).statusCode, 200)
+    assert.equal((await read(replaced)).statusCode, 404)
+    assert.equal((await read(second)).statusCode, 200)
+  }
 })
 
 test('Coach subscription migration denies public and authenticated table access', async () => {
   const db = new PGlite()
   try {
     await db.exec(`create role anon; create role authenticated; create role service_role bypassrls; create schema auth;
-      create table auth.users(id uuid primary key); create table public.clubs(id uuid primary key); create table public.teams(id uuid primary key);`)
+      create table auth.users(id uuid primary key); create table public.clubs(id uuid primary key); create table public.teams(id uuid primary key);
+      create table public.parent_player_links(id uuid primary key);`)
     await db.exec(await readFile(new URL('../supabase/migrations/20261027140215_coach_calendar_subscriptions.sql', import.meta.url), 'utf8'))
     const result = await db.query(`select has_table_privilege('anon','public.coach_calendar_feed_tokens','select') as anon_read,
       has_table_privilege('authenticated','public.coach_calendar_feed_tokens','select') as user_read,
       has_table_privilege('service_role','public.coach_calendar_feed_tokens','select') as server_read,
       relrowsecurity from pg_class where oid='public.coach_calendar_feed_tokens'::regclass`)
     assert.deepEqual(result.rows[0], { anon_read: false, user_read: false, server_read: true, relrowsecurity: true })
+    const parentPrivileges = await db.query(`select has_table_privilege('anon','public.parent_calendar_subscription_tokens','select') as anon_read,
+      has_table_privilege('authenticated','public.parent_calendar_subscription_tokens','select') as user_read,
+      has_table_privilege('service_role','public.parent_calendar_subscription_tokens','select') as server_read,
+      relrowsecurity from pg_class where oid='public.parent_calendar_subscription_tokens'::regclass`)
+    assert.deepEqual(parentPrivileges.rows[0], { anon_read: false, user_read: false, server_read: true, relrowsecurity: true })
+    await db.exec(`insert into auth.users values('${userId}'); insert into public.clubs values('${clubId}');
+      insert into public.teams values('${teamId}'); insert into public.parent_player_links values('${parentLinkId}');
+      insert into public.coach_calendar_feed_tokens(auth_user_id,club_id,team_id,context_id,token_hash) values
+      ('${userId}','${clubId}','${teamId}','${contextId}','${'a'.repeat(64)}'),
+      ('${userId}','${clubId}','${teamId}','${contextId}','${'b'.repeat(64)}');
+      insert into public.parent_calendar_subscription_tokens(auth_user_id,parent_link_id,token_hash) values
+      ('${userId}','${parentLinkId}','${'c'.repeat(64)}'), ('${userId}','${parentLinkId}','${'d'.repeat(64)}');`)
+    assert.equal((await db.query('select count(*)::int as count from public.coach_calendar_feed_tokens')).rows[0].count, 2)
+    assert.equal((await db.query('select count(*)::int as count from public.parent_calendar_subscription_tokens')).rows[0].count, 2)
     await assert.rejects(db.exec(`insert into public.coach_calendar_feed_tokens(auth_user_id,club_id,context_id,token_hash)
       values('${userId}','${clubId}','team:${teamId}','bad')`))
   } finally { await db.close() }

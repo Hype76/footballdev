@@ -8,7 +8,7 @@ import { getMobileRuntimeConfig } from '../../mobile-core/src/config'
 import { createBoundedMobileFetch } from '../../mobile-core/src/mobileFetchCore'
 import { fetchJsonWithTimeout, joinApiPath } from '../../mobile-core/src/http'
 import { readSavedMobileSession, supabase } from '../../mobile-core/src/supabase'
-import { performBackgroundInvitationAction } from './backgroundInvitationActionCore.js'
+import { getBackgroundInvitationAction, performBackgroundInvitationAction } from './backgroundInvitationActionCore.js'
 
 const TASK_NAME = 'fp.parent.invitation-actions.v1'
 const nativeActions = Platform.OS === 'ios' ? requireOptionalNativeModule('ParentNotificationActions') : null
@@ -37,6 +37,14 @@ export function handleBackgroundInvitationResponse(response) {
   const operation = actionQueue.then(async () => {
     try {
       const result = await performBackgroundInvitationAction(response, {
+        claimAttempt: async responseId => {
+          const key = 'fp.parent.invitation-action-attempts.v1'
+          const parsed = JSON.parse(await AsyncStorage.getItem(key) || '[]')
+          if (!Array.isArray(parsed)) throw new Error('invitation_action_receipt_invalid')
+          if (parsed.includes(responseId)) return false
+          await AsyncStorage.setItem(key, JSON.stringify([...parsed.filter(item => typeof item === 'string'), responseId].slice(-128)))
+          return true
+        },
         getAuthenticatedClient,
         isCurrentSession: async session => {
           const current = await readSavedMobileSession()
@@ -57,15 +65,7 @@ export function handleBackgroundInvitationResponse(response) {
           })
         },
       })
-      if (result.saved || result.duplicate) {
-        const latest = await Notifications.getLastNotificationResponseAsync().catch(() => null)
-        if (latest?.notification?.request?.identifier === response.notification.request.identifier
-          && latest.actionIdentifier === response.actionIdentifier) {
-          await Notifications.clearLastNotificationResponseAsync().catch(() => {})
-        }
-      }
       if (result.saved) {
-        await Notifications.dismissNotificationAsync(response.notification.request.identifier).catch(() => {})
         await Notifications.scheduleNotificationAsync({ content: {
           title: result.accepted ? 'Invitation accepted' : 'Invitation declined',
           body: 'Your response was saved.', data: { app: 'parent', route: 'invites', parentLinkId: result.action.parentLinkId },
@@ -73,11 +73,22 @@ export function handleBackgroundInvitationResponse(response) {
       }
       return result
     } catch {
+      let failedAction = null
+      try { failedAction = getBackgroundInvitationAction(response) } catch { /* Invalid payloads cannot select a child or invitation. */ }
       await Notifications.scheduleNotificationAsync({ content: {
         title: 'Check your response', body: 'Your response could not be confirmed. Open Football Player Parents to check the invitation and try again.',
-        data: { app: 'parent', route: 'invites' },
+        data: { app: 'parent', route: 'invites', ...(failedAction ? { parentLinkId: failedAction.parentLinkId, invitationId: failedAction.invitationId } : {}) },
       }, trigger: null }).catch(() => {})
       return { saved: false }
+    } finally {
+      const responseId = response.notification?.request?.identifier
+      if (responseId) {
+        await Notifications.dismissNotificationAsync(responseId).catch(() => {})
+        const latest = await Notifications.getLastNotificationResponseAsync().catch(() => null)
+        if (latest?.notification?.request?.identifier === responseId && latest.actionIdentifier === response.actionIdentifier) {
+          await Notifications.clearLastNotificationResponseAsync().catch(() => {})
+        }
+      }
     }
   })
   actionQueue = operation.catch(() => {})
@@ -99,7 +110,7 @@ export async function registerBackgroundInvitationActions() {
 }
 
 // Both a foreground listener and the headless task may observe the same response.
-// The queue and durable history prevent a second write.
+// The queue and durable attempt receipts prevent a failed press from replaying.
 if (Platform.OS !== 'web') Notifications.addNotificationResponseReceivedListener(response => {
   if (response.actionIdentifier !== Notifications.DEFAULT_ACTION_IDENTIFIER) void handleBackgroundInvitationResponse(response)
 })

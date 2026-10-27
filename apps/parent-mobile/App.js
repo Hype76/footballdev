@@ -1,5 +1,4 @@
 import { MobileSwitch as Switch } from '../mobile-core/src/MobileSwitch.js'
-import { handleBackgroundInvitationResponse } from './src/backgroundInvitationActions'
 import { getAppleCalendarSubscriptionUrl } from '../mobile-core/src/calendarSubscriptionCore.js'
 import { NotificationSetupReminder } from '../mobile-core/src/NotificationSetupReminder'
 import { createPdfVisitTracker } from '../mobile-core/src/pdfVisit.js'
@@ -1209,7 +1208,8 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
   useEffect(() => {
     const request = lastNotificationResponse?.notification?.request
     if (['parent_accept', 'parent_decline'].includes(lastNotificationResponse?.actionIdentifier)) {
-      void handleBackgroundInvitationResponse(lastNotificationResponse)
+      // Only live delivery and the background task may execute a button press.
+      // Rehydrating this cached response must never retry a failed action.
       return undefined
     }
     const responseId = normalizeText(request?.identifier)
