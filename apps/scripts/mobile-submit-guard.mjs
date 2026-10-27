@@ -36,7 +36,8 @@ if (!allowedProfiles.has(profile)) {
 }
 
 const authorisedProductionSubmission = (
-  promotionReference === 'FP-MOBILE-PARENT-COACH-FINAL-PUBLIC-RELEASE-MASTER-39'
+  promotionReference === 'FP-MOBILE-CALENDAR-BACKGROUND-ACTIONS-271026'
+  || promotionReference === 'FP-MOBILE-PARENT-COACH-FINAL-PUBLIC-RELEASE-MASTER-39'
   || promotionReference === 'FP-MOBILE-SIMON-FEEDBACK-55'
   || promotionReference === 'FP-MOBILE-USABILITY-OFFLINE-57'
   || promotionReference === 'FP-MOBILE-CHAT-NOTIFY-PERF-58'

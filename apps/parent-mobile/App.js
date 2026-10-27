@@ -1,4 +1,6 @@
 import { MobileSwitch as Switch } from '../mobile-core/src/MobileSwitch.js'
+import { handleBackgroundInvitationResponse } from './src/backgroundInvitationActions'
+import { getAppleCalendarSubscriptionUrl } from '../mobile-core/src/calendarSubscriptionCore.js'
 import { NotificationSetupReminder } from '../mobile-core/src/NotificationSetupReminder'
 import { createPdfVisitTracker } from '../mobile-core/src/pdfVisit.js'
 import { getParentBadgeColours, PARENT_FAN_SIGN_IN_COLOURS, PARENT_POLL_SEPARATOR_COLOUR } from '../mobile-core/src/parentStatusColours'
@@ -1206,6 +1208,10 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
 
   useEffect(() => {
     const request = lastNotificationResponse?.notification?.request
+    if (['parent_accept', 'parent_decline'].includes(lastNotificationResponse?.actionIdentifier)) {
+      void handleBackgroundInvitationResponse(lastNotificationResponse)
+      return undefined
+    }
     const responseId = normalizeText(request?.identifier)
     if (
       !notificationResponseHistoryReady
@@ -3278,6 +3284,9 @@ function SettingsScreen({
   const [calendarBusy, setCalendarBusy] = useState(false)
   const [calendarError, setCalendarError] = useState('')
   const [calendarNotice, setCalendarNotice] = useState('')
+  const calendarScopeRef = useRef('')
+  calendarScopeRef.current = `${user?.id || ''}:${selectedLink?.id || ''}`
+  useEffect(() => () => { calendarScopeRef.current = '' }, [])
   useEffect(() => {
     let current = true
     if (user?.id && selectedLink?.id) {
@@ -3290,7 +3299,8 @@ function SettingsScreen({
     }
     return () => { current = false }
   }, [selectedLink, user])
-  async function showPhoneCalendarLink() {
+  async function showPhoneCalendarLink(connectToApple = false) {
+    const scope = calendarScopeRef.current
     if (calendarBusy) return
     setCalendarBusy(true)
     setCalendarError('')
@@ -3300,7 +3310,13 @@ function SettingsScreen({
       const storedUrl = calendarFeedUrl || await getStoredParentCalendarFeedUrl(user, selectedLink)
       const url = storedUrl || await changeParentCalendarFeed(user, selectedLink, 'generate')
       if (!/^https:\/\//i.test(url)) throw new Error('The calendar subscription link is invalid. Replace it and try again.')
+      if (scope !== calendarScopeRef.current) return
       setCalendarFeed({ userId: user.id, linkId: selectedLink.id, url })
+      if (connectToApple) {
+        await Linking.openURL(getAppleCalendarSubscriptionUrl(url))
+        if (scope === calendarScopeRef.current) setCalendarNotice('Confirm the subscription in Apple Calendar. Accepted events and later changes sync when Apple refreshes the calendar.')
+        return
+      }
       setVisibleCalendarLink({ userId: user.id, linkId: selectedLink.id })
       setCalendarNotice('Press and hold the link below to copy it.')
     } catch (error) {
@@ -3537,6 +3553,7 @@ function SettingsScreen({
         <Text accessibilityRole="header" style={styles.cardTitle}>Calendar sync</Text>
         <Text style={styles.helperText}>Accepted events for {selectedLink?.playerName || 'the selected player'}, updated in your calendar.</Text>
         <View style={styles.calendarActions}>
+          {Platform.OS === 'ios' ? <PrimaryAction iconKey="action.calendar" disabled={calendarBusy || isOffline || !selectedLink?.id} label="Connect Apple Calendar" onPress={() => { void showPhoneCalendarLink(true) }} secondary /> : null}
           <PrimaryAction iconKey="link" disabled={calendarBusy || isOffline || !selectedLink?.id} label={calendarLinkVisible && calendarFeedUrl ? 'Hide secure calendar link' : 'Show secure calendar link'} onPress={() => { if (calendarLinkVisible) { setVisibleCalendarLink(null); setCalendarNotice('') } else { void showPhoneCalendarLink() } }} secondary />
           {calendarLinkVisible && calendarFeedUrl ? <Text selectable accessibilityLabel="Private calendar link" style={styles.bodyText}>{calendarFeedUrl}</Text> : null}
           {calendarFeedUrl ? <PrimaryAction iconKey="fan.share" disabled={calendarBusy} label="Share calendar link" onPress={() => { void Share.share({ message: calendarFeedUrl, url: calendarFeedUrl }).catch((error) => setCalendarError(error.message)) }} secondary /> : null}

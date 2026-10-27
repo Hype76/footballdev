@@ -17,7 +17,9 @@ Record final store privacy answers in a private evidence copy under `apps/mobile
 - Apps use Expo push notification services when native notifications are enabled.
 - Apps may use device biometric APIs for local session unlock when the user enables biometric unlock.
 - Apps do not collect precise location.
-- Apps do not access contacts, photos, camera, microphone, health data, calendar, or Bluetooth.
+- Apps do not access contacts, photos, camera, microphone, health data, existing phone calendar events, or Bluetooth.
+- Users may connect a private calendar subscription: Parents see accepted events for the selected player; Coaches see the selected team or club calendar. The calendar app receives event titles, times and locations through a revocable secret link and controls refresh timing. Phone calendar read or write permission is not requested.
+- Parent invitation Accept and Decline actions can run without presenting the app. They use the saved secure session and recheck current invitation and linked-player authority before saving. Notification delivery alone never responds to an invitation.
 - Android builds explicitly block location, camera, microphone, contacts, media, and Bluetooth permissions.
 - Android builds request only notification and biometric unlock permissions.
 - Apps do not include public social networking or public chat.

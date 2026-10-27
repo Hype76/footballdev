@@ -1,4 +1,5 @@
 import { MobileSwitch as Switch } from '../../mobile-core/src/MobileSwitch.js'
+import { CoachCalendarSync } from './CoachCalendarSync'
 import { openVenueDirections } from '../../mobile-core/src/venueDirections'
 import { canEditCoachFixture, canRemoveCoachCancelledFixture } from '../../mobile-core/src/coachFixtureEditCore'
 import { removeCoachCancelledFixture } from '../../mobile-core/src/coachMatchDayData'
@@ -648,6 +649,7 @@ export function CoachCalendarScreen({ calendarTarget, context, contexts, onNavig
   return (
     <View style={styles.stack}>
       <DomainHeader copy="Calendar events, Match Day fixtures, Sessions, recurrence, and training availability in Europe/London time." styles={styles} title="Calendar" />
+      <CoachCalendarSync key={`${user.id}:${context.id}`} user={user} context={context} offline={stale || user.isOfflineProfile} styles={styles} />
       {focusedEventId ? <Button label="Back to Calendar" onPress={() => { setFocusedEventId(''); setSelected(null) }} secondary styles={styles} /> : null}
       {!focusedEventId ? <><View accessibilityLabel={`${calendarMonth.title} Calendar`} style={styles.calendar}>
         <View style={styles.calendarHeader}>

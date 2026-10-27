@@ -59,7 +59,7 @@ test('all user-facing goal controls use UK Penalty wording', async () => {
   assert.match(sources[1], />Penalty</)
 })
 
-test('public release 74 freezes both native versions and guarded production references', async () => {
+test('calendar and background action native release preserves guarded production references', async () => {
   const [buildGuard, submitGuard, coachConfig, coachPackage, parentConfig, parentPackage] = await Promise.all([
     readFile(new URL('apps/scripts/mobile-build-guard.mjs', root), 'utf8'),
     readFile(new URL('apps/scripts/mobile-submit-guard.mjs', root), 'utf8'),
@@ -72,8 +72,10 @@ test('public release 74 freezes both native versions and guarded production refe
   assert.match(buildGuard, /authorisedParentProductionReferences[\s\S]*FP-PUBLIC-RELEASE-AUDIT-74/)
   assert.match(buildGuard, /authorisedCoachProductionReferences[\s\S]*FP-PUBLIC-RELEASE-AUDIT-74/)
   assert.match(submitGuard, /promotionReference === 'FP-PUBLIC-RELEASE-AUDIT-74'/)
-  assert.match(coachConfig, /version: '1\.0\.25'/)
-  assert.equal(JSON.parse(coachPackage).version, '1.0.25')
-  assert.match(parentConfig, /version: '1\.0\.22'/)
-  assert.equal(JSON.parse(parentPackage).version, '1.0.22')
+  assert.match(coachConfig, /version: '1\.1\.0'/)
+  assert.equal(JSON.parse(coachPackage).version, '1.1.0')
+  assert.match(parentConfig, /version: '1\.1\.0'/)
+  assert.equal(JSON.parse(parentPackage).version, '1.1.0')
+  assert.match(buildGuard, /FP-MOBILE-CALENDAR-BACKGROUND-ACTIONS-271026/)
+  assert.match(submitGuard, /FP-MOBILE-CALENDAR-BACKGROUND-ACTIONS-271026/)
 })

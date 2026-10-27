@@ -14,6 +14,14 @@ Test both apps in light and dark mode: defaults, each independent switch, all Ga
 
 Native push must be tested on real iOS and Android devices. Simulators, emulators, Expo Go, and web export are not enough for store release approval.
 
+## Native invitation actions in version 1.1.0
+
+Parents can hold an invitation notification and choose Accept or Decline without presenting the app. Android uses the registered notification task. iOS uses the local ParentNotificationActions consumer to deliver explicit button presses to the same authenticated task. Delivery and ordinary notification taps never submit a response.
+
+Verify match and training invitations on real iPhone and Android devices with the app open, backgrounded and terminated. Check the saved response from Coach after each action. Include repeat presses, expired and cancelled invitations, revoked player links, account switching, locked phones, an expired session and offline conditions. A success notification appears only after the server confirms the write. An unconfirmed result tells the parent to check in the app. Do not mark physical-device QA complete from automated tests or an EAS build alone.
+
+Calendar subscriptions require one connection per player or Coach context. Apple Calendar opens the subscription confirmation from the app. For Google Calendar, copy the private feed link and add it using Other calendars, From URL on a computer. Verify a time change and cancellation after the calendar provider refreshes. Replacing or revoking a link stops the old link.
+
 ## Client Setup
 
 - Both apps use `expo-notifications`.
