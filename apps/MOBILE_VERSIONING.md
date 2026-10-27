@@ -4,8 +4,8 @@ Use this before creating TestFlight, Google internal, or store review builds for
 
 ## Current Version
 
-- Coach app version: `0.1.0`
-- Parents app version: `0.1.0`
+- Coach app version: `1.1.0`
+- Parents app version: `1.1.0`
 - iOS initial build number: `1`
 - Android initial version code: `1`
 

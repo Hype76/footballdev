@@ -1,6 +1,6 @@
 {
   "name": "parent-mobile",
-  "version": "1.0.22",
+  "version": "1.1.0",
   "main": "index.js",
   "private": true,
   "scripts": {
@@ -20,7 +20,8 @@
     "submit:android:store-test": "node ../scripts/mobile-submit-guard.mjs parent android",
     "submit:android:store-live": "node ../scripts/mobile-submit-guard.mjs parent android store-live",
     "submit:ios:store-test": "node ../scripts/mobile-submit-guard.mjs parent ios",
-    "submit:ios:store-live": "node ../scripts/mobile-submit-guard.mjs parent ios store-live"
+    "submit:ios:store-live": "node ../scripts/mobile-submit-guard.mjs parent ios store-live",
+    "eas-build-pre-install": "node ../scripts/mobile-eas-toolchain.mjs"
   },
   "dependencies": {
     "@expo/vector-icons": "15.1.1",
@@ -42,6 +43,7 @@
     "expo-secure-store": "~15.0.8",
     "expo-sharing": "~14.0.8",
     "expo-status-bar": "~3.0.9",
+    "expo-task-manager": "~14.0.9",
     "expo-updates": "~29.0.20",
     "qrcode": "1.5.4",
     "react": "19.1.0",
@@ -87,6 +89,7 @@
     "metro-transform-worker@0.83.3": "0.83.8",
     "compression@<1.8.2": "1.8.2",
     "source-map-js@>=1.0.0 <1.2.2": "1.2.2",
-    "argparse@<2.0.1": "2.0.1"
+    "argparse@<2.0.1": "2.0.1",
+    "node-forge": "1.4.2"
   }
 }

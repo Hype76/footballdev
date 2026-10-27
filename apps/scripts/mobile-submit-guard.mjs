@@ -1,6 +1,8 @@
 import { execFileSync } from 'node:child_process'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { createRequire } from 'node:module'
+import { assertQaUploadBuild, assertQaUploadProfile } from './mobile-qa-upload-core.mjs'
 import { assertEasLogin } from './mobile-eas-auth.mjs'
 import { mobileApps } from './mobile-apps.mjs'
 import { loadMobileLocalEnv } from './mobile-local-env.mjs'
@@ -9,7 +11,8 @@ const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 const [appRole, platform, profile = 'store-test'] = process.argv.slice(2)
 
 const allowedPlatforms = new Set(['android', 'ios'])
-const allowedProfiles = new Set(['store-test', 'store-live'])
+const allowedProfiles = new Set(['store-test', 'store-live', 'store-qa'])
+const qaUpload = profile === 'store-qa'
 const authorisedParentProductionReferences = new Set([
   'FP-MOBILE-PARENT-IOS-BLACK-SCREEN-AND-PLAY-CLOSED-TEST-28',
   'FP-MOBILE-LIVE-QA-CROSSPRODUCT-CORRECTIVE-MASTER-34',
@@ -19,6 +22,7 @@ const submissionConfirmed = (process.env.MOBILE_SUBMISSION_CONFIRMED || '').trim
 const iosInternalTestersConfirmed = (process.env.MOBILE_IOS_INTERNAL_TESTERS_CONFIRMED || '').trim().toLowerCase() === 'true'
 const promotionReference = (process.env.MOBILE_PRODUCTION_PROMOTION_REFERENCE || '').trim()
 const submissionBuildId = (process.env.MOBILE_SUBMISSION_BUILD_ID || '').trim()
+const qaUploadConfirmed = (process.env.MOBILE_QA_UPLOAD_CONFIRMED || '').trim().toLowerCase() === 'true'
 
 if (!app) {
   console.error('Unknown mobile app role. Expected coach or parent.')
@@ -31,12 +35,13 @@ if (!allowedPlatforms.has(platform)) {
 }
 
 if (!allowedProfiles.has(profile)) {
-  console.error('Unknown submit profile. Expected store-test or store-live.')
+  console.error('Unknown submit profile. Expected store-test, store-live or store-qa.')
   process.exit(1)
 }
 
 const authorisedProductionSubmission = (
-  promotionReference === 'FP-MOBILE-PARENT-COACH-FINAL-PUBLIC-RELEASE-MASTER-39'
+  promotionReference === 'FP-MOBILE-CALENDAR-BACKGROUND-ACTIONS-271026'
+  || promotionReference === 'FP-MOBILE-PARENT-COACH-FINAL-PUBLIC-RELEASE-MASTER-39'
   || promotionReference === 'FP-MOBILE-SIMON-FEEDBACK-55'
   || promotionReference === 'FP-MOBILE-USABILITY-OFFLINE-57'
   || promotionReference === 'FP-MOBILE-CHAT-NOTIFY-PERF-58'
@@ -71,7 +76,8 @@ const authorisedProductionSubmission = (
   ].includes(promotionReference))
 )
 
-if (profile === 'store-live' && !authorisedProductionSubmission) {
+if ((profile === 'store-live' && !authorisedProductionSubmission)
+  || (qaUpload && promotionReference !== 'FP-MOBILE-CALENDAR-BACKGROUND-ACTIONS-271026')) {
   console.error(platform === 'ios'
     ? 'Production iOS submission not authorised for this app and reference.'
     : 'Production Android submission not authorised for this app and reference.')
@@ -79,13 +85,18 @@ if (profile === 'store-live' && !authorisedProductionSubmission) {
   process.exit(1)
 }
 
-if (profile === 'store-live' && !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(submissionBuildId)) {
+if ((profile === 'store-live' || qaUpload) && !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(submissionBuildId)) {
   console.error('Production store submission requires the exact completed EAS build ID in MOBILE_SUBMISSION_BUILD_ID.')
   console.error('Reason: production_submission_build_id_required')
   process.exit(1)
 }
 
-if (!submissionConfirmed) {
+if (qaUpload && !qaUploadConfirmed) {
+  console.error('Internal QA upload requires MOBILE_QA_UPLOAD_CONFIRMED=true, the exact completed build ID, and verified tester access.')
+  process.exit(1)
+}
+
+if (!qaUpload && !submissionConfirmed) {
   console.error('Mobile store submission is blocked until final external QA is confirmed.')
   console.error('Complete store records, reviewer credentials, screenshots, reviewer notes, physical device QA, notification QA, and private release evidence first.')
   console.error('Then rerun with MOBILE_SUBMISSION_CONFIRMED=true.')
@@ -102,15 +113,30 @@ if (platform === 'ios' && !iosInternalTestersConfirmed) {
 
 assertEasLogin()
 
-const easEnvironment = profile === 'store-live' ? 'production' : 'preview'
+if (qaUpload) {
+  const require = createRequire(import.meta.url)
+  const config = require(resolve(repoRoot, app.appConfig)).expo
+  const easConfig = require(resolve(repoRoot, app.easConfig))
+  assertQaUploadProfile(easConfig.submit['store-qa'], appRole)
+  const build = JSON.parse(execFileSync('npx', ['eas-cli', 'build:view', submissionBuildId, '--json'], {
+    cwd: resolve(repoRoot, app.path), encoding: 'utf8', shell: process.platform === 'win32',
+  }))
+  assertQaUploadBuild(build, { appRole, platform, projectId: config.extra.eas.projectId, version: config.version,
+    head: execFileSync('git', ['rev-parse', 'HEAD'], { cwd: repoRoot, encoding: 'utf8' }).trim() })
+  console.log('Internal QA upload only. Physical-device acceptance and public store release remain pending.')
+}
+
+const resolvedBuildProfile = qaUpload ? 'store-live' : profile
+const easEnvironment = resolvedBuildProfile === 'store-live' ? 'production' : 'preview'
 console.log(`Validating the resolved ${appRole} ${profile} EAS environment without printing values.`)
-const resolvedEnvironmentCommand = `node ../scripts/mobile-resolved-environment-check.mjs ${appRole} ${profile}`
+const resolvedEnvironmentCommand = `node ../scripts/mobile-resolved-environment-check.mjs ${appRole} ${resolvedBuildProfile}`
 const resolvedEnvironmentArgument = process.platform === 'win32' ? `"${resolvedEnvironmentCommand}"` : resolvedEnvironmentCommand
 execFileSync('npx', ['eas-cli', 'env:exec', easEnvironment, resolvedEnvironmentArgument, '--non-interactive'], {
   cwd: resolve(repoRoot, app.path),
   env: {
     ...process.env,
     ...loadMobileLocalEnv(repoRoot, app.path),
+    EXPO_PUBLIC_BUILD_PROFILE: resolvedBuildProfile,
   },
   stdio: 'inherit',
   shell: process.platform === 'win32',
@@ -126,7 +152,7 @@ execFileSync('npm', ['run', 'mobile:release-check'], {
 console.log(`Release gate passed. Starting EAS submit for ${app.expectedName} ${profile} ${platform}.`)
 const submitArgs = ['eas-cli', 'submit', '--profile', profile, '--platform', platform]
 if (platform === 'ios') submitArgs.push('--groups', 'Internal Testers')
-if (profile === 'store-live') {
+if (profile === 'store-live' || qaUpload) {
   submitArgs.push('--id', submissionBuildId)
   submitArgs.push('--non-interactive', '--no-wait')
 }

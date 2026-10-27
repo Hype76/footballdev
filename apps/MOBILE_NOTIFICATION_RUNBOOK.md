@@ -14,6 +14,16 @@ Test both apps in light and dark mode: defaults, each independent switch, all Ga
 
 Native push must be tested on real iOS and Android devices. Simulators, emulators, Expo Go, and web export are not enough for store release approval.
 
+## Native invitation actions in version 1.1.0
+
+Parents can hold an invitation notification and choose Accept or Decline without presenting the app. Android uses the registered notification task. iOS uses the local ParentNotificationActions consumer to deliver explicit button presses to the same authenticated task. Delivery and ordinary notification taps never submit a response.
+
+Verify match and training invitations on real iPhone and Android devices with the app open, backgrounded and terminated. Check the saved response from Coach after each action. Include repeat presses, expired and cancelled invitations, revoked player links, account switching, locked phones, an expired session and offline conditions. A success notification appears only after the server confirms the write. An unconfirmed result tells the parent to check in the app. Do not mark physical-device QA complete from automated tests or an EAS build alone.
+
+Calendar subscriptions require one connection per player or Coach context on each phone. Connecting a second device preserves the first device's link. Apple Calendar opens the subscription confirmation from the app. For Google Calendar, copy the private feed link and add it using Other calendars, From URL on a computer. Verify a time change and cancellation after the calendar provider refreshes. Replacing or revoking a link stops only that link.
+
+Use the guarded `store-qa` submission mode to upload the exact completed `store-live` artifact to the existing Internal Testers TestFlight group or internal Google Play track before device acceptance. It requires `MOBILE_QA_UPLOAD_CONFIRMED=true`, the exact `MOBILE_SUBMISSION_BUILD_ID`, verified tester access, matching app/version/runtime/source identity and the full release gate. It does not set or replace `MOBILE_SUBMISSION_CONFIRMED`; public release remains gated on physical-device QA and store readiness. Android production promotion reuses the tested artifact from the Play library.
+
 ## Client Setup
 
 - Both apps use `expo-notifications`.

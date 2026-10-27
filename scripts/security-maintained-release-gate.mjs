@@ -37,5 +37,5 @@ if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.ar
   assert.equal(process.argv.length, 2, 'No check-skipping or scope arguments permitted')
   runRequiredCommands(process.cwd())
   await verifyMaintainedRelease(process.cwd())
-  console.log('Maintained source release gate passed: current advisories, published packages, exact reviewed source and all five patched copies verified. No calendar approval renewal.')
+  console.log('Maintained source release gate passed: current advisories, published packages, three exact braces backports and two unchanged official node-forge copies verified. No calendar approval renewal.')
 }

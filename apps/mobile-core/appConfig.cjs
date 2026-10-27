@@ -117,6 +117,7 @@ function createMobileExpoConfig({
             color: '#d7ff2f',
             defaultChannel: 'matchday',
             icon: './assets/notification-icon.png',
+            ...(appRole === 'parent' ? { enableBackgroundRemoteNotifications: true } : {}),
           },
         ],
         [

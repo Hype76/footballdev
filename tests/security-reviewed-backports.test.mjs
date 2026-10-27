@@ -108,6 +108,11 @@ test('an additional nested vulnerable package and an unpatched copy stop verific
     fs.writeFileSync(path.join(extra, 'package.json'), JSON.stringify({ name: 'braces', version: '3.0.3' }))
     assert.throws(() => verifyCopies(directory, policy), /copy set/)
     fs.rmSync(path.join(directory, 'node_modules/braces/node_modules'), { recursive: true })
+    const officialSource = path.join(directory, 'apps/parent-mobile/node_modules/node-forge/lib/rsa.js')
+    const officialBytes = fs.readFileSync(officialSource)
+    fs.appendFileSync(officialSource, '\n// official package drift\n')
+    assert.throws(() => verifyCopies(directory, policy), /tree drift/)
+    fs.writeFileSync(officialSource, officialBytes)
     const source = path.join(directory, 'apps/parent-mobile/node_modules/braces/lib/compile.js')
     fs.appendFileSync(source, '\n// drift\n')
     assert.throws(() => verifyCopies(directory, policy), /tree drift/)
@@ -134,6 +139,37 @@ test('incomplete payload or wrong prospective complete tree causes zero writes',
   const wrongTree = copies.map(copy => ({ ...copy, target: { ...copy.target, patchedTreeSha256: '0'.repeat(64) }, treeSha256: '0'.repeat(64) }))
   assert.throws(() => prepareWrites(record, payload, wrongTree), /Prospective postimage tree mismatch/)
   assert.deepEqual(copies.map(copy => hash(Buffer.from(JSON.stringify(inventory(copy.dir))))), before)
+})
+
+test('official-maintained copies receive no old source patch and reject substitution', () => {
+  const { record, payload } = loadRecord(root)
+  const copies = verifyCopies(root, record).filter(copy => copy.target.mode === 'official-maintained')
+  assert.equal(copies.length, 2)
+  const before = copies.map(copy => hash(Buffer.from(JSON.stringify(inventory(copy.dir)))))
+  const archived = clone(payload)
+  archived.libraries.find(item => item.name === 'node-forge').files[0].contentBase64 = Buffer.from('must never be written').toString('base64')
+  assert.deepEqual(prepareWrites(record, archived, copies), [])
+  for (const mutate of [
+    target => { target.version = '1.4.0' },
+    target => { target.files = [{ path: 'lib/rsa.js' }] },
+    target => { target.patchedTreeSha256 = '0'.repeat(64) },
+  ]) {
+    const altered = copies.map(copy => ({ ...copy, target: clone(copy.target) }))
+    mutate(altered[0].target)
+    assert.throws(() => prepareWrites(record, payload, altered))
+  }
+  assert.deepEqual(copies.map(copy => hash(Buffer.from(JSON.stringify(inventory(copy.dir))))), before)
+})
+
+test('official node-forge receives no advisory acceptance even at a pinned package path', () => {
+  const official = policy.targets.find(target => target.name === 'node-forge')
+  const audit = { auditReportVersion: 2, vulnerabilities: { 'node-forge': {
+    name: 'node-forge', severity: 'high', via: [{ name: 'node-forge', severity: 'high', url: 'https://github.com/advisories/GHSA-86w9-cpqp-85rv' }],
+    nodes: ['node_modules/node-forge'],
+  } }, metadata: { vulnerabilities: { info: 0, low: 0, moderate: 0, high: 1, critical: 0, total: 1 } } }
+  const result = evaluateAudit(audit, { packages: { 'node_modules/node-forge': { version: official.version } } }, official.scope, policy)
+  assert.deepEqual(result.acceptedSourceRemediations, [])
+  assert.ok(result.failures.some(value => value.includes('Unaccepted advisory')))
 })
 test('artifact junctions cannot redirect receipts or audit reports outside the checkout', () => {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'football-artifact-check-'))

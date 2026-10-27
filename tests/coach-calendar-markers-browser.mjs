@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { mkdir, readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { build } from 'esbuild'
+import { coachCalendarSubscriptionFixture } from './helpers/coach-calendar-subscription-fixture.mjs'
 import { chromium } from 'playwright'
 import { assertRenderedTextContrast } from './helpers/rendered-text-contrast.mjs'
 
@@ -13,6 +14,7 @@ const calendarImport = source.match(/import \{\s+buildCoachCalendarMonth,[\s\S]*
   .replace('../../mobile-core/src/coachCalendarCore', './apps/mobile-core/src/coachCalendarCore.js')
 const screen = source.slice(source.indexOf('function useDomainStyles('), source.indexOf('export function CoachPlayersScreen('))
 const entry = `
+import {CoachCalendarSync} from './apps/coach-mobile/src/CoachCalendarSync.js';
 import React,{useCallback,useEffect,useMemo,useRef,useState} from 'react'
 import {createRoot} from 'react-dom/client'
 import {Pressable,StyleSheet,Switch,Text,TextInput,View} from 'react-native'
@@ -51,7 +53,7 @@ window.themeContrastRatio=themeContrastRatio
 function App(){const[mode,setMode]=useState('light');window.setMode=setMode;const palette=createCoachTheme({mode,context:{clubAccent:'#1d4079'}}).tokens;window.palette=palette;return <View style={{backgroundColor:palette.background,minHeight:'100vh',padding:12}}><CoachCalendarScreen context={context} contexts={[context]} onNavigate={()=>{}} palette={palette} user={user}/></View>}
 createRoot(document.getElementById('root')).render(<App/>);
 `
-const result = await build({ stdin: { contents: entry, resolveDir: root, loader: 'jsx' }, bundle: true, write: false, jsx: 'automatic', loader: { '.js': 'jsx', '.ttf': 'dataurl' }, platform: 'browser', conditions: ['browser'], mainFields: ['browser', 'module', 'main'], nodePaths: [modules], resolveExtensions: ['.web.tsx', '.web.ts', '.web.js', '.tsx', '.ts', '.jsx', '.js', '.json'], alias: { react: path.join(modules, 'react'), 'react-dom': path.join(modules, 'react-dom'), 'react-native': path.join(modules, 'react-native-web') }, define: { 'process.env.NODE_ENV': '"production"', __DEV__: 'false', global: 'globalThis' }, banner: { js: 'globalThis.process={env:{NODE_ENV:"production"}};' } })
+const result = await build({ plugins: [coachCalendarSubscriptionFixture], stdin: { contents: entry, resolveDir: root, loader: 'jsx' }, bundle: true, write: false, jsx: 'automatic', loader: { '.js': 'jsx', '.ttf': 'dataurl' }, platform: 'browser', conditions: ['browser'], mainFields: ['browser', 'module', 'main'], nodePaths: [modules], resolveExtensions: ['.web.tsx', '.web.ts', '.web.js', '.tsx', '.ts', '.jsx', '.js', '.json'], alias: { react: path.join(modules, 'react'), 'react-dom': path.join(modules, 'react-dom'), 'react-native': path.join(modules, 'react-native-web') }, define: { 'process.env.NODE_ENV': '"production"', __DEV__: 'false', global: 'globalThis' }, banner: { js: 'globalThis.process={env:{NODE_ENV:"production"}};' } })
 const browser = await chromium.launch({ headless: true })
 try {
   const page = await browser.newPage({ viewport: { width: 390, height: 844 } })

@@ -1,6 +1,6 @@
 {
   "name": "coach-mobile",
-  "version": "1.0.25",
+  "version": "1.1.0",
   "main": "index.js",
   "private": true,
   "scripts": {
@@ -20,7 +20,8 @@
     "submit:android:store-test": "node ../scripts/mobile-submit-guard.mjs coach android",
     "submit:android:store-live": "node ../scripts/mobile-submit-guard.mjs coach android store-live",
     "submit:ios:store-test": "node ../scripts/mobile-submit-guard.mjs coach ios",
-    "submit:ios:store-live": "node ../scripts/mobile-submit-guard.mjs coach ios store-live"
+    "submit:ios:store-live": "node ../scripts/mobile-submit-guard.mjs coach ios store-live",
+    "eas-build-pre-install": "node ../scripts/mobile-eas-toolchain.mjs"
   },
   "dependencies": {
     "@expo/vector-icons": "15.1.1",
@@ -80,6 +81,7 @@
     "metro-transform-worker@0.83.3": "0.83.8",
     "compression@<1.8.2": "1.8.2",
     "source-map-js@>=1.0.0 <1.2.2": "1.2.2",
-    "argparse@<2.0.1": "2.0.1"
+    "argparse@<2.0.1": "2.0.1",
+    "node-forge": "1.4.2"
   }
 }

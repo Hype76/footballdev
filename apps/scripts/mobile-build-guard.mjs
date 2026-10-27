@@ -17,6 +17,7 @@ const allowedBuilds = new Set([
 ])
 const productionBuilds = new Set(['internal-live:android', 'internal-live:ios', 'store-live:android', 'store-live:ios'])
 const authorisedParentProductionReferences = new Set([
+  'FP-MOBILE-CALENDAR-BACKGROUND-ACTIONS-271026',
   'FP-MOBILE-PARENT-IOS-BLACK-SCREEN-AND-PLAY-CLOSED-TEST-28',
   'FP-MOBILE-PARENT-LIVE-ACCOUNT-QA-CORRECTIVE-29',
   'FP-MOBILE-COMMS-POLLS-PRIVACY-CORRECTIVE-36',
@@ -46,6 +47,7 @@ const authorisedParentProductionReferences = new Set([
   'FP-MOBILE-FEEDBACK-CALENDAR-STATS-132',
 ])
 const authorisedCoachProductionReferences = new Set([
+  'FP-MOBILE-CALENDAR-BACKGROUND-ACTIONS-271026',
   'FP-MOBILE-COACH-PRODUCTION-PROMOTION-MASTER-32',
   'FP-MOBILE-COACH-LIVE-QA-CORRECTIVE-35',
   'FP-MOBILE-COMMS-POLLS-PRIVACY-CORRECTIVE-36',
@@ -83,7 +85,7 @@ const buildConfirmed = (process.env.MOBILE_NATIVE_BUILD_CONFIRMED || '').trim().
 const promotionReference = (process.env.MOBILE_PRODUCTION_PROMOTION_REFERENCE || '').trim()
 const easEnvironment = productionBuilds.has(`${profile}:${platform}`) ? 'production' : profile === 'development' ? 'development' : 'preview'
 const masterStoreAndroid = `${profile}:${platform}` === 'store-live:android'
-  && ['FP-MOBILE-PARENT-COACH-FINAL-PUBLIC-RELEASE-MASTER-39', 'FP-PUBLIC-RELEASE-AUDIT-74', 'FP-MOBILE-FEEDBACK-CALENDAR-STATS-132'].includes(promotionReference)
+  && ['FP-MOBILE-PARENT-COACH-FINAL-PUBLIC-RELEASE-MASTER-39', 'FP-PUBLIC-RELEASE-AUDIT-74', 'FP-MOBILE-FEEDBACK-CALENDAR-STATS-132', 'FP-MOBILE-CALENDAR-BACKGROUND-ACTIONS-271026'].includes(promotionReference)
 const currentInternalIos = `${profile}:${platform}` === 'internal-live:ios'
   && ['FP-MOBILE-FORMATION-NOTIFICATIONS-47', 'FP-MOBILE-COACH-FORMATION-STEPPER-50', 'FP-MOBILE-COACH-FORMATION-DRAG-51', 'FP-MOBILE-COACH-RESOURCES-MATCH-LINK-CORRECTIVE-53', 'FP-MOBILE-COACH-FORM-SELECTION-CORRECTIVE-54', 'FP-MOBILE-CHAT-NOTIFY-PERF-58', 'FP-MOBILE-CHAT-SESSIONS-POLL-60', 'FP-MOBILE-FEEDBACK-CORRECTIVE-61', 'FP-MOBILE-FIXTURE-CALENDAR-TERMINOLOGY-62', 'FP-MOBILE-COACH-FIXTURE-CREATE-CRASH-63', 'FP-MOBILE-NOTIFICATIONS-PROFILE-66', 'FP-MOBILE-INVITES-PDF-SCROLL-67', 'FP-INVITES-NOTIFICATIONS-AUDIT-72', 'FP-TRAINING-RSVP-CHAT-DND-73'].includes(promotionReference)
 const currentCoachStoreAndroid = appRole === 'coach'

@@ -3,6 +3,7 @@ import { Buffer } from 'node:buffer'
 import { createSupabaseAdminClient } from './lib/_supabase.js'
 import { loadPlayerAttendance } from './lib/_fan-schedule.js'
 import { getParentProductDateTimeParts } from '../../apps/mobile-core/src/parentDateTimeCore.js'
+import { changeCalendarSubscriptionToken } from './lib/_calendar-subscription-tokens.js'
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const TOKEN = /^[0-9a-f]{64}$/
@@ -88,6 +89,7 @@ export async function handleParentCalendarFeed(event, { createClient = createSup
       const token = String(event.queryStringParameters?.token || '')
       if (!TOKEN.test(token)) return json(404, { message: 'Calendar feed unavailable.' })
       const saved = await one(client.from('parent_calendar_feed_tokens').select('auth_user_id,parent_link_id').eq('token_hash', sha256(token)).is('revoked_at', null))
+        || await one(client.from('parent_calendar_subscription_tokens').select('auth_user_id,parent_link_id').eq('token_hash', sha256(token)).is('revoked_at', null))
       if (!saved) return json(404, { message: 'Calendar feed unavailable.' })
       const link = await one(client.from('parent_player_links').select('id,auth_user_id,player_id,club_id,team_id,status').eq('id', saved.parent_link_id).eq('auth_user_id', saved.auth_user_id).eq('status', 'active'))
       if (!link) return json(404, { message: 'Calendar feed unavailable.' })
@@ -114,6 +116,14 @@ export async function handleParentCalendarFeed(event, { createClient = createSup
     if (!UUID.test(parentLinkId)) return json(400, { message: 'Choose a linked player.' })
     const link = await one(client.from('parent_player_links').select('id').eq('id', parentLinkId).eq('auth_user_id', authUserId).eq('status', 'active'))
     if (!link) return json(403, { message: 'This player link is unavailable.' })
+    if (body.subscriptionVersion === 2) {
+      const previousToken = String(body.previousToken || '')
+      if (event.httpMethod === 'DELETE' && !previousToken) return json(400, { message: 'Choose the calendar link to revoke.' })
+      const secret = event.httpMethod === 'DELETE' ? '' : randomBytes(32).toString('hex')
+      await changeCalendarSubscriptionToken(client, { tables: ['parent_calendar_subscription_tokens', 'parent_calendar_feed_tokens'],
+        scope: { auth_user_id: authUserId, parent_link_id: parentLinkId }, previousToken, nextToken: secret })
+      return json(200, secret ? { url: `https://parent.footballplayer.online/.netlify/functions/parent-calendar-feed?token=${secret}` } : { success: true })
+    }
     if (event.httpMethod === 'DELETE') {
       const result = await client.from('parent_calendar_feed_tokens').delete().eq('parent_link_id', parentLinkId).eq('auth_user_id', authUserId)
       if (result.error) throw result.error
@@ -124,7 +134,7 @@ export async function handleParentCalendarFeed(event, { createClient = createSup
     if (result.error) throw result.error
     return json(200, { url: `https://parent.footballplayer.online/.netlify/functions/parent-calendar-feed?token=${secret}` })
   } catch (error) {
-    return json(error instanceof SyntaxError ? 400 : 500, { message: error instanceof SyntaxError ? 'Invalid request.' : 'Calendar feed could not be loaded.' })
+    return json(error instanceof SyntaxError ? 400 : [400, 410].includes(error.statusCode) ? error.statusCode : 500, { message: error instanceof SyntaxError ? 'Invalid request.' : 'Calendar feed could not be loaded.' })
   }
 }
 

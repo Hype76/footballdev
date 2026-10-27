@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { mkdir, readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { build } from 'esbuild'
+import { coachCalendarSubscriptionFixture } from './helpers/coach-calendar-subscription-fixture.mjs'
 import { chromium } from 'playwright'
 import { assertRenderedTextContrast } from './helpers/rendered-text-contrast.mjs'
 
@@ -15,7 +16,8 @@ const normalizer=data.slice(data.indexOf('function normalizeText('),data.indexOf
 const parentStyles=parent.slice(parent.indexOf('function colorsFor('),parent.indexOf('\nfunction ',parent.indexOf('function usePortalStyles(')+10))
 const matchStatusBadge=parent.slice(parent.indexOf('function MatchStatusBadge('),parent.indexOf('\nfunction MatchCard(',parent.indexOf('function MatchStatusBadge(')))
 const hero=parent.slice(parent.indexOf('        <View style={[styles.gameDayHero,'),parent.indexOf('          {selectedMatch.notes ?'))+'</View>'
-const entry=`import {getParentBadgeColours,getParentStatusColours,PARENT_FAN_SIGN_IN_COLOURS,PARENT_POLL_SEPARATOR_COLOUR} from './apps/mobile-core/src/parentStatusColours.js';
+const entry=`
+import {CoachCalendarSync} from './apps/coach-mobile/src/CoachCalendarSync.js';import {getParentBadgeColours,getParentStatusColours,PARENT_FAN_SIGN_IN_COLOURS,PARENT_POLL_SEPARATOR_COLOUR} from './apps/mobile-core/src/parentStatusColours.js';
 import {formatFixtureDateTime} from './src/lib/calendar-datetime-integrity.js';
 import {resolveCoachRoute} from './apps/coach-mobile/src/coachNavigationCore.js';
 import {TeamLeagueLinkRow} from './apps/mobile-core/src/TeamLeagueLink.js';
@@ -54,7 +56,7 @@ const chosen={...first,id:'calendar_event:repeat:2099-09-17',occurrenceDate:'209
 function ParentHero({mode,pitch,fixtureType,homeAway}){const{colors,styles}=usePortalStyles(createParentMobileTheme({mode}).tokens),selectedMatch=normalizeMatchDay({id:'match',opponent:'Visitors',club_name:'FP TEST Club',teamName:'FP TEST',pitch_type:pitch,fixture_type:fixtureType,match_date:'2099-09-12',kickoff_time:'11:00:00',arrival_time:'10:00:00',venue_name:'FP TEST ground',home_away:homeAway}),selectedMatchIsLive=false,matchStarted=false,isCompleted=selectedMatch.status==='full_time',presentation=null,now=Date.now(),attendanceInvitation=null,canChangeAvailability=false,availabilityOpen=false;window.normalized=selectedMatch;return ${hero}}
 function App(){const[screen,setScreen]=useState('home'),[target,setTarget]=useState(null),[mode,setMode]=useState('light'),[pitch,setPitch]=useState('3g'),[fixtureType,setFixtureType]=useState('league'),[homeAway,setHomeAway]=useState('away'),[key,setKey]=useState(0);window.homeAway=setHomeAway;window.fixtureType=setFixtureType;window.mode=setMode;window.pitch=setPitch;window.parent=()=>setScreen('parent');window.home=()=>{setTarget(null);setScreen('home')};window.target=t=>{setTarget(t);setKey(v=>v+1);setScreen('calendar')};const palette=createCoachTheme({mode}).tokens;
 return <View style={{backgroundColor:palette.background,minHeight:'100vh',padding:12}}>{screen==='home'?<HomeScreen user={user} context={context} homeState={{matches:[],sessions:[],nextCalendar:chosen}} onNavigate={(route,t)=>{window.calls.push({route,target:t});setTarget(t);setScreen('calendar')}} reloadHome={()=>{}}/>:screen==='calendar'?<CoachCalendarScreen key={key} calendarTarget={target} context={context} contexts={contexts} user={user} palette={palette} onNavigate={(route,target)=>window.calls.push({route,target})}/>:<ParentHero mode={mode} pitch={pitch} fixtureType={fixtureType} homeAway={homeAway}/>}</View>};createRoot(document.getElementById('root')).render(<App/>);`
-const result=await build({stdin:{contents:entry,resolveDir:root,loader:'jsx'},bundle:true,write:false,jsx:'automatic',loader:{'.js':'jsx','.ttf':'dataurl','.png':'dataurl'},platform:'browser',conditions:['browser'],mainFields:['browser','module','main'],nodePaths:[modules],resolveExtensions:['.web.tsx','.web.ts','.web.js','.tsx','.ts','.jsx','.js','.json'],alias:{react:path.join(modules,'react'),'react-dom':path.join(modules,'react-dom'),'react-native':path.join(modules,'react-native-web')},define:{'process.env.NODE_ENV':'"production"',__DEV__:'false',global:'globalThis'},banner:{js:'globalThis.process={env:{NODE_ENV:"production"}};'}})
+const result=await build({plugins:[coachCalendarSubscriptionFixture],stdin:{contents:entry,resolveDir:root,loader:'jsx'},bundle:true,write:false,jsx:'automatic',loader:{'.js':'jsx','.ttf':'dataurl','.png':'dataurl'},platform:'browser',conditions:['browser'],mainFields:['browser','module','main'],nodePaths:[modules],resolveExtensions:['.web.tsx','.web.ts','.web.js','.tsx','.ts','.jsx','.js','.json'],alias:{react:path.join(modules,'react'),'react-dom':path.join(modules,'react-dom'),'react-native':path.join(modules,'react-native-web')},define:{'process.env.NODE_ENV':'"production"',__DEV__:'false',global:'globalThis'},banner:{js:'globalThis.process={env:{NODE_ENV:"production"}};'}})
 const browser=await chromium.launch({headless:true})
 try {
  const page=await browser.newPage({viewport:{width:390,height:844}}),errors=[];page.on('pageerror',e=>{errors.push(e.message);console.error(e.message)})

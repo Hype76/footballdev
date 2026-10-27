@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { mkdir, readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { build } from 'esbuild'
+import { coachCalendarSubscriptionFixture } from './helpers/coach-calendar-subscription-fixture.mjs'
 import { chromium } from 'playwright'
 
 const root = process.cwd()
@@ -15,6 +16,7 @@ const navigation = appSource.slice(appSource.indexOf('  const navigate = useCall
 const creationEffect = matchSource.match(/  useEffect\(\(\) => \{\s+if \(matchDayTarget\?\.intent !== 'create-fixture'[^]*?\n  \}, \[[^]*?\]\)/)[0]
 const fixtureStyles = matchSource.match(/function createStyles\(palette\) \{[^]*?\n\}/)[0].replace('function createStyles', 'function createFixtureStyles')
 const entry = `
+import {CoachCalendarSync} from './apps/coach-mobile/src/CoachCalendarSync.js';
 import React,{useCallback,useEffect,useMemo,useRef,useState} from 'react';import {createRoot} from 'react-dom/client';
 import {Keyboard,Pressable,StyleSheet,Switch,Text,TextInput,View} from 'react-native';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
@@ -70,7 +72,7 @@ const mocks = [
   [/CoachDateTimeField$/, `export const CoachDateTimeField=({label,onChange,value})=><input aria-label={label} value={value} onChange={e=>onChange(e.target.value)}/>;`],
   [/coachFriendlyErrors$/, `export const getCoachFriendlyError=e=>e.message;`],
 ]
-const result = await build({stdin:{contents:entry,resolveDir:root,loader:'jsx'},bundle:true,write:false,jsx:'automatic',loader:{'.js':'jsx','.ttf':'dataurl'},platform:'browser',conditions:['browser'],mainFields:['browser','module','main'],nodePaths:[modules],resolveExtensions:['.web.tsx','.web.ts','.web.js','.tsx','.ts','.jsx','.js','.json'],alias:{react:path.join(modules,'react'),'react-dom':path.join(modules,'react-dom'),'react-native':path.join(modules,'react-native-web')},define:{'process.env.NODE_ENV':'"production"',__DEV__:'false',global:'globalThis'},banner:{js:'globalThis.process={env:{NODE_ENV:"production"}};'},plugins:[{name:'fixture-transport',setup(builder){for(const[index,[filter]]of mocks.entries())builder.onResolve({filter},()=>({path:String(index),namespace:'mock'}));builder.onLoad({filter:/.*/,namespace:'mock'},args=>({contents:mocks[Number(args.path)][1],loader:'jsx',resolveDir:root}))}}]})
+const result = await build({stdin:{contents:entry,resolveDir:root,loader:'jsx'},bundle:true,write:false,jsx:'automatic',loader:{'.js':'jsx','.ttf':'dataurl'},platform:'browser',conditions:['browser'],mainFields:['browser','module','main'],nodePaths:[modules],resolveExtensions:['.web.tsx','.web.ts','.web.js','.tsx','.ts','.jsx','.js','.json'],alias:{react:path.join(modules,'react'),'react-dom':path.join(modules,'react-dom'),'react-native':path.join(modules,'react-native-web')},define:{'process.env.NODE_ENV':'"production"',__DEV__:'false',global:'globalThis'},banner:{js:'globalThis.process={env:{NODE_ENV:"production"}};'},plugins:[coachCalendarSubscriptionFixture,{name:'fixture-transport',setup(builder){for(const[index,[filter]]of mocks.entries())builder.onResolve({filter},()=>({path:String(index),namespace:'mock'}));builder.onLoad({filter:/.*/,namespace:'mock'},args=>({contents:mocks[Number(args.path)][1],loader:'jsx',resolveDir:root}))}}]})
 const browser = await chromium.launch({headless:true})
 try {
   const page = await browser.newPage({viewport:{width:390,height:844}})
@@ -96,8 +98,13 @@ try {
     assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'No horizontal overflow')
     await page.screenshot({path:'output/playwright/calendar-fixture/'+mode+'-'+width+'.png',fullPage:true})
     await page.getByRole('button',{name:'Create fixture and request availability',exact:true}).click()
+    await page.getByText('Add a venue before creating this fixture.',{exact:true}).waitFor()
+    assert.equal(await page.evaluate(()=>window.saved),null)
+    await page.getByLabel('Venue',{exact:true}).fill('FP TEST Ground')
+    await page.getByRole('button',{name:'Create fixture and request availability',exact:true}).click()
     await page.waitForFunction(()=>window.saved?.match?.id==='fixture')
     assert.equal(await page.evaluate(()=>window.saved.match.opponent),'FP TEST Visitors')
+    assert.equal(await page.evaluate(()=>window.saved.match.venueName),'FP TEST Ground')
   }
   await page.evaluate(()=>window.reset('team'))
   await page.getByRole('button',{name:'Create event',exact:true}).click()

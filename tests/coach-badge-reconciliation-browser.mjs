@@ -55,7 +55,9 @@ try {
   await page.waitForFunction(() => !window.resume && !window.received)
   assert.deepEqual(errors, [])
   const parentSources = await Promise.all(['apps/parent-mobile/App.js', 'apps/parent-mobile/src/FanContent.js', 'apps/parent-mobile/src/ParentPortalScreens.js'].map(file => readFile(file, 'utf8')))
-  for (const source of parentSources) assert.doesNotMatch(source, /Apple Calendar|shareCalendarEvent|calendarExport/)
+  for (const source of parentSources) assert.doesNotMatch(source, /shareCalendarEvent|calendarExport/)
+  assert.match(parentSources[0], /Connect Apple Calendar/)
+  assert.match(parentSources[0], /Linking\.openURL\(getAppleCalendarSubscriptionUrl\(url\)\)/)
   assert.match(parentSources[2], /Google Calendar/)
-  console.log('PASS: stale OS badges clear on resume, push, navigation and unchanged-count refresh; real unread chats remain, disabled preference respected, listeners cleaned up; Apple actions removed and Google retained.')
+  console.log('PASS: stale OS badges clear on resume, push, navigation and unchanged-count refresh; real unread chats remain, disabled preference respected, listeners cleaned up; validated Apple subscriptions allowed, one-off exports absent and Google retained.')
 } finally { await browser.close() }

@@ -1,4 +1,5 @@
 import { mergeMatchDayParticipantEventIdentities, normalizeMatchDayParticipantRoster } from '../../mobile-core/src/matchDayParticipantRoster.js'
+import { getCalendarSubscriptionToken } from '../../mobile-core/src/calendarSubscriptionCore.js'
 import { validateScorerMatchEvent } from '../../../src/lib/matchday-scorer-event.js'
 import * as Crypto from 'expo-crypto'
 import { prepareAttendanceChoices } from '../../mobile-core/src/attendanceCommandData'
@@ -616,13 +617,15 @@ export async function changeParentCalendarFeed(user, link, action) {
   if (!token) throw new Error('Sign in again before continuing.')
   const config = getMobileRuntimeConfig('parent')
   const feedPath = `/.netlify/functions/parent-calendar-feed?parentLinkId=${encodeURIComponent(link.id)}`
+  const key = calendarFeedStorageKey(user.id, link.id)
+  const previousUrl = await SecureStore.getItemAsync(key)
+  const previousToken = previousUrl ? getCalendarSubscriptionToken(previousUrl) : ''
   const { ok, result } = await fetchJsonWithTimeout(joinApiPath(config.apiBaseUrl, feedPath), {
     method: action === 'revoke' ? 'DELETE' : 'POST',
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ parentLinkId: link.id }),
+    body: JSON.stringify({ parentLinkId: link.id, subscriptionVersion: 2, previousToken }),
   })
   if (!ok || result?.success === false) throw new Error(result?.message || result?.error || 'Calendar subscription could not be changed.')
-  const key = calendarFeedStorageKey(user.id, link.id)
   if (action === 'revoke') {
     await SecureStore.deleteItemAsync(key)
     return ''

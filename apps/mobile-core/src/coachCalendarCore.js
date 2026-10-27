@@ -52,22 +52,26 @@ function addUtcDays(date, amount) {
   return shifted.toISOString().slice(0, 10)
 }
 
-export function buildCoachCalendarOccurrenceDates({ date, recurrenceFrequency = 'none', recurrenceUntil = '' } = {}) {
+export function buildCoachCalendarOccurrenceDates({ date, recurrenceFrequency = 'none', recurrenceUntil = '', windowStart = '', windowEnd = '' } = {}) {
   const firstDate = normalizeCoachCalendarFormDate(date)
   const frequency = COACH_CALENDAR_RECURRENCE.includes(normalizeKey(recurrenceFrequency))
     ? normalizeKey(recurrenceFrequency)
     : 'none'
-  const until = normalizeCoachCalendarFormDate(recurrenceUntil) || firstDate
+  const seriesUntil = normalizeCoachCalendarFormDate(recurrenceUntil) || firstDate
+  const until = windowEnd && windowEnd < seriesUntil ? windowEnd : seriesUntil
   if (!firstDate) return []
-  if (frequency === 'none' || until <= firstDate) return [firstDate]
+  if (frequency === 'none' || seriesUntil <= firstDate) return (!windowStart || firstDate >= windowStart) && (!windowEnd || firstDate <= windowEnd) ? [firstDate] : []
 
   const dates = []
   let cursor = firstDate
+  let index = 0
   while (cursor <= until && dates.length < MAX_COACH_CALENDAR_OCCURRENCES) {
-    dates.push(cursor)
+    if (!windowStart || cursor >= windowStart) dates.push(cursor)
+    index += 1
+    if (index > 12000) throw new Error('Calendar recurrence exceeds the supported range.')
     if (frequency === 'monthly') {
       const [year, month, day] = firstDate.split('-').map(Number)
-      const nextMonth = month - 1 + dates.length
+      const nextMonth = month - 1 + index
       const lastDay = new Date(Date.UTC(year, nextMonth + 1, 0)).getUTCDate()
       cursor = new Date(Date.UTC(year, nextMonth, Math.min(day, lastDay), 12)).toISOString().slice(0, 10)
     } else {
@@ -345,13 +349,15 @@ export function normalizeCoachCalendarEvent(row, sourceType = 'calendar_event') 
   })
 }
 
-function expandCoachCalendarEventOccurrences(event, availabilityByEventId = {}) {
+function expandCoachCalendarEventOccurrences(event, availabilityByEventId = {}, recurrenceWindow = {}) {
   const occurrenceDates = buildCoachCalendarOccurrenceDates({
     date: event.calendarDate,
     recurrenceFrequency: event.recurrenceFrequency,
     recurrenceUntil: event.recurrenceUntil,
+    ...recurrenceWindow,
   })
-  if (occurrenceDates.length <= 1) {
+  if (occurrenceDates.length === 0) return []
+  if (occurrenceDates.length === 1 && occurrenceDates[0] === event.calendarDate) {
     return [Object.freeze({
       ...event,
       availabilitySummary: availabilityByEventId[`${event.sourceId}:${event.calendarDate}`] || availabilityByEventId[event.sourceId] || event.availabilitySummary,
@@ -384,10 +390,10 @@ function expandCoachCalendarEventOccurrences(event, availabilityByEventId = {}) 
   })
 }
 
-export function buildCoachCalendarEvents({ calendarEvents = [], matches = [], sessions = [], availabilityByEventId = {} } = {}) {
+export function buildCoachCalendarEvents({ calendarEvents = [], matches = [], sessions = [], availabilityByEventId = {}, recurrenceWindow = {} } = {}) {
   const ordinary = calendarEvents.flatMap((row) => {
     const event = normalizeCoachCalendarEvent(row)
-    return expandCoachCalendarEventOccurrences(event, availabilityByEventId)
+    return expandCoachCalendarEventOccurrences(event, availabilityByEventId, recurrenceWindow)
   })
   const combined = [
     ...ordinary,

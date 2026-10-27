@@ -64,9 +64,9 @@ export function loadRecord(root) {
   const record = JSON.parse(fs.readFileSync(safe(root, 'security/reviewed-source-remediations.json')))
   verifyMaintainedAuthority(record)
   assert.equal(record.baseline, '864a6ad3856a02b65ec33bfe8e952e6f98d13dbd')
-  assert.equal(record.adoptionProposalSha256, 'e801ccad75bc760eb31ffb7d357c1185d3a68a6da40301c8dd457378be15a9c0', 'Maintained source policy identity changed')
+  assert.equal(record.adoptionProposalSha256, '9cd52b93b093879988437f6a904b79ebf4058b51f9fcec96dc664f3abfe20bbc', 'Maintained source policy identity changed')
   assert.equal(hash(fs.readFileSync(safe(root, 'security/maintained-source-policy.json'))), record.adoptionProposalSha256, 'Maintained source policy evidence drift')
-  assert.equal(record.releasePreparationSha256, "7918685f6ee4900a7000763be1cb0cbc53b54667fe049042beef5bdad0418503", 'Release preparation scope drift')
+  assert.equal(record.releasePreparationSha256, "26dbc5640d9bdcf78729aaa8b642c2bcd68ec500ff1701b8d6dc4f031ae33541", 'Release preparation scope drift')
   assert.equal(hash(Buffer.from(JSON.stringify(record.releasePreparation, null, 2) + '\n')), record.releasePreparationSha256, 'Release preparation pins drift')
   assert.equal(record.releasePreparation.baseline, record.baseline, 'Release preparation baseline mismatch')
   verifyReleasePreparation(root, record.releasePreparation)
@@ -79,16 +79,21 @@ export function loadRecord(root) {
   assert.deepEqual(record.targets.map(t => [t.scope, t.packagePath, t.name, t.version]), [
     ['.', 'node_modules/braces', 'braces', '3.0.3'],
     ['apps/parent-mobile', 'node_modules/braces', 'braces', '3.0.3'],
-    ['apps/parent-mobile', 'node_modules/node-forge', 'node-forge', '1.4.0'],
+    ['apps/parent-mobile', 'node_modules/node-forge', 'node-forge', '1.4.2'],
     ['apps/coach-mobile', 'node_modules/braces', 'braces', '3.0.3'],
-    ['apps/coach-mobile', 'node_modules/node-forge', 'node-forge', '1.4.0'],
+    ['apps/coach-mobile', 'node_modules/node-forge', 'node-forge', '1.4.2'],
   ], 'Exact reviewed copy/version scope changed')
-  assert.deepEqual(record.eligibleAdvisories, { braces: ['GHSA-vfj7-8cjw-p6xm'], 'node-forge': ['GHSA-86w9-cpqp-85rv'] })
+  assert.deepEqual(record.eligibleAdvisories, { braces: ['GHSA-vfj7-8cjw-p6xm'], 'node-forge': [] })
   for (const t of record.targets) {
     const trees = t.name === 'braces'
       ? ['ac0f50ef3e9a557dccb4805fc6bb0c8bf9b9502783b7d5baed4c9c8c55cd91a4', 'b024f34af0a56743116dec3c1da981519a0744e9dffe0dd1d31fecc1c0a50c77']
-      : ['078e10a11e2520deed99274a0ecf33560c3a728a55bd30dfe7e810955dd0926d', 'f97be7606683a2feba1f78317c4a8c13edba053d33df61396270efabb31e6adf']
+      : ['dbe2e243bd0239e3a366332f5265ca6bf4b32b050e9178c64e383de3d3455ea4', 'dbe2e243bd0239e3a366332f5265ca6bf4b32b050e9178c64e383de3d3455ea4']
     assert.deepEqual([t.originalTreeSha256, t.patchedTreeSha256], trees, 'Reviewed package-tree identities changed')
+    assert.equal(t.mode, t.name === 'braces' ? 'reviewed-source' : 'official-maintained', 'Package verification mode changed')
+    if (t.mode === 'official-maintained') {
+      assert.equal(t.registryIntegrity, 'sha512-rRtAR5XLJ8gCKd9du4qrKAsgCG1ObGP4gLeNJMa4vYSeq4bmBMOJk5IHkrviBV0q7uoAJlVd8HEQYQSVUb4FGQ==', 'Official node-forge integrity changed')
+      assert.deepEqual(t.files, [], 'Official node-forge cannot accept local source patches')
+    }
   }
   const expectedPatches = {
     'patches/braces-3.0.3.patch': 'e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699',

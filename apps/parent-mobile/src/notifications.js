@@ -1,4 +1,5 @@
 import { notificationPermissionState } from './notificationExplainerCore'
+import { registerBackgroundInvitationActions } from './backgroundInvitationActions'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import * as Application from 'expo-application'
 import * as Crypto from 'expo-crypto'
@@ -221,9 +222,10 @@ async function request({ apiBaseUrl, body, method, path, isCurrent = () => true 
 }
 
 export async function initializeParentNotifications() {
+  await registerBackgroundInvitationActions()
   await Notifications.setNotificationCategoryAsync('parent-response', [
-    { buttonTitle: 'Accept', identifier: 'parent_accept', options: { opensAppToForeground: true } },
-    { buttonTitle: 'Decline', identifier: 'parent_decline', options: { isDestructive: true, opensAppToForeground: true } },
+    { buttonTitle: 'Accept', identifier: 'parent_accept', options: { opensAppToForeground: false } },
+    { buttonTitle: 'Decline', identifier: 'parent_decline', options: { isDestructive: true, opensAppToForeground: false } },
   ])
   if (Platform.OS === 'android') {
     // Parent updates and the existing native default channel both carry Parent alerts.

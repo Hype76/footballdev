@@ -8,12 +8,12 @@
     "proposalSha256": "95f1b5c782335dea22aee6223bbf1426cfe5f2e281dc30e5076f4c7ad0177a91",
     "calendarQualificationExpiry": "2026-10-19T22:59:59Z"
   },
-  "scope": "The same five exact source-fixed copies of braces3.0.3 and node-forge1.4.0. No renamed packages, relabelled versions, generic advisory exceptions or native graph changes.",
+  "scope": "Three exact source-fixed braces3.0.3 copies and two unchanged official node-forge1.4.2 copies, all with full tree, registry integrity, lock and native-input verification. No renamed packages, relabelled versions or generic advisory exceptions.",
   "controls": [
     "Independent external receipt SHA256 binds exact clean HEAD, record, policy, implementation, native and release preparation identities.",
-    "Every release checks full installed package trees, all five physical copies, exact registry preimages/postimages, locks and native inputs.",
+    "Every release checks full installed package trees, all five physical copies, exact registry preimages/postimages, locks and native inputs. Official-maintained copies must remain byte-identical to the reviewed registry tree and receive no local source writes.",
     "Every release fetches official advisory meaning, exact upstream revision/status and latest published package version/integrity without cached acceptance. Lookup failures block release.",
-    "Full raw audits remain visible. Only the two pinned GHSA roots can be covered by their exact proven source fixes. Any new or uncovered advisory blocks release.",
+    "Full raw audits remain visible. Only the pinned braces GHSA root can be covered by its exact proven source fix. Official node-forge has no advisory acceptance. Any new or uncovered advisory blocks release.",
     "Runtime, provisioning, source/receipt and invalidation regressions must pass on every mobile release and Netlify build, before publication.",
     "Official published version changes, patch revisions/status, advisory meaning, source/native identity or maintenance-policy changes require fresh review and compatibility checks.",
     "There is no calendar renewal. A passing maintained-fix verification is required for each release; historical temporary approval cannot authorise this mode."
@@ -40,7 +40,7 @@
     },
     {
       "path": "apps/parent-mobile/node_modules/node-forge",
-      "treeSha256": "f97be7606683a2feba1f78317c4a8c13edba053d33df61396270efabb31e6adf"
+      "treeSha256": "dbe2e243bd0239e3a366332f5265ca6bf4b32b050e9178c64e383de3d3455ea4"
     },
     {
       "path": "apps/coach-mobile/node_modules/braces",
@@ -48,7 +48,7 @@
     },
     {
       "path": "apps/coach-mobile/node_modules/node-forge",
-      "treeSha256": "f97be7606683a2feba1f78317c4a8c13edba053d33df61396270efabb31e6adf"
+      "treeSha256": "dbe2e243bd0239e3a366332f5265ca6bf4b32b050e9178c64e383de3d3455ea4"
     }
   ],
   "initialOfficialVerification": {
@@ -102,7 +102,7 @@
     ]
   },
   "limitations": [
-    "These are locally maintained source fixes, not official package releases or a clean full registry audit.",
+    "The three braces copies remain locally maintained source fixes. The two node-forge copies use the compatible official1.4.2 release without source patches; full registry audits remain mandatory.",
     "Fix ownership and future security maintenance remain necessary. New security evidence can still block releases.",
     "No app feature, publisher path, production data, store binary or handset-acceptance change is approved by this policy."
   ],
@@ -125,5 +125,18 @@
       "officialRegistryOnly": true,
       "additionalAdvisoryAcceptanceAllowed": false
     }
+  },
+  "officialForgeReplacement": {
+    "authorisedOn": "2026-10-27",
+    "authority": "Current explicit native-release request and standing requirement to replace source fixes with verified compatible maintained official releases when available.",
+    "from": "1.4.0 with local RSA patch",
+    "to": "1.4.2",
+    "registryUrl": "https://registry.npmjs.org/node-forge/1.4.2",
+    "registryIntegrity": "sha512-rRtAR5XLJ8gCKd9du4qrKAsgCG1ObGP4gLeNJMa4vYSeq4bmBMOJk5IHkrviBV0q7uoAJlVd8HEQYQSVUb4FGQ==",
+    "gitHead": "7928054627d93ab8c0216b756246e8ca8d62a93e",
+    "completeTreeSha256": "dbe2e243bd0239e3a366332f5265ca6bf4b32b050e9178c64e383de3d3455ea4",
+    "sourceWritesAllowed": false,
+    "advisoryAcceptanceAllowed": false,
+    "reason": "Maintainer closed the prior count-only proposals; official canonical-DER validation fixes the wider RSA issue and1.4.2 also fixes PEM Buffer decoding. Historical payloads are retained only as immutable evidence."
   }
 }
