@@ -8,6 +8,7 @@ import { loadFanMatches, loadFanSchedule, loadPlayerAttendance } from './lib/_fa
 import { loadFanPlayerStats } from './lib/_fan-player-stats.js'
 import { loadHistory } from './lib/_parent-development-history.js'
 import { loadAuthorisedResource } from './parent-resource-access.js'
+import { canReadPlayerEventResources, listFanResources, loadPlayerEventResource } from './lib/_player-event-resources.js'
 import { assertParentPlanFeatureForScope } from './lib/_parent-plan-gate.js'
 import { canUsePlanEntitlement } from './lib/_plan-gate.js'
 import { readClubKits } from '../../src/lib/club-kits.js'
@@ -64,7 +65,10 @@ export async function handleFans(event, {
     }
     const permission = { schedule: 'schedule', attendance: 'schedule', matches: 'game_day', stats: 'game_day', notifications: 'game_day', development: 'development', resources: 'resources', open_resource: 'resources' }[body.action]
     if (!permission) return json(400, { message: 'Choose a valid Fan action.' })
-    const scope = await loadFanScope(client, actor, body.connectionId, permission)
+    const scope = await loadFanScope(client, actor, body.connectionId, body.action === 'notifications' ? null : permission)
+    if (body.action === 'notifications' && !scope.fan.permissions?.game_day && !canReadPlayerEventResources(scope)) {
+      return json(403, { message: 'Notification access is not enabled for this player.' })
+    }
     const planProfile = await assertPlanFeatureForScope({
       actionCategory: 'READ',
       clubId: scope.fan.club_id,
@@ -103,11 +107,17 @@ export async function handleFans(event, {
       return json(200, { schedule: await loadFanSchedule(client, scope, new Date(), { featureAllowed }) })
     }
     if (body.action === 'notifications') {
-      await requireFeature('matchDay')
-      const result = await client.from('fan_notifications').select('id, match_id, title, body, created_at').eq('connection_id', scope.fan.id).order('created_at', { ascending: false }).limit(60)
+      const canMatches = scope.fan.permissions?.game_day === true && featureAllowed('matchDay')
+      const canResources = canReadPlayerEventResources(scope) && featureAllowed('resourceLibrary') && featureAllowed('teamCalendar')
+      if (!canMatches && !canResources) return json(403, { message: 'Notifications are not available for this plan.' })
+      const result = await client.from('fan_notifications').select('id,match_id,calendar_event_id,resource_id,occurrence_date,title,body,created_at').eq('connection_id', scope.fan.id).order('created_at', { ascending: false }).limit(60)
       if (result.error) throw result.error
-      const visible = new Set((await loadFanMatches(client, scope)).map((match) => match.id))
-      return json(200, { notifications: (result.data || []).filter((item) => visible.has(item.match_id)) })
+      const visible = new Set(canMatches ? (await loadFanMatches(client, scope)).map(match => match.id) : [])
+      const schedule = canResources ? await loadFanSchedule(client, scope, new Date(), { featureAllowed }) : []
+      return json(200, { notifications: (result.data || []).filter(item => item.match_id
+        ? visible.has(item.match_id)
+        : canResources && schedule.some(event => event.resources?.some(resource => resource.id === item.resource_id
+          && resource.eventId === item.calendar_event_id && resource.occurrenceDate === item.occurrence_date))) })
     }
     if (body.action === 'matches') {
       await requireFeature('matchDay')
@@ -125,16 +135,21 @@ export async function handleFans(event, {
     }
     if (body.action === 'resources') {
       await requireFeature('resourceLibrary')
-      const result = await client.from('resource_library_links').select('resource_id, resource_library_items!inner(id, title, description, category, created_at, updated_at, archived_at, club_id, team_id)')
-        .eq('club_id', scope.fan.club_id).eq('team_id', scope.player.team_id).eq('linked_type', 'player').eq('linked_id', scope.player.id).eq('parent_visible', true).is('removed_at', null)
-      if (result.error) throw result.error
-      const resources = (result.data || []).map((row) => row.resource_library_items).filter((r) => r && !r.archived_at && r.club_id === scope.fan.club_id && r.team_id === scope.player.team_id)
-        .map(({ id, title, description, category, created_at, updated_at }) => ({ id, title, description, category, createdAt: created_at, updatedAt: updated_at }))
+      const schedule = canReadPlayerEventResources(scope) && featureAllowed('teamCalendar')
+        ? await loadFanSchedule(client, scope, new Date(), { featureAllowed }) : []
+      const resources = await listFanResources(client, scope, schedule)
       return json(200, { resources })
     }
     await requireFeature('resourceLibrary')
     if (!UUID.test(body.resourceId || '')) return json(400, { message: 'Choose a valid resource.' })
-    const { access, resource, formationBoard } = await loadAuthorisedResource({ authUserId: scope.parent.auth_user_id, parentLinkId: scope.parent.id, resourceId: body.resourceId, supabaseAdmin: client })
+    const schedule = canReadPlayerEventResources(scope) && featureAllowed('teamCalendar')
+      ? await loadFanSchedule(client, scope, new Date(), { featureAllowed }) : []
+    const shared = await listFanResources(client, scope, schedule)
+    const selected = shared.find(item => item.id === body.resourceId)
+    if (!selected) return json(403, { message: 'This resource is not available for this player.' })
+    const { access, resource, formationBoard } = selected.eventId
+      ? await loadPlayerEventResource(client, scope, selected, schedule)
+      : await loadAuthorisedResource({ authUserId: scope.parent.auth_user_id, parentLinkId: scope.parent.id, resourceId: body.resourceId, supabaseAdmin: client })
     if (formationBoard) return json(200, { formationBoard })
     if (access.accessType === 'external_link') return json(200, access)
     const signed = await client.storage.from('resource-library').createSignedUrl(resource.storage_path, 60)

@@ -33,7 +33,8 @@ const mocks = {
 }
 const entry = `
 import React,{useState,useEffect,useRef} from 'react'; import {createRoot} from 'react-dom/client';
-import {Alert,AppState,Share,Platform} from 'react-native';
+import {Alert,AppState,Share,Platform,Linking} from 'react-native';
+window.openedResourceUrls=[];Linking.openURL=async url=>{window.openedResourceUrls.push(url)};
 window.phonePlatform=value=>{Platform.OS=value};
 import {FansScreen,clearFanNotificationDevice} from './apps/parent-mobile/src/FansScreen.js';
 window.clearPhoneNotifications=clearFanNotificationDevice;
@@ -627,6 +628,36 @@ try {
     assert.equal(await choice('Light').getAttribute('aria-checked'), 'true')
     await page.setViewportSize({ width: 390, height: 844 })
   }
+  await page.goto('http://localhost:9877')
+  await page.evaluate(() => {
+    window.standalone=true;window.user={id:'player-test',parentPortalLinks:[]};
+    window.rows=[{id:'training-player',is_owner:false,status:'active',relationship_type:'player',player_name:'FP TEST Player',club_name:'Demo FC',team_name:'Under 14',plan_key:'club',plan_status:'active',permissions:{schedule:true,game_day:false,development:true,resources:true}}];
+    const date=new Date(Date.now()+7*86400000).toISOString().slice(0,10);
+    const resource={id:'10000000-0000-4000-8000-000000000021',title:'FP TEST Training card',category:'training'};
+    window.responses={schedule:{schedule:[{id:'10000000-0000-4000-8000-000000000020:'+date,title:'FP TEST Thursday training',event_type:'training',date,time:'18:00',resources:[resource]}]},resources:{resources:[resource]},open_resource:{accessUrl:'https://synthetic.test/training-card.pdf'}};
+    window.remount();
+  })
+  await page.getByText('FP TEST Player',{exact:true}).waitFor()
+  await page.getByRole('tab',{name:'Calendar',exact:true}).click()
+  await button('Open FP TEST Training card').click()
+  await page.waitForFunction(()=>window.openedResourceUrls.includes('https://synthetic.test/training-card.pdf'))
+  assert.equal(await page.evaluate(()=>window.readRequests.filter(r=>r.action==='open_resource').at(-1).resourceId),'10000000-0000-4000-8000-000000000021')
+  await page.screenshot({path:`${out}/player-training-attachment.png`})
+  await page.getByRole('tab',{name:'Home',exact:true}).click()
+  await button('Resources').click()
+  await page.getByRole('button',{name:/FP TEST Training card/}).click()
+  await page.waitForFunction(()=>window.openedResourceUrls.length===2)
+  await page.evaluate(()=>{window.responses.open_resource={formationBoard:{id:'formation-version',title:'FP TEST Training formation',gameFormat:'7v7',formation:'2-3-1',placements:[],bench:[]}}})
+  await page.getByRole('tab',{name:'Calendar',exact:true}).click()
+  await button('Open FP TEST Training card').click()
+  await page.getByRole('heading',{name:'FP TEST Training formation',exact:true}).waitFor()
+  await button('Back to Calendar').click()
+  await page.getByRole('heading',{name:'Calendar',exact:true}).waitFor()
+  await page.evaluate(()=>{window.rows[0].permissions.resources=false;window.remount()})
+  await page.getByRole('tab',{name:'Calendar',exact:true}).click()
+  await page.getByText('FP TEST Thursday training',{exact:true}).waitFor()
+  assert.equal(await button('Open FP TEST Training card').count(),0,'Current resource revocation hides cached Calendar attachments')
+  console.log('PASS: player training resource opens from Calendar and Resources using the resource ID; Calendar formation viewer and return work; current permission revocation hides attachments.')
   assert.deepEqual(errors, [])
   console.log('PASS: Fans and Players can choose System, Light or Dark; live device following, explicit overrides, reload persistence, save retry, contrast and 320px touch targets.')
   console.log('PASS: native Fans child/header sync, persisted selection, invitation renewal, confirmed cancelled/expired deletion, Player-to-Fan conversion, retry after failure, normal child navigation.')

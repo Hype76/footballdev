@@ -26,12 +26,18 @@ export function FanContent({ connection, view, content, formation, onCloseFormat
   if (view.action === 'attendance') return <FanAttendanceScreen items={content.attendance || []} themeTokens={themeTokens} />
   if (view.action === 'stats' && connection?.relationship_type === 'player') return <PlayerStatsScreen connection={connection} stats={content.stats} themeTokens={themeTokens} />
   if (view.action === 'schedule') {
+    const canEventResources = connection?.relationship_type === 'player' && connection.permissions?.schedule
+      && connection.permissions?.resources && connection.permissions?.development
     const calendarEvents = upcomingFanSchedule(content.schedule || []).map((item) => ({
       id: item.id, title: item.title, selectedPlayerNames: connection?.relationship_type === 'player' ? item.selected_player_names : undefined, eventType: item.event_type || 'event', status: item.status,
       startsAt: item.starts_at || (item.time ? `${item.date}T${item.time}` : item.date),
-      endsAt: item.ends_at || (item.end_time ? `${item.date}T${item.end_time}` : ''), location: item.location,
+      endsAt: item.ends_at || (item.end_time ? `${item.date}T${item.end_time}` : ''), location: item.location, resources: canEventResources ? item.resources || [] : [],
     }))
-    return <CalendarScreen upcomingOnly link={link} resource={resource(buildParentCalendarEvents({ calendarEvents }))} onAddToCalendar={addToCalendar} onOpenLink={onOpenLink} themeTokens={themeTokens} />
+    const attachments = calendarEvents.flatMap(event => event.resources)
+    if (formation && attachments.some(item => item.id === formation.resourceId)) {
+      return <ResourcesScreen resource={resource(attachments)} formationBoard={formation} formationBackLabel="Back to Calendar" onCloseFormation={onCloseFormation} onOpen={onOpenResource} themeTokens={themeTokens} />
+    }
+    return <CalendarScreen upcomingOnly link={link} resource={resource(buildParentCalendarEvents({ calendarEvents }))} onAddToCalendar={addToCalendar} onOpenLink={onOpenLink} onOpenResource={(_, attachment) => onOpenResource(attachment)} themeTokens={themeTokens} />
   }
   if (view.action === 'matches') {
     const isPlayer = connection?.relationship_type === 'player'

@@ -14,7 +14,7 @@ import QRCode from 'qrcode/lib/core/qrcode'
 import { supabase, getAccessToken } from '../../mobile-core/src/supabase'
 import { getMobileRuntimeConfig } from '../../mobile-core/src/config'
 import { useMobileAuth } from '../../mobile-core/src/auth'
-import { FAN_ACCESS, fanAccessSummary, fanInviteUrl, getFanAccessForPlan, isFanAccessAllowedForPlan, normalizeFanPermissions, restrictFanPermissionsForPlan, validateFanInvite } from '../../../src/lib/fans'
+import { canViewFanNotifications, fanNotificationTarget, FAN_ACCESS, fanAccessSummary, fanInviteUrl, getFanAccessForPlan, isFanAccessAllowedForPlan, normalizeFanPermissions, restrictFanPermissionsForPlan, validateFanInvite } from '../../../src/lib/fans'
 import { useFans } from '../../../src/lib/use-fans'
 import { fetchFansJson } from '../../../src/lib/fans-fetch'
 import ParentIcon from './ParentIcon'
@@ -183,9 +183,12 @@ function FansScreenContent({ embedded = false, themeTokens, themeMode, onBack, s
   useEffect(() => {
     const data = lastNotification?.notification?.request?.content?.data
     const notificationId = lastNotification?.notification?.request?.identifier
-    if (data?.route === 'fans' && data.fanConnectionId && notificationId !== handledNotification.current && state.connections.some((c) => c.id === data.fanConnectionId && c.permissions.game_day && isFanAccessAllowedForPlan(c, 'matches', matchdayPolicy))) {
+    const connection = state.connections.find(c => c.id === data?.fanConnectionId)
+    const target = fanNotificationTarget(connection, data, matchdayPolicy)
+    if (target && notificationId !== handledNotification.current) {
       handledNotification.current = notificationId
-      void open(data.fanConnectionId, 'matches', data.matchDayId ? { matchId: data.matchDayId } : {})
+      const { action, ...details } = target
+      void open(data.fanConnectionId, action, details)
     }
   }, [lastNotification, matchdayPolicy, open, state.connections])
   useEffect(() => { setFormation(null) }, [state.view])
@@ -295,10 +298,10 @@ function FansScreenContent({ embedded = false, themeTokens, themeMode, onBack, s
         <Text style={styles.helper}>System follows this device's appearance. Your choice is remembered on this device.</Text>
         <DeviceThemeChoices value={savedMode} onChange={changeDisplayTheme} palette={{ accentText: tokens.accentText, border: tokens.border, textMuted: tokens.textSecondary }} />
       </> : null}
-      {followed.some(c => c.permissions.game_day) ? <View style={{ gap: 8 }}>
+      {followed.some(c => canViewFanNotifications(c, matchdayPolicy)) ? <View style={{ gap: 8 }}>
         <Text style={styles.label}>Phone notifications</Text>
         <Text accessibilityLiveRegion="polite" style={styles.helper}>{({ checking: 'Checking phone notifications...', enabled: deviceNotifications.quiet ? 'Phone notifications are enabled with quiet delivery in phone settings.' : 'Phone notifications are enabled on this device.', paused: 'Phone notifications are paused in this app.', off: 'Phone notifications are off in phone settings.', not_registered: 'This device is not registered for phone notifications.', unknown: 'Phone notification status could not be checked. Retry to check your saved choice.', web: 'Phone notifications are available in the mobile app.' })[deviceNotifications.status]}</Text>
-        <Text style={styles.helper}>The Game Day switch on each player chooses which alerts you follow. Phone notifications also need permission and registration on this device.</Text>
+        <Text style={styles.helper}>The notification switch on each player chooses which alerts you follow. Phone notifications also need permission and registration on this device.</Text>
         {deviceNotifications.status === 'enabled' ? <Action icon="notifications" label="Turn off phone notifications" disabled={busy} onPress={disableDevice} /> : deviceNotifications.status === 'off' && deviceNotifications.canAskAgain === false ? <Action icon="settings" label="Open phone settings" disabled={busy} onPress={() => run(() => Linking.openSettings())} /> : deviceNotifications.status === 'unknown' ? <Action icon="notifications" label="Retry phone notifications" disabled={busy} onPress={() => run(() => refreshDeviceNotifications())} /> : ['off', 'paused', 'not_registered'].includes(deviceNotifications.status) ? <Action icon="notifications" label="Enable phone notifications" disabled={busy} onPress={enableDevice} /> : null}
       </View> : null}
       <Action icon="person-add" label="Open a Fan invitation" onPress={() => { setJoining(true); setInvitationLink('') }} />
