@@ -21,7 +21,7 @@ function extract(source, names) {
 const backCondition = appSource.match(/\{renderedActiveTab === 'more' && renderedMoreSection \? <BackButton[^\n]+/)[0]
 const source = `
 import {getParentBadgeColours,getParentStatusColours} from './apps/mobile-core/src/parentStatusColours.js';
-import React,{useState,useEffect,useMemo,useContext,createContext} from 'react';
+import React,{useState,useEffect,useMemo,useContext,useRef,createContext} from 'react';
 import {createRoot} from 'react-dom/client';
 import {View,Text,Pressable,StyleSheet,Platform,TextInput,Switch} from 'react-native';
 import ParentIcon from './apps/parent-mobile/src/ParentIcon.js';
@@ -32,6 +32,7 @@ import {buildFinalMatchReportSummary,buildCompletedMatchGoalScorerLines,buildCom
 import {getParentMatchGroups} from './apps/parent-mobile/src/parentExperience.js';
 import {getParentMatchTimeline} from './apps/parent-mobile/src/parentScorerCore.js';
 import {getMatchDayDisplayName} from './src/lib/matchday-display.js';
+import {getAppleCalendarSubscriptionUrl} from './apps/mobile-core/src/calendarSubscriptionCore.js';
 Platform.OS='ios';
 const ParentThemeContext=createContext(null),Application={nativeApplicationVersion:'1.0.22',nativeBuildVersion:'44'},Constants={};
 const MOBILE_SETTING_LOAD_STATES={READY:'ready',LOADING:'loading',STALE:'stale'};
@@ -41,8 +42,10 @@ const getParentNotificationStatusLabel=()=> 'Enabled';
 window.calls=[];window.confirmation=null;
 const Alert={alert:(title,message,buttons)=>{window.confirmation={title,message,buttons}}};
 const Share={share:async item=>{window.calls.push({action:'share',item})}};
-const getStoredParentCalendarFeedUrl=async(user,link)=>'https://calendar.example.invalid/feed?token='+link.id+'-synthetic-private-token-'+ 'a'.repeat(96);
-const changeParentCalendarFeed=async(user,link,action)=>{window.calls.push({action,link:link.id});return action==='revoke'?'':'https://calendar.example.invalid/feed?token='+link.id+'-replacement'};
+const Linking={openURL:async url=>{window.calls.push({action:'open-calendar',url})}};
+const syntheticFeed=(link,replacement=false)=>'https://parent.footballplayer.online/.netlify/functions/parent-calendar-feed?token='+(link.id==='player-one'?(replacement?'c':'a'):(replacement?'d':'b')).repeat(64);
+const getStoredParentCalendarFeedUrl=async(user,link)=>syntheticFeed(link);
+const changeParentCalendarFeed=async(user,link,action)=>{window.calls.push({action,link:link.id});return action==='revoke'?'':syntheticFeed(link,true)};
 ${extract(appSource,['SettingsScreen','ScreenIntro','InfoPanel','InfoRow','Badge','PrimaryAction','BackButton','useParentTheme','createParentAppPalette','createParentAppStyles','labelize','formatDateTime','normalizeText'])}
 ${extract(portalSource,['colorsFor','usePortalStyles','Button','ResourceState','ResultsScreen','ParentMatchReportCard','formatDate'])}
 const fixture={id:'result-one',status:'full_time',matchDate:'2026-09-26',clubName:'Synthetic Town FC',teamName:'U14 Synthetic Town FC',opponent:'Synthetic Elite',homeAway:'away',homeScore:0,awayScore:5,events:[],squadDecisions:[],playerNames:{}};
@@ -73,11 +76,17 @@ try {
  assert.equal(await page.getByLabel('Private calendar link',{exact:true}).count(),0,'Stored private link hidden on load')
  assert.equal(await button('Replace calendar link').count(),0)
  assert.equal(await page.getByText(/In iPhone Calendar/).count(),0)
+ await button('Connect Apple Calendar').click()
+ await page.getByText('Confirm the subscription in Apple Calendar. Accepted events and later changes sync when Apple refreshes the calendar.',{exact:true}).waitFor()
+ const connected=(await page.evaluate(()=>window.calls)).find(call=>call.action==='open-calendar')
+ assert.equal(connected.url,'webcal://parent.footballplayer.online/.netlify/functions/parent-calendar-feed?token='+'a'.repeat(64))
+ assert.equal((await page.evaluate(()=>window.calls)).filter(call=>call.action==='generate').length,0,'Connecting a stored link must not replace its secret')
+ assert.equal(await page.getByLabel('Private calendar link',{exact:true}).count(),0,'Connecting keeps the private URL hidden')
  await page.screenshot({path:output+'/calendar-default-light-390.png',fullPage:true})
  await button('Show secure calendar link').click()
  await page.getByLabel('Private calendar link',{exact:true}).waitFor()
  await button('Share calendar link').click()
- assert.match((await page.evaluate(()=>window.calls))[0].item.url,/player-one-synthetic-private-token/)
+ assert.equal(new URL((await page.evaluate(()=>window.calls)).find(call=>call.action==='share').item.url).searchParams.get('token'),'a'.repeat(64))
  await button('Hide secure calendar link').click()
  assert.equal(await page.getByLabel('Private calendar link',{exact:true}).count(),0)
  await button('How to add your calendar').click()
@@ -94,6 +103,7 @@ try {
  assert.equal(await page.getByLabel('Private calendar link',{exact:true}).count(),0)
  await page.evaluate(()=>window.offline(true))
  assert.equal(await button('Show secure calendar link').isDisabled(),true)
+ assert.equal(await button('Connect Apple Calendar').isDisabled(),true)
  assert.equal(await button('Replace calendar link').isDisabled(),true)
  assert.equal(await button('Revoke calendar link').isDisabled(),true)
  await page.evaluate(()=>window.offline(false))
@@ -103,11 +113,14 @@ try {
  await page.getByText(/Accepted events for Other Player/).waitFor()
  assert.equal(await page.getByLabel('Private calendar link',{exact:true}).count(),0,'Player switch hides old token')
  await button('Show secure calendar link').click()
- assert.match(await page.getByLabel('Private calendar link',{exact:true}).innerText(),/player-two/)
+ assert.equal(new URL(await page.getByLabel('Private calendar link',{exact:true}).innerText()).searchParams.get('token'),'b'.repeat(64))
  await button('Hide secure calendar link').click()
+ await button('Connect Apple Calendar').click()
+ await page.getByText('Confirm the subscription in Apple Calendar. Accepted events and later changes sync when Apple refreshes the calendar.',{exact:true}).waitFor()
+ assert.equal((await page.evaluate(()=>window.calls)).filter(call=>call.action==='open-calendar').at(-1).url,'webcal://parent.footballplayer.online/.netlify/functions/parent-calendar-feed?token='+'b'.repeat(64),'Calendar connection follows the selected player')
  for(const width of [320,390])for(const mode of ['light','dark']){
   await page.setViewportSize({width,height:850});await page.evaluate(mode=>window.mode(mode),mode)
-  for(const label of ['Show secure calendar link','Share calendar link','How to add your calendar','Manage calendar link','Replace calendar link','Revoke calendar link']){const box=await button(label).boundingBox();assert.ok(box.width>=44&&box.height>=44,label+' tap target')}
+  for(const label of ['Connect Apple Calendar','Show secure calendar link','Share calendar link','How to add your calendar','Manage calendar link','Replace calendar link','Revoke calendar link']){const box=await button(label).boundingBox();assert.ok(box.width>=44&&box.height>=44,label+' tap target')}
   assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'Calendar overflow')
   await page.screenshot({path:output+'/calendar-'+mode+'-'+width+'.png',fullPage:true})
   await button('Show secure calendar link').click()
@@ -138,5 +151,5 @@ try {
   await page.screenshot({path:output+'/results-'+mode+'-'+width+'.png',fullPage:true})
  }
  assert.deepEqual(errors,[])
- console.log('PASS: actual Settings calendar privacy, show/hide/share, help/manage, replace cancellation and completion, revoke, offline, player switch; actual shell Fans Back to More; Results PDF action/busy state, compact transparent style; 320/390 light/dark, 44px targets, long URL wraps, no overflow, 9 screenshots. Native saving remains separately unverified.')
+ console.log('PASS: actual Settings calendar privacy, Apple subscription launch with selected-player secret and no replacement, show/hide/share, help/manage, replace cancellation and completion, revoke, offline, player switch; actual shell Fans Back to More; Results PDF action/busy state, compact transparent style; 320/390 light/dark, 44px targets, long URL wraps, no overflow, 9 screenshots. Native saving remains separately unverified.')
 } finally {await browser.close()}

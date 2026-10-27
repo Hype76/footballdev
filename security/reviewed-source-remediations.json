@@ -217,7 +217,7 @@
   "implementationHashes": {
     "scripts/security-supply-chain-gate.mjs": "dcf722bc6cbf2015da4250ea60cbb81e34d3c5c64ec7bb6059671cbae5ab4207",
     "scripts/security-apply-reviewed-backports.mjs": "13a3d243c760239010cbc7833737fb9ebd0c5dab3e48ac12e3cea414173afbef",
-    "scripts/security-verify-reviewed-backports.mjs": "5c5a58ce3f8f4ece2d5ce74a1e9e8242e414fe39cda9df53873bbf9347540fdb",
+    "scripts/security-verify-reviewed-backports.mjs": "082ab317b1c3d572c5e9e5b249898bc3f7999f314148e87dcf1982522d173441",
     "security/patches/braces-3.0.3.patch": "e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699",
     "security/patches/node-forge-1.4.0.patch": "2de065ac998bf58917a14d0935112d97ec2957ac41b5f06958d500934f188ed4",
     "security/patches/reviewed-source-manifest.json": "79262ec68a5214db7ffea3c90200b03d8af6f850b14a5002eb17e7517f55822f",
@@ -1469,7 +1469,7 @@
       "tests/parent-scorer-notification-routing.test.mjs": "29168c8231993a1730d727b846a66fe4b6ed632958f305cd9fc85783154284e2",
       "tests/parent-scorer-offline-outbox.test.mjs": "255e0de9aeaa1f04c53b37aff49fda37aa4804d1c2955f3393d46888dcdf9b38",
       "tests/parent-self-access-removal.test.mjs": "4b02bf6faf3bd9cbeb08a507c6a4171c7faa866fd5ac22f4eb9ab687229cc593",
-      "tests/parent-simon-feedback-browser.mjs": "48d3a1dc6c2565fea9d8b880afb7ce8fe3bf426a063e2a60509c9ba79c346c3b",
+      "tests/parent-simon-feedback-browser.mjs": "1e947e15ee1c81f53e96d97624b8de896585ef5f481a94e75a8b3e73610a7b29",
       "tests/parent-training-notification-authority-followup.test.mjs": "96900ae87011054a0b7f29c1ce88dde1e0070561dceeaa1799588e27a4fc0b8a",
       "tests/paywall-access-model.test.mjs": "b242a7fbbbc0d6b0a175bed36e08e1e5525f84274563d1840ddf49b62cedef50",
       "tests/paywall-plan-normalization.test.mjs": "fec83ba36059a2b9f661cc29402392833b2ca67a816ec078b28b0fd09aab9fce",
@@ -2925,7 +2925,7 @@
       "publicationApproved": false
     }
   },
-  "releasePreparationSha256": "ec90a588577161fdb98425d82163c0fc65f747d1cc88a76b462ede507670b299",
+  "releasePreparationSha256": "cb1650e5c7d5048e126627cb2118609057ee1ad81005f488be1312534f74385b",
   "rootOnlyProposalSha256": "45c3b7352c7328c84982e114b7e87e09cf79514d02d102297ae75ec0925812eb",
   "remediationMode": "maintained-source-fixes"
 }
