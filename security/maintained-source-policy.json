@@ -8,25 +8,21 @@
     "proposalSha256": "95f1b5c782335dea22aee6223bbf1426cfe5f2e281dc30e5076f4c7ad0177a91",
     "calendarQualificationExpiry": "2026-10-19T22:59:59Z"
   },
-  "scope": "The same five exact source-fixed copies of braces3.0.3 and node-forge1.4.0. No renamed packages, relabelled versions, generic advisory exceptions or native graph changes.",
+  "scope": "Three exact source-fixed braces3.0.3 copies plus two unmodified official node-forge1.4.2 copies. No renamed packages, relabelled versions, generic advisory exceptions or native graph changes.",
   "controls": [
     "Independent external receipt SHA256 binds exact clean HEAD, record, policy, implementation, native and release preparation identities.",
-    "Every release checks full installed package trees, all five physical copies, exact registry preimages/postimages, locks and native inputs.",
+    "Every release checks full installed package trees, all five physical copies, exact registry preimages/postimages or unmodified official release trees, locks and native inputs.",
     "Every release fetches official advisory meaning, exact upstream revision/status and latest published package version/integrity without cached acceptance. Lookup failures block release.",
-    "Full raw audits remain visible. Only the two pinned GHSA roots can be covered by their exact proven source fixes. Any new or uncovered advisory blocks release.",
+    "Full raw audits remain visible. Only the pinned braces GHSA root can be covered by its exact proven source fix. Forge has no advisory exception or source patch. Any new or uncovered advisory blocks release.",
     "Runtime, provisioning, source/receipt and invalidation regressions must pass on every mobile release and Netlify build, before publication.",
     "Official published version changes, patch revisions/status, advisory meaning, source/native identity or maintenance-policy changes require fresh review and compatibility checks.",
     "There is no calendar renewal. A passing maintained-fix verification is required for each release; historical temporary approval cannot authorise this mode."
   ],
-  "preservedPayloadSha256": "829c5002c6462e3b47df82812a6e2538895146c6946628ceb34f81265b353f34",
+  "preservedPayloadSha256": "1091cd4586536ef10361c3acf5338a3bf4225541b7dd07c103a8b30d644aae25",
   "preservedPatchIdentities": [
     {
       "file": "patches/braces-3.0.3.patch",
       "sha256": "e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699"
-    },
-    {
-      "file": "patches/node-forge-1.4.0.patch",
-      "sha256": "2de065ac998bf58917a14d0935112d97ec2957ac41b5f06958d500934f188ed4"
     }
   ],
   "installedCopyProof": [
@@ -40,7 +36,7 @@
     },
     {
       "path": "apps/parent-mobile/node_modules/node-forge",
-      "treeSha256": "f97be7606683a2feba1f78317c4a8c13edba053d33df61396270efabb31e6adf"
+      "treeSha256": "dbe2e243bd0239e3a366332f5265ca6bf4b32b050e9178c64e383de3d3455ea4"
     },
     {
       "path": "apps/coach-mobile/node_modules/braces",
@@ -48,7 +44,7 @@
     },
     {
       "path": "apps/coach-mobile/node_modules/node-forge",
-      "treeSha256": "f97be7606683a2feba1f78317c4a8c13edba053d33df61396270efabb31e6adf"
+      "treeSha256": "dbe2e243bd0239e3a366332f5265ca6bf4b32b050e9178c64e383de3d3455ea4"
     }
   ],
   "initialOfficialVerification": {
@@ -125,5 +121,13 @@
       "officialRegistryOnly": true,
       "additionalAdvisoryAcceptanceAllowed": false
     }
+  },
+  "officialForgeReplacement": {
+    "date": "2026-10-27",
+    "reason": "Published node-forge1.4.2 supersedes the closed unmerged narrow source fixes and supplies canonical DigestInfo validation plus the PEM Buffer compatibility repair.",
+    "scope": "Replace both Forge tooling copies with unmodified official registry1.4.2; retire Forge advisory acceptance and local source payload; retain braces exact source fixes and every release gate.",
+    "freshIndependentExactCandidateReviewRequired": true,
+    "nativeGraphChanges": 0,
+    "nativeBuildRequired": false
   }
 }

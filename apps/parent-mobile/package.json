@@ -87,6 +87,7 @@
     "metro-transform-worker@0.83.3": "0.83.8",
     "compression@<1.8.2": "1.8.2",
     "source-map-js@>=1.0.0 <1.2.2": "1.2.2",
-    "argparse@<2.0.1": "2.0.1"
+    "argparse@<2.0.1": "2.0.1",
+    "node-forge": "1.4.2"
   }
 }

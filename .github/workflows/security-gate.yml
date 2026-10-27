@@ -44,7 +44,7 @@ jobs:
       - name: Dependency, lifecycle and license gate
         run: npm run security:supply-chain
       - name: Reviewed patch behaviour and qualification integrity
-        run: node --test tests/security-reviewed-backports.test.mjs tests/security-reviewed-provisioning.test.mjs tests/security-backport-runtime.test.mjs tests/security-maintained-source.test.mjs tests/security-toml-upstream.test.mjs
+        run: node --test tests/security-reviewed-backports.test.mjs tests/security-reviewed-provisioning.test.mjs tests/security-backport-runtime.test.mjs tests/security-maintained-source.test.mjs tests/security-toml-upstream.test.mjs tests/security-forge-official.test.mjs
       - name: High-confidence secret scan
         run: npm run security:secret-scan
       - name: Generate production SBOM

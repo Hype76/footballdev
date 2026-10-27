@@ -8,6 +8,12 @@ import { hash, inventory, loadRecord, verifySource, verifyCopies, verifyReview, 
 export function prepareWrites(record, payload, copies) {
 const writes = []
 for (const copy of copies) {
+  if (copy.target.remediation === 'official-release') {
+    assert.deepEqual(copy.target.files, [], 'Official release cannot have patch files')
+    assert.equal(copy.target.originalTreeSha256, copy.target.patchedTreeSha256, 'Official release trees must match')
+    assert.equal(hash(Buffer.from(JSON.stringify(inventory(copy.dir)))), copy.target.originalTreeSha256, 'Official release tree drift: no writes')
+    continue
+  }
   const library = payload.libraries.find(item => item.name === copy.target.name)
   assert.ok(library, 'Missing reviewed library payload')
   assert.deepEqual(library.files.map(x => x.path).sort(), copy.target.files.map(x => x.path).sort(), 'Incomplete payload file set')

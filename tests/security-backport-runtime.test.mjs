@@ -21,7 +21,7 @@ try {
     const directory = path.join(temporary, String(copies.length), target.name)
     fs.cpSync(source, directory, { recursive: true })
     const original = require(directory)
-    if (sourceHash === target.originalTreeSha256) {
+    if (target.remediation !== 'official-release' && sourceHash === target.originalTreeSha256) {
       // Separate test-only copies demonstrate pre-fix behaviour. Installation
       // and acceptance still require the independent receipt and normal gate.
       const patchedDirectory = directory + '-patched'
@@ -123,7 +123,7 @@ for (const copy of copies.filter(item => item.target.name === 'node-forge')) {
       const pem = pair.publicKey.export({ type: 'spki', format: 'pem' }).toString()
       const publicKey = forge.pki.publicKeyFromPem(pem)
       const digest = createHash('sha256').update(message).digest()
-      for (const malformed of ['nested-extra', 'outer-extra', 'nonempty-null']) {
+      for (const malformed of ['nested-extra', 'outer-extra', 'nonempty-null', 'nonminimal-length', 'noncanonical-oid']) {
         // Private-key-generated malformed encodings test validation, not a
         // claim of signature forgery without possession of that private key.
         const signature = signatureFor(forge, pair.privateKey, 'sha256', digest, malformed)
@@ -142,7 +142,15 @@ function signatureFor(forge, privateKey, algorithm, digest, mode) {
   if (mode === 'nested-extra') parameters.push(a.create(u, t.OCTETSTRING, false, 'unchecked'))
   const outer = [a.create(u, t.SEQUENCE, true, parameters), a.create(u, t.OCTETSTRING, false, digest.toString('binary'))]
   if (mode === 'outer-extra') outer.push(a.create(u, t.OCTETSTRING, false, 'unchecked'))
-  const der = Buffer.from(a.toDer(a.create(u, t.SEQUENCE, true, outer)).getBytes(), 'binary')
+  let der = Buffer.from(a.toDer(a.create(u, t.SEQUENCE, true, outer)).getBytes(), 'binary')
+  if (mode === 'nonminimal-length') der = Buffer.concat([der.subarray(0, 1), Buffer.from([0x81]), der.subarray(1)])
+  if (mode === 'noncanonical-oid') {
+    // An extra leading zero base-128 group encodes the same OID noncanonically.
+    const oid = Buffer.from(a.oidToDer(forge.pki.oids[algorithm]).getBytes(), 'binary')
+    const offset = der.indexOf(oid)
+    der[offset - 1]++; der[3]++; der[1]++
+    der = Buffer.concat([der.subarray(0, offset), Buffer.from([0x80]), der.subarray(offset)])
+  }
   const padding = Buffer.alloc(128 - der.length - 3, 0xff)
   return privateEncrypt({ key: privateKey, padding: constants.RSA_NO_PADDING }, Buffer.concat([Buffer.from([0, 1]), padding, Buffer.from([0]), der])).toString('binary')
 }

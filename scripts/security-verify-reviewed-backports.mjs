@@ -10,7 +10,7 @@ export const textHash = (bytes) => hash(Buffer.from(bytes.toString('utf8').repla
 const implementationFiles = [
   'scripts/security-supply-chain-gate.mjs', 'scripts/security-apply-reviewed-backports.mjs',
   'scripts/security-verify-reviewed-backports.mjs', 'security/patches/braces-3.0.3.patch',
-  'security/patches/node-forge-1.4.0.patch', 'security/patches/reviewed-source-manifest.json',
+  'security/patches/reviewed-source-manifest.json', 'tests/security-forge-official.test.mjs',
   'tests/security-reviewed-backports.test.mjs',
   'scripts/security-provision-reviewed-backports.mjs', 'tests/security-reviewed-provisioning.test.mjs',
   '.github/workflows/security-gate.yml', 'apps/scripts/mobile-release-check.mjs', 'package.json',
@@ -64,9 +64,9 @@ export function loadRecord(root) {
   const record = JSON.parse(fs.readFileSync(safe(root, 'security/reviewed-source-remediations.json')))
   verifyMaintainedAuthority(record)
   assert.equal(record.baseline, '864a6ad3856a02b65ec33bfe8e952e6f98d13dbd')
-  assert.equal(record.adoptionProposalSha256, 'e801ccad75bc760eb31ffb7d357c1185d3a68a6da40301c8dd457378be15a9c0', 'Maintained source policy identity changed')
+  assert.equal(record.adoptionProposalSha256, 'fbe253e01edc6f674620a1ecd6a291e5e4b45392405e69973e2c70b84d8da4b7', 'Maintained source policy identity changed')
   assert.equal(hash(fs.readFileSync(safe(root, 'security/maintained-source-policy.json'))), record.adoptionProposalSha256, 'Maintained source policy evidence drift')
-  assert.equal(record.releasePreparationSha256, "28f7605f548bb8516c92a9b1e1066ae48a4799003c26b56484c38191059b43dc", 'Release preparation scope drift')
+  assert.equal(record.releasePreparationSha256, "3691fed18fa3820d90e73e8b2da66223d380480eb0f84e131eda916f0ecedd52", 'Release preparation scope drift')
   assert.equal(hash(Buffer.from(JSON.stringify(record.releasePreparation, null, 2) + '\n')), record.releasePreparationSha256, 'Release preparation pins drift')
   assert.equal(record.releasePreparation.baseline, record.baseline, 'Release preparation baseline mismatch')
   verifyReleasePreparation(root, record.releasePreparation)
@@ -79,26 +79,29 @@ export function loadRecord(root) {
   assert.deepEqual(record.targets.map(t => [t.scope, t.packagePath, t.name, t.version]), [
     ['.', 'node_modules/braces', 'braces', '3.0.3'],
     ['apps/parent-mobile', 'node_modules/braces', 'braces', '3.0.3'],
-    ['apps/parent-mobile', 'node_modules/node-forge', 'node-forge', '1.4.0'],
+    ['apps/parent-mobile', 'node_modules/node-forge', 'node-forge', '1.4.2'],
     ['apps/coach-mobile', 'node_modules/braces', 'braces', '3.0.3'],
-    ['apps/coach-mobile', 'node_modules/node-forge', 'node-forge', '1.4.0'],
+    ['apps/coach-mobile', 'node_modules/node-forge', 'node-forge', '1.4.2'],
   ], 'Exact reviewed copy/version scope changed')
-  assert.deepEqual(record.eligibleAdvisories, { braces: ['GHSA-vfj7-8cjw-p6xm'], 'node-forge': ['GHSA-86w9-cpqp-85rv'] })
+  assert.deepEqual(record.eligibleAdvisories, { braces: ['GHSA-vfj7-8cjw-p6xm'] })
+  assert.deepEqual(Object.keys(record.sourceRevisions), ['braces72'], 'Retired Forge patch sources cannot authorise acceptance')
+  assert.deepEqual(record.officialReleases, [{ name: 'node-forge', version: '1.4.2', repository: 'digitalbazaar/forge', tag: 'v1.4.2', tagSha: '2763ddf21fad7d4bba07bc2ff521bd8c7bd932af', commitSha: '7928054627d93ab8c0216b756246e8ca8d62a93e' }], 'Official Forge release identity changed')
   for (const t of record.targets) {
     const trees = t.name === 'braces'
       ? ['ac0f50ef3e9a557dccb4805fc6bb0c8bf9b9502783b7d5baed4c9c8c55cd91a4', 'b024f34af0a56743116dec3c1da981519a0744e9dffe0dd1d31fecc1c0a50c77']
-      : ['078e10a11e2520deed99274a0ecf33560c3a728a55bd30dfe7e810955dd0926d', 'f97be7606683a2feba1f78317c4a8c13edba053d33df61396270efabb31e6adf']
+      : ['dbe2e243bd0239e3a366332f5265ca6bf4b32b050e9178c64e383de3d3455ea4', 'dbe2e243bd0239e3a366332f5265ca6bf4b32b050e9178c64e383de3d3455ea4']
     assert.deepEqual([t.originalTreeSha256, t.patchedTreeSha256], trees, 'Reviewed package-tree identities changed')
+    if (t.name === 'node-forge') { assert.equal(t.remediation, 'official-release'); assert.deepEqual(t.files, [], 'Official Forge must never receive source patches') }
   }
   const expectedPatches = {
     'patches/braces-3.0.3.patch': 'e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699',
-    'patches/node-forge-1.4.0.patch': '2de065ac998bf58917a14d0935112d97ec2957ac41b5f06958d500934f188ed4',
   }
   assert.deepEqual(Object.fromEntries(record.patches.map(p => [p.file, p.sha256])), expectedPatches)
   for (const p of record.patches) assert.equal(hash(fs.readFileSync(safe(root, 'security/' + p.file))), p.sha256, 'Patch bytes changed')
   const payloadFile = safe(root, 'security/patches/reviewed-source-manifest.json')
   assert.equal(hash(fs.readFileSync(payloadFile)), record.payloadSha256, 'Reviewed payload drift')
   const payload = JSON.parse(fs.readFileSync(payloadFile))
+  assert.deepEqual(payload.libraries.map(item => item.name), ['braces'], 'Only braces may have maintained source payload')
   assert.equal(payload.qualificationManifestSha256, 'c6b590786dac4bf3ffeeec900f9d3e47e9550f649aa6c5820da83b3a64afc47d')
   for (const [file, expected] of Object.entries(record.implementationHashes)) assert.equal(textHash(fs.readFileSync(safe(root, file))), expected, `Implementation drift: ${file}`)
   for (const item of record.nativeInputs) assert.equal(textHash(fs.readFileSync(safe(root, item.path))), item.normalisedUtf8Sha256, `Native/dependency input drift: ${item.path}`)
@@ -213,10 +216,24 @@ export async function verifyUpstream(record, payload, request = fetch) {
   }
   const receipts = []
   for (const snapshot of payload.advisories) {
-    const current = await get('https://api.github.com/advisories/' + snapshot.ghsaId)
-    const semantic = { ghsaId: current.ghsa_id, cveId: current.cve_id, severity: current.severity, summary: current.summary, description: current.description, vulnerabilities: current.vulnerabilities, references: current.references, withdrawnAt: current.withdrawn_at }
+    if (snapshot.repository) assert.equal(snapshot.repository, 'digitalbazaar/forge', 'Unapproved repository advisory source')
+    const current = await get(snapshot.repository ? `https://api.github.com/repos/${snapshot.repository}/security-advisories/${snapshot.ghsaId}` : 'https://api.github.com/advisories/' + snapshot.ghsaId)
+    const semantic = { ghsaId: current.ghsa_id, cveId: current.cve_id, severity: current.severity, summary: current.summary, description: current.description, vulnerabilities: current.vulnerabilities, references: snapshot.repository ? [] : current.references, withdrawnAt: current.withdrawn_at }
+    if (snapshot.repository) { assert.equal(current.state, snapshot.state, 'Repository advisory publication status changed'); assert.equal(current.html_url, snapshot.url, 'Repository advisory identity changed') }
     for (const field of Object.keys(semantic)) assert.deepEqual(semantic[field], snapshot[field], `Advisory meaning changed: ${snapshot.ghsaId}/${field}`)
     receipts.push({ type: 'advisory', id: current.ghsa_id, updatedAt: current.updated_at, semanticSha256: hash(Buffer.from(JSON.stringify(semantic))) })
+  }
+  for (const source of record.officialReleases) {
+    const current = await get(`https://api.github.com/repos/${source.repository}/git/ref/tags/${source.tag}`)
+    assert.equal(current.ref, 'refs/tags/' + source.tag, 'Official release tag identity changed')
+    assert.equal(current.object?.type, 'tag', 'Official release tag type changed')
+    assert.equal(current.object.sha, source.tagSha, 'Official release tag revision changed')
+    const tag = await get(`https://api.github.com/repos/${source.repository}/git/tags/${source.tagSha}`)
+    assert.equal(tag.tag, source.tag, 'Official annotated tag changed')
+    assert.equal(tag.sha, source.tagSha, 'Official annotated tag identity changed')
+    assert.equal(tag.object?.type, 'commit', 'Official release target type changed')
+    assert.equal(tag.object.sha, source.commitSha, 'Official release commit changed')
+    receipts.push({ type: 'official-release', name: source.name, tag: source.tag, tagSha: source.tagSha, commitSha: source.commitSha })
   }
   for (const source of Object.values(record.sourceRevisions)) {
     const current = await get(`https://api.github.com/repos/${source.repository}/pulls/${source.number}`)

@@ -13,38 +13,11 @@
       "headSha": "28d440b5dd449dbf1fe6f3506cf94ecca4d02660",
       "headRepo": "FSDevelop/braces",
       "headRef": "fix/limit-nesting-depth"
-    },
-    "forge1152": {
-      "repository": "digitalbazaar/forge",
-      "number": 1152,
-      "url": "https://github.com/digitalbazaar/forge/pull/1152",
-      "state": "open",
-      "merged": false,
-      "updatedAt": "2026-10-02T08:20:43Z",
-      "baseSha": "7a43db987bd0ecdc5b41f6d73f58ba6ca5bf9ae1",
-      "headSha": "ceba34402e329f0365134f23fe19898756527d65",
-      "headRepo": "Krysthyan/forge",
-      "headRef": "fix/cve-2026-85393-digestalgorithm-element-count"
-    },
-    "forge1157": {
-      "repository": "digitalbazaar/forge",
-      "number": 1157,
-      "url": "https://github.com/digitalbazaar/forge/pull/1157",
-      "state": "open",
-      "merged": false,
-      "updatedAt": "2026-10-04T08:09:28Z",
-      "baseSha": "723240415b25120d47146f982809fa69344ab890",
-      "headSha": "683ab3344899cc08a581e4d5675a33e87aff7b04",
-      "headRepo": "itsalexfer/forge",
-      "headRef": "fix/reject-nonempty-digest-null"
     }
   },
   "eligibleAdvisories": {
     "braces": [
       "GHSA-vfj7-8cjw-p6xm"
-    ],
-    "node-forge": [
-      "GHSA-86w9-cpqp-85rv"
     ]
   },
   "targets": [
@@ -124,17 +97,12 @@
       "scope": "apps/parent-mobile",
       "packagePath": "node_modules/node-forge",
       "name": "node-forge",
-      "version": "1.4.0",
-      "registryIntegrity": "sha512-LarFH0+6VfriEhqMMcLX2F7SwSXeWwnEAJEsYm5QKWchiVYVvJyV9v7UDvUv+w5HO23ZpQTXDv/GxdDdMyOuoQ==",
-      "originalTreeSha256": "078e10a11e2520deed99274a0ecf33560c3a728a55bd30dfe7e810955dd0926d",
-      "patchedTreeSha256": "f97be7606683a2feba1f78317c4a8c13edba053d33df61396270efabb31e6adf",
-      "files": [
-        {
-          "path": "lib/rsa.js",
-          "originalSha256": "fd4740238145ec26470eb3f06a627c72039538ce1307dbdce40521f94dfd0a50",
-          "patchedSha256": "22cdfb3220439533211cf00ff7c7e6605607761d77a2c3c263411d4c70798c4f"
-        }
-      ]
+      "version": "1.4.2",
+      "registryIntegrity": "sha512-rRtAR5XLJ8gCKd9du4qrKAsgCG1ObGP4gLeNJMa4vYSeq4bmBMOJk5IHkrviBV0q7uoAJlVd8HEQYQSVUb4FGQ==",
+      "originalTreeSha256": "dbe2e243bd0239e3a366332f5265ca6bf4b32b050e9178c64e383de3d3455ea4",
+      "patchedTreeSha256": "dbe2e243bd0239e3a366332f5265ca6bf4b32b050e9178c64e383de3d3455ea4",
+      "files": [],
+      "remediation": "official-release"
     },
     {
       "scope": "apps/coach-mobile",
@@ -176,17 +144,12 @@
       "scope": "apps/coach-mobile",
       "packagePath": "node_modules/node-forge",
       "name": "node-forge",
-      "version": "1.4.0",
-      "registryIntegrity": "sha512-LarFH0+6VfriEhqMMcLX2F7SwSXeWwnEAJEsYm5QKWchiVYVvJyV9v7UDvUv+w5HO23ZpQTXDv/GxdDdMyOuoQ==",
-      "originalTreeSha256": "078e10a11e2520deed99274a0ecf33560c3a728a55bd30dfe7e810955dd0926d",
-      "patchedTreeSha256": "f97be7606683a2feba1f78317c4a8c13edba053d33df61396270efabb31e6adf",
-      "files": [
-        {
-          "path": "lib/rsa.js",
-          "originalSha256": "fd4740238145ec26470eb3f06a627c72039538ce1307dbdce40521f94dfd0a50",
-          "patchedSha256": "22cdfb3220439533211cf00ff7c7e6605607761d77a2c3c263411d4c70798c4f"
-        }
-      ]
+      "version": "1.4.2",
+      "registryIntegrity": "sha512-rRtAR5XLJ8gCKd9du4qrKAsgCG1ObGP4gLeNJMa4vYSeq4bmBMOJk5IHkrviBV0q7uoAJlVd8HEQYQSVUb4FGQ==",
+      "originalTreeSha256": "dbe2e243bd0239e3a366332f5265ca6bf4b32b050e9178c64e383de3d3455ea4",
+      "patchedTreeSha256": "dbe2e243bd0239e3a366332f5265ca6bf4b32b050e9178c64e383de3d3455ea4",
+      "files": [],
+      "remediation": "official-release"
     }
   ],
   "scopeLocks": [
@@ -196,21 +159,17 @@
     },
     {
       "scope": "apps/parent-mobile",
-      "normalisedUtf8Sha256": "7bb8893ce82a4f177b60fb68e165fffe8f0ca416527a5c52897ed7d1c7054289"
+      "normalisedUtf8Sha256": "1428a6a8e6907e6ee22c9690cfbae0b3a4ba6930bae4d9df68ea2cef8c479613"
     },
     {
       "scope": "apps/coach-mobile",
-      "normalisedUtf8Sha256": "2fa5178c4ff47fed0620463c8a9abdd1f28b24df4e32d9b1fb35c8133d9bca49"
+      "normalisedUtf8Sha256": "35cfd7d55c5ccb9779590f534b9f8eb76109f43a075fd954220007d383d06d4b"
     }
   ],
   "patches": [
     {
       "file": "patches/braces-3.0.3.patch",
       "sha256": "e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699"
-    },
-    {
-      "file": "patches/node-forge-1.4.0.patch",
-      "sha256": "2de065ac998bf58917a14d0935112d97ec2957ac41b5f06958d500934f188ed4"
     }
   ],
   "approval": {
@@ -225,32 +184,32 @@
   },
   "implementationHashes": {
     "scripts/security-supply-chain-gate.mjs": "dcf722bc6cbf2015da4250ea60cbb81e34d3c5c64ec7bb6059671cbae5ab4207",
-    "scripts/security-apply-reviewed-backports.mjs": "43f75b09d3f503dc5aa8f798b0d8fcb7aed5ed4758df20f11e3073532fd92566",
-    "scripts/security-verify-reviewed-backports.mjs": "1e6854d68b3699d574ffd78b25044affa7a398f96adc902ccba47070b477fbe7",
+    "scripts/security-apply-reviewed-backports.mjs": "8ae93a271b2565b1d3b849f9ff1eb27f6a84247ecb65ed65fd19334538e6ea43",
+    "scripts/security-verify-reviewed-backports.mjs": "773f2ed8a99cb96c228470810ff7fb8b788882e6af2c2da19b6d77084bbe6e1a",
     "security/patches/braces-3.0.3.patch": "e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699",
-    "security/patches/node-forge-1.4.0.patch": "2de065ac998bf58917a14d0935112d97ec2957ac41b5f06958d500934f188ed4",
-    "security/patches/reviewed-source-manifest.json": "79262ec68a5214db7ffea3c90200b03d8af6f850b14a5002eb17e7517f55822f",
+    "security/patches/reviewed-source-manifest.json": "1091cd4586536ef10361c3acf5338a3bf4225541b7dd07c103a8b30d644aae25",
     "tests/security-reviewed-backports.test.mjs": "eece6f9a7dfa871cf17fa7647f842549e896dafac3b994e999e6514f6dcc3282",
     "scripts/security-provision-reviewed-backports.mjs": "8718b28d2c1c7c3f288a1f19b8bea025c70286dc09fd0114aea23e68177c0981",
     "tests/security-reviewed-provisioning.test.mjs": "877645aa99375cf47e3e63a97be5c002a803f7394a1eed8f306445f0a73a7921",
-    ".github/workflows/security-gate.yml": "2a52442f5118ae2b685a6e240efcbc6e463ee7aff3fd79b5e636857965d3af95",
+    ".github/workflows/security-gate.yml": "fc6d67cdf61083c21fe461d1b677b5d8e76c87a7e757aaf49b1ad3cd091a2149",
     "apps/scripts/mobile-release-check.mjs": "d92e479e0222a74dd332e63cee5d3108a0fb1bfc0d8f34f77059bade0a5aed48",
     "package.json": "f58ff67898ec71d4fee54e990b6168a1e55b89bd603b695aa8591ccca804bb17",
     "scripts/security-provision-root-backport.mjs": "ad2b058de5e567b0491b7b7e9c263c8055fd985955db11f4e7fd0c6874924df7",
     "security/root-backport-proposal.json": "45c3b7352c7328c84982e114b7e87e09cf79514d02d102297ae75ec0925812eb",
     "security/supply-chain-policy.json": "d5e3090a995738cc22311275763965c2d278900b5e609a41dba0526ca0843265",
-    "tests/security-backport-runtime.test.mjs": "13f53579aae7ff1da5ce06f40b37a26316a8b41932f60d625526d4a9717599f6",
+    "tests/security-backport-runtime.test.mjs": "17a53addf9bc5a2646bd44baed2974b578923ebb3578c2b445a0cbfc6ed58985",
     "security/backport-requalification.json": "95f1b5c782335dea22aee6223bbf1426cfe5f2e281dc30e5076f4c7ad0177a91",
-    "scripts/security-maintained-release-gate.mjs": "30c2086cb3a8679b03148818e030d9f1632406092741a49bc9ed052e39ce940b",
+    "scripts/security-maintained-release-gate.mjs": "be3af896defa5f01c1a56fc8114d30b4c7599b6fc8867861899d0ba55830b28a",
     "scripts/security-netlify-build.mjs": "addebe95880ca66b90fe784f68cc23a61d67cf9e4482f8af1ed87f98d54243f6",
-    "tests/security-maintained-source.test.mjs": "b250e78a9f2485f6927c04da0a921bfb13946c894272508e90afe896eccc99eb",
+    "tests/security-maintained-source.test.mjs": "767616403c93625e5432bcea19649f8c46374ec5110a4055b921d7eaa6eaef04",
     "netlify.toml": "7a6f3e35c22d35413e0f1e1b647eadf54b28aefcf45494447ca8f67163a38a51",
-    "security/maintained-source-policy.json": "e801ccad75bc760eb31ffb7d357c1185d3a68a6da40301c8dd457378be15a9c0",
+    "security/maintained-source-policy.json": "fbe253e01edc6f674620a1ecd6a291e5e4b45392405e69973e2c70b84d8da4b7",
     "tests/security-m3-governance.test.mjs": "1e1134b46175e6b8a5fcfd853dc85ae0a74393bdb99cfddba6945de4c5114e20",
-    "tests/security-toml-upstream.test.mjs": "2766b75496f5fb02ae5ba4c803d29dcbf4df8b41b82a2c50eefa9f2a4a16b836"
+    "tests/security-toml-upstream.test.mjs": "2766b75496f5fb02ae5ba4c803d29dcbf4df8b41b82a2c50eefa9f2a4a16b836",
+    "tests/security-forge-official.test.mjs": "210da6b15496946333712452ea4e820e68537d287e5eac69e1ad0c1d07b47908"
   },
-  "payloadSha256": "79262ec68a5214db7ffea3c90200b03d8af6f850b14a5002eb17e7517f55822f",
-  "adoptionProposalSha256": "e801ccad75bc760eb31ffb7d357c1185d3a68a6da40301c8dd457378be15a9c0",
+  "payloadSha256": "1091cd4586536ef10361c3acf5338a3bf4225541b7dd07c103a8b30d644aae25",
+  "adoptionProposalSha256": "fbe253e01edc6f674620a1ecd6a291e5e4b45392405e69973e2c70b84d8da4b7",
   "nativeInputs": [
     {
       "path": "package.json",
@@ -271,15 +230,15 @@
     },
     {
       "path": "apps/parent-mobile/package.json",
-      "normalisedUtf8Sha256": "265615543e1e3fa0bcea1dac1c7c812a674739e167c68938294cfbb6c2f70559",
+      "normalisedUtf8Sha256": "17a00c1cbb2d53966df6078fcc46d069d62d64f37624b9ee68af12e2163d4c5d",
       "unchanged": false,
-      "reason": "Official JavaScript tooling overrides for compression1.8.2, source-map-js1.2.2 and argparse2.0.1 only; direct dependency sections, native package version/resolved/integrity and runtime configuration unchanged against frozen ec2288c0; Current exact36f7039f prerequisite: sharp0.35.5 server image artifacts or shell-quote1.11.0 tooling only; mobile native package identities/direct dependency sections/runtime remain unchanged with explicit proof Fixture keyboard release prerequisite: compatible official JavaScript security updates only; all non-Undici mobile lock entries, direct dependencies and runtime configuration remain unchanged against d75ba6438ae28f864f23a11d405eeb76d61bb081."
+      "reason": "Official node-forge1.4.2 security replacement only. Both mobile lock graphs otherwise identical to1987002e; direct dependencies and native/runtime configuration unchanged."
     },
     {
       "path": "apps/parent-mobile/package-lock.json",
-      "normalisedUtf8Sha256": "7bb8893ce82a4f177b60fb68e165fffe8f0ca416527a5c52897ed7d1c7054289",
+      "normalisedUtf8Sha256": "1428a6a8e6907e6ee22c9690cfbae0b3a4ba6930bae4d9df68ea2cef8c479613",
       "unchanged": false,
-      "reason": "Official JavaScript tooling overrides for compression1.8.2, source-map-js1.2.2 and argparse2.0.1 only; direct dependency sections, native package version/resolved/integrity and runtime configuration unchanged against frozen ec2288c0; Current exact36f7039f prerequisite: sharp0.35.5 server image artifacts or shell-quote1.11.0 tooling only; mobile native package identities/direct dependency sections/runtime remain unchanged with explicit proof Fixture keyboard release prerequisite: compatible official JavaScript security updates only; all non-Undici mobile lock entries, direct dependencies and runtime configuration remain unchanged against d75ba6438ae28f864f23a11d405eeb76d61bb081."
+      "reason": "Official node-forge1.4.2 security replacement only. Both mobile lock graphs otherwise identical to1987002e; direct dependencies and native/runtime configuration unchanged."
     },
     {
       "path": "apps/parent-mobile/app.config.js",
@@ -293,15 +252,15 @@
     },
     {
       "path": "apps/coach-mobile/package.json",
-      "normalisedUtf8Sha256": "ced7b5e0320fffee6cce8f193ce37c644aada04e78f979cf57e46d789acec4d1",
+      "normalisedUtf8Sha256": "6626c74b24df0940248d6db38d5c57fca834e03943abe7ed5274c5187a30da86",
       "unchanged": false,
-      "reason": "Official JavaScript tooling overrides for compression1.8.2, source-map-js1.2.2 and argparse2.0.1 only; direct dependency sections, native package version/resolved/integrity and runtime configuration unchanged against frozen ec2288c0; Current exact36f7039f prerequisite: sharp0.35.5 server image artifacts or shell-quote1.11.0 tooling only; mobile native package identities/direct dependency sections/runtime remain unchanged with explicit proof Fixture keyboard release prerequisite: compatible official JavaScript security updates only; all non-Undici mobile lock entries, direct dependencies and runtime configuration remain unchanged against d75ba6438ae28f864f23a11d405eeb76d61bb081."
+      "reason": "Official node-forge1.4.2 security replacement only. Both mobile lock graphs otherwise identical to1987002e; direct dependencies and native/runtime configuration unchanged."
     },
     {
       "path": "apps/coach-mobile/package-lock.json",
-      "normalisedUtf8Sha256": "2fa5178c4ff47fed0620463c8a9abdd1f28b24df4e32d9b1fb35c8133d9bca49",
+      "normalisedUtf8Sha256": "35cfd7d55c5ccb9779590f534b9f8eb76109f43a075fd954220007d383d06d4b",
       "unchanged": false,
-      "reason": "Official JavaScript tooling overrides for compression1.8.2, source-map-js1.2.2 and argparse2.0.1 only; direct dependency sections, native package version/resolved/integrity and runtime configuration unchanged against frozen ec2288c0; Current exact36f7039f prerequisite: sharp0.35.5 server image artifacts or shell-quote1.11.0 tooling only; mobile native package identities/direct dependency sections/runtime remain unchanged with explicit proof Fixture keyboard release prerequisite: compatible official JavaScript security updates only; all non-Undici mobile lock entries, direct dependencies and runtime configuration remain unchanged against d75ba6438ae28f864f23a11d405eeb76d61bb081."
+      "reason": "Official node-forge1.4.2 security replacement only. Both mobile lock graphs otherwise identical to1987002e; direct dependencies and native/runtime configuration unchanged."
     },
     {
       "path": "apps/coach-mobile/app.config.js",
@@ -478,11 +437,11 @@
     ],
     "lockImpactSha256": "d6f3d9e1a0f877643ed90ac381c7838a170159c327ff5903c7dafb895b8516a6",
     "changedSourceHashes": {
-      "apps/coach-mobile/package.json": "ced7b5e0320fffee6cce8f193ce37c644aada04e78f979cf57e46d789acec4d1",
-      "apps/coach-mobile/package-lock.json": "2fa5178c4ff47fed0620463c8a9abdd1f28b24df4e32d9b1fb35c8133d9bca49",
+      "apps/coach-mobile/package.json": "6626c74b24df0940248d6db38d5c57fca834e03943abe7ed5274c5187a30da86",
+      "apps/coach-mobile/package-lock.json": "35cfd7d55c5ccb9779590f534b9f8eb76109f43a075fd954220007d383d06d4b",
       "tests/parent-chat-layout-browser.mjs": "5ba0eb3c64e1d1d2dc35425bd24828afc7dd509aba2e752618184ed771a1f29a",
-      "apps/parent-mobile/package.json": "265615543e1e3fa0bcea1dac1c7c812a674739e167c68938294cfbb6c2f70559",
-      "apps/parent-mobile/package-lock.json": "7bb8893ce82a4f177b60fb68e165fffe8f0ca416527a5c52897ed7d1c7054289",
+      "apps/parent-mobile/package.json": "17a00c1cbb2d53966df6078fcc46d069d62d64f37624b9ee68af12e2163d4c5d",
+      "apps/parent-mobile/package-lock.json": "1428a6a8e6907e6ee22c9690cfbae0b3a4ba6930bae4d9df68ea2cef8c479613",
       "package.json": "f58ff67898ec71d4fee54e990b6168a1e55b89bd603b695aa8591ccca804bb17",
       "package-lock.json": "d755d50a18c788192cc92c4e7dad17595f5aae19ea8b83dac171889754cc3fc3"
     },
@@ -895,19 +854,29 @@
           ]
         }
       ]
+    },
+    "officialForgeReplacement": {
+      "baseline": "1987002eab5feb025daa787fbf26d9a434b743e5",
+      "package": "node-forge",
+      "from": "1.4.0",
+      "to": "1.4.2",
+      "source": "https://registry.npmjs.org/node-forge/-/node-forge-1.4.2.tgz",
+      "retiredAdvisoryExceptions": true,
+      "nativeChanges": 0,
+      "independentExactCandidateReviewRequired": true
     }
   },
-  "dependencyRemediationSha256": "a4bc5c327fb7f7bfc9501154f834e49698a9e3922b0cdb8931fec6a70bf9d928",
+  "dependencyRemediationSha256": "d24f24b699712213b0b98ee84d5d6f55ba98b23453879544c863368533f1f067",
   "releasePreparation": {
     "previousCandidate": "389aaaaf8121239c95110662363d439c52137b20",
     "originalApplicationBaseline": "041ae89454ed0b2f032f36089335a34d357ad1a4",
     "baseline": "864a6ad3856a02b65ec33bfe8e952e6f98d13dbd",
     "approvedScope": "User-authorised weekend feedback fixes: scoped staff invitations, confirmed Match Day saves and reconciliation, full-time web corrections, fixed mobile loading and one-minute failure notices, compact Player/Fan navigation and owned read-only league access, and bounded poll-result push delivery. Exact source pins and independent exact-HEAD acceptance are required; all dependency, native, audit and release controls are retained. Calendar creation for free Matchday accounts now uses the shared fixture form with its selected date; stale generic-event creation is rejected and floating Quick Add respects existing plan and role access. Existing records, native inputs and all maintained security controls are preserved. Coach and Parent app-owned switches now share the iOS proportions, on colours and accessible controlled interactions across platforms. Parent bottom navigation adopts the existing iOS spacing on Android. OS integrations, safe areas, account permissions, native inputs and maintained security policy are preserved. Additional user screenshot requirements: hide the entire shared league row when its saved link is disabled or unconfigured, retaining valid enabled links and cold-load stability; show one device/account-scoped first-login notification reminder in Coach and Parents when confirmed alerts are not ready, with Not now and existing in-app notification-settings navigation. No automatic permissions or alert preference changes, customer writes, migrations, native/dependency changes or maintained policy changes. Simon-approved homepage-only original touchline photograph, unchanged photographic pixels and people, responsive crop and dark readability overlay. Other website content, mobile apps, native inputs and maintained security policy are preserved. Additional Coach handset scroll-boundary correction: treat native pan release separately from raw touch cancellation, retain newer pan ownership when old momentum ends, and give each account/context/page its own native scroll instance with viewport-filling short content. Preserve active-gesture smoothness, pull-to-refresh, keyboard focus, saved text/data, permissions, existing released mobile fixes and the separately reviewed website release. Coach JavaScript only; no Parent feature/publication changes, native/dependency/database or maintained policy changes. Additional web User Settings personal-theme persistence correction: allow Light/Dark/System through the existing self-only active-authority RPC on all plans while retaining the existing accent-branding plan check, grants and authority boundaries. The personal-mode API retains its identity and demo checks and server authority, without applying the ordinary staff-mutation billing guard to this personal preference. Announce success and apply local mode only after confirmed save; disable duplicate selection while pending and ignore stale account or unmounted completions. Include focused database and actual-page browser regression checks. No mobile publication, native/dependency changes, customer-record edits or maintained security-policy changes; preserve prior mobile fixes, homepage original photograph, signup styling and provider configuration. Simon-approved screenshot-only website update from private draft v76: original CTFC Club Settings PNG in the Teams hero laptop, Clubs hero and Club tab, including the shared Club-tab selector. Remove the desktop Clubs hero height crop to retain the complete screenshot. Preserve the homepage photograph, all other content, PR211 personal-theme persistence and migration, mobile apps, native and dependency inputs, and maintained security policy. Guard the existing optional device wrapper when switching these screenshot tabs so Teams and Clubs complete their image, heading and description updates without a null-wrapper exception; retain existing page layouts and all other interactions. Simon-approved website device-frame correction: replace only Teams and Clubs role-tab figures with the existing homepage role-aware wrapper and live caption. Coach and Parent retain portrait phone frames; Club uses a laptop frame after every forward/reverse tab switch. Preserve the separate Teams/Clubs hero placements, original image bytes, homepage photograph, existing copy, all prior application releases and the separately applied deletion-guard database migration. Add rendered semantic frame assertions for all three shared instances at desktop/mobile widths to the existing required CI job, without removing or relaxing any gate. No mobile publication, database, native, dependency or security-policy changes. Existing marketing integration laptop assertions are aligned to the same rendered role-aware screen and visible base, retaining every other integration assertion. Additional deleted-workspace signup recovery correction: retain a private transactional revocation when a workspace-linked user profile is deleted; expose its boolean lookup only to service_role and fail closed before any automatic or forced signup workspace, billing, profile or team mutation. Preserve fresh initial signups, valid existing memberships and invitations, ordinary deletion authority, account identities and access to other workspaces. Return an authoritative denial message understood by existing Coach cache recovery. No mobile publication, native/dependency changes, existing customer-record edits or maintained security-policy changes; preserve prior theme/mobile fixes, homepage screenshot/photo changes and provider configuration. Additional bounded notification and Parents response corrections: format structured Calendar change notification date and recurrence-until values as DD-MM-YYYY without changing ISO storage or free text. Give Parents attendance and volunteer choices immediate selected Saving feedback, retain the previous confirmed answer on failure, preserve request position and explicitly keep targeted invitations open after durable acceptance. For inline server responses update only the confirmed invitation after the server acknowledges, then refresh in the background without a top notice or waiting for unrelated resources. Preserve offline durable acceptance, authoritative outbox projection, account and navigation scope checks, permissions and existing non-inline flows. Authorise the Parent JavaScript-only production OTA for these response changes using the existing runtime and guarded release checks, with no new native modules, builds or Coach publication. The deletion guard remains a server correction. Align its exact reviewed SQL filename to the already-applied provider version 20261015072209; no duplicate migration, backfill or existing customer-record edits. Preserve all standing security policy, native identities, dependencies, prior fixes and concurrent approved homepage corrections. Extend the existing hosted signup and UK-date test commands with the directly affected deleted-workspace guard and Calendar notification regression files. Preserve every previous test, all seven jobs and all release requirements. Increase only the Security and V1 regression job time limit from 25 to 35 minutes after hosted run 38706288571 exhausted 25 minutes with no completed test failures and two checks incomplete. Preserve every check, job, authority requirement and release gate; no skipped or weakened validation. Website match automatic Available-selection preference: remember the last successfully saved choice for each signed-in staff member, club and team in this browser; new matches default unticked. Preserve existing fixture values, cancellation/failure behaviour and all server, mobile, dependency, native and maintained security controls. Coach promotion display polish: hide the raw URL, add clear share buttons and an authenticated QR PNG for the existing signup link. No billing, database, native or dependency changes. Coach startup recovery: skip redundant completed secure-session cleanup writes, non-destructive password reauthentication, stage-specific safe diagnostics and unboxed recovery screen. No native/dependency/database changes. Extend the website match selection default to a private per-staff, club and team cross-device preference. One additive PostgreSQL migration stores the choice atomically with successful fixture saves and exposes an authorised own-preference read. New matches default unticked; existing fixture values, cancelled/failed saves, account/team isolation and manual input are preserved. No mobile source, notification, dependency, native or maintained security-control changes. Coach scroll boundary repair: measure natural page content and viewport independently, scope controllers to each native page, reject stale native geometry and old-page requests, retain native gesture ownership and keyboard visibility. No native, dependency, database or Parent change. Friendly FP-branded Coach removed-access recovery without destructive reset; explicit email-verified fresh free-team signup for deleted-workspace accounts on Coach and web; lifetime actor/email referral exclusion and prevention of historical unbound payment reclaim; focused regression tests and existing CI registration. Existing normal signup, workspace deletion authority, native inputs, dependencies and Parent publication remain unchanged. Correct the live service-role referral reservation permission with SELECT(user_id) on the private deletion ledger only; preserve RLS and all client-role revocations. Add actual-role regression proving ordinary new clubs can reserve and returners cannot. Shared Coach and Parent attendance outbox correction: retire only legacy unclassified rejected commands inside their original scope, classify known closed or expired invitations as obsolete, refresh authoritative data once, and preserve tagged genuine permission or unknown validation failures for review. JavaScript only, with no native, dependency or database changes, no automatic resubmission and no customer data mutation. Coach fixture choice controls now use accessible club-themed selection buttons. The existing 50% Coach referral offer moves from More into Partners and appears as a fixed summary on the website Platform Partners page. The public first-250 counter now includes only teams that explicitly accepted the free offer, while grandfathered branding remains entitled outside that capacity. No billing, native or dependency changes. New Team and Club signup notifications email Steve and Simon with authoritative plan, billing, capacity, checkout discount and Coach offer details, including free Matchday. Stable log and provider idempotency, automatic retry and non-blocking signup completion are retained. Existing email, billing, role, native, dependency and maintained security controls are preserved. Web-only Club Admin Matchday TV: authenticated own-club read feed with explicit name-free event DTO, club branding, eight-match 30-second carousel, silent goal celebrations, ground-postcode weather, browser-local pitch map, and a masked non-persisted password check before leaving a tab-locked display. No mobile source, native input, dependency, database, notification or existing team-scoring authority changes. Add focused tests to the existing CI without removing or weakening checks. Fresh independent exact-source review is required before release. Move the web Club Admin Matchday TV menu link from Club setup into Match Operations while preserving existing role, club and route authority. Automatically close and clear an uncompleted Matchday TV password dialog after two minutes while preserving the display lock. Remove the standalone TV mode action and retain Full screen and lock as the only presentation action. Pin the two browser-running CI jobs to supported Ubuntu 24.04 after ubuntu-latest selected unsupported Ubuntu 26.04; preserve every test and security gate. User-approved web Matchday TV compact scoreboard: prevent stretched rows and adapt carousel capacity to available display height, show the next seven days chronologically only when the selected day has no club fixtures, show fixture dates, default to browser-local light appearance with optional dark appearance, show forecast icons, and show the owning club badge or FP logo fallback beside teams. Preserve own-club authentication, name-free DTO, all goal/red-card events, pitch map, silent celebrations, two-minute masked password dialog and all existing security/release checks. No mobile source, dependency, database migration or scoring permission changes.",
     "changedSourceHashes": {
-      ".github/workflows/security-gate.yml": "2a52442f5118ae2b685a6e240efcbc6e463ee7aff3fd79b5e636857965d3af95",
+      ".github/workflows/security-gate.yml": "fc6d67cdf61083c21fe461d1b677b5d8e76c87a7e757aaf49b1ad3cd091a2149",
       "apps/coach-mobile/App.js": "aeaef2fab1c1dd7f29605a94daaffabf771dd22907547942f9fe7c01fadc503f",
-      "apps/coach-mobile/package-lock.json": "2fa5178c4ff47fed0620463c8a9abdd1f28b24df4e32d9b1fb35c8133d9bca49",
-      "apps/coach-mobile/package.json": "ced7b5e0320fffee6cce8f193ce37c644aada04e78f979cf57e46d789acec4d1",
+      "apps/coach-mobile/package-lock.json": "35cfd7d55c5ccb9779590f534b9f8eb76109f43a075fd954220007d383d06d4b",
+      "apps/coach-mobile/package.json": "6626c74b24df0940248d6db38d5c57fca834e03943abe7ed5274c5187a30da86",
       "apps/coach-mobile/src/CoachClubPromotionScreen.js": "50ee2f15d0020d34ce1bc6d91cb737d164efc95c8c93c1b5a5d89b46a1bfcd6d",
       "apps/coach-mobile/src/CoachDevelopmentTemplateBuilder.js": "976c1e91e9b86eff4621bac8e58e06022e83c8c50f08b21dc389dec9b79dbdb9",
       "apps/coach-mobile/src/CoachFixtureForm.js": "997a7842f0dcc633c2d5e5245c752339b435803df7658d51307e0b8c78facb96",
@@ -997,8 +966,8 @@
       "apps/mobile-core/src/useAttendanceOutbox.js": "bdcbe13d5b79c2e40b5a52ab767490ea017912dffee7ca67313a467fe789b2bd",
       "apps/mobile-core/src/useTeamLeagueLink.js": "78945d958af2ba81bab0247dffb844e67003f3e5697c04d5903617d23c9a1951",
       "apps/parent-mobile/App.js": "d1e554e36f13ef0b4dcc13586f89a188397ef8843ad5d1def2c6c10ba0539d24",
-      "apps/parent-mobile/package-lock.json": "7bb8893ce82a4f177b60fb68e165fffe8f0ca416527a5c52897ed7d1c7054289",
-      "apps/parent-mobile/package.json": "265615543e1e3fa0bcea1dac1c7c812a674739e167c68938294cfbb6c2f70559",
+      "apps/parent-mobile/package-lock.json": "1428a6a8e6907e6ee22c9690cfbae0b3a4ba6930bae4d9df68ea2cef8c479613",
+      "apps/parent-mobile/package.json": "17a00c1cbb2d53966df6078fcc46d069d62d64f37624b9ee68af12e2163d4c5d",
       "apps/parent-mobile/parentDevelopment.js": "da85be42f4b1eff315bd4cd5bc626b79899617609b0f94d24bad3a032c42f352",
       "apps/parent-mobile/src/FanPlayerCard.js": "18f94e46b49bfd78cb99722dfe3d3ba57aab9be7632cb040af02e1a37bec4b5e",
       "apps/parent-mobile/src/FansScreen.js": "f9ef78cb0adbe36234cdfb79444aef308779846c740e79cc460da91ac8937563",
@@ -1516,7 +1485,8 @@
       "src/pages/FansPage.jsx": "10747b58059170d10f47423bf49fa463db78c464cf6b3623eec8589ca4ce1d58",
       "supabase/migrations/20261027160846_player_training_resource_notifications.sql": "9f8e1556ce1a14e6ca71e531ae7ca8ad1414d6b695b71a2d43e43963c25df055",
       "tests/fans-web-redesign-browser.mjs": "29b86ee9e26fa557614b87c3fd8942d5a65d08c4020bac638e386281e270b83a",
-      "tests/player-resource-notification-migration-pglite.test.mjs": "63ca0339aea51fd61a845304c3e5d126c10df92d9a87aea6cc71311604a7629a"
+      "tests/player-resource-notification-migration-pglite.test.mjs": "63ca0339aea51fd61a845304c3e5d126c10df92d9a87aea6cc71311604a7629a",
+      "tests/security-forge-official.test.mjs": "210da6b15496946333712452ea4e820e68537d287e5eac69e1ad0c1d07b47908"
     },
     "externalTrustInputs": [
       "FOOTBALL_REVIEW_RECEIPT_BASE64",
@@ -2825,7 +2795,17 @@
       "publication": false
     }
   },
-  "releasePreparationSha256": "28f7605f548bb8516c92a9b1e1066ae48a4799003c26b56484c38191059b43dc",
+  "releasePreparationSha256": "3691fed18fa3820d90e73e8b2da66223d380480eb0f84e131eda916f0ecedd52",
   "rootOnlyProposalSha256": "45c3b7352c7328c84982e114b7e87e09cf79514d02d102297ae75ec0925812eb",
-  "remediationMode": "maintained-source-fixes"
+  "remediationMode": "maintained-source-fixes",
+  "officialReleases": [
+    {
+      "name": "node-forge",
+      "version": "1.4.2",
+      "repository": "digitalbazaar/forge",
+      "tag": "v1.4.2",
+      "tagSha": "2763ddf21fad7d4bba07bc2ff521bd8c7bd932af",
+      "commitSha": "7928054627d93ab8c0216b756246e8ca8d62a93e"
+    }
+  ]
 }

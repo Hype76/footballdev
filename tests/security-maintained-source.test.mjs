@@ -14,11 +14,16 @@ const payload = JSON.parse(fs.readFileSync('security/patches/reviewed-source-man
 const clone = value => JSON.parse(JSON.stringify(value))
 function responses() {
   const map = new Map()
-  for (const snapshot of payload.advisories) map.set('https://api.github.com/advisories/' + snapshot.ghsaId, {
+  for (const snapshot of payload.advisories) map.set(snapshot.repository ? `https://api.github.com/repos/${snapshot.repository}/security-advisories/${snapshot.ghsaId}` : 'https://api.github.com/advisories/' + snapshot.ghsaId, {
     ghsa_id: snapshot.ghsaId, cve_id: snapshot.cveId, severity: snapshot.severity,
-    summary: snapshot.summary, description: snapshot.description, vulnerabilities: snapshot.vulnerabilities,
+    summary: snapshot.summary, description: snapshot.description, vulnerabilities: clone(snapshot.vulnerabilities),
     references: snapshot.references, withdrawn_at: snapshot.withdrawnAt, updated_at: '2026-10-12T06:00:00Z',
+    state: snapshot.state, html_url: snapshot.url,
   })
+  for (const source of record.officialReleases) {
+    map.set(`https://api.github.com/repos/${source.repository}/git/ref/tags/${source.tag}`, { ref: 'refs/tags/' + source.tag, object: { type: 'tag', sha: source.tagSha } })
+    map.set(`https://api.github.com/repos/${source.repository}/git/tags/${source.tagSha}`, { tag: source.tag, sha: source.tagSha, object: { type: 'commit', sha: source.commitSha } })
+  }
   for (const source of Object.values(record.sourceRevisions)) map.set(`https://api.github.com/repos/${source.repository}/pulls/${source.number}`, {
     head: { sha: source.headSha }, base: { sha: source.baseSha }, state: source.state, merged: source.merged,
   })
@@ -75,25 +80,35 @@ test('every upstream verification makes fresh advisory, revision and published-p
   const request = async (url, options) => { assert.ok(options.signal); seen.push(url); return { ok: true, json: async () => clone(map.get(url)) } }
   for (let i = 0; i < 2; i++) {
     const result = await verifyUpstream(record, payload, request)
-    assert.equal(result.receipts.length, 7)
+    assert.equal(result.receipts.length, 8)
     assert.equal(result.receipts.filter(item => item.type === 'registry').length, 2)
   }
-  assert.equal(seen.length, 14)
+  assert.equal(seen.length, responses().size * 2)
   for (const url of map.keys()) assert.equal(seen.filter(item => item === url).length, 2)
 })
 test('changed advisory, upstream patch, published version or registry integrity blocks release', async () => {
-  const urls = [...responses().keys()]
+  const advisory = 'https://api.github.com/advisories/GHSA-vfj7-8cjw-p6xm'
+  const patch = 'https://api.github.com/repos/micromatch/braces/pulls/72'
+  const braces = 'https://registry.npmjs.org/braces/latest'
+  const forge = 'https://registry.npmjs.org/node-forge/latest'
+  const tag = 'https://api.github.com/repos/digitalbazaar/forge/git/ref/tags/v1.4.2'
+  const commit = 'https://api.github.com/repos/digitalbazaar/forge/git/tags/' + record.officialReleases[0].tagSha
+  const repositoryAdvisory = 'https://api.github.com/repos/digitalbazaar/forge/security-advisories/GHSA-2g46-22mc-6gwp'
   for (const [url, mutate] of [
-    [urls[0], value => { value.severity = 'critical' }],
-    [urls[0], value => { value.description += '\nChanged security meaning' }],
-    [urls[0], value => { value.summary += ' changed' }],
-    [urls[0], value => { value.withdrawn_at = null }],
-    [urls[2], value => { value.head.sha = '0'.repeat(40) }],
-    [urls[2], value => { value.merged = !value.merged }],
-    [urls[2], value => { value.state = value.state === 'open' ? 'closed' : 'open' }],
-    [urls[5], value => { value.version = '3.0.4' }],
-    [urls[6], value => { value.dist.integrity = 'substituted' }],
-    [urls[6], value => { value.name = 'other-package' }],
+    [advisory, value => { value.severity = 'critical' }],
+    [advisory, value => { value.description += '\nChanged security meaning' }],
+    [advisory, value => { value.summary += ' changed' }],
+    [advisory, value => { value.withdrawn_at = null }],
+    [patch, value => { value.head.sha = '0'.repeat(40) }],
+    [patch, value => { value.merged = !value.merged }],
+    [patch, value => { value.state = value.state === 'open' ? 'closed' : 'open' }],
+    [braces, value => { value.version = '3.0.4' }],
+    [forge, value => { value.dist.integrity = 'substituted' }],
+    [forge, value => { value.name = 'other-package' }],
+    [tag, value => { value.object.sha = '0'.repeat(40) }],
+    [commit, value => { value.object.sha = '0'.repeat(40) }],
+    [repositoryAdvisory, value => { value.vulnerabilities[0].patched_versions = '1.4.3' }],
+    [repositoryAdvisory, value => { value.state = 'withdrawn' }],
   ]) {
     const map = responses(); mutate(map.get(url))
     await assert.rejects(() => verifyUpstream(record, payload, async key => ({ ok: true, json: async () => map.get(key) })))
