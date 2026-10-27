@@ -217,7 +217,7 @@
   "implementationHashes": {
     "scripts/security-supply-chain-gate.mjs": "dcf722bc6cbf2015da4250ea60cbb81e34d3c5c64ec7bb6059671cbae5ab4207",
     "scripts/security-apply-reviewed-backports.mjs": "13a3d243c760239010cbc7833737fb9ebd0c5dab3e48ac12e3cea414173afbef",
-    "scripts/security-verify-reviewed-backports.mjs": "62263be4d7b4450fcb5a9f4f5c4eb5b80a1df0bbfb44f167f2ae43521c9cbf67",
+    "scripts/security-verify-reviewed-backports.mjs": "d6283559f5e2d785628b117aabe4a35d1817851e02e2438ecc0c8f3540a188df",
     "security/patches/braces-3.0.3.patch": "e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699",
     "security/patches/node-forge-1.4.0.patch": "2de065ac998bf58917a14d0935112d97ec2957ac41b5f06958d500934f188ed4",
     "security/patches/reviewed-source-manifest.json": "79262ec68a5214db7ffea3c90200b03d8af6f850b14a5002eb17e7517f55822f",
@@ -1287,7 +1287,7 @@
       "tests/coach-availability-counts.test.mjs": "279847bec8493936c6ba286a1cca82b11cb5323fed070cd381d5179a4207e7c9",
       "tests/coach-branding-return-browser.mjs": "1eadf951c1d2c9c60dc7827fd285f293be9fc778282299a2e89b68f7e6e07008",
       "tests/coach-cache-memory.test.mjs": "386755d94a250d8a23332ddbb64d4750ab2ed6988acd6ff3ecc4814200791a06",
-      "tests/coach-calendar-markers-browser.mjs": "6d77ba5047ce6421295de8f5484fe0a8d5c73c58ebe325adb0d80c8f7713e135",
+      "tests/coach-calendar-markers-browser.mjs": "e6731da5720edc54ee1e752cc158122ae05bf87c7d6f1ca8634eb5c720321727",
       "tests/coach-club-promotion-browser.mjs": "9b00a45e908e1e52a15263ef4d773058aa335ef10ead6940fcad3d30c526f38c",
       "tests/coach-club-promotion-mobile-browser.mjs": "c803b6eb6d2f3df1b3176d3b1b0fe5af986b11d299cbf539356751f42319ac10",
       "tests/coach-club-promotion.test.mjs": "31535ce7ce5dfa69b78cf2cdf50f5be6760586c8bb297bc1e12112b66fadc0fc",
@@ -1361,7 +1361,7 @@
       "tests/match-available-auto-selection.test.mjs": "86a2906f8dc1ee1863f815693981ffb9f35f35e29e743cc1c24d9198918e96f1",
       "tests/match-day-participation-renewal.test.mjs": "7b16ef552fc9946cc3d544ecf1c4176fa728cbd16b63970ccb6e11fbd17417d3",
       "tests/matchday-assist-mobile-notifications-99.test.mjs": "8beacc126241e72c246b9ef15fdc70fa79e796f8b9a8db40c2a98aeab5dc54ed",
-      "tests/matchday-calendar-fixture-browser.mjs": "39828b9b116c2d1aeca23941bd32c7187d63a5a060552a3ab72226172a9d5bca",
+      "tests/matchday-calendar-fixture-browser.mjs": "c2afb4e7a4c3aa9c924b3149f74dd63e56cbfcccf2c2df7848ad1d30ffbab0f7",
       "tests/matchday-calendar-fixture-create.test.mjs": "543dde6dd13f49f505407333d985cff81704db41b9e6f2fb8fb4886347e7aebf",
       "tests/matchday-fixture-controls-db.test.mjs": "81a31255b048b63cbcd328727bf85721c96c1d04545db756d53ecfb089223e4c",
       "tests/matchday-gamemode-modal-controls.test.mjs": "874afe9e99b387155ad76be543eaaaeb9d4071eca2ff9235f013e240293261fd",
@@ -1397,7 +1397,7 @@
       "tests/mobile-development-background.test.mjs": "2e0fd4661f00fd181437fe2a481aeec61e736bf0fd309b0ac261a95e8f86ed97",
       "tests/mobile-development-unfinished-drafts.test.mjs": "e4355b8381830bbbfb2ed40f77b83b62008562d02a9ad6f2500761119428ee34",
       "tests/mobile-eas-test-boundary-07.test.mjs": "7b006768b746380b07d708588c4edcaf4b30ad66e4ae5364d9e086c51498433d",
-      "tests/mobile-event-details-browser.mjs": "bf9926f1f4f02d5d1cf6ea8ea49460d06b61cd17d09fce3ba3285c534f960d73",
+      "tests/mobile-event-details-browser.mjs": "1f3d43bd91b72cba7d3104b661174129c325bed61cdabc69bb0e2893fe8ef261",
       "tests/mobile-feedback-art-browser.mjs": "6450fa15547f9a8c69eebc1a547c8a610d0e7ec04d5999a875b64d0a36b173a1",
       "tests/mobile-feedback-corrective-61.test.mjs": "bcc9b142fd39fa3fb805fa5b69f69b048cee5cd04fadc910db76d7a377c028b6",
       "tests/mobile-header-activity-browser.mjs": "217a6bc9144bdea61d52a557ea12d71e0d9548af38d64c7d0936230b72307af6",
@@ -1613,7 +1613,8 @@
       "tests/mobile-chat-notify-performance-58.test.mjs": "565b7e000d48d416291eba1ce70149baf99d595b175f053c801cf82faf09a883",
       "tests/mobile-corrective-70.test.mjs": "3e0fa6d2e89be6729274fcba20f92a61d0d124196508ccbd943210c0dfdec34c",
       "tests/mobile-corrective-71.test.mjs": "2f97e1378edbe8ece0d9953bda36f43e6e03d7d9a446b2d6c25fb591d92bc196",
-      "tests/mobile-eas-toolchain.test.mjs": "d1f0eb138bba89a4531a8a91128f20517320ebead1c07c24cdab4aa11ae124fd"
+      "tests/mobile-eas-toolchain.test.mjs": "d1f0eb138bba89a4531a8a91128f20517320ebead1c07c24cdab4aa11ae124fd",
+      "tests/helpers/coach-calendar-subscription-fixture.mjs": "28a91009229bdfba0dca9cc5d7f8bc214fb945a0c9cf1dd7868049e79101bc55"
     },
     "externalTrustInputs": [
       "FOOTBALL_REVIEW_RECEIPT_BASE64",
@@ -2930,7 +2931,7 @@
       "publicationApproved": false
     }
   },
-  "releasePreparationSha256": "86bf138dbdb113468d326e23d81d737ac09ebad29eb01d29825527da4dff749b",
+  "releasePreparationSha256": "d6cefcb1f661ef1c0fbc07d2feed99b1ee71702583c8ae1a86ffa4cf810e347f",
   "rootOnlyProposalSha256": "45c3b7352c7328c84982e114b7e87e09cf79514d02d102297ae75ec0925812eb",
   "remediationMode": "maintained-source-fixes"
 }
