@@ -8,6 +8,15 @@ import { hash, inventory, loadRecord, verifySource, verifyCopies, verifyReview, 
 export function prepareWrites(record, payload, copies) {
 const writes = []
 for (const copy of copies) {
+  if (copy.target.mode === 'official-maintained') {
+    assert.equal(copy.target.name, 'node-forge', 'Unapproved official replacement')
+    assert.equal(copy.target.version, '1.4.2', 'Unapproved official replacement version')
+    assert.deepEqual(copy.target.files, [], 'Official packages must not receive source patches')
+    assert.equal(copy.target.originalTreeSha256, copy.target.patchedTreeSha256, 'Official package postimage must be unchanged')
+    assert.equal(hash(Buffer.from(JSON.stringify(inventory(copy.dir)))), copy.target.originalTreeSha256, 'Official package tree drift: no writes')
+    continue
+  }
+  assert.equal(copy.target.mode, 'reviewed-source', 'Unapproved source remediation mode')
   const library = payload.libraries.find(item => item.name === copy.target.name)
   assert.ok(library, 'Missing reviewed library payload')
   assert.deepEqual(library.files.map(x => x.path).sort(), copy.target.files.map(x => x.path).sort(), 'Incomplete payload file set')
@@ -46,5 +55,5 @@ try {
   throw error
 }
 fs.writeFileSync(receiptPath, JSON.stringify({ head: source.head, installerSha256: record.implementationHashes['scripts/security-apply-reviewed-backports.mjs'], installedAt: new Date().toISOString(), filesWritten: writes.length, recordSha256: hash(fs.readFileSync(path.join(root, 'security/reviewed-source-remediations.json'))), patches: record.patches, copies: verifyCopies(root, record).map(({ relative, treeSha256 }) => ({ relative, treeSha256 })), publicationApproved: false }, null, 2) + '\n')
-console.log(`Verified all five owned copies; wrote ${writes.length} exact reviewed source files. No release action.`)
+console.log(`Verified all five owned copies, including two unchanged official node-forge releases; wrote ${writes.length} exact reviewed braces source files. No release action.`)
 }

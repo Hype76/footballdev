@@ -22,6 +22,8 @@ Verify match and training invitations on real iPhone and Android devices with th
 
 Calendar subscriptions require one connection per player or Coach context on each phone. Connecting a second device preserves the first device's link. Apple Calendar opens the subscription confirmation from the app. For Google Calendar, copy the private feed link and add it using Other calendars, From URL on a computer. Verify a time change and cancellation after the calendar provider refreshes. Replacing or revoking a link stops only that link.
 
+Use the guarded `store-qa` submission mode to upload the exact completed `store-live` artifact to the existing Internal Testers TestFlight group or internal Google Play track before device acceptance. It requires `MOBILE_QA_UPLOAD_CONFIRMED=true`, the exact `MOBILE_SUBMISSION_BUILD_ID`, verified tester access, matching app/version/runtime/source identity and the full release gate. It does not set or replace `MOBILE_SUBMISSION_CONFIRMED`; public release remains gated on physical-device QA and store readiness. Android production promotion reuses the tested artifact from the Play library.
+
 ## Client Setup
 
 - Both apps use `expo-notifications`.
