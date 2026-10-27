@@ -20,7 +20,8 @@
     "submit:android:store-test": "node ../scripts/mobile-submit-guard.mjs parent android",
     "submit:android:store-live": "node ../scripts/mobile-submit-guard.mjs parent android store-live",
     "submit:ios:store-test": "node ../scripts/mobile-submit-guard.mjs parent ios",
-    "submit:ios:store-live": "node ../scripts/mobile-submit-guard.mjs parent ios store-live"
+    "submit:ios:store-live": "node ../scripts/mobile-submit-guard.mjs parent ios store-live",
+    "eas-build-pre-install": "node ../scripts/mobile-eas-toolchain.mjs"
   },
   "dependencies": {
     "@expo/vector-icons": "15.1.1",

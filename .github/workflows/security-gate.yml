@@ -101,7 +101,7 @@ jobs:
       - name: Official tooling security and PDF compatibility
         run: node --test tests/security-tooling-updates.test.mjs && node tests/security-tooling-pdf-browser.mjs
       - name: Native calendar subscriptions and background invitation commands
-        run: node --test tests/mobile-calendar-subscriptions.test.mjs tests/mobile-background-invitation-actions.test.mjs tests/mobile-qa-upload-guard.test.mjs tests/parent-calendar-ota-compat.test.mjs tests/mobile-connection-invites-72.test.mjs tests/mobile-calendar-resource-occurrences-111.test.mjs
+        run: node --test tests/mobile-calendar-subscriptions.test.mjs tests/mobile-background-invitation-actions.test.mjs tests/mobile-qa-upload-guard.test.mjs tests/mobile-eas-toolchain.test.mjs tests/parent-calendar-ota-compat.test.mjs tests/mobile-connection-invites-72.test.mjs tests/mobile-calendar-resource-occurrences-111.test.mjs
       - name: Club Admin own-club matchday TV
         run: node --test tests/club-matchday-tv.test.mjs tests/club-matchday-tv-weather.test.mjs && node tests/club-matchday-tv-browser.mjs
       - name: Season awards, calendar poll results and compact team pagination
