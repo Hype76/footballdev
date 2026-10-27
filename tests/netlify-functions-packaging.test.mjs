@@ -49,6 +49,9 @@ test('shared Netlify helpers do not consume deployable function slots', () => {
   assert.ok(topLevelFunctions.includes('send-parent-password-reset'))
   assert.ok(topLevelFunctions.includes('fans'))
   assert.ok(topLevelFunctions.includes('parent-calendar-feed'))
+  assert.ok(topLevelFunctions.includes('coach-calendar-feed'))
+  assert.equal(topLevelFunctions.includes('_coach-calendar-authority'), false)
+  assert.equal(topLevelFunctions.includes('_calendar-subscription-tokens'), false)
   assert.ok(topLevelFunctions.includes('create-fan-account'))
   assert.ok(topLevelFunctions.includes('partner-image'))
   assert.ok(topLevelFunctions.includes('partner-retention'))
@@ -64,7 +67,7 @@ test('shared Netlify helpers do not consume deployable function slots', () => {
   assert.equal(topLevelFunctions.includes('_coach-club-promotion'), false)
   assert.equal(topLevelFunctions.includes('_coach-web-handoff'), false)
   assert.ok(topLevelFunctions.includes('club-matchday-tv'))
-  assert.equal(topLevelFunctions.length, 91)
+  assert.equal(topLevelFunctions.length, 92)
 })
 
 test('Chromium packaging is limited to PDF function roots', () => {
