@@ -84,6 +84,18 @@ test('rolling monthly windows preserve the original month-end anchor', () => {
     windowStart: '2026-10-01', windowEnd: '2026-12-31' }), ['2026-10-31', '2026-11-30', '2026-12-31'])
 })
 
+test('a legacy fixture with no kickoff is all-day even when its TBC flag is false', async () => {
+  const client = fakeClient()
+  client.tables.match_days[0].kickoff_time = null
+  client.tables.match_days[0].kickoff_time_tbc = false
+  const events = await loadCoachFeedEvents(client, { clubId, teamId }, now)
+  const fixture = events.find(event => event.id === 'match_day:match')
+  const feed = buildAcceptedCalendarFeed([fixture], contextId)
+  assert.match(feed, /DTSTART;VALUE=DATE:20261101/)
+  assert.match(feed, /Time TBC/)
+  assert.doesNotMatch(feed, /235900/)
+})
+
 test('a changed kickoff keeps the same UID and cancelled events disappear on refresh', async () => {
   const client = fakeClient()
   const first = await loadCoachFeedEvents(client, { clubId, teamId }, now)

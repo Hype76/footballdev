@@ -226,7 +226,7 @@
   "implementationHashes": {
     "scripts/security-supply-chain-gate.mjs": "dcf722bc6cbf2015da4250ea60cbb81e34d3c5c64ec7bb6059671cbae5ab4207",
     "scripts/security-apply-reviewed-backports.mjs": "43f75b09d3f503dc5aa8f798b0d8fcb7aed5ed4758df20f11e3073532fd92566",
-    "scripts/security-verify-reviewed-backports.mjs": "301fd47641468373fa0a11440eb160d2b09b0574f94cc16b0a115d883d44edc5",
+    "scripts/security-verify-reviewed-backports.mjs": "822766b9841673d8472b74740e31abcc1c4dd83321e7aac0663a8bb91d2da9ce",
     "security/patches/braces-3.0.3.patch": "e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699",
     "security/patches/node-forge-1.4.0.patch": "2de065ac998bf58917a14d0935112d97ec2957ac41b5f06958d500934f188ed4",
     "security/patches/reviewed-source-manifest.json": "79262ec68a5214db7ffea3c90200b03d8af6f850b14a5002eb17e7517f55822f",
@@ -1591,11 +1591,11 @@
       "apps/parent-mobile/src/notifications.js": "60ffdcf76c5b8b8817f1cdbf6b9faecf88c99eb808ab740be5052e0441a2b37e",
       "apps/scripts/mobile-build-guard.mjs": "079067091e0a9640b7c7f35d391da9d1aca60a8fd9ac31b135b6c84049761554",
       "apps/scripts/mobile-submit-guard.mjs": "09772780069e4b847bd049d866da0e70d77aefe1d7e38f727e1b5c439b73d643",
-      "netlify/functions/coach-calendar-feed.js": "8200e730749a1e6e85971ee6baa7ddb6c3a4a9ac5f1e2bb1224c75332d270627",
+      "netlify/functions/coach-calendar-feed.js": "6cce84b94a51e7186d2c3a98688657870dc62484f04f679198cdbce772f09d0d",
       "netlify/functions/lib/_coach-calendar-authority.js": "83e7672eba964646a72418c5c1a3da544f7feb742a0ea2252b57a1cedbeb3db3",
       "supabase/migrations/20261027140215_coach_calendar_subscriptions.sql": "85948648518e31363f74ff1638b99b6354447fe0167e90d06815f1f6497698e8",
       "tests/mobile-background-invitation-actions.test.mjs": "d9660cfa3452e8a4eb2fc998d78092d4d69ef9f79a2db13fc693acf4fbef832f",
-      "tests/mobile-calendar-subscriptions.test.mjs": "2d6eab04c4c7c3dae2599106dcae8b31ca91fe00cb32a9a280775b371d6720cf",
+      "tests/mobile-calendar-subscriptions.test.mjs": "c31ff35609baf562a6f04ee07d1fc2fb4b5a11493fa2b2cd6f4d54933a4887c9",
       "tests/parent-calendar-ota-compat.test.mjs": "721c5b9ecff52524621855e6c3293fd007b097cd6e731c36cfcc11d53879dd45"
     },
     "externalTrustInputs": [
@@ -2913,7 +2913,7 @@
       "publicationApproved": false
     }
   },
-  "releasePreparationSha256": "34c49120217f329fc78dcddc57ee7f5626837d64dc1d2ed8d535e695f9785028",
+  "releasePreparationSha256": "c074f2bdd16e9f9fd704455ebcef024ce4d30d838426367195bbe06c97c157dc",
   "rootOnlyProposalSha256": "45c3b7352c7328c84982e114b7e87e09cf79514d02d102297ae75ec0925812eb",
   "remediationMode": "maintained-source-fixes"
 }

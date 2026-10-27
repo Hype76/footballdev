@@ -40,7 +40,9 @@ export async function loadCoachFeedEvents(client, authority, now = new Date()) {
     .eq('club_id', authority.clubId).eq('team_id', authority.teamId)
     .gte('session_date', start).lte('session_date', end).order('session_date').order('id')) : []
   const deletedDates = new Map(calendarEvents.map(event => [event.id, new Set(event.deleted_occurrence_dates || [])]))
-  return buildCoachCalendarEvents({ calendarEvents, matches, sessions, recurrenceWindow: { windowStart: start, windowEnd: end } })
+  return buildCoachCalendarEvents({ calendarEvents, matches: matches.map(row => ({ ...row,
+    kickoff_time_tbc: row.kickoff_time_tbc === true || !String(row.kickoff_time || '').trim(),
+  })), sessions, recurrenceWindow: { windowStart: start, windowEnd: end } })
     .filter(event => event.calendarDate >= start && event.calendarDate <= end && !event.dateTimeIssue
       && !(event.sourceType === 'calendar_event' && deletedDates.get(event.sourceId)?.has(event.occurrenceDate)))
     .map(event => ({
