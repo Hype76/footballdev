@@ -2,6 +2,8 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import { loadFanScope, loadFanInviteForOwner } from '../netlify/functions/lib/_fan-access.js'
 import { sendFanMatchNotifications } from '../netlify/functions/lib/_fan-push.js'
+import { sendPlayerResourceNotifications } from '../netlify/functions/lib/_player-resource-notifications.js'
+import { canViewFanNotifications, fanNotificationTarget } from '../src/lib/fans.js'
 import { MATCHDAY_DEFAULT_FLAGS } from '../src/lib/matchday-policy.js'
 import { buildCompletedMatchEventPresentation } from '../src/lib/matchday-final-report.js'
 process.env.VITE_SUPABASE_URL = 'https://synthetic.supabase.test'
@@ -58,6 +60,159 @@ function fixture() {
   } }
   return { tables, client, read, selections }
 }
+
+function playerResourceFixture() {
+  const f = fixture(), date = new Date(Date.now() + 2 * 86400000).toISOString().slice(0, 10)
+  f.tables.fan_connections[0].relationship_type = 'player'
+  f.tables.fan_connections[0].permissions = { schedule: true, resources: true, development: true, game_day: false }
+  const event = { id: id(20), club_id: id(6), team_id: id(7), title: 'FP TEST Training', event_type: 'training',
+    starts_at: `${date}T18:00:00Z`, ends_at: `${date}T19:00:00Z`, parent_visible: true,
+    parent_audience: 'involved_players', recurrence_frequency: 'weekly', recurrence_until: date }
+  const item = { id: id(21), club_id: id(6), team_id: id(7), title: 'FP TEST Training card',
+    category: 'training', storage_bucket: 'resource-library', storage_path: `${id(6)}/${id(7)}/${id(21)}/card.pdf` }
+  const link = { id: id(22), resource_id: item.id, club_id: id(6), team_id: id(7), linked_type: 'calendar_event',
+    linked_id: event.id, calendar_occurrence_date: date, parent_visible: false, removed_at: null, resource_library_items: item }
+  f.tables.calendar_events = [event]
+  f.tables.calendar_event_invites = [{ calendar_event_id: event.id, player_id: id(5), club_id: id(6), invite_status: 'active' }]
+  f.tables.resource_library_links = [link]
+  f.tables.resource_library_items = [item]
+  f.tables.resource_library_external_links = []
+  f.tables.fan_devices = [{ auth_user_id: id(2), token: 'ExponentPushToken[synthetic]' }]
+  f.client.storage = { from: () => ({ createSignedUrl: async () => ({ data: { signedUrl: 'https://synthetic.test/card.pdf' }, error: null }) }) }
+  const call = (action, extra = {}) => handleFans({ httpMethod: 'POST', headers: { authorization: 'Bearer synthetic' },
+    body: JSON.stringify({ action, connectionId: id(1), ...extra }) }, { createClient: () => f.client })
+  return { ...f, event, item, link, date, call }
+}
+
+test('player training attachment is listed on its exact occurrence, in resources, and opens with private access', async () => {
+  const f = playerResourceFixture()
+  const schedule = await f.call('schedule')
+  assert.equal(schedule.statusCode, 200)
+  const data = JSON.parse(schedule.body)
+  assert.equal(data.schedule[0].resources[0].id, f.item.id)
+  assert.equal(data.schedule[0].resources[0].occurrenceDate, f.date)
+  const resources = await f.call('resources')
+  assert.equal(resources.statusCode, 200)
+  assert.equal(JSON.parse(resources.body).resources[0].id, f.item.id)
+  assert.ok(!resources.body.includes('storage_path'))
+  assert.ok(!resources.body.includes('/card.pdf'))
+  const opened = await f.call('open_resource', { resourceId: f.item.id })
+  assert.equal(opened.statusCode, 200)
+  assert.equal(JSON.parse(opened.body).accessUrl, 'https://synthetic.test/card.pdf')
+})
+
+test('attendance retains its existing query boundary without loading resource attachments', async () => {
+  const f = playerResourceFixture()
+  const response = await f.call('attendance')
+  assert.equal(response.statusCode, 200)
+  assert.ok(!f.read.includes('resource_library_links'))
+})
+
+for (const deny of ['fan', 'resources', 'schedule', 'development', 'removed', 'other-date', 'other-team', 'archived', 'invitation', 'private-event', 'excluded', 'deleted-occurrence', 'unsafe-path']) {
+  test(`player event attachment fails closed for ${deny}`, async () => {
+    const f = playerResourceFixture()
+    if (deny === 'fan') f.tables.fan_connections[0].relationship_type = 'fan'
+    if (['resources', 'schedule', 'development'].includes(deny)) f.tables.fan_connections[0].permissions[deny] = false
+    if (deny === 'removed') f.link.removed_at = new Date().toISOString()
+    if (deny === 'other-date') f.link.calendar_occurrence_date = '2000-01-01'
+    if (deny === 'other-team') f.link.team_id = id(99)
+    if (deny === 'archived') f.item.archived_at = new Date().toISOString()
+    if (deny === 'invitation') f.tables.calendar_event_invites[0].invite_status = 'cancelled'
+    if (deny === 'private-event') f.event.parent_visible = false
+    if (deny === 'excluded') f.tables.event_player_occurrence_exclusions.push({ club_id: id(6), player_id: id(5), calendar_event_id: f.event.id, scope: 'this_only', effective_from_date: f.date })
+    if (deny === 'deleted-occurrence') f.event.deleted_occurrence_dates = [f.date]
+    if (deny === 'unsafe-path') f.item.storage_path = 'another-team/private.pdf'
+    const response = await f.call('open_resource', { resourceId: f.item.id })
+    assert.equal(response.statusCode, 403)
+  })
+}
+
+test('player resource notifications use the confirmed send, are idempotent and respect opt-outs', async () => {
+  const f = playerResourceFixture(), sent = []
+  const args = { client: f.client, preparation: { id: id(30), club_id: id(6), source_id: f.event.id,
+    source_type: 'calendar', change_action: 'rescheduled', source_snapshot: { resource_links: [] } },
+  source: { resource_links: [{ id: f.item.id, date: f.date }] }, parentLinkIds: [id(4)], title: 'Training resource added', body: 'A new card is available.',
+  featureCheck: async () => () => true, sendPush: async messages => { sent.push(...messages); return { sent: messages.length, failed: 0 } } }
+  const result = await sendPlayerResourceNotifications(args)
+  assert.equal(result.playerSent, 1)
+  assert.equal(f.tables.fan_notifications.length, 1)
+  assert.equal(sent[0].data.route, 'fans')
+  assert.equal(sent[0].data.type, 'resource_shared')
+  assert.equal((await sendPlayerResourceNotifications(args)).playerSent, 0)
+  assert.equal(sent.length, 1)
+  const inbox = await f.call('notifications')
+  assert.equal(inbox.statusCode, 200)
+  assert.equal(JSON.parse(inbox.body).notifications.length, 1)
+  f.link.removed_at = new Date().toISOString()
+  assert.equal(JSON.parse((await f.call('notifications')).body).notifications.length, 0)
+  for (const changed of ['fan', 'off', 'resource-permission', 'revoked-parent']) {
+    const g = playerResourceFixture()
+    if (changed === 'fan') g.tables.fan_connections[0].relationship_type = 'fan'
+    if (changed === 'off') g.tables.fan_connections[0].notifications_enabled = false
+    if (changed === 'resource-permission') g.tables.fan_connections[0].permissions.resources = false
+    if (changed === 'revoked-parent') g.tables.parent_player_links[0].status = 'revoked'
+    const outcome = await sendPlayerResourceNotifications({ ...args, client: g.client, sendPush: async () => { throw new Error('Must not dispatch') } })
+    assert.equal(outcome.playerSent, 0)
+    assert.equal(g.tables.fan_notifications.length, 0)
+  }
+})
+
+test('player resource push opens resources while ordinary Fans retain match-only access', () => {
+  const connection = { id: id(1), relationship_type: 'player', plan_key: 'team', permissions: { schedule: true, resources: true, development: true, game_day: false } }
+  const data = { route: 'fans', fanConnectionId: id(1), type: 'resource_shared' }
+  assert.deepEqual(fanNotificationTarget(connection, data), { action: 'resources' })
+  assert.equal(canViewFanNotifications(connection), true)
+  assert.equal(fanNotificationTarget({ ...connection, relationship_type: 'fan' }, data), null)
+  assert.equal(fanNotificationTarget(undefined, data), null)
+  assert.equal(fanNotificationTarget({ ...connection, permissions: { ...connection.permissions, resources: false } }, data), null)
+})
+
+test('player attachment delivery rechecks revocation, removal and plan before dispatch', async () => {
+  for (const change of ['removed', 'revoked', 'muted', 'plan']) {
+    const f = playerResourceFixture()
+    const original = f.client.from
+    let featuresRead = 0
+    f.client.from = table => {
+      if (table === 'fan_devices') {
+        if (change === 'removed') f.link.removed_at = new Date().toISOString()
+        if (change === 'revoked') f.tables.parent_player_links[0].status = 'revoked'
+        if (change === 'muted') f.tables.fan_connections[0].notifications_enabled = false
+      }
+      return original(table)
+    }
+    const outcome = await sendPlayerResourceNotifications({ client: f.client,
+      preparation: { id: id(30), club_id: id(6), source_id: f.event.id, source_type: 'calendar', change_action: 'rescheduled', source_snapshot: { resource_links: [] } },
+      source: { resource_links: [{ id: f.item.id, date: f.date }] }, parentLinkIds: [id(4)], title: 'Resource', body: 'Card',
+      featureCheck: async () => { featuresRead += 1; return feature => change !== 'plan' || featuresRead < 2 || feature !== 'resourceLibrary' },
+      sendPush: async () => { throw new Error('Must not send after authority changed') } })
+    assert.equal(outcome.playerSent, 0)
+    assert.equal(outcome.playerFailed, 0)
+  }
+})
+
+test('player push and inbox copy describe only the authorised occurrence resource', async () => {
+  const f = playerResourceFixture(), sent = []
+  await sendPlayerResourceNotifications({ client: f.client,
+    preparation: { id: id(30), club_id: id(6), source_id: f.event.id, source_type: 'calendar', change_action: 'rescheduled', source_snapshot: { resource_links: [] } },
+    source: { resource_links: [{ id: id(99), date: '2000-01-01', title: 'Private excluded resource' }, { id: f.item.id, date: f.date }] },
+    parentLinkIds: [id(4)], title: 'Private excluded resource', body: 'Private excluded resource was attached.',
+    featureCheck: async () => () => true, sendPush: async messages => { sent.push(...messages); return { sent: messages.length, failed: 0 } } })
+  assert.equal(sent.length, 1)
+  assert.ok(sent[0].body.includes(f.item.title))
+  assert.ok(!JSON.stringify(sent).includes('Private excluded resource'))
+  assert.ok(!JSON.stringify(f.tables.fan_notifications).includes('Private excluded resource'))
+})
+
+for (const direct of [false, true]) test(`formation attachment retains published viewer with direct share=${direct}`, async () => {
+  const f = playerResourceFixture()
+  f.tables.formation_board_publications = [{ resource_id: f.item.id, club_id: id(6), team_id: id(7), board_id: id(40), board_version_id: id(41), publication_number: 1, board_title_snapshot: 'FP TEST Formation' }]
+  f.tables.formation_board_versions = [{ id: id(41), board_id: id(40), club_id: id(6), team_id: id(7), game_format: '7v7', placements: [], bench: [] }]
+  if (direct) f.tables.resource_library_links.unshift({ ...f.link, id: id(42), linked_type: 'player', linked_id: id(5), calendar_occurrence_date: null, parent_visible: true })
+  const response = await f.call('open_resource', { resourceId: f.item.id })
+  assert.equal(response.statusCode, 200)
+  assert.equal(JSON.parse(response.body).formationBoard.title, 'FP TEST Formation')
+  if (direct) assert.equal(JSON.parse((await f.call('resources')).body).resources[0].eventId, undefined)
+})
 
 test('Fans receive authoritative clock state only for accessible Game Day fixtures', async () => {
   const { client, tables, selections } = fixture()

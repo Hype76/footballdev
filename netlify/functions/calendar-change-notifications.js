@@ -17,6 +17,7 @@ import { sendExpoPushMessages } from './lib/_expo-push.js'
 import { buildScopedNotificationTitle } from './lib/_notification-scope.js'
 import { getParentCommunicationChannels, allowsParentAppNotifications, allowsParentEmail } from './lib/_parent-communication-preferences.js'
 import { writeParentNotificationInbox } from './lib/_parent-notification-inbox.js'
+import { sendPlayerResourceNotifications } from './lib/_player-resource-notifications.js'
 import { supabaseAdmin } from './lib/_supabase.js'
 
 const SOURCE_TYPES = new Set(['calendar', 'match-day', 'session', 'assessment-reminder'])
@@ -537,6 +538,8 @@ async function deliverPreparation(preparation, currentSource) {
     type: 'calendar_change',
   }
   const inbox = await writeParentNotificationInbox({ body: copy.body, client: supabaseAdmin, clubId: preparation.club_id, data: notificationData, intentType: 'calendar_update', parentLinks: appLinks, teamId: preparation.team_id, title })
+  const playerDelivery = await sendPlayerResourceNotifications({ client: supabaseAdmin, preparation,
+    source, parentLinkIds: eligibleLinks.map(link => link.id), teamName: notificationTeamName })
   const linkByAuth = new Map()
   for (const link of appLinks) {
     const rows = linkByAuth.get(link.auth_user_id) || []
@@ -587,6 +590,7 @@ async function deliverPreparation(preparation, currentSource) {
     })
   }))
   return {
+    ...playerDelivery,
     emailFailed: emailResults.filter((result) => result.status === 'rejected').length,
     emailSent: emailResults.filter((result) => result.status === 'fulfilled').length,
     inbox: inbox.inserted,

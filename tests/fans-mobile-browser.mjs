@@ -33,7 +33,8 @@ const mocks = {
 }
 const entry = `
 import React,{useState,useEffect,useRef} from 'react'; import {createRoot} from 'react-dom/client';
-import {Alert,AppState,Share,Platform} from 'react-native';
+import {Alert,AppState,Share,Platform,Linking} from 'react-native';
+window.openedResourceUrls=[];Linking.openURL=async url=>{window.openedResourceUrls.push(url)};
 window.phonePlatform=value=>{Platform.OS=value};
 import {FansScreen,clearFanNotificationDevice} from './apps/parent-mobile/src/FansScreen.js';
 window.clearPhoneNotifications=clearFanNotificationDevice;
@@ -627,6 +628,81 @@ try {
     assert.equal(await choice('Light').getAttribute('aria-checked'), 'true')
     await page.setViewportSize({ width: 390, height: 844 })
   }
+  await page.goto('http://localhost:9877')
+  await page.evaluate(() => {
+    window.standalone=true;window.user={id:'player-test',parentPortalLinks:[]};
+    window.rows=[{id:'training-player',is_owner:false,status:'active',relationship_type:'player',player_name:'FP TEST Player',club_name:'Demo FC',team_name:'Under 14',plan_key:'club',plan_status:'active',permissions:{schedule:true,game_day:false,development:true,resources:true}}];
+    const date=new Date(Date.now()+7*86400000).toISOString().slice(0,10);
+    const resource={id:'10000000-0000-4000-8000-000000000021',title:'FP TEST Training card',category:'training'};
+    window.responses={schedule:{schedule:[{id:'10000000-0000-4000-8000-000000000020:'+date,title:'FP TEST Thursday training',event_type:'training',date,time:'18:00',resources:[resource]}]},resources:{resources:[resource]},open_resource:{accessUrl:'https://synthetic.test/training-card.pdf'},notifications:{notifications:[{id:'training-resource-notice',type:'resource_shared',title:'FP TEST Training resource shared',body:'Open your shared training card.'}]}};
+    window.remount();
+  })
+  await page.getByText('FP TEST Player',{exact:true}).waitFor()
+  await page.getByRole('tab',{name:'Calendar',exact:true}).click()
+  await button('Open FP TEST Training card').click()
+  await page.waitForFunction(()=>window.openedResourceUrls.includes('https://synthetic.test/training-card.pdf'))
+  assert.equal(await page.evaluate(()=>window.readRequests.filter(r=>r.action==='open_resource').at(-1).resourceId),'10000000-0000-4000-8000-000000000021')
+  await page.screenshot({path:`${out}/player-training-attachment.png`})
+  await page.getByRole('tab',{name:'Home',exact:true}).click()
+  await button('Resources').click()
+  await page.getByRole('button',{name:/FP TEST Training card/}).click()
+  await page.waitForFunction(()=>window.openedResourceUrls.length===2)
+  await page.evaluate(()=>{window.responses.open_resource={formationBoard:{id:'formation-version',title:'FP TEST Training formation',gameFormat:'7v7',formation:'2-3-1',placements:[],bench:[]}}})
+  await page.getByRole('tab',{name:'Calendar',exact:true}).click()
+  await button('Open FP TEST Training card').click()
+  await page.getByRole('heading',{name:'FP TEST Training formation',exact:true}).waitFor()
+  await button('Back to Calendar').click()
+  await page.getByRole('heading',{name:'Calendar',exact:true}).waitFor()
+  await page.getByRole('tab',{name:'Home',exact:true}).click()
+  await button('View notifications').click()
+  await page.getByRole('heading',{name:'Notifications',exact:true}).waitFor()
+  await page.getByText('FP TEST Training resource shared',{exact:true}).waitFor()
+  await page.clock.fastForward(30_001)
+  await page.getByText('FP TEST Training resource shared',{exact:true}).waitFor()
+  assert.equal(await page.getByRole('heading',{name:'Notifications',exact:true}).count(),1,'Resource-only Player inbox remains open across authority refresh without Game Day access')
+  await page.screenshot({path:`${out}/player-resource-only-notifications.png`})
+  for (const revoked of ['resources','development','schedule','relationship_type','status','is_owner','connection']) {
+    await page.evaluate(()=>{
+      window.rows=[{id:'training-player',is_owner:false,status:'active',relationship_type:'player',player_name:'FP TEST Player',club_name:'Demo FC',team_name:'Under 14',plan_key:'club',plan_status:'active',permissions:{schedule:true,game_day:false,development:true,resources:true}}]
+      window.remount()
+    })
+    await button('View notifications').click()
+    await page.getByText('FP TEST Training resource shared',{exact:true}).waitFor()
+    const beforeRefresh=await page.evaluate(()=>window.calls.filter(call=>call.name==='list_fan_connections').length)
+    await page.evaluate(revoked=>{
+      const connection={...window.rows[0],permissions:{...window.rows[0].permissions}}
+      if (['resources','development','schedule'].includes(revoked)) connection.permissions[revoked]=false
+      else if (revoked==='relationship_type') connection.relationship_type='fan'
+      else if (revoked==='status') connection.status='revoked'
+      else if (revoked==='is_owner') connection.is_owner=true
+      window.rows=revoked==='connection'?[]:[connection]
+    },revoked)
+    await page.clock.fastForward(30_001)
+    await page.waitForFunction(before=>window.calls.filter(call=>call.name==='list_fan_connections').length>before,beforeRefresh)
+    await page.getByRole('heading',{name:'Notifications',exact:true}).waitFor({state:'hidden'})
+    assert.equal(await page.getByText('FP TEST Training resource shared',{exact:true}).count(),0,`${revoked} revocation clears the live resource-only inbox without remount or background navigation`)
+    assert.equal(await button('View notifications').count(),0,`${revoked} revocation removes the inbox action`)
+  }
+  await page.evaluate(()=>{
+    window.rows=[{id:'ordinary-fan',is_owner:false,status:'active',relationship_type:'fan',player_name:'FP TEST Fan player',club_name:'Demo FC',team_name:'Under 14',plan_key:'club',plan_status:'active',permissions:{schedule:true,game_day:true,development:true,resources:true}}]
+    window.remount()
+  })
+  await button('View notifications').click()
+  await page.getByText('FP TEST Training resource shared',{exact:true}).waitFor()
+  await page.evaluate(()=>{window.rows=[{...window.rows[0],permissions:{...window.rows[0].permissions,game_day:false}}]})
+  await page.clock.fastForward(30_001)
+  await page.getByRole('heading',{name:'Notifications',exact:true}).waitFor({state:'hidden'})
+  assert.equal(await button('View notifications').count(),0,'Ordinary Fans still lose inbox access when Game Day is revoked even when resource permissions remain')
+  await page.evaluate(()=>{
+    window.rows=[{id:'training-player',is_owner:false,status:'active',relationship_type:'player',player_name:'FP TEST Player',club_name:'Demo FC',team_name:'Under 14',plan_key:'club',plan_status:'active',permissions:{schedule:true,game_day:false,development:true,resources:true}}]
+    window.remount()
+  })
+  await page.evaluate(()=>{window.rows[0].permissions.resources=false;window.remount()})
+  await page.getByRole('tab',{name:'Calendar',exact:true}).click()
+  await page.getByText('FP TEST Thursday training',{exact:true}).waitFor()
+  assert.equal(await button('Open FP TEST Training card').count(),0,'Current resource revocation hides cached Calendar attachments')
+  console.log('PASS: player training resource opens from Calendar and Resources using the resource ID; Calendar formation viewer and return work; current permission revocation hides attachments.')
+  console.log('PASS: resource-only Player inbox remains open across live refresh; resource, development, schedule, relationship, status, ownership and connection revocations clear it; ordinary Fan Game Day revocation still closes the inbox.')
   assert.deepEqual(errors, [])
   console.log('PASS: Fans and Players can choose System, Light or Dark; live device following, explicit overrides, reload persistence, save retry, contrast and 320px touch targets.')
   console.log('PASS: native Fans child/header sync, persisted selection, invitation renewal, confirmed cancelled/expired deletion, Player-to-Fan conversion, retry after failure, normal child navigation.')

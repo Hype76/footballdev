@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { isTransientConnectionMessage } from '../../apps/mobile-core/src/useConfirmedConnectionIssue'
+import { canViewFanNotifications } from './fans.js'
 export function useFans({ rpc, request }) {
   const [connections, setConnections] = useState([])
   const [error, setError] = useState('')
@@ -28,8 +29,10 @@ export function useFans({ rpc, request }) {
   }, [clearView, reload])
   useEffect(() => {
     if (!view) return
-    const permission = { matches: 'game_day', stats: 'game_day', notifications: 'game_day', schedule: 'schedule', attendance: 'schedule', development: 'development', resources: 'resources' }[view.action]
-    if (!connections.some((c) => c.id === view.connectionId && !c.is_owner && c.status === 'active' && c.permissions[permission] && (!['attendance', 'stats'].includes(view.action) || c.relationship_type === 'player'))) clearView()
+    const permission = { matches: 'game_day', stats: 'game_day', schedule: 'schedule', attendance: 'schedule', development: 'development', resources: 'resources' }[view.action]
+    if (!connections.some((c) => c.id === view.connectionId && !c.is_owner && c.status === 'active'
+      && (view.action === 'notifications' ? c.permissions?.game_day || canViewFanNotifications(c) : c.permissions?.[permission])
+      && (!['attendance', 'stats'].includes(view.action) || c.relationship_type === 'player'))) clearView()
   }, [connections, clearView, view])
   const open = useCallback(async (connectionId, action, extra = {}) => {
     const current = ++sequence.current
