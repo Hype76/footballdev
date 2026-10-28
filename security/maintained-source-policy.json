@@ -8,12 +8,12 @@
     "proposalSha256": "95f1b5c782335dea22aee6223bbf1426cfe5f2e281dc30e5076f4c7ad0177a91",
     "calendarQualificationExpiry": "2026-10-19T22:59:59Z"
   },
-  "scope": "Three exact source-fixed braces3.0.3 copies and two unchanged official node-forge1.4.2 copies, all with full tree, registry integrity, lock and native-input verification. No renamed packages, relabelled versions or generic advisory exceptions.",
+  "scope": "Three exact source-fixed braces3.0.3 copies, three exact locally corrected deepmerge4.3.1 copies and two unchanged official node-forge1.4.2 copies. Complete package trees, registry integrity, locks and native inputs remain verified. No generic advisory exceptions.",
   "controls": [
     "Independent external receipt SHA256 binds exact clean HEAD, record, policy, implementation, native and release preparation identities.",
-    "Every release checks full installed package trees, all five physical copies, exact registry preimages/postimages, locks and native inputs. Official-maintained copies must remain byte-identical to the reviewed registry tree and receive no local source writes.",
+    "Every release checks full installed package trees, all eight physical copies, exact registry preimages/postimages, locks and native inputs. Official-maintained copies must remain byte-identical to the reviewed registry tree and receive no local source writes.",
     "Every release fetches official advisory meaning, exact upstream revision/status and latest published package version/integrity without cached acceptance. Lookup failures block release.",
-    "Full raw audits remain visible. Only the pinned braces GHSA root can be covered by its exact proven source fix. Official node-forge has no advisory acceptance. Any new or uncovered advisory blocks release.",
+    "Full raw audits remain visible. Only the pinned braces and deepmerge GHSA roots can be covered by their exact proven source corrections. Official node-forge has no advisory acceptance. Any new or uncovered advisory blocks release.",
     "Runtime, provisioning, source/receipt and invalidation regressions must pass on every mobile release and Netlify build, before publication.",
     "Official published version changes, patch revisions/status, advisory meaning, source/native identity or maintenance-policy changes require fresh review and compatibility checks.",
     "There is no calendar renewal. A passing maintained-fix verification is required for each release; historical temporary approval cannot authorise this mode."
@@ -49,6 +49,21 @@
     {
       "path": "apps/coach-mobile/node_modules/node-forge",
       "treeSha256": "dbe2e243bd0239e3a366332f5265ca6bf4b32b050e9178c64e383de3d3455ea4"
+    },
+    {
+      "path": "node_modules/deepmerge",
+      "treeSha256": "286d2a30d121c50de539f45ff69196a5c0aa949f262302c3cb511c370376a432",
+      "requiredPostimage": true
+    },
+    {
+      "path": "apps/parent-mobile/node_modules/deepmerge",
+      "treeSha256": "286d2a30d121c50de539f45ff69196a5c0aa949f262302c3cb511c370376a432",
+      "requiredPostimage": true
+    },
+    {
+      "path": "apps/coach-mobile/node_modules/deepmerge",
+      "treeSha256": "286d2a30d121c50de539f45ff69196a5c0aa949f262302c3cb511c370376a432",
+      "requiredPostimage": true
     }
   ],
   "initialOfficialVerification": {
@@ -138,5 +153,21 @@
     "sourceWritesAllowed": false,
     "advisoryAcceptanceAllowed": false,
     "reason": "Maintainer closed the prior count-only proposals; official canonical-DER validation fixes the wider RSA issue and1.4.2 also fixes PEM Buffer decoding. Historical payloads are retained only as immutable evidence."
+  },
+  "deepmergeMaintainedCorrection": {
+    "version": "4.3.1",
+    "advisory": "GHSA-gcqx-w48m-w2h4",
+    "scope": "All three installed copies; all three shipped JavaScript entrypoints per copy. Locally adopted downstream correction, not an official deepmerge release.",
+    "downstreamRepository": "pnpm/pnpm",
+    "downstreamPullRequest": 17443,
+    "mergedCommit": "63c0b8eede90d9658c5395a47890c24c18ca711e",
+    "sourceUrl": "https://github.com/pnpm/pnpm/blob/63c0b8eede90d9658c5395a47890c24c18ca711e/.config/pnpm/patches/deepmerge@4.3.1.patch",
+    "patchSha256": "6241e75cd0ebdeefbe93564d0f9a0da153bc6608add12970bd3c390910e7e4f4",
+    "registryIntegrity": "sha512-3sUqbMEc77XqpdNO7FRyRog+eW3ph+GYCbj+rK+uYyRMuwsVy0rMiVtPn+QJlKFvWP/1PYpapqYn0Me2knFn+A==",
+    "originalTreeSha256": "7ebc2bd97fe2ba61dbece477cdffea35fe840069176cd501ef26f95104d0b8a7",
+    "patchedTreeSha256": "286d2a30d121c50de539f45ff69196a5c0aa949f262302c3cb511c370376a432",
+    "officialPatchedReleaseAvailable": false,
+    "auditException": false,
+    "independentExactSourceAcceptanceRequired": true
   }
 }

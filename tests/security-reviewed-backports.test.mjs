@@ -89,7 +89,7 @@ test('the real Metro cross-package cycle remains fully traceable to reviewed roo
 test('all owned physical copies, complete package contents and lock identities are verified', () => {
   // This is an integration check against freshly installed, actually patched dependencies.
   const record = loadRecord(root).record
-  assert.equal(verifyCopies(root, record).length, 5)
+  assert.equal(verifyCopies(root, record).length, 8)
 })
 test('an additional nested vulnerable package and an unpatched copy stop verification', () => {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'football-backport-check-'))
@@ -102,7 +102,7 @@ test('an additional nested vulnerable package and an unpatched copy stop verific
       const relative = (item.scope === 'root' ? '' : item.scope + '/') + 'package-lock.json'
       fs.copyFileSync(path.join(root, relative), path.join(directory, relative))
     }
-    assert.equal(verifyCopies(directory, policy).length, 5)
+    assert.equal(verifyCopies(directory, policy).length, 8)
     const extra = path.join(directory, 'node_modules/braces/node_modules/braces')
     fs.mkdirSync(extra, { recursive: true })
     fs.writeFileSync(path.join(extra, 'package.json'), JSON.stringify({ name: 'braces', version: '3.0.3' }))
@@ -138,6 +138,52 @@ test('incomplete payload or wrong prospective complete tree causes zero writes',
   assert.throws(() => prepareWrites(record, incomplete, copies), /Incomplete payload/)
   const wrongTree = copies.map(copy => ({ ...copy, target: { ...copy.target, patchedTreeSha256: '0'.repeat(64) }, treeSha256: '0'.repeat(64) }))
   assert.throws(() => prepareWrites(record, payload, wrongTree), /Prospective postimage tree mismatch/)
+  assert.deepEqual(copies.map(copy => hash(Buffer.from(JSON.stringify(inventory(copy.dir))))), before)
+})
+
+test('deepmerge correction covers only the exact advisory and copy in each owned scope', () => {
+  for (const owned of ['.', 'apps/parent-mobile', 'apps/coach-mobile']) {
+    const scopeName = owned
+    const locks = { packages: { 'node_modules/deepmerge': { version: '4.3.1' }, 'node_modules/dependent': { version: '1.0.0' } } }
+    const audit = { auditReportVersion: 2, vulnerabilities: {
+      deepmerge: { severity: 'low', via: [{ severity: 'low', url: 'https://github.com/advisories/GHSA-gcqx-w48m-w2h4' }], nodes: ['node_modules/deepmerge'] },
+      dependent: { severity: 'low', via: ['deepmerge'], nodes: ['node_modules/dependent'] },
+    }, metadata: { vulnerabilities: { info: 0, low: 2, moderate: 0, high: 0, critical: 0, total: 2 } } }
+    const before = JSON.stringify(audit)
+    assert.equal(evaluateAudit(audit, locks, scopeName, policy).acceptedSourceRemediations.length, 2)
+    assert.equal(JSON.stringify(audit), before)
+    for (const change of [
+      value => { value.vulnerabilities.deepmerge.via.push({ severity: 'low', url: 'https://github.com/advisories/GHSA-deepmerge-unknown' }) },
+      value => { value.vulnerabilities.deepmerge.nodes.push('node_modules/extra/node_modules/deepmerge') },
+    ]) {
+      const altered = clone(audit); change(altered)
+      const result = evaluateAudit(altered, locks, scopeName, policy)
+      assert.ok(result.failures.length)
+      assert.deepEqual(result.acceptedSourceRemediations, [])
+    }
+    const wrongVersion = clone(locks); wrongVersion.packages['node_modules/deepmerge'].version = '4.3.0'
+    assert.ok(evaluateAudit(audit, wrongVersion, scopeName, policy).failures.length)
+  }
+})
+
+test('all deepmerge entrypoints are prepared atomically with exact preimages and no unreviewed writes', () => {
+  const { record, payload } = loadRecord(root)
+  const copies = verifyCopies(root, record, 'install').filter(copy => copy.target.name === 'deepmerge')
+  assert.equal(copies.length, 3)
+  const before = copies.map(copy => hash(Buffer.from(JSON.stringify(inventory(copy.dir)))))
+  const writes = prepareWrites(record, payload, copies)
+  assert.equal(writes.length, copies.filter(copy => copy.treeSha256 !== copy.target.patchedTreeSha256).length * 3)
+  for (const copy of copies) assert.deepEqual(copy.target.files.map(file => file.path), ['dist/cjs.js', 'dist/umd.js', 'index.js'])
+  const incomplete = clone(payload)
+  incomplete.libraries.find(item => item.name === 'deepmerge').files.pop()
+  assert.throws(() => prepareWrites(record, incomplete, copies), /Incomplete/)
+  const substituted = clone(payload)
+  substituted.libraries.find(item => item.name === 'deepmerge').files[0].contentBase64 = Buffer.from('unreviewed').toString('base64')
+  assert.throws(() => prepareWrites(record, substituted, copies), /source hash/)
+  const unsafePayload = clone(payload), unsafeCopies = copies.map(copy => ({ ...copy, target: clone(copy.target) }))
+  unsafePayload.libraries.find(item => item.name === 'deepmerge').files[0].path = '../index.js'
+  for (const copy of unsafeCopies) copy.target.files[0].path = '../index.js'
+  assert.throws(() => prepareWrites(record, unsafePayload, unsafeCopies), /Unsafe payload/)
   assert.deepEqual(copies.map(copy => hash(Buffer.from(JSON.stringify(inventory(copy.dir))))), before)
 })
 

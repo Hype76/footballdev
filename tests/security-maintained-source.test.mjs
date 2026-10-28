@@ -75,14 +75,19 @@ test('every upstream verification makes fresh advisory, revision and published-p
   const request = async (url, options) => { assert.ok(options.signal); seen.push(url); return { ok: true, json: async () => clone(map.get(url)) } }
   for (let i = 0; i < 2; i++) {
     const result = await verifyUpstream(record, payload, request)
-    assert.equal(result.receipts.length, 7)
-    assert.equal(result.receipts.filter(item => item.type === 'registry').length, 2)
+    assert.equal(result.receipts.length, map.size)
+    assert.equal(result.receipts.filter(item => item.type === 'registry').length, 3)
   }
-  assert.equal(seen.length, 14)
+  assert.equal(seen.length, map.size * 2)
   for (const url of map.keys()) assert.equal(seen.filter(item => item === url).length, 2)
 })
 test('changed advisory, upstream patch, published version or registry integrity blocks release', async () => {
-  const urls = [...responses().keys()]
+  const urls = [
+    'https://api.github.com/advisories/GHSA-vfj7-8cjw-p6xm',
+    'https://api.github.com/advisories/GHSA-86w9-cpqp-85rv',
+    'https://api.github.com/repos/micromatch/braces/pulls/72',
+    null, null, 'https://registry.npmjs.org/braces/latest', 'https://registry.npmjs.org/node-forge/latest',
+  ]
   for (const [url, mutate] of [
     [urls[0], value => { value.severity = 'critical' }],
     [urls[0], value => { value.description += '\nChanged security meaning' }],
@@ -94,6 +99,11 @@ test('changed advisory, upstream patch, published version or registry integrity 
     [urls[5], value => { value.version = '3.0.4' }],
     [urls[6], value => { value.dist.integrity = 'substituted' }],
     [urls[6], value => { value.name = 'other-package' }],
+    ['https://api.github.com/advisories/GHSA-gcqx-w48m-w2h4', value => { value.description += ' changed' }],
+    ['https://api.github.com/repos/TehShrike/deepmerge/pulls/274', value => { value.state = 'open' }],
+    ['https://api.github.com/repos/pnpm/pnpm/pulls/17443', value => { value.head.sha = '0'.repeat(40) }],
+    ['https://registry.npmjs.org/deepmerge/latest', value => { value.version = '4.3.2' }],
+    ['https://registry.npmjs.org/deepmerge/latest', value => { value.dist.integrity = 'substituted' }],
   ]) {
     const map = responses(); mutate(map.get(url))
     await assert.rejects(() => verifyUpstream(record, payload, async key => ({ ok: true, json: async () => map.get(key) })))
