@@ -4,7 +4,7 @@ import os from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
 import { spawnSync } from 'node:child_process'
-import { hash } from '../scripts/security-verify-reviewed-backports.mjs'
+import { hash, inventory } from '../scripts/security-verify-reviewed-backports.mjs'
 import { decodeReceipt, assertInstallScope } from '../scripts/security-provision-reviewed-backports.mjs'
 
 test('receipt transport rejects missing external approval, malformed base64 and substituted contents', () => {
@@ -33,6 +33,9 @@ test('executable links must resolve within node_modules including the exact pare
 })
 test('wrong external receipt stops the real provisioner before artifact writes or npm execution', () => {
   const root = process.cwd(), artifacts = path.join(root, '.security-artifacts')
+  const correctionCopies = ['node_modules/deepmerge', 'apps/parent-mobile/node_modules/deepmerge', 'apps/coach-mobile/node_modules/deepmerge']
+  const packageSnapshot = () => correctionCopies.map(file => hash(Buffer.from(JSON.stringify(inventory(path.join(root, file))))))
+  const packagesBefore = packageSnapshot()
   const snapshot = () => fs.readdirSync(artifacts).filter(name => name.endsWith('.json')).sort().map(name => [name, hash(fs.readFileSync(path.join(artifacts, name)))])
   const before = snapshot(), probe = fs.mkdtempSync(path.join(os.tmpdir(), 'football-npm-probe-'))
   const cli = path.join(probe, 'npm-cli.js'), marker = path.join(probe, 'executed')
@@ -44,6 +47,7 @@ test('wrong external receipt stops the real provisioner before artifact writes o
     assert.notEqual(result.status, 0)
     assert.match(result.stderr, /Receipt does not match externally approved SHA256/)
     assert.deepEqual(snapshot(), before)
+    assert.deepEqual(packageSnapshot(), packagesBefore)
     assert.equal(fs.existsSync(marker), false)
   } finally { fs.unlinkSync(cli); if (fs.existsSync(marker)) fs.unlinkSync(marker); fs.rmdirSync(probe) }
 })

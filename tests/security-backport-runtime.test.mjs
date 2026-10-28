@@ -39,14 +39,88 @@ try {
         fs.writeFileSync(path.join(patchedDirectory, file.path), content)
       }
       assert.equal(hash(Buffer.from(JSON.stringify(inventory(patchedDirectory)))), target.patchedTreeSha256)
-      copies.push({ target, relative, original, patched: require(patchedDirectory), originalAvailable: true })
-    } else copies.push({ target, relative, original, patched: original, originalAvailable: false })
+      copies.push({ target, relative, original, patched: require(patchedDirectory), originalAvailable: true, originalDirectory: directory, patchedDirectory })
+    } else copies.push({ target, relative, original, patched: original, originalAvailable: false, originalDirectory: directory, patchedDirectory: directory })
   }
 } catch (error) {
   fs.rmSync(temporary, { recursive: true, force: true })
   throw error
 }
 test.after(() => fs.rmSync(temporary, { recursive: true, force: true }))
+
+function loadDeepmergeEntry(directory, entry) {
+  if (entry !== 'index.js') return require(path.join(directory, entry))
+  // The source entry requires a build-time dependency that is not shipped.
+  // Use the exact implementation bundled into this same verified package.
+  const bundled = fs.readFileSync(path.join(directory, 'dist/cjs.js'), 'utf8')
+  const mergeable = new Function(bundled.slice(0, bundled.indexOf('function emptyTarget(')) + '\nreturn isMergeableObject')()
+  const module = { exports: {} }
+  new Function('require', 'module', fs.readFileSync(path.join(directory, entry), 'utf8'))(name => {
+    assert.equal(name, 'is-mergeable-object')
+    return mergeable
+  }, module)
+  return module.exports
+}
+for (const copy of copies.filter(item => item.target.name === 'deepmerge')) {
+  for (const entry of ['dist/cjs.js', 'dist/umd.js', 'index.js']) {
+    const merge = loadDeepmergeEntry(copy.patchedDirectory, entry)
+    test(copy.relative + '/' + entry + ': blocks both source and target prototype poisoning', () => {
+      const payload = () => JSON.parse('{"__proto__":{"securityPoison":true},"safe":{"value":1}}')
+      for (const target of [null, Object.create(null), payload(), { safe: {} }]) {
+        const result = merge(target, payload())
+        assert.equal(Object.getPrototypeOf(result), Object.prototype)
+        assert.equal(Object.hasOwn(result, '__proto__'), false)
+        assert.equal(result.securityPoison, undefined)
+        assert.deepEqual(result.safe, { value: 1 })
+      }
+      const nullSource = Object.assign(Object.create(null), payload())
+      for (const source of [nullSource, { nested: payload() }, { values: [payload()] }]) {
+        const result = merge({}, source)
+        for (const value of [result, result.nested, result.values?.[0]].filter(Boolean)) {
+          assert.equal(Object.getPrototypeOf(value), Object.prototype)
+          assert.equal(value.securityPoison, undefined)
+          assert.equal(Object.hasOwn(value, '__proto__'), false)
+        }
+      }
+      // Target copying must reject the key even if the source is empty.
+      assert.equal(merge(payload(), {}).securityPoison, undefined)
+      assert.equal({}.securityPoison, undefined)
+      if (copy.originalAvailable) {
+        const original = loadDeepmergeEntry(copy.originalDirectory, entry)
+        assert.equal(original(null, payload()).securityPoison, true)
+        assert.equal(original(Object.create(null), payload()).securityPoison, true)
+        assert.equal(original(payload(), {}).securityPoison, true)
+      }
+    })
+    test(copy.relative + '/' + entry + ': preserves arrays, symbols, cloning and custom merge semantics', () => {
+      const symbol = Symbol('enumerable'), hidden = Symbol('hidden')
+      const source = { values: [{ b: 2 }], [symbol]: { value: 3 }, constructor: { prototype: { safe: 1 } } }
+      Object.defineProperty(source, hidden, { value: 'hidden' })
+      const target = { values: [{ a: 1 }], [symbol]: { old: 2 } }
+      const merged = merge(target, source)
+      assert.deepEqual(merged.values, [{ a: 1 }, { b: 2 }])
+      assert.deepEqual(merged[symbol], { old: 2, value: 3 })
+      assert.equal(Object.hasOwn(merged, hidden), false)
+      assert.notEqual(merged.values[1], source.values[0])
+      assert.equal(merge({}, source, { clone: false }).values, source.values)
+      assert.deepEqual(merge(target, source, { arrayMerge: (_left, right) => right }).values, source.values)
+      const customKeys = []
+      const custom = merge({ values: [1], nested: { a: 1 } }, { values: [2], nested: { b: 2 } }, {
+        customMerge: key => { customKeys.push(key); return key === 'nested' ? (left, right) => ({ ...left, ...right, custom: true }) : undefined },
+      })
+      assert.deepEqual(custom.nested, { a: 1, b: 2, custom: true })
+      assert.deepEqual(custom.values, [1, 2])
+      assert.ok(customKeys.includes('nested'))
+      assert.deepEqual(merge.all([{ one: 1 }, { two: 2 }]), { one: 1, two: 2 })
+      assert.throws(() => merge.all({}), /array/)
+      assert.deepEqual(merge({ prototype: { legitimate: 1 } }, { prototype: { second: 2 } }), { prototype: { legitimate: 1, second: 2 } })
+      const date = new Date(0), regex = /safe/
+      assert.equal(merge({}, { date, regex }).date, date)
+      assert.equal(merge({}, { date, regex }).regex, regex)
+      assert.deepEqual(merge({ nested: { old: 1 } }, { nested: { next: 2 } }, { isMergeableObject: value => Boolean(value) && !Array.isArray(value) && typeof value === 'object' }), { nested: { old: 1, next: 2 } })
+    })
+  }
+}
 
 const pattern = (open, close, depth) => open.repeat(depth) + 'a' + close.repeat(depth)
 const ast = depth => {

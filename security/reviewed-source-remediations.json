@@ -37,13 +37,40 @@
       "headSha": "683ab3344899cc08a581e4d5675a33e87aff7b04",
       "headRepo": "itsalexfer/forge",
       "headRef": "fix/reject-nonempty-digest-null"
+    },
+    "deepmerge274": {
+      "repository": "TehShrike/deepmerge",
+      "number": 274,
+      "url": "https://github.com/TehShrike/deepmerge/pull/274",
+      "state": "closed",
+      "merged": false,
+      "updatedAt": "2026-09-24T14:03:05Z",
+      "baseSha": "5b87756a5671635679001cbac72aa42f23472c81",
+      "headSha": "c5ad573121574db1c625b0aabcc6114ed7df6c5a",
+      "headRepo": "cristianfloresRC/deepmerge",
+      "headRef": "fix/drop-proto-key-regardless-of-target"
+    },
+    "pnpm17443": {
+      "repository": "pnpm/pnpm",
+      "number": 17443,
+      "url": "https://github.com/pnpm/pnpm/pull/17443",
+      "state": "closed",
+      "merged": true,
+      "updatedAt": "2026-10-28T00:41:21Z",
+      "baseSha": "38e9755f6686cbd297dafce9dfdad59b14983636",
+      "headSha": "4f83f935fefafb92df2c44cd2f12c27b88ac6a30",
+      "headRepo": "pnpm/pnpm",
+      "headRef": "fix-audit"
     }
   },
   "eligibleAdvisories": {
     "braces": [
       "GHSA-vfj7-8cjw-p6xm"
     ],
-    "node-forge": []
+    "node-forge": [],
+    "deepmerge": [
+      "GHSA-gcqx-w48m-w2h4"
+    ]
   },
   "targets": [
     {
@@ -178,6 +205,105 @@
       "patchedTreeSha256": "dbe2e243bd0239e3a366332f5265ca6bf4b32b050e9178c64e383de3d3455ea4",
       "files": [],
       "mode": "official-maintained"
+    },
+    {
+      "scope": ".",
+      "packagePath": "node_modules/deepmerge",
+      "name": "deepmerge",
+      "version": "4.3.1",
+      "registryIntegrity": "sha512-3sUqbMEc77XqpdNO7FRyRog+eW3ph+GYCbj+rK+uYyRMuwsVy0rMiVtPn+QJlKFvWP/1PYpapqYn0Me2knFn+A==",
+      "originalTreeSha256": "7ebc2bd97fe2ba61dbece477cdffea35fe840069176cd501ef26f95104d0b8a7",
+      "patchedTreeSha256": "286d2a30d121c50de539f45ff69196a5c0aa949f262302c3cb511c370376a432",
+      "files": [
+        {
+          "path": "dist/cjs.js",
+          "originalSha256": "2e5160f84a1141bd927264afe4d15766f1e6cf07daef182b37ff53fea121de7d",
+          "patchedSha256": "8983763adcccc772c023cb97bbf8830de52f7eeaa3c997b867345e1e62dd9d3b",
+          "originalBytes": 4048,
+          "patchedBytes": 4194
+        },
+        {
+          "path": "dist/umd.js",
+          "originalSha256": "f33e6596482d1fb5c7c427f8ef92f2aa849eea9223acd974176b2fb27ddbf73a",
+          "patchedSha256": "61f125f6ee85c534ddafcd12d2e89c52acd0cd2c9cd292b111cd403ab58e5172",
+          "originalBytes": 4420,
+          "patchedBytes": 4572
+        },
+        {
+          "path": "index.js",
+          "originalSha256": "12440c84957c1990ea2d5e33dc0091722dc1dc1585c6d20e0c780e568ffa9d30",
+          "patchedSha256": "dbef7cab6abdd1338228a08297f0047b3f56c9d7533b38358629b6024c78dbc7",
+          "originalBytes": 3293,
+          "patchedBytes": 3439
+        }
+      ],
+      "mode": "reviewed-source"
+    },
+    {
+      "scope": "apps/parent-mobile",
+      "packagePath": "node_modules/deepmerge",
+      "name": "deepmerge",
+      "version": "4.3.1",
+      "registryIntegrity": "sha512-3sUqbMEc77XqpdNO7FRyRog+eW3ph+GYCbj+rK+uYyRMuwsVy0rMiVtPn+QJlKFvWP/1PYpapqYn0Me2knFn+A==",
+      "originalTreeSha256": "7ebc2bd97fe2ba61dbece477cdffea35fe840069176cd501ef26f95104d0b8a7",
+      "patchedTreeSha256": "286d2a30d121c50de539f45ff69196a5c0aa949f262302c3cb511c370376a432",
+      "files": [
+        {
+          "path": "dist/cjs.js",
+          "originalSha256": "2e5160f84a1141bd927264afe4d15766f1e6cf07daef182b37ff53fea121de7d",
+          "patchedSha256": "8983763adcccc772c023cb97bbf8830de52f7eeaa3c997b867345e1e62dd9d3b",
+          "originalBytes": 4048,
+          "patchedBytes": 4194
+        },
+        {
+          "path": "dist/umd.js",
+          "originalSha256": "f33e6596482d1fb5c7c427f8ef92f2aa849eea9223acd974176b2fb27ddbf73a",
+          "patchedSha256": "61f125f6ee85c534ddafcd12d2e89c52acd0cd2c9cd292b111cd403ab58e5172",
+          "originalBytes": 4420,
+          "patchedBytes": 4572
+        },
+        {
+          "path": "index.js",
+          "originalSha256": "12440c84957c1990ea2d5e33dc0091722dc1dc1585c6d20e0c780e568ffa9d30",
+          "patchedSha256": "dbef7cab6abdd1338228a08297f0047b3f56c9d7533b38358629b6024c78dbc7",
+          "originalBytes": 3293,
+          "patchedBytes": 3439
+        }
+      ],
+      "mode": "reviewed-source"
+    },
+    {
+      "scope": "apps/coach-mobile",
+      "packagePath": "node_modules/deepmerge",
+      "name": "deepmerge",
+      "version": "4.3.1",
+      "registryIntegrity": "sha512-3sUqbMEc77XqpdNO7FRyRog+eW3ph+GYCbj+rK+uYyRMuwsVy0rMiVtPn+QJlKFvWP/1PYpapqYn0Me2knFn+A==",
+      "originalTreeSha256": "7ebc2bd97fe2ba61dbece477cdffea35fe840069176cd501ef26f95104d0b8a7",
+      "patchedTreeSha256": "286d2a30d121c50de539f45ff69196a5c0aa949f262302c3cb511c370376a432",
+      "files": [
+        {
+          "path": "dist/cjs.js",
+          "originalSha256": "2e5160f84a1141bd927264afe4d15766f1e6cf07daef182b37ff53fea121de7d",
+          "patchedSha256": "8983763adcccc772c023cb97bbf8830de52f7eeaa3c997b867345e1e62dd9d3b",
+          "originalBytes": 4048,
+          "patchedBytes": 4194
+        },
+        {
+          "path": "dist/umd.js",
+          "originalSha256": "f33e6596482d1fb5c7c427f8ef92f2aa849eea9223acd974176b2fb27ddbf73a",
+          "patchedSha256": "61f125f6ee85c534ddafcd12d2e89c52acd0cd2c9cd292b111cd403ab58e5172",
+          "originalBytes": 4420,
+          "patchedBytes": 4572
+        },
+        {
+          "path": "index.js",
+          "originalSha256": "12440c84957c1990ea2d5e33dc0091722dc1dc1585c6d20e0c780e568ffa9d30",
+          "patchedSha256": "dbef7cab6abdd1338228a08297f0047b3f56c9d7533b38358629b6024c78dbc7",
+          "originalBytes": 3293,
+          "patchedBytes": 3439
+        }
+      ],
+      "mode": "reviewed-source"
     }
   ],
   "scopeLocks": [
@@ -202,6 +328,10 @@
     {
       "file": "patches/node-forge-1.4.0.patch",
       "sha256": "2de065ac998bf58917a14d0935112d97ec2957ac41b5f06958d500934f188ed4"
+    },
+    {
+      "file": "patches/deepmerge-4.3.1.patch",
+      "sha256": "6241e75cd0ebdeefbe93564d0f9a0da153bc6608add12970bd3c390910e7e4f4"
     }
   ],
   "approval": {
@@ -216,32 +346,33 @@
   },
   "implementationHashes": {
     "scripts/security-supply-chain-gate.mjs": "dcf722bc6cbf2015da4250ea60cbb81e34d3c5c64ec7bb6059671cbae5ab4207",
-    "scripts/security-apply-reviewed-backports.mjs": "13a3d243c760239010cbc7833737fb9ebd0c5dab3e48ac12e3cea414173afbef",
-    "scripts/security-verify-reviewed-backports.mjs": "1e7cd7596a77d8d0aaa8e0125cf9b52d2a77823bcb73af7b0670b0f4fe5a6b95",
+    "scripts/security-apply-reviewed-backports.mjs": "5a2b139d5dc4ba1394c9fd2355b9ac6d17971514132cd0df0f9fc0a12aa53427",
+    "scripts/security-verify-reviewed-backports.mjs": "73ec4c56205466a5377ddbc11aa5d5c3cfdaf9a7c98f7eec03f72a99ffb0aae3",
     "security/patches/braces-3.0.3.patch": "e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699",
     "security/patches/node-forge-1.4.0.patch": "2de065ac998bf58917a14d0935112d97ec2957ac41b5f06958d500934f188ed4",
-    "security/patches/reviewed-source-manifest.json": "79262ec68a5214db7ffea3c90200b03d8af6f850b14a5002eb17e7517f55822f",
-    "tests/security-reviewed-backports.test.mjs": "b33e5a9183ab623fe9aa820d8bb77b66b3e33069f06a2620c10d561e94850ec9",
+    "security/patches/reviewed-source-manifest.json": "6ea54803506f98f76946bb3cc8d147b882d5f880584a8330d22eba6a95a3b578",
+    "tests/security-reviewed-backports.test.mjs": "38e51150f6813369e72af2801cf66d321493df4af97c709b06d355cc70111f60",
     "scripts/security-provision-reviewed-backports.mjs": "8718b28d2c1c7c3f288a1f19b8bea025c70286dc09fd0114aea23e68177c0981",
-    "tests/security-reviewed-provisioning.test.mjs": "877645aa99375cf47e3e63a97be5c002a803f7394a1eed8f306445f0a73a7921",
+    "tests/security-reviewed-provisioning.test.mjs": "5886fc5c046fdc7b401fd7dc77fd7efd8d315e5c945ce177da4830368fdd98fe",
     ".github/workflows/security-gate.yml": "86413b033e915e1a6ed5735e3c57448c14fd06982b2b23b1768fca3daa0168bc",
     "apps/scripts/mobile-release-check.mjs": "d92e479e0222a74dd332e63cee5d3108a0fb1bfc0d8f34f77059bade0a5aed48",
     "package.json": "f58ff67898ec71d4fee54e990b6168a1e55b89bd603b695aa8591ccca804bb17",
     "scripts/security-provision-root-backport.mjs": "ad2b058de5e567b0491b7b7e9c263c8055fd985955db11f4e7fd0c6874924df7",
     "security/root-backport-proposal.json": "45c3b7352c7328c84982e114b7e87e09cf79514d02d102297ae75ec0925812eb",
     "security/supply-chain-policy.json": "d5e3090a995738cc22311275763965c2d278900b5e609a41dba0526ca0843265",
-    "tests/security-backport-runtime.test.mjs": "565685e7a8f9a4341f10e416ca2804048b7852e4dc31093c1efef3a755ab0e1d",
+    "tests/security-backport-runtime.test.mjs": "33ca0e2dbbb7fc8fa25ef22cb41691026297cdc06bbe022e5289d67a8bfc9483",
     "security/backport-requalification.json": "95f1b5c782335dea22aee6223bbf1426cfe5f2e281dc30e5076f4c7ad0177a91",
-    "scripts/security-maintained-release-gate.mjs": "699e8e278b3775da949f9b1b14c218841b9ab012e339cfe095ba5974ff12b0b3",
+    "scripts/security-maintained-release-gate.mjs": "a2c597009fb584a824036a11f82bc0d9dc78da517c026a4ef4937319257bccf2",
     "scripts/security-netlify-build.mjs": "addebe95880ca66b90fe784f68cc23a61d67cf9e4482f8af1ed87f98d54243f6",
-    "tests/security-maintained-source.test.mjs": "b250e78a9f2485f6927c04da0a921bfb13946c894272508e90afe896eccc99eb",
+    "tests/security-maintained-source.test.mjs": "f2c874348433953f01b8d2d75838b390cad9e071d4d32e5e99dc590bce5f9c6d",
     "netlify.toml": "7a6f3e35c22d35413e0f1e1b647eadf54b28aefcf45494447ca8f67163a38a51",
-    "security/maintained-source-policy.json": "9cd52b93b093879988437f6a904b79ebf4058b51f9fcec96dc664f3abfe20bbc",
+    "security/maintained-source-policy.json": "63834f4e77c682741e678303c65c9566dbf4e9dd06a796c3b4de4c7f3ae693a3",
     "tests/security-m3-governance.test.mjs": "1e1134b46175e6b8a5fcfd853dc85ae0a74393bdb99cfddba6945de4c5114e20",
-    "tests/security-toml-upstream.test.mjs": "2766b75496f5fb02ae5ba4c803d29dcbf4df8b41b82a2c50eefa9f2a4a16b836"
+    "tests/security-toml-upstream.test.mjs": "2766b75496f5fb02ae5ba4c803d29dcbf4df8b41b82a2c50eefa9f2a4a16b836",
+    "security/patches/deepmerge-4.3.1.patch": "6241e75cd0ebdeefbe93564d0f9a0da153bc6608add12970bd3c390910e7e4f4"
   },
-  "payloadSha256": "79262ec68a5214db7ffea3c90200b03d8af6f850b14a5002eb17e7517f55822f",
-  "adoptionProposalSha256": "9cd52b93b093879988437f6a904b79ebf4058b51f9fcec96dc664f3abfe20bbc",
+  "payloadSha256": "6ea54803506f98f76946bb3cc8d147b882d5f880584a8330d22eba6a95a3b578",
+  "adoptionProposalSha256": "63834f4e77c682741e678303c65c9566dbf4e9dd06a796c3b4de4c7f3ae693a3",
   "nativeInputs": [
     {
       "path": "package.json",
@@ -968,9 +1099,25 @@
       "sourceWritesAllowed": false,
       "advisoryAcceptanceAllowed": false,
       "reason": "Maintainer closed the prior count-only proposals; official canonical-DER validation fixes the wider RSA issue and1.4.2 also fixes PEM Buffer decoding. Historical payloads are retained only as immutable evidence."
+    },
+    "deepmergeMaintainedCorrection": {
+      "version": "4.3.1",
+      "advisory": "GHSA-gcqx-w48m-w2h4",
+      "scope": "All three installed copies; all three shipped JavaScript entrypoints per copy. Locally adopted downstream correction, not an official deepmerge release.",
+      "downstreamRepository": "pnpm/pnpm",
+      "downstreamPullRequest": 17443,
+      "mergedCommit": "63c0b8eede90d9658c5395a47890c24c18ca711e",
+      "sourceUrl": "https://github.com/pnpm/pnpm/blob/63c0b8eede90d9658c5395a47890c24c18ca711e/.config/pnpm/patches/deepmerge@4.3.1.patch",
+      "patchSha256": "6241e75cd0ebdeefbe93564d0f9a0da153bc6608add12970bd3c390910e7e4f4",
+      "registryIntegrity": "sha512-3sUqbMEc77XqpdNO7FRyRog+eW3ph+GYCbj+rK+uYyRMuwsVy0rMiVtPn+QJlKFvWP/1PYpapqYn0Me2knFn+A==",
+      "originalTreeSha256": "7ebc2bd97fe2ba61dbece477cdffea35fe840069176cd501ef26f95104d0b8a7",
+      "patchedTreeSha256": "286d2a30d121c50de539f45ff69196a5c0aa949f262302c3cb511c370376a432",
+      "officialPatchedReleaseAvailable": false,
+      "auditException": false,
+      "independentExactSourceAcceptanceRequired": true
     }
   },
-  "dependencyRemediationSha256": "0bf4e26c7eb6ddbdb3b39cba731bef1096a34abd7a429593bd26b21c941a58bf",
+  "dependencyRemediationSha256": "a2eae4c0ce5c4ae6664eb456eb9a47e6f776a9ba0d9c15973bf0ca51dfa1a4c4",
   "releasePreparation": {
     "previousCandidate": "f247691198893ff55f99991eb5d7d074c703438b",
     "originalApplicationBaseline": "041ae89454ed0b2f032f36089335a34d357ad1a4",
@@ -2942,9 +3089,25 @@
       "physicalDeviceQaRequired": true,
       "independentExactSourceAcceptanceRequired": true,
       "publicationApproved": false
+    },
+    "deepmergeBuildToolPrerequisite": {
+      "reference": "FP-MOBILE-CALENDAR-BACKGROUND-ACTIONS-271026",
+      "baseline": "afb212b7f1b836e4d3c4820206eea8ecea299405",
+      "advisory": "GHSA-gcqx-w48m-w2h4",
+      "reason": "Correct the three build-tool deepmerge copies using an exact independently reviewed downstream source patch. Preserve raw audit findings and all release checks.",
+      "source": "https://github.com/pnpm/pnpm/blob/63c0b8eede90d9658c5395a47890c24c18ca711e/.config/pnpm/patches/deepmerge@4.3.1.patch",
+      "patchSha256": "6241e75cd0ebdeefbe93564d0f9a0da153bc6608add12970bd3c390910e7e4f4",
+      "nativeArtifactSource": "271609f28283433d248e80ce454281e1312aa31f",
+      "nativeInputsUnchanged": true,
+      "packageAndLockChanges": 0,
+      "migrations": 0,
+      "customerWrites": 0,
+      "independentExactCandidateReviewRequired": true,
+      "nativeArtifactReuseRequiresIndependentEvidence": true,
+      "publicationApproved": false
     }
   },
-  "releasePreparationSha256": "613fe8bcf51260f0d244c3b6770a66ca3791c069c91f98168a9df4ad48c356cc",
+  "releasePreparationSha256": "036baf1a792448413ec1e520b525fc6d2bcf5a45423a80f766ae627d87616808",
   "rootOnlyProposalSha256": "45c3b7352c7328c84982e114b7e87e09cf79514d02d102297ae75ec0925812eb",
   "remediationMode": "maintained-source-fixes"
 }

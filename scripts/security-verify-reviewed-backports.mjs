@@ -10,7 +10,7 @@ export const textHash = (bytes) => hash(Buffer.from(bytes.toString('utf8').repla
 const implementationFiles = [
   'scripts/security-supply-chain-gate.mjs', 'scripts/security-apply-reviewed-backports.mjs',
   'scripts/security-verify-reviewed-backports.mjs', 'security/patches/braces-3.0.3.patch',
-  'security/patches/node-forge-1.4.0.patch', 'security/patches/reviewed-source-manifest.json',
+  'security/patches/node-forge-1.4.0.patch', 'security/patches/deepmerge-4.3.1.patch', 'security/patches/reviewed-source-manifest.json',
   'tests/security-reviewed-backports.test.mjs',
   'scripts/security-provision-reviewed-backports.mjs', 'tests/security-reviewed-provisioning.test.mjs',
   '.github/workflows/security-gate.yml', 'apps/scripts/mobile-release-check.mjs', 'package.json',
@@ -64,9 +64,9 @@ export function loadRecord(root) {
   const record = JSON.parse(fs.readFileSync(safe(root, 'security/reviewed-source-remediations.json')))
   verifyMaintainedAuthority(record)
   assert.equal(record.baseline, '864a6ad3856a02b65ec33bfe8e952e6f98d13dbd')
-  assert.equal(record.adoptionProposalSha256, '9cd52b93b093879988437f6a904b79ebf4058b51f9fcec96dc664f3abfe20bbc', 'Maintained source policy identity changed')
+  assert.equal(record.adoptionProposalSha256, '63834f4e77c682741e678303c65c9566dbf4e9dd06a796c3b4de4c7f3ae693a3', 'Maintained source policy identity changed')
   assert.equal(hash(fs.readFileSync(safe(root, 'security/maintained-source-policy.json'))), record.adoptionProposalSha256, 'Maintained source policy evidence drift')
-  assert.equal(record.releasePreparationSha256, "613fe8bcf51260f0d244c3b6770a66ca3791c069c91f98168a9df4ad48c356cc", 'Release preparation scope drift')
+  assert.equal(record.releasePreparationSha256, "036baf1a792448413ec1e520b525fc6d2bcf5a45423a80f766ae627d87616808", 'Release preparation scope drift')
   assert.equal(hash(Buffer.from(JSON.stringify(record.releasePreparation, null, 2) + '\n')), record.releasePreparationSha256, 'Release preparation pins drift')
   assert.equal(record.releasePreparation.baseline, record.baseline, 'Release preparation baseline mismatch')
   verifyReleasePreparation(root, record.releasePreparation)
@@ -74,7 +74,7 @@ export function loadRecord(root) {
   assert.equal(hash(fs.readFileSync(safe(root, 'security/root-backport-proposal.json'))), record.rootOnlyProposalSha256, 'Retained root proposal drift')
   assert.equal(hash(Buffer.from(JSON.stringify(record.dependencyRemediation, null, 2) + '\n')), record.dependencyRemediationSha256, 'Dependency remediation pins drift')
   for (const [file, expected] of Object.entries(record.dependencyRemediation.changedSourceHashes)) assert.equal(textHash(fs.readFileSync(safe(root, file))), expected, 'Approved dependency/test source drift: ' + file)
-  assert.equal(record.targets.length, 5)
+  assert.equal(record.targets.length, 8)
   assert.deepEqual(Object.keys(record.implementationHashes).sort(), [...implementationFiles].sort(), 'Implementation allowlist changed')
   assert.deepEqual(record.targets.map(t => [t.scope, t.packagePath, t.name, t.version]), [
     ['.', 'node_modules/braces', 'braces', '3.0.3'],
@@ -82,14 +82,23 @@ export function loadRecord(root) {
     ['apps/parent-mobile', 'node_modules/node-forge', 'node-forge', '1.4.2'],
     ['apps/coach-mobile', 'node_modules/braces', 'braces', '3.0.3'],
     ['apps/coach-mobile', 'node_modules/node-forge', 'node-forge', '1.4.2'],
+    ['.', 'node_modules/deepmerge', 'deepmerge', '4.3.1'],
+    ['apps/parent-mobile', 'node_modules/deepmerge', 'deepmerge', '4.3.1'],
+    ['apps/coach-mobile', 'node_modules/deepmerge', 'deepmerge', '4.3.1'],
   ], 'Exact reviewed copy/version scope changed')
-  assert.deepEqual(record.eligibleAdvisories, { braces: ['GHSA-vfj7-8cjw-p6xm'], 'node-forge': [] })
+  assert.deepEqual(record.eligibleAdvisories, { braces: ['GHSA-vfj7-8cjw-p6xm'], 'node-forge': [], deepmerge: ['GHSA-gcqx-w48m-w2h4'] })
   for (const t of record.targets) {
     const trees = t.name === 'braces'
       ? ['ac0f50ef3e9a557dccb4805fc6bb0c8bf9b9502783b7d5baed4c9c8c55cd91a4', 'b024f34af0a56743116dec3c1da981519a0744e9dffe0dd1d31fecc1c0a50c77']
-      : ['dbe2e243bd0239e3a366332f5265ca6bf4b32b050e9178c64e383de3d3455ea4', 'dbe2e243bd0239e3a366332f5265ca6bf4b32b050e9178c64e383de3d3455ea4']
+      : t.name === 'deepmerge'
+        ? ['7ebc2bd97fe2ba61dbece477cdffea35fe840069176cd501ef26f95104d0b8a7', '286d2a30d121c50de539f45ff69196a5c0aa949f262302c3cb511c370376a432']
+        : ['dbe2e243bd0239e3a366332f5265ca6bf4b32b050e9178c64e383de3d3455ea4', 'dbe2e243bd0239e3a366332f5265ca6bf4b32b050e9178c64e383de3d3455ea4']
     assert.deepEqual([t.originalTreeSha256, t.patchedTreeSha256], trees, 'Reviewed package-tree identities changed')
-    assert.equal(t.mode, t.name === 'braces' ? 'reviewed-source' : 'official-maintained', 'Package verification mode changed')
+    assert.equal(t.mode, t.name === 'node-forge' ? 'official-maintained' : 'reviewed-source', 'Package verification mode changed')
+    if (t.name === 'deepmerge') {
+      assert.equal(t.registryIntegrity, 'sha512-3sUqbMEc77XqpdNO7FRyRog+eW3ph+GYCbj+rK+uYyRMuwsVy0rMiVtPn+QJlKFvWP/1PYpapqYn0Me2knFn+A==', 'Reviewed deepmerge integrity changed')
+      assert.deepEqual(t.files.map(file => [file.path, file.originalBytes, file.patchedBytes]), [['dist/cjs.js', 4048, 4194], ['dist/umd.js', 4420, 4572], ['index.js', 3293, 3439]], 'All shipped deepmerge entrypoints and exact byte lengths must be corrected')
+    }
     if (t.mode === 'official-maintained') {
       assert.equal(t.registryIntegrity, 'sha512-rRtAR5XLJ8gCKd9du4qrKAsgCG1ObGP4gLeNJMa4vYSeq4bmBMOJk5IHkrviBV0q7uoAJlVd8HEQYQSVUb4FGQ==', 'Official node-forge integrity changed')
       assert.deepEqual(t.files, [], 'Official node-forge cannot accept local source patches')
@@ -98,6 +107,7 @@ export function loadRecord(root) {
   const expectedPatches = {
     'patches/braces-3.0.3.patch': 'e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699',
     'patches/node-forge-1.4.0.patch': '2de065ac998bf58917a14d0935112d97ec2957ac41b5f06958d500934f188ed4',
+    'patches/deepmerge-4.3.1.patch': '6241e75cd0ebdeefbe93564d0f9a0da153bc6608add12970bd3c390910e7e4f4',
   }
   assert.deepEqual(Object.fromEntries(record.patches.map(p => [p.file, p.sha256])), expectedPatches)
   for (const p of record.patches) assert.equal(hash(fs.readFileSync(safe(root, 'security/' + p.file))), p.sha256, 'Patch bytes changed')
@@ -138,7 +148,7 @@ function discover(root, scope) {
     const metadata = path.join(dir, 'package.json')
     if (fs.existsSync(metadata)) {
       const pkg = JSON.parse(fs.readFileSync(metadata))
-      if (['braces', 'node-forge'].includes(pkg.name)) copies.push({ scope, packagePath: path.relative(path.resolve(root, scope), dir).replaceAll('\\', '/'), name: pkg.name, version: pkg.version })
+      if (['braces', 'node-forge', 'deepmerge'].includes(pkg.name)) copies.push({ scope, packagePath: path.relative(path.resolve(root, scope), dir).replaceAll('\\', '/'), name: pkg.name, version: pkg.version })
     }
     if (fs.existsSync(path.join(dir, 'node_modules'))) walk(relative + '/node_modules')
   }
@@ -282,7 +292,8 @@ export function evaluateAudit(audit, lock, scope, record) {
       const leafFinding = audit.vulnerabilities[leaf.owner]
       const paths = leafFinding?.nodes || []
       const covered = paths.length > 0 && paths.every(node => record.targets.some(t => t.scope === scope && t.name === leaf.owner && t.packagePath === node && lock.packages[node]?.version === t.version))
-      if (!id || !eligible.includes(id) || leaf.severity !== 'high' || finding.severity !== 'high' || (leaf.name && leaf.name !== leaf.owner) || !covered) failures.push(`Unaccepted advisory: ${scope}/${name}/${id || 'unknown'}`)
+      const requiredSeverity = { 'GHSA-vfj7-8cjw-p6xm': 'high', 'GHSA-gcqx-w48m-w2h4': 'low' }[id]
+      if (!id || !eligible.includes(id) || !requiredSeverity || leaf.severity !== requiredSeverity || finding.severity !== requiredSeverity || (leaf.name && leaf.name !== leaf.owner) || !covered) failures.push(`Unaccepted advisory: ${scope}/${name}/${id || 'unknown'}`)
       else accepted.push({ scope, package: name, advisory: id, patchedPackage: leaf.owner, affectedPaths: paths })
     }
   }
