@@ -759,7 +759,7 @@ async function getCoachAvailabilityHomeSummary(user) {
   return Object.freeze({ all: Object.freeze([...match, ...training]) })
 }
 
-export async function getCoachInvitesAndAvailability(user, { summaryOnly = false, onMatchReady } = {}) {
+export async function getCoachInvitesAndAvailability(user, { summaryOnly = false, onMatchReady, onAvailabilityReady } = {}) {
   assertCoachOperationalRead(user, { requiresTeam: true })
   if (summaryOnly) return getCoachAvailabilityHomeSummary(user)
   const matchReads = getCoachMatchDayList(user).then(async (matches) => {
@@ -769,13 +769,15 @@ export async function getCoachInvitesAndAvailability(user, { summaryOnly = false
     onMatchReady?.({ matches: Object.freeze(matches), match })
     return { matches, match, ...result }
   })
-  const [calendarResult, trainingResult, trainingResponseResult, trainingCoachResult, matchData, players] = await Promise.all([
+  // Player enrichment and offline command preparation do not determine the
+  // availability counts. Start enrichment together, without holding up display.
+  const playersRead = getCoachPlayerList(user).then(value => ({ value }), error => ({ error }))
+  const [calendarResult, trainingResult, trainingResponseResult, trainingCoachResult, matchData] = await Promise.all([
     supabase.from('calendar_event_invites').select('*,calendar_events:calendar_event_id(title,team_id,cancelled_at,recurrence_frequency)').eq('club_id', user.clubId).eq('team_id', user.activeTeamId).order('created_at', { ascending: false }).limit(250),
     supabase.from('training_availability_request_players').select('*,training_availability_requests:request_id(*),scheduled_email_queue:email_queue_id(delivery_state,provider_accepted_at,provider_delivered_at,status)').eq('club_id', user.clubId).eq('team_id', user.activeTeamId).order('created_at', { ascending: false }).limit(250),
     supabase.from('training_availability_responses').select('request_id,player_id,status,note,responded_at,responded_by_name,response_source').eq('club_id', user.clubId).eq('team_id', user.activeTeamId).order('responded_at', { ascending: false }).limit(250),
     supabase.from('training_coach_attendance').select('id,request_id,club_id,team_id,calendar_event_id,occurrence_date,occurrence_starts_at,coach_user_id,coach_name,status,responded_at,notification_status,notification_sent_at,notification_error,training_availability_requests:request_id(status),calendar_events:calendar_event_id(cancelled_at)').eq('club_id', user.clubId).eq('team_id', user.activeTeamId).order('occurrence_starts_at', { ascending: true }).limit(250),
     matchReads,
-    getCoachPlayerList(user),
   ])
   const { matchResult, matchAvailabilityResult, matches, match } = matchData
   const hardError = calendarResult.error || trainingResult.error || trainingResponseResult.error || trainingCoachResult.error || matchResult.error || matchAvailabilityResult.error
@@ -819,6 +821,8 @@ export async function getCoachInvitesAndAvailability(user, { summaryOnly = false
     cancelled: row.training_availability_requests?.status === 'cancelled' || Boolean(row.calendar_events?.cancelled_at),
   }))
   const rows = [...match, ...training, ...trainingCoaches]
+  onAvailabilityReady?.({ calendar: Object.freeze(calendar), training: Object.freeze(training),
+    trainingCoaches: Object.freeze(trainingCoaches), match, matches: Object.freeze(matches) })
   const preparations = await prepareAttendanceChoices(rows.map(row => row.coachUserId
     ? row.coachUserId === user.id && !row.cancelled && Date.parse(row.occurrenceStartsAt) > Date.now() ? { route: 'coach_self_training', target: { attendanceId: row.id } } : null
     : row.stale || row.cancelled ? null : { route: row.kind === 'match' ? 'coach_player_match' : 'coach_player_training',
@@ -827,6 +831,9 @@ export async function getCoachInvitesAndAvailability(user, { summaryOnly = false
   const preparedMatch = prepared.slice(0, match.length)
   const preparedTraining = prepared.slice(match.length, match.length + training.length)
   const preparedCoaches = prepared.slice(match.length + training.length)
+  const playerResult = await playersRead
+  if (playerResult.error) throw playerResult.error
+  const players = playerResult.value
   return Object.freeze({ calendar: Object.freeze(calendar), training: Object.freeze(preparedTraining), trainingCoaches: Object.freeze(preparedCoaches), match: Object.freeze(preparedMatch), matches: Object.freeze(matches), players: Object.freeze(players), all: Object.freeze([...preparedMatch, ...preparedTraining, ...calendar]) })
 }
 

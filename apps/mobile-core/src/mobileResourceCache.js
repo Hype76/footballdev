@@ -6,9 +6,9 @@ export function createMobileResourceCache({ now = Date.now, maxEntries = 80 } = 
   return {
     clear() { generation += 1; entries.clear() },
     invalidate(key) { entries.delete(key) },
-    peek(key, maxAgeMs = DEFAULT_MAX_AGE_MS) {
+    peek(key, maxAgeMs = DEFAULT_MAX_AGE_MS, { allowStale = false } = {}) {
       const entry = entries.get(key)
-      return entry?.hasValue && now() - entry.savedAt < maxAgeMs ? entry.value : undefined
+      return entry?.hasValue && (allowStale || now() - entry.savedAt < maxAgeMs) ? entry.value : undefined
     },
     read(key, loader, { force = false, maxAgeMs = DEFAULT_MAX_AGE_MS } = {}) {
       const existing = entries.get(key)
@@ -56,8 +56,8 @@ export function readMobileResource(user, resource, loader, options = {}) {
   return mobileResourceCache.read(mobileResourceKey(user, resource), loader, { maxAgeMs: resourceMaxAge(resource), ...options })
 }
 
-export function peekMobileResource(user, resource) {
-  return mobileResourceCache.peek(mobileResourceKey(user, resource), resourceMaxAge(resource))
+export function peekMobileResource(user, resource, options = {}) {
+  return mobileResourceCache.peek(mobileResourceKey(user, resource), resourceMaxAge(resource), options)
 }
 
 export function invalidateMobileResource(user, resource) {

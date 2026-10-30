@@ -242,6 +242,8 @@ export function CoachPhase31EScreen({ chatNotificationTarget, domain, context, o
   useMobileOffline(stale)
   const dataRef = useRef(null)
   dataRef.current = data
+  const focusedAvailabilityRef = useRef(false)
+  const onAvailabilityFocus = useCallback(focused => { focusedAvailabilityRef.current = focused }, [])
   const confirmedStale = useConfirmedConnectionIssue(stale)
   const visibleError = useConfirmedConnectionMessage(error)
   const offlinePolicy = getCoachPhase31EOfflinePolicy(domain)
@@ -255,7 +257,8 @@ export function CoachPhase31EScreen({ chatNotificationTarget, domain, context, o
     const loader = LOADERS[domain]
     if (!loader) return
     const memoryKey = `coach:phase31e:${domain}`
-    const recent = reuseFresh ? peekMobileResource(user, memoryKey) : undefined
+    // Expiry requires a fresh read, but must not blank the last known availability.
+    const recent = reuseFresh ? peekMobileResource(user, memoryKey, { allowStale: domain === 'invites' }) : undefined
     if (recent !== undefined) {
       setData(recent); setStale(domain === 'invites'); setLoading(false); setError('')
       if (domain !== 'invites') return
@@ -266,16 +269,26 @@ export function CoachPhase31EScreen({ chatNotificationTarget, domain, context, o
       setError('')
       setNotice('')
     }
-    const cached = await readCoachOfflineResources(user.id, context).catch(() => null)
+    let hasCachedValue = false
+    let onlinePublished = false
+    const hadVisibleData = Boolean(dataRef.current || recent !== undefined)
+    const restoreSaved = readCoachOfflineResources(user.id, context).catch(() => null).then(cached => {
+      if (!current()) return
+      const savedValue = cached?.resources?.[`phase31e:${domain}`]
+      const cachedValue = domain === 'chat' ? sanitizeCoachChatOfflineValue(savedValue) : savedValue
+      hasCachedValue = offlinePolicy.cache && hasUsableCoachPhase31ECache(domain, savedValue, cachedValue)
+      if (hasCachedValue && !onlinePublished && !hadVisibleData) {
+        // Restore Training even if the independent Match read finished first.
+        setData(previous => previous ? { ...cachedValue, ...previous } : cachedValue)
+        setStale(true)
+        setLoading(false)
+        setError('')
+      }
+    })
+    // Encrypted phone storage must not delay online availability requests.
+    if (domain !== 'invites' || user.isOfflineProfile) await restoreSaved
+    else await Promise.resolve()
     if (!current()) return false
-    const savedValue = cached?.resources?.[`phase31e:${domain}`]
-    const cachedValue = domain === 'chat' ? sanitizeCoachChatOfflineValue(savedValue) : savedValue
-    const hasCachedValue = offlinePolicy.cache && hasUsableCoachPhase31ECache(domain, savedValue, cachedValue)
-    if (hasCachedValue && recent === undefined && !dataRef.current) {
-      setData(cachedValue)
-      setStale(true)
-      setLoading(false)
-    }
     if (user.isOfflineProfile) {
       setStale(true); setLoading(false); setRefreshing(false)
       if (!hasCachedValue) setError('This section has not been saved on this phone yet. Connect to load it; Coach saves information automatically.')
@@ -301,10 +314,16 @@ export function CoachPhase31EScreen({ chatNotificationTarget, domain, context, o
             })
           },
         } : domain === 'invites' ? {
+          onAvailabilityReady(snapshot) {
+            if (!current() || !acceptingMatches) return
+            onlinePublished = true
+            setData(previous => ({ ...previous, ...snapshot }))
+            setLoading(false)
+            setError('')
+          },
           onMatchReady(snapshot) {
             if (!current() || !acceptingMatches) return
-            setData(previous => ({ calendar: [], training: [], trainingCoaches: [], players: [],
-              ...previous, ...snapshot }))
+            setData(previous => ({ ...previous, ...snapshot }))
             setLoading(false)
             setError('')
           },
@@ -313,6 +332,7 @@ export function CoachPhase31EScreen({ chatNotificationTarget, domain, context, o
           ? { ...loaded, records: dataRef.current?.records || loaded.records } : loaded
       }, domain === 'invites' ? { timeoutMs: 30000 } : {}), { force: domain === 'invites' || !reuseFresh })
       if (!current()) return false
+      onlinePublished = true
       setData(next)
       setStale(false)
       setError('')
@@ -345,7 +365,9 @@ export function CoachPhase31EScreen({ chatNotificationTarget, domain, context, o
 
   useEffect(() => {
     if (domain !== 'invites') return undefined
-    const refreshInvites = () => void load({ silent: true })
+    // The open fixture already refreshes itself. Avoid rereading the entire
+    // domain and restarting its focused read on every background tick.
+    const refreshInvites = () => { if (AppState.currentState === 'active' && !focusedAvailabilityRef.current) void load({ silent: true }) }
     const interval = setInterval(refreshInvites, 30000)
     const subscription = AppState.addEventListener('change', (nextState) => {
       if (nextState === 'active') refreshInvites()
@@ -366,7 +388,7 @@ export function CoachPhase31EScreen({ chatNotificationTarget, domain, context, o
     }
   }, [domain, load])
 
-  const common = { context, palette, chatNotificationTarget, data, load, notice, onChatNotificationTargetHandled, onNavigate, onCaptureScrollPosition, onRestoreScrollPosition, placeholderColor: palette.textSecondary, reloadHome, setNotice, stale, styles, user }
+  const common = { context, palette, chatNotificationTarget, data, load, notice, onAvailabilityFocus, onChatNotificationTargetHandled, onNavigate, onCaptureScrollPosition, onRestoreScrollPosition, placeholderColor: palette.textSecondary, reloadHome, setNotice, stale, styles, user }
   return (
     <View style={styles.stack}>
       {domain === 'resources' ? <>
@@ -1112,11 +1134,16 @@ function createMatchInviteSaver(user, context, fixtureId) {
   } })
 }
 
-function InvitesDomain({ data: serverData, context, load: loadDomain, onNavigate, onCaptureScrollPosition, onRestoreScrollPosition, palette, reloadHome, setNotice, stale: domainStale, styles, user }) {
+function InvitesDomain({ data: serverData, context, load: loadDomain, onAvailabilityFocus, onNavigate, onCaptureScrollPosition, onRestoreScrollPosition, palette, reloadHome, setNotice, stale: domainStale, styles, user }) {
   const [matchId, setMatchId] = useState('')
   const [trainingKey, setTrainingKey] = useState('')
   const today = new Date().toISOString().slice(0, 10)
   const focusedFixture = getCoachAvailabilityMatches(serverData.matches || [], user.activeTeamId, today).find(match => match.id === matchId)
+  const hasFocusedFixture = Boolean(focusedFixture)
+  useEffect(() => {
+    onAvailabilityFocus?.(hasFocusedFixture)
+    return () => onAvailabilityFocus?.(false)
+  }, [hasFocusedFixture, onAvailabilityFocus])
   const focusedInvites = useCoachMatchInvites({ user, context, fixture: focusedFixture,
     cachedRows: (serverData.match || []).filter(invite => invite.eventId === matchId),
     sourceRevision: serverData.match,

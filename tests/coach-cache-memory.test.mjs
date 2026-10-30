@@ -43,7 +43,7 @@ const ast = parse(screenSource, { sourceType: 'module', plugins: ['jsx'] })
 const screen = ast.program.body.find(node => node.type === 'ExportNamedDeclaration' && node.declaration?.id?.name === 'CoachPhase31EScreen').declaration
 const callback = screen.body.body.find(node => node.type === 'VariableDeclaration' && node.declarations[0].id.name === 'load').declarations[0].init.arguments[0]
 
-function loadHarness({ saveError, savePending, loadError, cachedValue, offline = false, matchSnapshot, initialData = null } = {}) {
+function loadHarness({ saveError, savePending, loadError, cachedValue, cachePending, memoryValue, offline = false, matchSnapshot, initialData = null } = {}) {
   const state = { data: initialData, error: '', notice: '', loading: true, refreshing: false, stale: false, invitesRefreshing: false, saves: 0, reads: 0, timeoutMs: null, scopeCurrent: true }
   const next = { invites: [{ playerId: 'synthetic-player', status: 'maybe' }] }
   const environment = {
@@ -51,9 +51,9 @@ function loadHarness({ saveError, savePending, loadError, cachedValue, offline =
     domain: 'invites', context: { id: 'team:test' }, user: { id: 'coach', isOfflineProfile: offline },
     LOADERS: { invites: async (_user, options) => { state.reads += 1; state.publishMatch = options.onMatchReady; if (matchSnapshot) options.onMatchReady(matchSnapshot); if (loadError) throw loadError; return next } },
     TITLES: { invites: 'Invites' }, dataRef: { get current() { return state.data } }, offlinePolicy: { cache: true },
-    peekMobileResource: () => undefined,
+    peekMobileResource: () => memoryValue,
     readMobileResource: (_user, _key, loader) => loader(), withMobileAsyncTimeout: (loader, options) => { state.timeoutMs = options?.timeoutMs; return loader() },
-    readCoachOfflineResources: async () => ({ resources: { 'phase31e:invites': cachedValue } }),
+    readCoachOfflineResources: async () => { if (cachePending) await cachePending; return { resources: { 'phase31e:invites': cachedValue } } },
     hasUsableCoachPhase31ECache: (_domain, value) => Boolean(value),
     saveCoachOfflineResources: async () => { state.saves += 1; if (savePending) await savePending; if (saveError) throw saveError },
     getCoachFriendlyError: error => error.message,
@@ -154,4 +154,69 @@ test('a late match callback after a failed load cannot replace the visible list'
   await load()
   state.publishMatch({ match: [{ id: 'late' }] })
   assert.equal(state.data, initialData)
+})
+
+test('slow encrypted storage does not block online retrieval or replace the fresh result later', { timeout: 1000 }, async () => {
+  let finishCache
+  const cachePending = new Promise(resolve => { finishCache = resolve })
+  const { state, next, load } = loadHarness({ cachePending, cachedValue: { match: [{ id: 'old' }] } })
+  await load({ reuseFresh: true })
+  assert.equal(state.reads, 1)
+  assert.equal(state.data, next)
+  finishCache()
+  await new Promise(resolve => setImmediate(resolve))
+  assert.equal(state.data, next)
+  assert.equal(state.stale, false)
+})
+
+test('memory availability stays visible and read-only if revalidation fails', async () => {
+  const memoryValue = { match: [{ id: 'saved' }] }
+  const { state, load } = loadHarness({ memoryValue, loadError: new Error('Offline') })
+  const pending = load({ reuseFresh: true })
+  assert.equal(state.data, memoryValue)
+  assert.equal(state.loading, false)
+  await pending
+  assert.equal(state.data, memoryValue)
+  assert.equal(state.stale, true)
+  assert.equal(state.error, '')
+})
+
+test('late saved Training merges with a fast current Match without replacing its response', async () => {
+  let finishCache
+  const cachePending = new Promise(resolve => { finishCache = resolve })
+  const saved = { match: [{ id: 'old-match' }], training: [{ id: 'saved-training' }], players: [{ id: 'saved-player' }] }
+  const snapshot = { match: [{ id: 'current-match' }], matches: [{ id: 'fixture' }] }
+  const { state, load } = loadHarness({ cachePending, cachedValue: saved, matchSnapshot: snapshot, loadError: new Error('Training timed out') })
+  await load()
+  assert.equal(state.data.match, snapshot.match)
+  finishCache()
+  await new Promise(resolve => setImmediate(resolve))
+  assert.equal(state.data.match, snapshot.match)
+  assert.equal(state.data.training, saved.training)
+  assert.equal(state.error, '')
+  assert.equal(state.stale, true)
+})
+
+test('availability background polling defers to the open fixture and stops while the app is inactive', () => {
+  const effect = screen.body.body.find(node => node.type === 'ExpressionStatement'
+    && node.expression.callee?.name === 'useEffect'
+    && screenSource.slice(node.start, node.end).includes('const refreshInvites'))
+    .expression.arguments[0]
+  let tick, foreground, removed = false, cleared = false, calls = 0
+  const focusedAvailabilityRef = { current: false }
+  const AppState = { currentState: 'active', addEventListener(_name, callback) { foreground = callback; return { remove() { removed = true } } } }
+  const cleanup = vm.runInNewContext(`(${screenSource.slice(effect.start, effect.end)})`, {
+    domain: 'invites', focusedAvailabilityRef, AppState,
+    load: () => { calls++; return Promise.resolve() },
+    setInterval: callback => { tick = callback; return 1 }, clearInterval: () => { cleared = true },
+  })()
+  tick(); assert.equal(calls, 1)
+  focusedAvailabilityRef.current = true
+  tick(); foreground('active'); assert.equal(calls, 1)
+  focusedAvailabilityRef.current = false
+  AppState.currentState = 'background'
+  tick(); assert.equal(calls, 1)
+  AppState.currentState = 'active'
+  foreground('active'); assert.equal(calls, 2)
+  cleanup(); assert.equal(removed && cleared, true)
 })
