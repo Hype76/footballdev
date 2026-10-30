@@ -72,7 +72,7 @@ test('notification refresh shows expired scoped data, ignores late storage and c
   state.fail(Object.assign(new Error('restricted'),{status:403}));await assert.rejects(newer)
   assert.equal((await oldOutcome).status,403)
   finishOld([{id:'obsolete'}]);await Promise.resolve()
-  assert.equal(state.writes,writesBefore);assert.deepEqual(published.at(-1),[])
+  assert.equal(state.writes,writesBefore+1);assert.deepEqual(published.at(-1),[])
   request=module.loadCoachNotificationHistory(user,context,{onSaved:items=>published.push(items)})
   assert.equal(state.reads.at(-1).force,true);state.finish([]);await request
  }finally{delete globalThis.__notificationRefreshTest}
@@ -113,6 +113,26 @@ test('open notification history follows a newer warmer result and receives its d
   assert.equal(await warmerOutcome,denied);assert.equal(await openOutcome,denied)
   assert.deepEqual(screen2.at(-1),[]);assert.deepEqual(warm2.at(-1),[])
   oldDeniedTransport.resolve([{id:'old'}]);await Promise.resolve()
-  assert.equal(state.writes,2)
+  assert.equal(state.writes,3)
  }finally{delete globalThis.__notificationOverlapTest}
+})
+
+test('notification permission denial clears only the scoped phone copy across restart',async()=>{
+ const state={teams:{a:{notifications:[{id:'private'}],calendar:[{id:'kept'}]},b:{notifications:[{id:'other-team'}]}},failPurge:false};globalThis.__notificationPurgeTest=state
+ const mocks=[
+  [/coachNotificationHistory\.js$/,`export const getCoachNotificationHistory=async()=>{throw Object.assign(new Error('restricted'),{status:403})};`],
+  [/mobileResourceCache\.js$/,`export const mobileResourceKey=(u,k)=>u.id+':'+k;export const peekMobileResource=()=>undefined;export const readMobileResource=(_u,_k,loader)=>loader();export const invalidateMobileResource=()=>{};`],
+  [/[\\/]offline\.js$/,`export const readCoachOfflineResources=async(_u,c)=>({resources:{...globalThis.__notificationPurgeTest.teams[c.id]}});export const saveCoachOfflineResources=async(_u,c,patch)=>{const s=globalThis.__notificationPurgeTest;if(s.failPurge)throw new Error('storage unavailable');s.teams[c.id]={...s.teams[c.id],...patch}};`],
+ ]
+ try{
+  const first=await cacheHarness(path.join(root,'apps/coach-mobile/src/coachNotificationCache.js'),mocks)
+  const user={id:'coach'},team={id:'a'},published=[]
+  await assert.rejects(first.loadCoachNotificationHistory(user,team,{force:true,onSaved:items=>published.push(items)}),error=>error.status===403)
+  assert.deepEqual(state.teams.a.notifications,[]);assert.deepEqual(state.teams.a.calendar,[{id:'kept'}]);assert.equal(state.teams.b.notifications[0].id,'other-team')
+  const restarted=await cacheHarness(path.join(root,'apps/coach-mobile/src/coachNotificationCache.js'),mocks)
+  const afterRestart=await restarted.loadCoachNotificationHistory({...user,isOfflineProfile:true},team,{onSaved:items=>published.push(items)})
+  assert.deepEqual(afterRestart.items,[]);assert.deepEqual(published.at(-1),[])
+  state.failPurge=true
+  await assert.rejects(restarted.loadCoachNotificationHistory(user,team,{force:true}),error=>error.code==='42501' && /could not be cleared/.test(error.message))
+ }finally{delete globalThis.__notificationPurgeTest}
 })

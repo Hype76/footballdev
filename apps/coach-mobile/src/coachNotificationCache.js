@@ -74,6 +74,16 @@ async function runNotificationRefresh(user, context, { force, onSaved, scope, as
     deniedScopes.add(scope)
     invalidateMobileResource(user, COACH_NOTIFICATION_RESOURCE)
     for (const subscriber of scopeSubscribers.get(scope) || []) subscriber.onSaved?.([])
+    try {
+      await saveCoachOfflineResources(user.id, context, { notifications: [] })
+    } catch (purgeError) {
+      assertCurrent()
+      const failure = new Error('Notification access was denied, and saved notifications could not be cleared from this phone.')
+      failure.code = result.error?.code || (result.error?.status === 403 || result.error?.statusCode === 403 ? '42501' : undefined)
+      failure.cause = purgeError
+      throw failure
+    }
+    assertCurrent()
     throw result.error
   }
   if (!Array.isArray(previous)) previous = (await offline)?.resources?.notifications
