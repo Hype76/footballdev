@@ -1492,7 +1492,7 @@ function CoachReminderAttendance({ activeActionId, colors, invitations, isOfflin
   </View>
 }
 
-export function ChatScreen({ activeActionId, invitations = [], isOffline, link, messages, onBack, onDelete, onDismissAnnouncement, onOpenRoom, onRespond, onSend, onToggleRoomNotifications, rooms, selectedRoom, themeTokens }) {
+export function ChatScreen({ activeActionId, connectionUnverified = false, invitations = [], isOffline, link, messages, onBack, onDelete, onDismissAnnouncement, onOpenRoom, onRespond, onSend, onToggleRoomNotifications, rooms, selectedRoom, themeTokens }) {
   const { colors, styles } = usePortalStyles(themeTokens)
   const [draft, setDraft] = useState('')
   const composerRef = useRef(null)
@@ -1541,7 +1541,7 @@ export function ChatScreen({ activeActionId, invitations = [], isOffline, link, 
   }
   return (
     <View style={styles.chatScreen}>
-      <View style={styles.chatHeader}><Text accessibilityRole="header" style={styles.header}>Chat</Text><Text style={styles.helper}>Conversations for {link?.playerName || 'your player'}.</Text>{isOffline ? <Text style={styles.warning}>Saved conversations remain readable. Sending and deleting need a connection.</Text> : null}</View>
+      <View style={styles.chatHeader}><Text accessibilityRole="header" style={styles.header}>Chat</Text><Text style={styles.helper}>Conversations for {link?.playerName || 'your player'}.</Text>{isOffline ? <Text style={styles.warning}>{connectionUnverified ? 'Connection or Chat access could not be confirmed. Sending and deleting are unavailable.' : 'Saved conversations remain readable. Sending and deleting need a connection.'}</Text> : null}</View>
       <ResourceState emptyCopy="No Parent Chat rooms are available for this player." error={rooms.error} items={sortedRooms} loading={rooms.loading} styles={styles} />
       <FlatList
         contentContainerStyle={styles.chatRoomContent}

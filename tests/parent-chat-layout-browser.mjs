@@ -34,11 +34,11 @@ ${portal}\n${app}
 const room={id:'team-room',type:'team',title:'U14 JPL 26/27 Team Chat',teamName:'U14 JPL 26/27',canPost:true};
 const message={id:'one',roomId:room.id,senderName:'Synthetic Coach',createdAt:'2026-10-03T12:00:00Z',body:${JSON.stringify(shortBody)}};
 window.calls=[];
-function App(){const[mode,setMode]=useState('light'),[items,setItems]=useState([message]),[offline,setOffline]=useState(false),[canPost,setCanPost]=useState(true),[selected,setSelected]=useState(true);
-window.mode=setMode;window.messages=setItems;window.offline=setOffline;window.canPost=setCanPost;window.selected=setSelected;
+function App(){const[mode,setMode]=useState('light'),[items,setItems]=useState([message]),[offline,setOffline]=useState(false),[unverified,setUnverified]=useState(false),[canPost,setCanPost]=useState(true),[selected,setSelected]=useState(true);
+window.mode=setMode;window.messages=setItems;window.offline=setOffline;window.unverified=setUnverified;window.canPost=setCanPost;window.selected=setSelected;
 const theme=createParentMobileTheme({mode}),styles=createParentAppStyles(theme.tokens);
 return <View style={[styles.safeArea,{height:'100vh',paddingBottom:34}]}><View style={styles.keyboardShell}><View style={[styles.contentColumn,styles.chatRouteContent]}>
-<ChatScreen themeTokens={theme.tokens} link={{id:'link-one',playerName:'Synthetic Player'}} rooms={{items:[room]}} messages={{items,loading:false,error:''}} selectedRoom={selected?{...room,canPost}:null} isOffline={offline}
+<ChatScreen themeTokens={theme.tokens} link={{id:'link-one',playerName:'Synthetic Player'}} rooms={{items:[room]}} messages={{items,loading:false,error:''}} selectedRoom={selected?{...room,canPost}:null} isOffline={offline} connectionUnverified={unverified}
  onBack={()=>setSelected(false)} onOpenRoom={()=>setSelected(true)} onSend={async body=>window.calls.push(['send',body])} onDelete={item=>window.calls.push(['delete',item.id])} onToggleRoomNotifications={()=>{}}/>
 </View></View></View>}
 createRoot(document.getElementById('root')).render(<App/>);
@@ -110,7 +110,11 @@ try {
     return composer && (composer.readOnly || composer.disabled)
   }, null, { timeout: 2000 })
   assert.equal(await page.getByLabel('Parent Chat message').isEditable(), false)
-  await page.evaluate(() => { window.offline(false); window.canPost(false) })
+  await page.evaluate(() => { window.unverified(true); window.selected(false) })
+  await page.getByText('Connection or Chat access could not be confirmed. Sending and deleting are unavailable.').waitFor()
+  await page.evaluate(() => { window.unverified(false); window.offline(true) })
+  await page.getByText('Saved conversations remain readable. Sending and deleting need a connection.').waitFor()
+  await page.evaluate(() => { window.selected(true); window.offline(false); window.canPost(false) })
   await page.waitForFunction(() => !document.querySelector('[aria-label="Parent Chat message"]'))
   assert.equal(await page.getByText(longBody, { exact: true }).count(), 1, 'Read-only room retains full message')
   await page.getByRole('button', { name: 'Back to Chat rooms', exact: true }).click()

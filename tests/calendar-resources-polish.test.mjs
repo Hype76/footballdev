@@ -78,7 +78,8 @@ test('calendar UI attaches resources only to team custom events and protects rec
 
   assert.match(source, /function isCalendarResourceEventType\(eventType\)/)
   assert.match(source, /\['general', 'training', 'match', 'meeting', 'tournament', 'social', 'other'\]\.includes/)
-  assert.match(source, /const defaultForm = getDefaultCalendarForm\(date\)[\s\S]*const eventType = isMatchday \? 'match' : \(isClubWideCalendar \|\| calendarOnly\) \? 'general' : defaultForm\.eventType[\s\S]*eventType,/)
+  assert.match(source, /const defaultForm = \{[\s\S]*\.\.\.getDefaultCalendarForm\(date\),[\s\S]*const preferredType = requestedEventType \|\| \(isMatchday \? 'match' : \(isClubWideCalendar \|\| calendarOnly\) \? 'general' : defaultForm\.eventType\)/)
+  assert.match(source, /const eventType = getCalendarEventTypeOptions\(user, \{ clubWideOnly: isClubWideCalendar \}\)\.find\(\(option\) => option\.value === preferredType\)/)
   assert.match(source, /const saveTrainingAsSession = isTraining && sourceType === 'session'/)
   assert.match(source, /const canShowTeamResourceArea = Boolean\(!clubWideOnly && safeFormTeamId && canManageResourceLibrary\(user\)\)/)
   assert.match(source, /const canUseCalendarResourceLinks = Boolean\(\(!event \|\| event\.sourceType === 'calendar'\) && isCalendarResourceEventType\(form\.eventType\)\)/)
@@ -103,7 +104,7 @@ test('calendar UI attaches resources only to team custom events and protects rec
   assert.match(source, /function isRecurringCalendarEvent/)
   assert.match(source, /function isLegacyRecurringSessionEvent/)
   assert.match(source, /getLegacyRecurringSessionSeries/)
-  assert.match(source, /This legacy training session does not have a safe repeat series link/)
+  assert.match(source, /This training session is saved separately/)
   assert.match(source, /function hasRecurringCalendarDateTimeChange/)
   assert.match(source, /Choose how to update this repeating event before saving\./)
   assert.match(source, /This is a repeating event\. How should this date\/time change be applied\?/)
