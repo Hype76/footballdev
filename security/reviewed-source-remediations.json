@@ -347,7 +347,7 @@
   "implementationHashes": {
     "scripts/security-supply-chain-gate.mjs": "dcf722bc6cbf2015da4250ea60cbb81e34d3c5c64ec7bb6059671cbae5ab4207",
     "scripts/security-apply-reviewed-backports.mjs": "5a2b139d5dc4ba1394c9fd2355b9ac6d17971514132cd0df0f9fc0a12aa53427",
-    "scripts/security-verify-reviewed-backports.mjs": "93e914a4bb753d73b021a7242a47159583e9270f277873fe4af47a50e86b473f",
+    "scripts/security-verify-reviewed-backports.mjs": "6dcef8cb9f0bbbe9d260c1b7f730323a0e0ff60a4a004b433e0673fc4698f318",
     "security/patches/braces-3.0.3.patch": "e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699",
     "security/patches/node-forge-1.4.0.patch": "2de065ac998bf58917a14d0935112d97ec2957ac41b5f06958d500934f188ed4",
     "security/patches/reviewed-source-manifest.json": "6ea54803506f98f76946bb3cc8d147b882d5f880584a8330d22eba6a95a3b578",
@@ -1580,7 +1580,7 @@
       "tests/mobile-scorer-parity-browser.mjs": "0910683bfda90e6df20e85084764869d28874fbb0e92934a1382235a2db19912",
       "tests/mobile-secure-session-08.test.mjs": "0e25590f85b9a5a4833ac1cfa63cdd3b5e3d7c5ec61b3f19f5bded7e678714e2",
       "tests/mobile-settings-menu-browser.mjs": "da19552ca4bdd415fd78d9d6d148c4eaf754f4fef36190ad01d7439f86702cb2",
-      "tests/mobile-signup-browser.mjs": "7bbb292128837ff26d718aa56d209d1defc9a5670a856237af6e613825db7cb2",
+      "tests/mobile-signup-browser.mjs": "8cf44ec711bee0f7afc540304c26c15afbd7ada25c8dd0625ad0c7a9d3fec0b8",
       "tests/netlify-built-functions.test.mjs": "7ee1454cf1da65700ede899c7a35a6f88486213c5ddf6c560416f9a421fcfde6",
       "tests/netlify-functions-packaging.test.mjs": "b7004c16d9ffe2cec9b21ac665dc8cb5ffe81ec2a12acbdee091d2007140a1d7",
       "tests/parent-access-removal-browser.mjs": "f0f12a72bb78f1926595b4029c1190bb606a86fe414bfa62103f0cd3ef64f61a",
@@ -3139,7 +3139,8 @@
         "tests/matchday-extended-ops.test.mjs",
         "tests/mobile-coach-matchday-31d.test.mjs",
         "tests/mobile-ota-runtime.test.mjs",
-        "tests/mobile-parent-portal-parity-final-25.test.mjs"
+        "tests/mobile-parent-portal-parity-final-25.test.mjs",
+        "tests/mobile-signup-browser.mjs"
       ],
       "reason": "Finish completed normal or extra time without a configured continuation; reset both native apps to Light once and preserve later explicit device choices. Publish compatible OTA updates to existing 1.1.0 and iOS 1.1.1 runtimes.",
       "migration": "supabase/migrations/20261030075557_matchday_finish_before_optional_phases.sql",
@@ -3148,7 +3149,7 @@
       "independentExactCandidateReviewRequired": true
     }
   },
-  "releasePreparationSha256": "982b8f27a4dafe4f8c246632b2ee9be1a2943930598023cf42fea77a3be15524",
+  "releasePreparationSha256": "8a2d70121fc10b17377f78ee2073010e49d16dfe4abdce4d70aff1e5a61d935b",
   "rootOnlyProposalSha256": "45c3b7352c7328c84982e114b7e87e09cf79514d02d102297ae75ec0925812eb",
   "remediationMode": "maintained-source-fixes"
 }
