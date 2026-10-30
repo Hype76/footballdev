@@ -347,7 +347,7 @@
   "implementationHashes": {
     "scripts/security-supply-chain-gate.mjs": "dcf722bc6cbf2015da4250ea60cbb81e34d3c5c64ec7bb6059671cbae5ab4207",
     "scripts/security-apply-reviewed-backports.mjs": "5a2b139d5dc4ba1394c9fd2355b9ac6d17971514132cd0df0f9fc0a12aa53427",
-    "scripts/security-verify-reviewed-backports.mjs": "d80139f78e6d16076bccdca685a2551b8381177dd7b4c9205b5fca386aa62e38",
+    "scripts/security-verify-reviewed-backports.mjs": "0d1d06b5af4098ee7e71577e7d6085393849f37329f8d6512f7dfd2e834bcdc8",
     "security/patches/braces-3.0.3.patch": "e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699",
     "security/patches/node-forge-1.4.0.patch": "2de065ac998bf58917a14d0935112d97ec2957ac41b5f06958d500934f188ed4",
     "security/patches/reviewed-source-manifest.json": "6ea54803506f98f76946bb3cc8d147b882d5f880584a8330d22eba6a95a3b578",
@@ -1572,7 +1572,7 @@
       "tests/mobile-parent-rebuild-20.test.mjs": "ef82b1682a1c36bf3ffd3e45d3674fb29373738f886e95deff06ef8062d3c1c6",
       "tests/mobile-parent-startup-28.test.mjs": "537d9971bd49b4891a4acc9e08576934e992f885b8f5d124cf8f212e2ea3e87c",
       "tests/mobile-password-recovery-contract-76.test.mjs": "1201afda15ab117e41fcb3d53c7593df693bc89490ecf7b9345126d7764e1aa4",
-      "tests/mobile-persistent-loading.test.mjs": "a43911fe95eee44c41d53248c2928182e6d4c601c66ef47241ffa96a4e824298",
+      "tests/mobile-persistent-loading.test.mjs": "aa72eb27ba60fd51afd8a76ce34093e8bd030bc0f9eaccc9f6b3673c27ae5284",
       "tests/mobile-persistent-resources.test.mjs": "b8a4f2295a77f1ef38465bb23562d44f1619d2aa3684f09d0f86074437fa17bb",
       "tests/mobile-platform-controls-browser.mjs": "b11e7149d50c496d2ac6b6971471c778312e5a826164ff84b6352b90e851b3e6",
       "tests/mobile-polls-match-save-59.test.mjs": "667791313fb27d44d47fe2815d5908e687a83c142a28f1132548d5cf35d74b91",
@@ -3176,7 +3176,7 @@
       "publicationApproved": true
     }
   },
-  "releasePreparationSha256": "7153edff1287d1f59c5df6a5583137c6ab74afc2b7eb4bef52406931ec366185",
+  "releasePreparationSha256": "f4b4131b6867536e32d6f17d3c2e8401e9799f6d17431dc0ad4552f12d8181f8",
   "rootOnlyProposalSha256": "45c3b7352c7328c84982e114b7e87e09cf79514d02d102297ae75ec0925812eb",
   "remediationMode": "maintained-source-fixes"
 }

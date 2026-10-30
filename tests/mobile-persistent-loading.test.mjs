@@ -136,3 +136,27 @@ test('notification permission denial clears only the scoped phone copy across re
   await assert.rejects(restarted.loadCoachNotificationHistory(user,team,{force:true}),error=>error.code==='42501' && /could not be cleared/.test(error.message))
  }finally{delete globalThis.__notificationPurgeTest}
 })
+
+test('newer authorised notification save follows an in-flight denial purge',async()=>{
+ let releasePurge, markPurgeStarted
+ const state={pending:[],saved:[{id:'old'}],queue:Promise.resolve(),purgeGate:new Promise(resolve=>{releasePurge=resolve}),purgeStarted:new Promise(resolve=>{markPurgeStarted=resolve}),markPurgeStarted}
+ globalThis.__notificationPurgeRace=state
+ const module=await cacheHarness(path.join(root,'apps/coach-mobile/src/coachNotificationCache.js'),[
+  [/coachNotificationHistory\.js$/,`export const getCoachNotificationHistory=()=>new Promise((resolve,reject)=>globalThis.__notificationPurgeRace.pending.push({resolve,reject}));`],
+  [/mobileResourceCache\.js$/,`export const mobileResourceKey=(u,k)=>u.id+':'+k;export const peekMobileResource=()=>undefined;export const readMobileResource=(_u,_k,loader)=>loader();export const invalidateMobileResource=()=>{};`],
+  [/[\\/]offline\.js$/,`export const readCoachOfflineResources=async()=>({resources:{notifications:globalThis.__notificationPurgeRace.saved}});export const saveCoachOfflineResources=(_u,_c,patch)=>{const s=globalThis.__notificationPurgeRace;s.queue=s.queue.then(async()=>{if(!patch.notifications.length){s.markPurgeStarted();await s.purgeGate}s.saved=patch.notifications});return s.queue};`],
+ ])
+ try{
+  const user={id:'coach'},team={id:'team'}
+  const old=module.loadCoachNotificationHistory(user,team,{force:true})
+  const oldOutcome=old.catch(error=>error)
+  state.pending[0].reject(Object.assign(new Error('denied'),{status:403}))
+  await state.purgeStarted
+  const next=module.loadCoachNotificationHistory(user,team,{force:true})
+  state.pending[1].resolve([{id:'new'}])
+  assert.equal((await next).items[0].id,'new')
+  assert.equal((await oldOutcome).items[0].id,'new')
+  releasePurge();await state.queue
+  assert.deepEqual(state.saved,[{id:'new'}])
+ }finally{delete globalThis.__notificationPurgeRace}
+})
