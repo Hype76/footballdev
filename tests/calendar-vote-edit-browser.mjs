@@ -10,8 +10,8 @@ import React,{useState} from 'react'; import {createRoot} from 'react-dom/client
 import {CalendarEventModal,getFormFromCalendarEvent} from '/src/pages/SessionsPage.jsx';
 import {motmExpiryDurationToHours} from '/src/lib/expiry-duration.js';
 import {applyThemeColorVariables} from '/src/lib/theme.js';import '/src/index.css';
-const event={id:'match-day:fixture',sourceId:'fixture',sourceType:'match-day',date:'2099-09-12',title:'Match Day vs St Neots',data:{id:'fixture',matchDate:'2099-09-12',opponent:'St Neots',teamId:'team',status:'scheduled',kickoffTimeTbc:true,enableMotmPoll:false,motmPollExpiryHours:6,motmNotifyResultsOnClose:false,fixtureType:'league',homeAway:'home',shirtChoice:'home',matchDurationMinutes:80}};
-function App(){const[form,setForm]=useState(getFormFromCalendarEvent(event)),[key,setKey]=useState(0);window.form=()=>form;window.reopen=()=>{setForm(getFormFromCalendarEvent({...event,data:{...event.data,...window.saved}}));setKey(k=>k+1)};window.setTheme=mode=>{document.documentElement.className='theme-'+mode;document.body.className='theme-'+mode;applyThemeColorVariables(document.getElementById('root'),'blue',mode)};
+const matchEvent={id:'match-day:fixture',sourceId:'fixture',sourceType:'match-day',date:'2099-09-12',title:'Match Day vs St Neots',data:{id:'fixture',matchDate:'2099-09-12',opponent:'St Neots',teamId:'team',status:'scheduled',kickoffTimeTbc:true,enableMotmPoll:false,motmPollExpiryHours:6,motmNotifyResultsOnClose:false,fixtureType:'league',homeAway:'home',shirtChoice:'home',matchDurationMinutes:80}};
+function App(){const[event,setEvent]=useState(matchEvent),[form,setForm]=useState(getFormFromCalendarEvent(matchEvent)),[key,setKey]=useState(0);window.form=()=>form;window.training=(linked=false)=>{const next={id:'session:training-1',sourceId:'training-1',sourceType:'session',date:'2099-11-03',data:{id:'training-1',sessionType:'training',sessionDate:'2099-11-03',teamId:'team',title:'Training session',startTime:'17:30',endTime:'18:30',location:'Cambourne 3G',notes:'Original notes',recurrenceFrequency:'weekly',recurrenceUntil:'2099-11-10',...(linked?{legacyRecurringSeries:{sessionIds:['training-1','training-2'],recurrenceFrequency:'weekly',recurrenceUntil:'2099-11-10'}}:{})}};window.saved=null;setEvent(next);setForm(getFormFromCalendarEvent(next));setKey(k=>k+1)};window.reopen=()=>{setForm(getFormFromCalendarEvent({...event,data:{...event.data,...window.saved}}));setKey(k=>k+1)};window.setTheme=mode=>{document.documentElement.className='theme-'+mode;document.body.className='theme-'+mode;applyThemeColorVariables(document.getElementById('root'),'blue',mode)};
 return <CalendarEventModal key={key} isOpen mode="edit" event={event} form={form} teams={[{id:'team',name:'Test U14'}]} user={{id:'staff',role:'team_admin',roleRank:50,clubId:'club',activeTeamId:'team'}} onChange={e=>setForm(f=>({...f,[e.target.name]:e.target.type==='checkbox'?e.target.checked:e.target.value}))} onSubmit={e=>{e.preventDefault();window.saved={...JSON.parse(JSON.stringify(form)),motmPollExpiryHours:motmExpiryDurationToHours(form.motmPollExpiryDuration)}}} onCancel={()=>{}} onOpenWorkflow={()=>{}}/>};createRoot(document.getElementById('root')).render(<App/>);
 `
 const server = await createServer({
@@ -72,6 +72,20 @@ try {
   }
   await vote.uncheck()
   assert.equal(await page.getByLabel('Vote expiry (DD:HH:MM)').count(),0)
+  await page.evaluate(()=>window.training(false))
+  await page.getByText('Changes apply to this training session only. Other dates will not change.',{exact:true}).waitFor()
+  assert.equal(await page.locator('[name="recurrenceFrequency"]').count(),0,'Separate training cannot accidentally request a series update')
+  await page.locator('textarea[name="notes"]').fill('Updated session notes')
+  await page.locator('input[name="date"]').fill('2099-11-04')
+  await page.getByRole('button',{name:'Save',exact:true}).click()
+  await page.waitForFunction(()=>window.saved?.notes==='Updated session notes')
+  assert.equal(await page.evaluate(()=>window.saved.date),'2099-11-04')
+  assert.equal(await page.evaluate(()=>window.saved.recurrenceFrequency),'none')
+  await page.screenshot({path:`${output}/separate-training-390.png`})
+  await page.evaluate(()=>window.training(true))
+  await page.locator('[name="recurrenceFrequency"]').waitFor()
+  assert.equal(await page.locator('[name="recurrenceFrequency"]').inputValue(),'weekly','Verified repeat groups retain series controls')
+  assert.equal(await page.getByText('Changes apply to this training session only. Other dates will not change.',{exact:true}).count(),0)
   assert.deepEqual(errors,[])
-  console.log('PASS: real Calendar edit loads vote settings, toggles, saves and reopens, with responsive dark/light rendering.')
+  console.log('PASS: real Calendar edit preserves vote settings and verified repeats; separate training edits show clear single-date scope, retain date and save notes, with responsive dark/light rendering.')
 } finally { await browser.close();await server.close() }

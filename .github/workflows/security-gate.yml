@@ -193,6 +193,7 @@ jobs:
           tests/coach-availability-counts.test.mjs
           tests/coach-availability-cache-completeness.test.mjs
           tests/mobile-parent-refresh-retention-20261030.test.mjs
+          tests/parent-chat-connectivity-20261030.test.mjs
           tests/parent-resource-authority-refresh.test.mjs
           tests/mobile-push-priority.test.mjs
           tests/mobile-update-recovery.test.mjs
@@ -267,8 +268,8 @@ jobs:
         run: node --test tests/fan-account.test.mjs && node tests/fan-confirmation-browser.mjs && node tests/mobile-auth-refresh-browser.mjs && node tests/mobile-biometric-update-browser.mjs && node tests/mobile-feedback-visual-browser.mjs && node tests/coach-invite-table-browser.mjs && node tests/mobile-event-details-browser.mjs && node tests/mobile-brand-loader-browser.mjs
       - name: Android logo packaging and Parent airplane mode
         run: node --test tests/mobile-brand-loader-asset.test.mjs tests/coach-scroll-bounds.test.mjs tests/coach-cache-memory.test.mjs tests/coach-offline-preparation.test.mjs tests/mobile-biometric-recovery.test.mjs tests/coach-availability-follow-up.test.mjs && node tests/mobile-parent-airplane-browser.mjs && node tests/mobile-parent-update-notice-browser.mjs && node tests/mobile-parent-dropdown-browser.mjs && node tests/coach-smooth-scroll-browser.mjs
-      - name: UK dates, resource ordering and Home attendance
-        run: node --test tests/platform-uk-dates.test.mjs tests/mobile-home-attendance-theme.test.mjs tests/calendar-change-notifications-103.test.mjs
+      - name: UK dates, Calendar editing and Parent Chat
+        run: node --test tests/platform-uk-dates.test.mjs tests/mobile-home-attendance-theme.test.mjs tests/calendar-change-notifications-103.test.mjs tests/calendar-legacy-recurring-resource-picker.test.mjs tests/calendar-resources-polish.test.mjs && node tests/parent-chat-layout-browser.mjs
       - name: Home availability refresh and saved Parent sections
         run: node --test tests/mobile-home-refresh-layout.test.mjs tests/mobile-expired-attention-counters-90.test.mjs tests/coach-feedback-september.test.mjs && node tests/parent-home-sections-browser.mjs && node tests/mobile-home-polish-browser.mjs && node tests/parent-home-status-actions-browser.mjs && node tests/coach-feedback-browser.mjs
       - name: Lint mobile application hosts

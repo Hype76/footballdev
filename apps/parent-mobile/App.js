@@ -4,6 +4,7 @@ import { NotificationSetupReminder } from '../mobile-core/src/NotificationSetupR
 import { createPdfVisitTracker } from '../mobile-core/src/pdfVisit.js'
 import { getParentBadgeColours, PARENT_FAN_SIGN_IN_COLOURS, PARENT_POLL_SEPARATOR_COLOUR } from '../mobile-core/src/parentStatusColours'
 import { NotificationExplainer } from './src/NotificationExplainer'
+import { createParentConnectivityMonitor, parentConnectivityScope } from './src/parentConnectivityCore'
 import { notificationExplainerKey } from './src/notificationExplainerCore'
 import { DeviceThemeChoices } from '../mobile-core/src/DeviceThemeChoices'
 import { resolveDeviceThemeMode } from '../mobile-core/src/deviceThemeCore'
@@ -128,7 +129,6 @@ import {
   getParentAgendaResponseBadge,
   getParentHomeModel,
   getPollDraftOption,
-  isParentDefinitelyOffline,
   getParentMatchStatusLabel,
   rankParentPollResults,
 } from './src/parentExperience'
@@ -379,7 +379,9 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
   const [childNotificationBadges, setChildNotificationBadges] = useState({})
   const [childNotificationBadgeError, setChildNotificationBadgeError] = useState('')
   const [isRefreshing, setIsRefreshing] = useState(false)
-  const [isOffline, setIsOffline] = useState(false)
+  const [networkOffline, setIsOffline] = useState(false)
+  const isOffline = networkOffline || Boolean(user?.isOfflineProfile)
+  const [connectionUnverified, setConnectionUnverified] = useState(false)
   const [isSyncing, setIsSyncing] = useState(false)
   const [lastUpdatedAt, setLastUpdatedAt] = useState('')
   const [offlineCacheState, setOfflineCacheState] = useState({ source: '', stale: false })
@@ -473,6 +475,13 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
     () => withSelectedParentLink({ ...user, parentPortalLinks: parentLinks }, selectedLink),
     [parentLinks, selectedLink, user],
   )
+  const connectivityScope = parentConnectivityScope(selectedMobileUser, selectedLink)
+  const connectivityScopeRef = useRef(connectivityScope)
+  const connectivityUserRef = useRef(selectedMobileUser)
+  const connectivityLinkRef = useRef(selectedLink)
+  connectivityScopeRef.current = connectivityScope
+  connectivityUserRef.current = selectedMobileUser
+  connectivityLinkRef.current = selectedLink
   const reportScopeRef = useRef('')
   const reportInFlightRef = useRef(false)
   const nextReportScope = `${user?.id || ''}:${selectedLink?.id || ''}`
@@ -990,9 +999,27 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
   }, [])
 
   useEffect(() => {
-    const subscription = NetInfo.addEventListener((state) => setIsOffline(isParentDefinitelyOffline(state)))
-    return () => subscription()
-  }, [])
+    const monitor = createParentConnectivityMonitor({
+      onChange: (offline, unverified) => {
+        if (connectivityScopeRef.current !== connectivityScope) return
+        setIsOffline(offline || Boolean(connectivityUserRef.current?.isOfflineProfile))
+        setConnectionUnverified(unverified && !connectivityUserRef.current?.isOfflineProfile)
+      },
+      probe: () => {
+        const currentUser = connectivityUserRef.current
+        if (connectivityScopeRef.current !== connectivityScope || !currentUser?.id || !connectivityLinkRef.current?.id || currentUser.isOfflineProfile) throw new Error('No active online player link.')
+        return getParentChatRooms(currentUser)
+      },
+    })
+    let networkRevision = 0
+    const subscription = NetInfo.addEventListener((state) => { networkRevision += 1; monitor.update(state) })
+    const appStateSubscription = AppState.addEventListener('change', (state) => {
+      if (state !== 'active') return
+      const revision = networkRevision
+      void NetInfo.fetch().then((network) => { if (revision === networkRevision) monitor.update(network) }).catch(() => {})
+    })
+    return () => { monitor.dispose(); subscription(); appStateSubscription.remove() }
+  }, [connectivityScope])
 
   useEffect(() => {
     const wasOffline = previousOfflineRef.current
@@ -2434,6 +2461,7 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
             {notice ? <Notice compact={notice.compact} message={notice.message} onDismiss={() => setNotice(null)} tone={notice.tone} /> : null}
             <ChatScreen
               activeActionId={activeActionId}
+              connectionUnverified={connectionUnverified}
               isOffline={isOffline}
               link={selectedLink}
               messages={chatMessages}

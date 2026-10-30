@@ -874,6 +874,9 @@ function getFormFromCalendarEvent(event, invites = []) {
   const inviteFields = getFormInviteFields(event, invites)
 
   if (sourceType === 'session') {
+    const repeatSeries = Array.isArray(source.legacyRecurringSeries?.sessionIds) && source.legacyRecurringSeries.sessionIds.length > 1
+      ? source.legacyRecurringSeries
+      : null
     return {
       ...getDefaultCalendarForm(source.sessionDate || event.date),
       arrivalTime: formatTimeInput(source.arrivalTime),
@@ -885,8 +888,8 @@ function getFormFromCalendarEvent(event, invites = []) {
       location: source.location || '',
       notes: source.notes || '',
       opponent: source.opponent || '',
-      recurrenceFrequency: source.legacyRecurringSeries?.recurrenceFrequency || source.recurrenceFrequency || 'none',
-      recurrenceUntil: source.legacyRecurringSeries?.recurrenceUntil || source.recurrenceUntil || '',
+      recurrenceFrequency: repeatSeries?.recurrenceFrequency || 'none',
+      recurrenceUntil: repeatSeries?.recurrenceUntil || '',
       repeatUpdateScope: '',
       startTime: formatTimeInput(source.startTime) || '09:00',
       teamId: source.teamId || '',
@@ -3572,15 +3575,19 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
 
         if (sourceType === 'session') {
           const legacySeriesSessions = getLegacyRecurringSessionSeries({ event: activeEvent, sessions })
-          const isLegacyRecurringSession = legacySeriesSessions.length > 1 && calendarForm.recurrenceFrequency !== 'none'
+          const isLegacyRecurringSession = isLegacyRecurringSessionEvent(activeEvent) && calendarForm.recurrenceFrequency !== 'none'
           const requiresRepeatUpdateScope = hasRecurringCalendarDateTimeChange({ event: activeEvent, form: calendarForm })
+
+          if (isLegacyRecurringSession && legacySeriesSessions.length !== new Set(activeEvent.data.legacyRecurringSeries.sessionIds.map(String)).size) {
+            throw new Error('The full repeat series could not be loaded. Refresh the calendar before changing every date.')
+          }
 
           if (requiresRepeatUpdateScope && calendarForm.repeatUpdateScope !== 'entire_series') {
             throw new Error('Choose how to update this repeating event before saving.')
           }
 
           if (calendarForm.recurrenceFrequency !== 'none' && !isLegacyRecurringSession) {
-            throw new Error('This legacy training session does not have a safe repeat series link, so it cannot be moved as a series yet.')
+            throw new Error('This training session is saved separately. Reopen it to edit this date only; other dates cannot be changed together.')
           }
 
           if (isLegacyRecurringSession) {
@@ -6203,6 +6210,8 @@ function CalendarEventModal({
     isTrainingRsvpMode || (form.shareWithParents && form.parentAudience === 'involved_players')
   )
   const selectedResourceIds = new Set(Array.isArray(form.resourceIds) ? form.resourceIds.map(String) : [])
+  const isSeparateTrainingSession = event?.sourceType === 'session' && event?.data?.sessionType !== 'match'
+    && !(Array.isArray(event?.data?.legacyRecurringSeries?.sessionIds) && event.data.legacyRecurringSeries.sessionIds.length > 1)
   const isRecurringCalendarEdit = isRecurringCalendarEvent({ event, form })
   const repeatUpdateScopeRequired = hasRecurringCalendarDateTimeChange({ event, form })
   const showRepeatUpdateScope = isRecurringCalendarEdit
@@ -6739,7 +6748,9 @@ function CalendarEventModal({
               <textarea name="notes" value={form.notes} onChange={onChange} rows={4} className={fieldClass} />
             </label>
 
-            {showRecurrence ? (
+            {showRecurrence && isSeparateTrainingSession ? (
+              <p className="text-sm font-semibold leading-6 text-[#4b5f55]">Changes apply to this training session only. Other dates will not change.</p>
+            ) : showRecurrence ? (
               <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4">
                 <div className="grid gap-4 md:grid-cols-2">
                   <label className="block">

@@ -12,11 +12,14 @@ function section(start, end) {
 const code = `
 import React, { useState, useRef, useEffect, useCallback } from 'react'
 import { createRoot } from 'react-dom/client'
-import { isParentDefinitelyOffline } from './apps/parent-mobile/src/parentExperience.js'
+import { createParentConnectivityMonitor, parentConnectivityScope } from './apps/parent-mobile/src/parentConnectivityCore.js'
 const AppState = { currentState: 'active', addEventListener() { return { remove() {} } } }
 const listeners = new Set()
-const NetInfo = { addEventListener(fn) { listeners.add(fn); return () => listeners.delete(fn) } }
+let currentNetwork = { isConnected: false, isInternetReachable: false }
+const NetInfo = { addEventListener(fn) { listeners.add(fn); return () => listeners.delete(fn) }, fetch: async () => currentNetwork }
 window.calls = []
+window.probes = []
+const getParentChatRooms = user => new Promise((resolve, reject) => window.probes.push({ user: user.id, resolve, reject }))
 let finishSync
 const syncParentOfflineCommands = async (user) => {
   window.calls.push(['sync', user.id])
@@ -29,6 +32,14 @@ function App() {
   const [isOffline, setIsOffline] = useState(true)
   const [selectedMobileUser, setUser] = useState({ id: 'account-a' })
   const [selectedLink, setLink] = useState({ id: 'child-a' })
+  const [, setConnectionUnverified] = useState(false)
+  const connectivityScope = parentConnectivityScope(selectedMobileUser, selectedLink)
+  const connectivityScopeRef = useRef(connectivityScope)
+  const connectivityUserRef = useRef(selectedMobileUser)
+  const connectivityLinkRef = useRef(selectedLink)
+  connectivityScopeRef.current = connectivityScope
+  connectivityUserRef.current = selectedMobileUser
+  connectivityLinkRef.current = selectedLink
   const [isSyncing, setIsSyncing] = useState(false)
   const [syncSummary, setSyncSummary] = useState(null)
   const [, setScorerOutboxes] = useState({})
@@ -36,7 +47,8 @@ function App() {
   ${section('  const parentSyncScopeRef', '  const refreshParentMatchDay')}
   ${section('  const recoveryCallbacksRef', '  useEffect(() => {\n    const authorityScope').trim()}
   window.controls = {
-    emit: (state) => listeners.forEach(fn => fn(state)),
+    emit: (state) => { currentNetwork = state; listeners.forEach(fn => fn(state)) },
+    resolveProbe: () => window.probes.at(-1)?.resolve([]),
     finish: () => finishSync?.(),
     recover: () => recoverParentConnection(),
     background: () => { AppState.currentState = 'background' },
@@ -92,6 +104,13 @@ try {
   await page.waitForFunction(() => window.calls.length === 2)
   assert.deepEqual(await page.evaluate(() => window.calls), [['sync','account-b'],['load','account-b','child-b']])
   assert.equal(await page.evaluate(() => window.controls.state().listeners), 1)
+  await page.evaluate(() => { window.calls = []; window.controls.emit({isConnected:true,isInternetReachable:false}) })
+  await page.waitForFunction(() => window.controls.state().isOffline && window.probes.length >= 2)
+  await page.evaluate(() => window.controls.resolveProbe())
+  await page.waitForFunction(() => !window.controls.state().isOffline && window.calls.length === 1)
+  await page.evaluate(() => window.controls.finish())
+  await page.waitForFunction(() => window.calls.length === 2)
+  assert.deepEqual(await page.evaluate(() => window.calls), [['sync','account-b'],['load','account-b','child-b']])
   await page.evaluate(() => window.unmount())
   assert.equal(await page.evaluate(() => window.controls.state().listeners), 0)
   console.log('PASS actual Parent recovery hooks: no internet, unknown reachability, reconnect, concurrent triggers, account/child change, background/resume, connection flapping and listener cleanup')
