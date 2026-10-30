@@ -44,7 +44,7 @@ function database(tables, failTable = '') {
         if (table === failTable && start > 0) return { error: new Error('Second page unavailable') }
         return { data: (tables[table] || []).filter(row => filters.every(filter => filter(row))).sort((a, b) => a.id.localeCompare(b.id)).slice(start, end + 1) }
       },
-      limit() { return Promise.resolve({ data: [] }) },
+      limit(count) { return Promise.resolve({ data: (tables[table] || []).filter(row => filters.every(filter => filter(row))).slice(0, count) }) },
     }
     return query
   } }
@@ -71,6 +71,24 @@ test('fixture reads include all 580 invitations and 300 responses, scoped to the
   assert.equal(result.matchAvailabilityResult.data.length, 300)
   assert.deepEqual(client.reads.filter(r => r.table === 'match_day_availability_requests').map(r => r.start), [0, 250, 500])
   assert.deepEqual(client.reads.filter(r => r.table === 'match_day_player_availability').map(r => r.start), [0, 250])
+})
+
+test('Training attendance is published before player enrichment and offline preparation finish', async () => {
+  const client = database({ training_coach_attendance: [{ id: 'attendance', club_id: 'club', team_id: 'team',
+    coach_user_id: 'coach', coach_name: 'Coach', status: 'available', occurrence_starts_at: '2099-09-19T10:00:00Z' }] })
+  let releasePlayers, releasePreparation, publish
+  const players = new Promise(resolve => { releasePlayers = resolve })
+  const ready = new Promise(resolve => { publish = resolve })
+  const body = dataSource.slice(dataSource.indexOf('export async function getCoachInvitesAndAvailability('), dataSource.indexOf('export async function setCoachInviteAvailabilityOnBehalf(')).replace('export ', '')
+  const load = new Function('supabase', 'assertCoachOperationalRead', 'getCoachMatchDayList', 'readCoachMatchAvailability', 'normalizeCoachMatchAvailability', 'getCoachPlayerList', 'normalize', 'normalizeCoachInvite', 'prepareAttendanceChoices', `${body}; return getCoachInvitesAndAvailability`)(client, () => {}, async () => [], readCoachMatchAvailability, normalizeCoachMatchAvailability, () => players, value => String(value || '').trim(), normalizeCoachInvite, () => new Promise(resolve => { releasePreparation = resolve }))
+  let finished = false
+  const pending = load(user, { onAvailabilityReady: publish }).then(value => { finished = true; return value })
+  const snapshot = await ready
+  assert.equal(snapshot.trainingCoaches[0].status, 'available')
+  assert.equal(finished, false)
+  releasePlayers([{ id: 'player' }])
+  releasePreparation([null])
+  assert.equal((await pending).players[0].id, 'player')
 })
 
 test('actual Coach loader counts each player once and merges responses from later pages', async () => {

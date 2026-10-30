@@ -49,6 +49,26 @@ test('cache identities isolate accounts, teams, children and changed authority',
   assert.equal(new Set(keys).size, keys.length)
 })
 
+test('expired display snapshots remain available during slow or failed refresh without becoming fresh', async () => {
+  let time = 0
+  const cache = createMobileResourceCache({ now: () => time })
+  const saved = { match: [{ id: 'saved', status: 'available' }] }
+  await cache.read('availability', async () => saved)
+  time = 60000
+  assert.equal(cache.peek('availability'), undefined)
+  assert.equal(cache.peek('availability', 30000, { allowStale: true }), saved)
+  let reject
+  const refresh = cache.read('availability', () => new Promise((_resolve, fail) => { reject = fail }))
+  await Promise.resolve()
+  assert.equal(cache.peek('availability', 30000, { allowStale: true }), saved)
+  reject(new Error('Slow connection failed'))
+  await assert.rejects(refresh, /Slow connection failed/)
+  assert.equal(cache.peek('availability'), undefined)
+  assert.equal(cache.peek('availability', 30000, { allowStale: true }), saved)
+  cache.clear()
+  assert.equal(cache.peek('availability', 30000, { allowStale: true }), undefined)
+})
+
 test('partial Parent refresh retains failed sections and their original freshness', () => {
   let time = 0
   const profile = { id: 'parent', parentPortalLinks: [{ id: 'child' }] }
