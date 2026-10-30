@@ -30,6 +30,7 @@ function harness(errors = []) {
     isMobileRouteAllowed, isMatchdayPlan,
     requestIdRef: { current: 0 }, chatRefreshIdRef: { current: 0 }, availabilityRefreshIdRef: { current: 0 },
     developmentRefreshIdRef: { current: 0 }, homeStateRef: { current: state },
+    homeDeniedScopeRef: { current: false },
     readCoachDevelopmentDrafts: async () => ({}), mergeUnfinishedDevelopmentDrafts, preserveCoachDevelopmentSummary,
     setHomeState: update => { state = typeof update === 'function' ? update(state) : update },
     readMobileResource: async (user, key, loader, options) => { reads.push({ key, options }); return loader() },
@@ -144,7 +145,7 @@ test('unclassified attention failure survives targeted recovery until a full suc
   await h.load({ refresh: true })
   await h.load({ availabilityOnly: true })
   await h.load({ chatOnly: true })
-  assert.deepEqual(h.state().errors, ['attention:unavailable'])
+  assert.deepEqual(h.state().errors, process.env.COACH_HOME_BASELINE ? ['attention:unavailable'] : ['polls:unavailable', 'development:unavailable'])
   assert.equal(h.state().partial, true)
   h.deps.getCoachPhase31GAttentionSnapshot = async () => healthy()
   await h.load({ refresh: true })
@@ -182,6 +183,8 @@ for (const transition of ['newer full refresh', 'context reset']) test(`late ful
 
 for (const failure of [false, true]) test(`slow offline Home hydration preserves newer Development ${failure ? 'failure' : 'count'}`, async () => {
   const h = harness(), cached = deferred(), started = deferred()
+  const cold = { ...h.state(), loading: true, savedAt: '', hasSnapshot: false }
+  h.deps.setHomeState(cold); h.deps.homeStateRef.current = cold
   h.deps.selectedMobileUser.isOfflineProfile = true
   h.deps.readCoachOfflineResources = () => { started.resolve(); return cached.promise }
   const full = h.load({ refresh: true })

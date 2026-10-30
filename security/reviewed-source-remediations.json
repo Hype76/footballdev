@@ -347,7 +347,7 @@
   "implementationHashes": {
     "scripts/security-supply-chain-gate.mjs": "dcf722bc6cbf2015da4250ea60cbb81e34d3c5c64ec7bb6059671cbae5ab4207",
     "scripts/security-apply-reviewed-backports.mjs": "5a2b139d5dc4ba1394c9fd2355b9ac6d17971514132cd0df0f9fc0a12aa53427",
-    "scripts/security-verify-reviewed-backports.mjs": "f05bb1e695cd4b32188a22dc8caf96d9d520619dc531b2acb872ffc414823be9",
+    "scripts/security-verify-reviewed-backports.mjs": "26773dc627dadd1e47b8b1029cd09d7a3bf697ec39c0fa2b84e684ad5fdceeaf",
     "security/patches/braces-3.0.3.patch": "e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699",
     "security/patches/node-forge-1.4.0.patch": "2de065ac998bf58917a14d0935112d97ec2957ac41b5f06958d500934f188ed4",
     "security/patches/reviewed-source-manifest.json": "6ea54803506f98f76946bb3cc8d147b882d5f880584a8330d22eba6a95a3b578",
@@ -1446,7 +1446,7 @@
       "tests/coach-development-workspace-responsiveness.test.mjs": "9400a3e850b0d929f6b56a76b9ef6e6236a3359f9174611c4f60ebfb02f831ef",
       "tests/coach-feedback-browser.mjs": "2efde366150260cc72c8dbf3a91c29d9a7091e9e2923a37d36544164911e8a45",
       "tests/coach-fixture-pitch-browser.mjs": "9b7e0367b09ef823ae03aa56b56495e1fe8b098c9ff8415dfb2e498ab38f7d1f",
-      "tests/coach-home-warning-recovery.test.mjs": "656f45fe78c3746048b8b23d106e94e8e574da487e1dd3e9e19f7bb66812d441",
+      "tests/coach-home-warning-recovery.test.mjs": "4f19deb7b64f3ca8c5164dbdd4a61ecf473d48f10114e190dc4ca72377903838",
       "tests/coach-invite-table-browser.mjs": "e3bf5d902e9dcc2b4f10e1c7666cf61e0edf1380b56a83e5274a07bab63336e7",
       "tests/coach-keyboard-viewport.test.mjs": "782d2e0a74a4760d93b4cc4167d2bf44faeb80a909f9889e24b7aa36b771f671",
       "tests/coach-matchday-offline-browser.mjs": "dc83de83cb11562f591aa01c8a3ec49d83b71315d235616595b73b7eba2ece04",
@@ -1454,7 +1454,7 @@
       "tests/coach-more-menu-browser.mjs": "e6d4ea6c73762d2f72e83cc24e164ebc932baec812af56613a45a5ebb898be23",
       "tests/coach-offline-storage.test.mjs": "14c9bca5299718496760efcd3336aa27b0af751ecb37b0524301c616717c2861",
       "tests/coach-partners-promotion-browser.mjs": "351201e0f915d7263305f9c650aabb4e76cd912fbc39e86bb70be97accd50a1d",
-      "tests/coach-player-profile-browser.mjs": "349ba2aa337c9c0f832c7d7468cc3b9f287fb27c74656af80ff418b93e28b593",
+      "tests/coach-player-profile-browser.mjs": "d68aa373336e11e8964cc0c57241737105baec76bee6884d06fd0161029ac383",
       "tests/coach-renewal.test.mjs": "beede291eca1615496d8b3ad72e3ffd7e65b7b42fe83515c6bf2bd4b9a92e086",
       "tests/coach-resource-upload-browser.mjs": "2e5a937eaaedd6328cbf17de23daeadc48b3cde3c5fd0356833953e5ca93825f",
       "tests/coach-resource-upload-handoff.test.mjs": "c5a5735c5c69b2ac6bacde849cfd2709d276d47a4ff121ea99aa1e2aa442fb3f",
@@ -1508,7 +1508,7 @@
       "tests/match-available-auto-selection.test.mjs": "86a2906f8dc1ee1863f815693981ffb9f35f35e29e743cc1c24d9198918e96f1",
       "tests/match-day-participation-renewal.test.mjs": "7b16ef552fc9946cc3d544ecf1c4176fa728cbd16b63970ccb6e11fbd17417d3",
       "tests/matchday-assist-mobile-notifications-99.test.mjs": "8beacc126241e72c246b9ef15fdc70fa79e796f8b9a8db40c2a98aeab5dc54ed",
-      "tests/matchday-calendar-fixture-browser.mjs": "c2afb4e7a4c3aa9c924b3149f74dd63e56cbfcccf2c2df7848ad1d30ffbab0f7",
+      "tests/matchday-calendar-fixture-browser.mjs": "e9f7d8509e97fddd8e61413d87fff735e7eea52d43e8967fe5192749dd41d27f",
       "tests/matchday-calendar-fixture-create.test.mjs": "543dde6dd13f49f505407333d985cff81704db41b9e6f2fb8fb4886347e7aebf",
       "tests/matchday-fixture-controls-db.test.mjs": "81a31255b048b63cbcd328727bf85721c96c1d04545db756d53ecfb089223e4c",
       "tests/matchday-gamemode-modal-controls.test.mjs": "874afe9e99b387155ad76be543eaaaeb9d4071eca2ff9235f013e240293261fd",
@@ -1530,7 +1530,7 @@
       "tests/mobile-chat-sessions-poll-60.test.mjs": "0aa7f65dedff454c126f2e9fb962c9b64dbc225eed1a9144ab5dc99f733497bd",
       "tests/mobile-coach-bulk-invite-actions-106.test.mjs": "7d1f9f990f78da29d304ae38764b9c459a555d3b876abb27c1dbc35aa9814673",
       "tests/mobile-coach-comms-corrective-36.test.mjs": "5212e93139f6e1cfbdfb4c4947c946e710d25b363c492c3fa6bd45e3232808d6",
-      "tests/mobile-coach-home-open-development.test.mjs": "40d4a0bfbd33bfdc46229f221dd5c0266e552a43391ed30c10c8bd5ce197fef3",
+      "tests/mobile-coach-home-open-development.test.mjs": "ef6be48e4c5d116897dc5952d1453c9798351ba7fe6801d6f1db4eb08ad25fe2",
       "tests/mobile-coach-live-qa-corrective-35.test.mjs": "fa368bb1640a19d7f4f5e46d326e1310bc23346aa8652da1f42800625c11928c",
       "tests/mobile-coach-matchday-31d.test.mjs": "21a4323094eeb7a60b9f5ec8a3d410387719728b9f1c7577349a8629da7eaaa5",
       "tests/mobile-coach-operational-31c.test.mjs": "002c075cf0174f80ea8399c4634e03a755548f615a0e490b50c70f528f016a0c",
@@ -1544,7 +1544,7 @@
       "tests/mobile-development-background.test.mjs": "2e0fd4661f00fd181437fe2a481aeec61e736bf0fd309b0ac261a95e8f86ed97",
       "tests/mobile-development-unfinished-drafts.test.mjs": "e4355b8381830bbbfb2ed40f77b83b62008562d02a9ad6f2500761119428ee34",
       "tests/mobile-eas-test-boundary-07.test.mjs": "7b006768b746380b07d708588c4edcaf4b30ad66e4ae5364d9e086c51498433d",
-      "tests/mobile-event-details-browser.mjs": "1f3d43bd91b72cba7d3104b661174129c325bed61cdabc69bb0e2893fe8ef261",
+      "tests/mobile-event-details-browser.mjs": "189b57c18c6fcbf3e7c7723f60c7fcba8878a994795fc9eda1045b702db14bcb",
       "tests/mobile-feedback-art-browser.mjs": "6450fa15547f9a8c69eebc1a547c8a610d0e7ec04d5999a875b64d0a36b173a1",
       "tests/mobile-feedback-corrective-61.test.mjs": "bcc9b142fd39fa3fb805fa5b69f69b048cee5cd04fadc910db76d7a377c028b6",
       "tests/mobile-header-activity-browser.mjs": "217a6bc9144bdea61d52a557ea12d71e0d9548af38d64c7d0936230b72307af6",
@@ -3176,7 +3176,7 @@
       "publicationApproved": true
     }
   },
-  "releasePreparationSha256": "54392bfca6557080ab0ea9ea65c945f870b72fc58abb723cff06804a9b8b9d29",
+  "releasePreparationSha256": "b5f50a9fb90db047400469ad3a8f4dd235bb4b18d74182f48cc096ba26953834",
   "rootOnlyProposalSha256": "45c3b7352c7328c84982e114b7e87e09cf79514d02d102297ae75ec0925812eb",
   "remediationMode": "maintained-source-fixes"
 }
