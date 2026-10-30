@@ -44,10 +44,15 @@ export const mobileResourceCache = createMobileResourceCache()
 export function mobileResourceKey(user, resource) {
   // Cache identity includes authority and the selected workspace/child. It is
   // never an authorisation decision; mutations still use server authority.
+  const context = user?.coachContexts?.find(item => item.id === user?.activeCoachContextId)
+  const link = user?.parentPortalLinks?.find(item => item.id === user?.selectedParentLinkId)
   return JSON.stringify([
     user?.id, user?.role, user?.roleRank, user?.clubId,
     user?.activeCoachContextId, user?.activeTeamId, user?.selectedParentLinkId,
     user?.hasActivePlanAccess, user?.accountStatus, user?.planStatus, user?.selectedPlayerId, resource,
+    user?.activeCoachAuthorityId ?? context?.authorityId,
+    user?.activeCoachAuthoritySource ?? context?.authoritySource,
+    link?.clubId, link?.teamId, link?.playerId, link?.linkType, link?.planStatus, link?.planKey,
   ])
 }
 

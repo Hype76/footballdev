@@ -1,3 +1,5 @@
+import { compactCoachAvailabilitySnapshot, compactCoachFixtureAvailabilitySnapshot } from './coachAvailabilityCache.js'
+
 export const COACH_PHASE_31F_CACHE_SCHEMA_VERSION = 3
 export const COACH_PHASE_31F_MAX_CACHE_BYTES = 1_500_000
 
@@ -22,6 +24,7 @@ export const COACH_OFFLINE_READ_POLICIES = Object.freeze({
   messages: Object.freeze({ cache: true, maxItems: 120, sensitivity: 'private-communication', staleLabel: 'Offline communication history' }),
   polls: Object.freeze({ cache: true, maxItems: 100, sensitivity: 'operational', staleLabel: 'Offline Poll summary' }),
   invites: Object.freeze({ cache: true, maxItems: 180, sensitivity: 'child-data', staleLabel: 'Offline availability summary' }),
+  'invites:fixture': Object.freeze({ cache: true, maxItems: 180, sensitivity: 'child-data', staleLabel: 'Saved fixture availability' }),
   context: Object.freeze({ cache: true, maxItems: 30, sensitivity: 'authority-metadata', staleLabel: 'Last authorised context' }),
   branding: Object.freeze({ cache: true, maxItems: 20, sensitivity: 'public-branding', staleLabel: 'Saved branding' }),
   notifications: Object.freeze({ cache: true, maxItems: 100, sensitivity: 'private-communication', staleLabel: 'Saved notifications' }),
@@ -101,7 +104,12 @@ function boundNestedValue(value, maximum, depth = 0) {
 export function boundCoachOfflineResource(resourceKey, value) {
   const policy = getCoachOfflineReadPolicy(resourceKey)
   if (!policy.cache) return null
-  return boundNestedValue(value, policy.maxItems)
+  const bounded = boundNestedValue(value, policy.maxItems)
+  const key = normalize(resourceKey).replace(/^phase31e:/, '')
+  const boundRow = row => boundNestedValue(row, policy.maxItems, 2)
+  if (value && !Array.isArray(value) && typeof value === 'object' && key === 'invites') return compactCoachAvailabilitySnapshot(value, bounded, boundRow)
+  if (value && !Array.isArray(value) && typeof value === 'object' && key === 'invites:fixture') return compactCoachFixtureAvailabilitySnapshot(value, bounded, boundRow)
+  return bounded
 }
 
 export function getCoachCacheFingerprint(value) {

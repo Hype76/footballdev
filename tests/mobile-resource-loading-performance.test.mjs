@@ -49,6 +49,15 @@ test('cache identities isolate accounts, teams, children and changed authority',
   assert.equal(new Set(keys).size, keys.length)
 })
 
+test('retained memory snapshots cannot cross a same-ID Coach authority or Parent link reassignment', () => {
+  const coach = { id: 'coach', activeCoachContextId: 'team', activeTeamId: 'team', coachContexts: [{ id: 'team', authorityId: 'staff-a', authoritySource: 'team_staff' }] }
+  const changedCoach = { ...coach, coachContexts: [{ ...coach.coachContexts[0], authorityId: 'staff-b' }] }
+  const parent = { id: 'parent', selectedParentLinkId: 'link', parentPortalLinks: [{ id: 'link', teamId: 'team-a', playerId: 'player' }] }
+  const changedParent = { ...parent, parentPortalLinks: [{ ...parent.parentPortalLinks[0], teamId: 'team-b' }] }
+  assert.notEqual(mobileResourceKey(coach, 'calendar'), mobileResourceKey(changedCoach, 'calendar'))
+  assert.notEqual(mobileResourceKey(parent, 'calendar'), mobileResourceKey(changedParent, 'calendar'))
+})
+
 test('expired display snapshots remain available during slow or failed refresh without becoming fresh', async () => {
   let time = 0
   const cache = createMobileResourceCache({ now: () => time })

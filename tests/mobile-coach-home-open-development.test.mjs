@@ -48,6 +48,7 @@ function harness() {
     selectedMobileUser: { id: 'coach', clubId: 'club', activeTeamId: 'team', planKey: 'team' },
     user: { id: 'coach' }, activeContext: { id: 'team:team', clubId: 'club', teamId: 'team' },
     requestIdRef: { current: 1 }, developmentRefreshIdRef: { current: 0 },
+    homeDeniedScopeRef: { current: false },
     homeStateRef: { get current() { return state } },
     setHomeState: update => { state = typeof update === 'function' ? update(state) : update },
     readMobileResource: async (_user, key, load) => { calls.push(key); return load() },

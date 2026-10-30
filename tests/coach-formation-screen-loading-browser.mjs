@@ -7,7 +7,7 @@ import { build } from 'esbuild'
 import { chromium } from 'playwright'
 
 if (!process.env.FORMATION_SCREEN_SCENARIO) {
-  for (const scenario of ['stable', 'cache', 'scope', 'pending', 'failure', 'theme']) {
+  for (const scenario of ['stable', 'cache', 'scope', 'pending', 'failure', 'theme', 'retry', 'denied', 'slow-storage']) {
     const result = spawnSync(process.execPath, [fileURLToPath(import.meta.url)], {
       encoding: 'utf8',
       env: { ...process.env, FORMATION_SCREEN_SCENARIO: scenario },
@@ -84,15 +84,16 @@ const resourceMock = `
     : [{ id: 'player-' + user.id, playerName: 'Player ' + user.id }]
   export const readMobileResource = async (user, key) => {
     window.__screenTest.resourceCalls += 1
-    if (scenario === 'stable' || scenario === 'theme') return response(user, key)
-    if (scenario === 'failure') throw new Error('Formation resources unavailable')
+    if (scenario === 'stable' || scenario === 'theme' || scenario === 'slow-storage') return response(user, key)
+    if (scenario === 'denied') throw Object.assign(new Error('permission denied'), { code: '42501' })
+    if (scenario === 'failure' || (scenario === 'retry' && window.__screenTest.resourceCalls <= 2)) throw new Error('Formation resources unavailable')
     return new Promise(resolve => { window.__screenTest.resolvers[user.id + ':' + key] = () => resolve(response(user, key)) })
   }
 `
 
 const offlineMock = `
   const scenario = ${JSON.stringify(scenario)}
-  export const readCoachOfflineResources = async () => scenario === 'cache' ? { resources: {
+  export const readCoachOfflineResources = async () => scenario === 'slow-storage' ? new Promise(() => {}) : ['cache', 'retry', 'denied'].includes(scenario) ? { resources: {
     matchDayList: [{ id: 'cached-match', teamId: 'team-a', teamName: 'Cached Team', opponent: 'Cached Opponent', matchDate: '2099-09-20', status: 'scheduled' }],
     matchDayPlayers: [{ id: 'cached-player', playerName: 'Cached Player' }],
   } } : null
@@ -188,6 +189,30 @@ try {
     await page.getByText('Live screen data', { exact: true }).waitFor()
     assert.equal(await page.getByRole('button', { name: 'Local board edit 0', exact: true }).isEnabled(), true)
     console.log('PASS: Screen cache is visible and read-only while live resources are deferred')
+  } else if (scenario === 'retry') {
+    await page.getByText('Formation resources unavailable', { exact: true }).waitFor()
+    await chooseMatch('Cached Team v Cached Opponent')
+    await page.getByRole('button', { name: 'Try again', exact: true }).click()
+    await page.waitForFunction(() => window.__screenTest.resourceCalls === 4)
+    assert.equal(await page.getByText('Cached Player', { exact: true }).count(), 1)
+    assert.equal(await page.getByRole('button', { name: 'Local board edit 0', exact: true }).isEnabled(), false)
+    assert.equal(await page.evaluate(() => window.__screenTest.boardUnmounts), 0)
+    await page.evaluate(() => {
+      window.__screenTest.resolvers['coach-a:coach:match-list']()
+      window.__screenTest.resolvers['coach-a:coach:players']()
+    })
+    await page.getByText('Team v Opponent', { exact: true }).waitFor()
+    assert.equal(await page.getByText('Cached Player', { exact: true }).count(), 0)
+    console.log('PASS: retry retains the read-only board until refreshed results replace it')
+  } else if (scenario === 'denied') {
+    await page.getByText('permission denied', { exact: true }).waitFor()
+    assert.equal(await page.getByText('Cached Team v Cached Opponent', { exact: true }).count(), 0)
+    assert.equal(await page.getByText('Cached Player', { exact: true }).count(), 0)
+    console.log('PASS: explicit Formation permission denial clears saved information')
+  } else if (scenario === 'slow-storage') {
+    await chooseMatch('Team v Opponent')
+    await page.getByText('Live screen data', { exact: true }).waitFor()
+    console.log('PASS: live Formation data does not wait for phone storage')
   } else if (scenario === 'scope') {
     await page.waitForFunction(() => window.__screenTest.resourceCalls === 2)
     await page.getByRole('button', { name: 'Switch authority', exact: true }).click()

@@ -16,11 +16,11 @@ const extract = names => names.map(name => {
   assert.ok(node, name)
   return source.slice(node.start, node.end)
 }).join('\n')
-const helpers = extract(['useDomainStyles', 'Button', 'Field', 'Chips', 'getSavedLocationOptions', 'DomainHeader', 'DomainState', 'TrainingSessionRow'])
+const helpers = extract(['useDomainStyles', 'Button', 'Field', 'Chips', 'getSavedLocationOptions', 'DomainHeader', 'DomainState', 'TrainingSessionRow', 'resolveWithOffline', 'operationalAuthorityScope', 'operationalAccessDenied'])
 const screen = source.slice(source.indexOf('export function CoachSessionsScreen('), source.indexOf('function SessionPlayerNotes'))
 
 const entry = `
-import React,{useCallback,useEffect,useMemo,useState} from 'react'
+import React,{useCallback,useEffect,useMemo,useRef,useState} from 'react'
 import {createRoot} from 'react-dom/client'
 import {Keyboard,Pressable,StyleSheet,Switch,Text,TextInput,View} from 'react-native'
 import MaterialIcons from '@expo/vector-icons/MaterialIcons'
@@ -29,6 +29,7 @@ import {filterCoachSessions,getCoachSessionMutationPolicy} from './apps/mobile-c
 import {coachCalendarFormFromEvent,filterCoachCalendarEvents,formatCoachCalendarEventDateTime} from './apps/mobile-core/src/coachCalendarCore.js'
 import {getCoachOfflineSaveWarning} from './apps/coach-mobile/src/coachOfflineErrors.js'
 import {formatUkDate} from './src/lib/date-format.js'
+import {getCoachFormationAuthorityScope} from './apps/coach-mobile/src/coachFormationEntryCore.js'
 const getCoachFriendlyError=error=>error?.message||'Unknown error'
 const message=getCoachFriendlyError
 const useConfirmedConnectionIssue=value=>value

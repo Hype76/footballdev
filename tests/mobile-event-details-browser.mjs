@@ -20,6 +20,7 @@ const entry=`
 import {CoachCalendarSync} from './apps/coach-mobile/src/CoachCalendarSync.js';import {getParentBadgeColours,getParentStatusColours,PARENT_FAN_SIGN_IN_COLOURS,PARENT_POLL_SEPARATOR_COLOUR} from './apps/mobile-core/src/parentStatusColours.js';
 import {formatFixtureDateTime} from './src/lib/calendar-datetime-integrity.js';
 import {resolveCoachRoute} from './apps/coach-mobile/src/coachNavigationCore.js';
+import {getCoachFormationAuthorityScope} from './apps/coach-mobile/src/coachFormationEntryCore.js';
 import {TeamLeagueLinkRow} from './apps/mobile-core/src/TeamLeagueLink.js';
 import {coachTeamLeagueScope} from './src/lib/team-league-link.js';
 const coachSupabase={rpc:async()=>({data:null})};

@@ -96,7 +96,7 @@ try {
   const page = await browser.newPage({viewport:{width:390,height:844}})
   const errors=[];page.on('pageerror',error=>{errors.push(error.message);console.error(error.message)})
   await page.route('http://localhost:9876/**',route=>route.fulfill({contentType:'text/html',body:'<html style="scrollbar-gutter:stable"><head><meta name="viewport" content="width=device-width,initial-scale=1"></head><body><div id="root"></div></body></html>'}))
-  const mount = async()=>{await page.goto('http://localhost:9876/');if(process.argv.includes('--layout-only'))await page.evaluate(()=>window.startListOnly=true);await page.addScriptTag({content:result.outputFiles[0].text})}
+  const mount = async()=>{await page.goto('http://localhost:9876/');if(process.argv.includes('--layout-only'))await page.evaluate(()=>window.startListOnly=true);if(process.argv.includes('--denial-only'))await page.evaluate(()=>{if(localStorage.getItem('denyFixture')==='1'){window.detailFailure=true;window.detailFailureMessage='permission denied'}});await page.addScriptTag({content:result.outputFiles[0].text})}
   await mount()
   if(process.argv.includes('--layout-only')) {
     await page.waitForFunction(()=>Boolean(window.finishList))
@@ -113,7 +113,14 @@ try {
     console.log('PASS authorised Create match stays in place during cached fixture refresh and remains disabled until authority is current.')
   } else {
   await page.waitForFunction(()=>window.readJournal()?.baseMatch?.id==='fixture')
-  if(process.argv.includes('--conclude-only')) {
+  if(process.argv.includes('--denial-only')) {
+    await page.evaluate(()=>localStorage.setItem('denyFixture','1'))
+    await mount()
+    await page.getByText(/permission denied/i).first().waitFor({timeout:10000})
+    assert.equal(await page.getByText(/Visitors/).count(),0,'Permission denial must hide cached and projected fixture information')
+    assert.deepEqual(errors,[])
+    console.log('PASS: Match Day permission denial clears cached and outbox-projected fixture details')
+  } else if(process.argv.includes('--conclude-only')) {
     for (const failure of ['none','cache-failure','response-lost','response-lost-and-refresh-failed','rejected']) {
       await page.evaluate(()=>{
         const fullTime={...window.server,status:'full_time',timerStatus:'full_time',currentMatchPhase:'full_time',updatedAt:new Date(Date.now()-60000).toISOString(),concludedAt:'',homeScore:1,awayScore:0,events:[],finalReport:null};

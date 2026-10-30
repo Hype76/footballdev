@@ -2,6 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
 import { AppState } from 'react-native'
 import { withMobileAsyncTimeout } from '../../mobile-core/src/http'
 import { createInvitationCacheWriter } from '../../mobile-core/src/invitationCacheWriter'
+import { COACH_AVAILABILITY_CACHE_VERSION } from '../../mobile-core/src/coachAvailabilityCache.js'
 
 export function useCoachMatchInvites(options) {
   const { user, context, fixture, cachedRows = [] } = options
@@ -66,7 +67,8 @@ export function useCoachMatchInvites(options) {
     if (!selected.fixture) return undefined
     let active = true
     void selected.readSaved(selected.user, selected.context).then(saved => {
-      if (!active || scopeRef.current !== scope || saved?.fixtureId !== selected.fixture.id || !Array.isArray(saved.rows)) return
+      if (!active || scopeRef.current !== scope || saved?.fixtureId !== selected.fixture.id || !Array.isArray(saved.rows)
+        || saved.availabilityCacheVersion !== COACH_AVAILABILITY_CACHE_VERSION) return
       if (valueRef.current?.scope === scope && valueRef.current.fresh) return
       publish({ ...valueRef.current, scope, owner, fixtureId: saved.fixtureId, sourceRevision: selected.sourceRevision,
         rows: saved.rows, checkedAt: saved.checkedAt, fresh: false })
@@ -78,7 +80,8 @@ export function useCoachMatchInvites(options) {
   }, [scope, owner, refresh, publish, options.sourceRevision])
 
   const selected = value?.scope === scope ? value : null
-  return { rows: selected?.rows || cachedRows, stale: !selected?.fresh, checking: selected?.checking === true,
+  return { rows: selected?.rows || cachedRows, hasCompleteRows: Array.isArray(selected?.rows) || options.cachedRowsComplete !== false,
+    stale: !selected?.fresh, checking: selected?.checking === true,
     checkedAt: selected?.checkedAt, failed: selected?.failed, saveFailed: selected?.saveFailed, refresh,
     retrySave: () => !user.isOfflineProfile && cacheSessionRef.current?.scope === scope && cacheSessionRef.current.writer.retry(),
     lastSnapshot: value?.owner === owner && value.sourceRevision === options.sourceRevision && value.rows ? value : null }

@@ -16,6 +16,7 @@ const navigation = appSource.slice(appSource.indexOf('  const navigate = useCall
 const creationEffect = matchSource.match(/  useEffect\(\(\) => \{\s+if \(matchDayTarget\?\.intent !== 'create-fixture'[^]*?\n  \}, \[[^]*?\]\)/)[0]
 const fixtureStyles = matchSource.match(/function createStyles\(palette\) \{[^]*?\n\}/)[0].replace('function createStyles', 'function createFixtureStyles')
 const entry = `
+import {getCoachFormationAuthorityScope} from './apps/coach-mobile/src/coachFormationEntryCore.js';
 import {CoachCalendarSync} from './apps/coach-mobile/src/CoachCalendarSync.js';
 import React,{useCallback,useEffect,useMemo,useRef,useState} from 'react';import {createRoot} from 'react-dom/client';
 import {Keyboard,Pressable,StyleSheet,Switch,Text,TextInput,View} from 'react-native';

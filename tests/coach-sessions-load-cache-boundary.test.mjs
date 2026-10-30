@@ -16,33 +16,102 @@ const loadSource = screen.slice(loadStart, loadEnd)
 const liveSessions = [{ id: 'FP TEST session', status: 'open', sessionDate: '2026-09-16' }]
 const savedSessions = [{ id: 'FP TEST old session', status: 'open', sessionDate: '2026-09-15' }]
 
-function controller({ cached = null, loadError = null, cacheError = null } = {}) {
+function controller({ cached = null, loadError = null, cacheError = null, slowOffline = false, offlinePromise = null, playerError = null } = {}) {
   const state = {}
   const calls = []
   const config = { loadError, cacheError }
   const scope = {
     user: { id: 'FP TEST coach' }, context: { id: 'team:FP TEST' },
-    readCoachOfflineResources: async () => cached,
-    getCoachSessionList: async () => { calls.push('live read'); if (config.loadError) throw config.loadError; return liveSessions },
-    getCoachPlayerList: async () => [], getCoachCalendarResources: async () => [],
+    hasSessionsSnapshot: { current: false },
+    sessionsDenied: { current: false },
+    sessionsLoadSequence: { current: 0 },
+    sessionDetailSequence: { current: 0 },
+    operationalAccessDenied: error => error?.code === '42501' || /permission denied|row.level security|not authori[sz]ed/i.test(String(error?.message || '')),
+    sessionDataRef: { current: { players: [], trainingEvents: [], trainingLocations: [] } },
+    resolveWithOffline: async (network, offline, applyOffline) => {
+      const first = await Promise.race([network.then(result => ({ result })), offline.then(cached => ({ cached }))])
+      if ('result' in first) return { result: first.result, cached: null }
+      applyOffline(first.cached)
+      return { result: await network, cached: first.cached }
+    },
+    readCoachOfflineResources: async () => slowOffline ? new Promise(() => {}) : offlinePromise || cached,
+    getCoachSessionList: async () => { calls.push('live read'); if (config.loadError) throw config.loadError; return config.pending ? await config.pending : liveSessions },
+    getCoachPlayerList: async () => { if (playerError) throw playerError; return [] }, getCoachCalendarResources: async () => [],
     readMobileResource: (_user, _key, loader) => loader(),
     withMobileAsyncTimeout: loader => loader(),
     filterCoachCalendarEvents: rows => rows, getSavedLocationOptions: () => [],
     createCoachOfflineResourceSaver: (_user, _context) => async resources => {
       calls.push('save cache')
-      assert.equal(resources.sessions, liveSessions)
+      if (!config.pending) assert.equal(resources.sessions, liveSessions)
       if (config.cacheError) throw config.cacheError
     },
     getCoachOfflineSaveWarning,
     message: getCoachFriendlyError,
   }
-  for (const field of ['Error', 'CacheWarning', 'Loading', 'Sessions', 'Players', 'TrainingEvents', 'TrainingLocations', 'Stale']) {
+  for (const field of ['Error', 'CacheWarning', 'Loading', 'Sessions', 'Players', 'TrainingEvents', 'TrainingLocations', 'Stale', 'Detail', 'Form', 'TrainingForm']) {
     scope[`set${field}`] = value => { state[field] = value }
   }
   vm.createContext(scope)
   vm.runInContext(loadSource, scope)
   return { state, calls, config, load: scope.load }
 }
+
+test('a successful live read does not wait for slow offline storage', async () => {
+  const run = controller({ slowOffline: true })
+  await Promise.race([run.load(), new Promise((_, reject) => setTimeout(() => reject(new Error('live read waited for offline storage')), 500))])
+  assert.equal(run.state.Sessions, liveSessions)
+  assert.equal(run.state.Stale, false)
+})
+
+test('partial live failure keeps live Sessions and recovers only failed dependencies from storage', async () => {
+  let finishOffline
+  const offlinePromise = new Promise(resolve => { finishOffline = resolve })
+  const run = controller({ offlinePromise, playerError: new Error('network failed') })
+  const loading = run.load()
+  await new Promise(resolve => setTimeout(resolve, 10))
+  assert.equal(run.state.Sessions, liveSessions)
+  assert.equal(run.state.Stale, true)
+  const cachedPlayers = [{ id: 'saved-player' }]
+  finishOffline({ resources: { sessions: savedSessions, sessionPlayers: cachedPlayers } })
+  await loading
+  assert.equal(run.state.Sessions, liveSessions)
+  assert.equal(run.state.Players, cachedPlayers)
+  assert.equal(run.state.Stale, true)
+  assert.deepEqual(run.calls, ['live read'])
+})
+
+test('refresh retains the current Sessions while pending, then accepts an empty server result', async () => {
+  const run = controller()
+  await run.load()
+  let finish
+  run.config.pending = new Promise(resolve => { finish = resolve })
+  const refresh = run.load()
+  await Promise.resolve()
+  assert.equal(run.state.Sessions, liveSessions)
+  assert.equal(run.state.Loading, false)
+  assert.equal(run.state.Stale, true)
+  finish([])
+  await refresh
+  assert.equal(run.state.Sessions.length, 0)
+  assert.equal(run.state.Stale, false)
+})
+
+test('an older refresh cannot replace a newer Sessions result', async () => {
+  const run = controller()
+  await run.load()
+  let finishOld, finishNew
+  run.config.pending = new Promise(resolve => { finishOld = resolve })
+  const oldRefresh = run.load()
+  await Promise.resolve()
+  run.config.pending = new Promise(resolve => { finishNew = resolve })
+  const newRefresh = run.load()
+  finishNew([])
+  await newRefresh
+  finishOld(liveSessions)
+  await oldRefresh
+  assert.deepEqual(run.state.Sessions, [])
+  assert.equal(run.state.Stale, false)
+})
 
 for (const code of ['offline_profile_scope_mismatch', 'offline_context_scope_mismatch', 'offline_cache_payload_too_large', 'offline_storage_readback_failed']) {
   test(`successful Sessions read survives ${code} with a visible offline warning`, async () => {
@@ -82,9 +151,26 @@ for (const cached of [null, { resources: { sessions: savedSessions } }]) {
     assert.deepEqual(run.calls, ['live read'])
     assert.equal(run.state.Sessions.length, 0)
     assert.equal(run.state.Players.length, 0)
+    assert.equal(run.state.Detail, null)
+    assert.equal(run.state.Form, null)
+    assert.equal(run.state.TrainingForm, null)
     assert.equal(run.state.Stale, true)
   })
 }
+
+test('permission denial prevents cached Sessions returning before renewed server access', async () => {
+  const run = controller({ cached: { resources: { sessions: savedSessions } }, loadError: new Error('permission denied') })
+  await run.load()
+  run.config.loadError = null
+  let finish
+  run.config.pending = new Promise(resolve => { finish = resolve })
+  const retry = run.load()
+  await Promise.resolve()
+  assert.equal(run.state.Sessions.length, 0)
+  finish(liveSessions)
+  await retry
+  assert.equal(run.state.Sessions, liveSessions)
+})
 
 test('Sessions loader keeps club/team filtering and refuses missing or insufficient Coach context', async () => {
   const data = await readFile(new URL('../apps/mobile-core/src/coachSessionsData.js', import.meta.url), 'utf8')

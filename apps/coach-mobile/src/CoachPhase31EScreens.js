@@ -16,7 +16,8 @@ import { CoachResourceUploadAction } from './CoachResourceUploadAction'
 import { InviteStatusBadge } from '../../mobile-core/src/InviteStatusBadge'
 import { canRespondToCoachInviteOnBehalf } from '../../mobile-core/src/coachPhase31ECore'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { peekMobileResource, readMobileResource } from '../../mobile-core/src/mobileResourceCache'
+import { invalidateMobileResource, peekMobileResource, readMobileResource } from '../../mobile-core/src/mobileResourceCache'
+import { hasCompleteCoachAvailabilitySnapshot, restoreCoachAvailabilitySnapshot } from '../../mobile-core/src/coachAvailabilityCache.js'
 import { BrandLoader } from '../../mobile-core/src/BrandLoader'
 import { MobileLoadingStatus } from '../../mobile-core/src/MobileHeaderActivity'
 import { useMobileActivity, useMobileOffline } from '../../mobile-core/src/MobileActivityContext'
@@ -250,6 +251,7 @@ export function CoachPhase31EScreen({ chatNotificationTarget, domain, context, o
 
   const captureLoadScope = useAttendanceUiGuard(JSON.stringify([user.id, context.id, context.authorityId, context.authoritySource, context.clubId, context.teamId, context.role, domain]))
   const attendanceLoadGeneration = useRef(0)
+  const deniedScopeRef = useRef('')
   const load = useCallback(async ({ silent = false, reuseFresh = false } = {}) => {
     const scopeCurrent = captureLoadScope()
     const generation = ++attendanceLoadGeneration.current
@@ -257,11 +259,13 @@ export function CoachPhase31EScreen({ chatNotificationTarget, domain, context, o
     const loader = LOADERS[domain]
     if (!loader) return
     const memoryKey = `coach:phase31e:${domain}`
-    // Expiry requires a fresh read, but must not blank the last known availability.
-    const recent = reuseFresh ? peekMobileResource(user, memoryKey, { allowStale: domain === 'invites' }) : undefined
+    const deniedAtStart = deniedScopeRef.current === dataScope
+    // Freshness controls network reuse, not whether saved content stays visible.
+    const fresh = reuseFresh && !deniedAtStart ? peekMobileResource(user, memoryKey) : undefined
+    const recent = reuseFresh && !deniedAtStart ? peekMobileResource(user, memoryKey, { allowStale: true }) : undefined
     if (recent !== undefined) {
-      setData(recent); setStale(domain === 'invites'); setLoading(false); setError('')
-      if (domain !== 'invites') return
+      setData(recent); setStale(user.isOfflineProfile || fresh === undefined || domain === 'invites'); setLoading(false); setError('')
+      if (domain !== 'invites' && fresh !== undefined && !user.isOfflineProfile) return
     }
     setRefreshing(true)
     if (!silent) {
@@ -272,10 +276,11 @@ export function CoachPhase31EScreen({ chatNotificationTarget, domain, context, o
     let hasCachedValue = false
     let onlinePublished = false
     const hadVisibleData = Boolean(dataRef.current || recent !== undefined)
-    const restoreSaved = readCoachOfflineResources(user.id, context).catch(() => null).then(cached => {
+    const restoreSaved = (deniedAtStart ? Promise.resolve(null) : readCoachOfflineResources(user.id, context)).catch(() => null).then(cached => {
       if (!current()) return
       const savedValue = cached?.resources?.[`phase31e:${domain}`]
-      const cachedValue = domain === 'chat' ? sanitizeCoachChatOfflineValue(savedValue) : savedValue
+      const cachedValue = domain === 'chat' ? sanitizeCoachChatOfflineValue(savedValue)
+        : domain === 'invites' ? restoreCoachAvailabilitySnapshot(savedValue) : savedValue
       hasCachedValue = offlinePolicy.cache && hasUsableCoachPhase31ECache(domain, savedValue, cachedValue)
       if (hasCachedValue && !onlinePublished && !hadVisibleData) {
         // Restore Training even if the independent Match read finished first.
@@ -285,8 +290,8 @@ export function CoachPhase31EScreen({ chatNotificationTarget, domain, context, o
         setError('')
       }
     })
-    // Encrypted phone storage must not delay online availability requests.
-    if (domain !== 'invites' || user.isOfflineProfile) await restoreSaved
+    // Encrypted phone storage must not delay online requests.
+    if (user.isOfflineProfile) await restoreSaved
     else await Promise.resolve()
     if (!current()) return false
     if (user.isOfflineProfile) {
@@ -295,12 +300,14 @@ export function CoachPhase31EScreen({ chatNotificationTarget, domain, context, o
       return
     }
     if (domain === 'invites') setInvitesRefreshing(true)
+    const cacheWarning = 'Loaded, but this section could not be saved on this device. Stay online and try again later.'
     let acceptingMatches = true
     try {
       const next = await readMobileResource(user, memoryKey, () => withMobileAsyncTimeout(async () => {
         const loaded = await loader(user, domain === 'development' ? {
           onWorkspaceReady(workspace) {
-            if (!current()) return
+            if (!current() || deniedAtStart) return
+            onlinePublished = true
             const readyWorkspace = { ...workspace, records: dataRef.current?.records || workspace.records }
             setData(readyWorkspace)
             setStale(false)
@@ -315,15 +322,20 @@ export function CoachPhase31EScreen({ chatNotificationTarget, domain, context, o
           },
         } : domain === 'invites' ? {
           onAvailabilityReady(snapshot) {
-            if (!current() || !acceptingMatches) return
+            if (!current() || !acceptingMatches || deniedAtStart) return
             onlinePublished = true
-            setData(previous => ({ ...previous, ...snapshot }))
+            setData(previous => ({ ...previous, ...snapshot, availabilityCacheVersion: 1 }))
             setLoading(false)
             setError('')
+            // These sources are complete. Save them before optional player and
+            // offline-command enrichment can time out or the app is backgrounded.
+            void saveCoachOfflineResources(user.id, context, { 'phase31e:invites': {
+              ...snapshot, ...(dataRef.current?.players ? { players: dataRef.current.players } : {}), availabilityCacheVersion: 1,
+            } }).catch(() => { if (current()) setNotice(cacheWarning) })
           },
           onMatchReady(snapshot) {
-            if (!current() || !acceptingMatches) return
-            setData(previous => ({ ...previous, ...snapshot }))
+            if (!current() || !acceptingMatches || deniedAtStart) return
+            setData(previous => ({ ...previous, ...snapshot, matchAvailabilityVerified: true }))
             setLoading(false)
             setError('')
           },
@@ -332,14 +344,17 @@ export function CoachPhase31EScreen({ chatNotificationTarget, domain, context, o
           ? { ...loaded, records: dataRef.current?.records || loaded.records } : loaded
       }, domain === 'invites' ? { timeoutMs: 30000 } : {}), { force: domain === 'invites' || !reuseFresh })
       if (!current()) return false
+      deniedScopeRef.current = ''
       onlinePublished = true
       setData(next)
       setStale(false)
       setError('')
       try {
         const offlineValue = domain === 'chat' ? sanitizeCoachChatOfflineValue(next) : next
-        void saveCoachOfflineResources(user.id, context, { [`phase31e:${domain}`]: offlineValue }).catch(() => {
-          if (current()) setNotice('Loaded, but this section could not be saved on this device. Stay online and try again later.')
+        void saveCoachOfflineResources(user.id, context, { [`phase31e:${domain}`]: offlineValue }).then(() => {
+          if (current()) setNotice(value => value === cacheWarning ? '' : value)
+        }).catch(() => {
+          if (current()) setNotice(cacheWarning)
         })
       } catch {
         if (current()) setNotice('Loaded, but this section could not be saved on this device. Stay online and try again later.')
@@ -347,10 +362,23 @@ export function CoachPhase31EScreen({ chatNotificationTarget, domain, context, o
       return current()
     } catch (loadError) {
       if (!current()) return false
+      if (loadError?.code === '42501' || loadError?.status === 403 || loadError?.statusCode === 403) {
+        deniedScopeRef.current = dataScope
+        onlinePublished = true
+        invalidateMobileResource(user, memoryKey)
+        void saveCoachOfflineResources(user.id, context, { [`phase31e:${domain}`]: null }).catch(() => {})
+        setData(null)
+        setStale(true)
+        setError(getCoachFriendlyError(loadError, 'Your access to this section could not be confirmed.'))
+        return false
+      }
       if (domain === 'development' && dataRef.current?.historyLoading) {
         setData(previous => ({ ...previous, historyLoading: false, historyError: 'Recent records could not be refreshed. Your assessment drafts are still available.' }))
       }
-      if (domain === 'invites' && (dataRef.current || recent !== undefined || hasCachedValue)) setStale(true)
+      if (dataRef.current || recent !== undefined || hasCachedValue) {
+        setStale(true)
+        if (!silent) setNotice(getCoachFriendlyError(loadError, `${TITLES[domain]} could not be refreshed. Showing saved information.`))
+      }
       if (!silent && !hasCachedValue && recent === undefined && !dataRef.current) setError(getCoachFriendlyError(loadError, `${TITLES[domain]} could not be loaded.`))
       return false
     } finally {
@@ -359,7 +387,7 @@ export function CoachPhase31EScreen({ chatNotificationTarget, domain, context, o
       if (current() && domain === 'invites') setInvitesRefreshing(false)
       if (current() && !silent) setLoading(false)
     }
-  }, [captureLoadScope, context, domain, offlinePolicy.cache, setData, user])
+  }, [captureLoadScope, context, dataScope, domain, offlinePolicy.cache, setData, user])
 
   useEffect(() => { void load({ reuseFresh: true }) }, [load])
 
@@ -377,7 +405,7 @@ export function CoachPhase31EScreen({ chatNotificationTarget, domain, context, o
 
   useEffect(() => {
     if (domain !== 'polls') return undefined
-    const refreshResults = () => void load({ silent: true })
+    const refreshResults = () => { if (AppState.currentState === 'active') void load({ silent: true }) }
     const interval = setInterval(refreshResults, 15000)
     const subscription = AppState.addEventListener('change', (nextState) => {
       if (nextState === 'active') refreshResults()
@@ -769,10 +797,11 @@ function ResourcesDomain({ data, load, setNotice, stale, styles, user }) {
   )
 }
 
-function ChatDomain({ chatNotificationTarget, data, load, notice, onChatNotificationTargetHandled, placeholderColor, reloadHome, setNotice, stale, styles, user }) {
+function ChatDomain({ chatNotificationTarget, context, data, load, notice, onChatNotificationTargetHandled, placeholderColor, reloadHome, setNotice, stale, styles, user }) {
   const safeAreaInsets = useSafeAreaInsets()
   const chatModalTopInset = getCoachChatModalTopInset({ platform: Platform.OS, safeAreaTop: safeAreaInsets.top })
-  const roomSections = useMemo(() => buildCoachChatRoomSections([...(data.staff || []), ...(data.parent || [])]), [data])
+  const [deniedRoomIds, setDeniedRoomIds] = useState([])
+  const roomSections = useMemo(() => buildCoachChatRoomSections([...(data.staff || []), ...(data.parent || [])].filter(item => !deniedRoomIds.includes(item.id))), [data, deniedRoomIds])
   const rooms = useMemo(() => roomSections.flatMap((section) => [...section.activeRooms, ...section.emptyRooms]), [roomSections])
   const [roomId, setRoomId] = useState('')
   const [messages, setMessages] = useState([])
@@ -786,6 +815,15 @@ function ChatDomain({ chatNotificationTarget, data, load, notice, onChatNotifica
   const roomRefreshRef = useRef(false)
   const openRequest = useRef(0)
   const sendInFlight = useRef(false)
+  const denyRoom = useCallback(deniedRoom => {
+    setDeniedRoomIds(ids => ids.includes(deniedRoom.id) ? ids : [...ids, deniedRoom.id])
+    invalidateMobileResource(user, `coach:chat-room:${deniedRoom.kind}:${deniedRoom.id}`)
+    invalidateMobileResource(user, 'coach:phase31e:chat')
+    void saveCoachOfflineResources(user.id, context, { 'phase31e:chat': null }).catch(() => {})
+    setMessages([])
+    setRoomId('')
+    activeRoomIdRef.current = ''
+  }, [context, user])
   useEffect(() => () => { openRequest.current += 1; activeRoomIdRef.current = '' }, [user])
   const activeRoomId = rooms.some((item) => item.id === roomId) ? roomId : ''
   const room = rooms.find((item) => item.id === activeRoomId)
@@ -796,7 +834,7 @@ function ChatDomain({ chatNotificationTarget, data, load, notice, onChatNotifica
     const request = ++openRequest.current
     const isCurrent = () => request === openRequest.current && activeRoomIdRef.current === nextRoom.id
     const memoryKey = `coach:chat-room:${nextRoom.kind}:${nextRoom.id}`
-    setMessages(peekMobileResource(user, memoryKey) || [])
+    setMessages(peekMobileResource(user, memoryKey, { allowStale: true }) || [])
     setBody('')
     setRoomId(nextRoom.id)
     activeRoomIdRef.current = nextRoom.id
@@ -809,8 +847,15 @@ function ChatDomain({ chatNotificationTarget, data, load, notice, onChatNotifica
       await markCoachChatRead(user, nextRoom)
       if (!isCurrent()) return
       await Promise.all([load({ silent: true }), reloadHome({ refresh: true, chatOnly: true })])
-    } catch (error) { if (isCurrent()) setNotice(getCoachFriendlyError(error)) }
-  }, [load, reloadHome, setNotice, user])
+    } catch (error) {
+      if (isCurrent()) {
+        if (error?.code === '42501' || error?.status === 403 || error?.statusCode === 403) {
+          denyRoom(nextRoom)
+        }
+        setNotice(getCoachFriendlyError(error))
+      }
+    }
+  }, [denyRoom, load, reloadHome, setNotice, user])
   useEffect(() => {
     const targetId = String(chatNotificationTarget?.id || '').trim()
     if (!targetId || chatNotificationTarget?.contextId !== user.activeCoachContextId) return
@@ -835,15 +880,23 @@ function ChatDomain({ chatNotificationTarget, data, load, notice, onChatNotifica
     const refreshOpenRoom = async () => {
       if (disposed || roomRefreshRef.current || AppState.currentState !== 'active') return
       roomRefreshRef.current = true
+      const request = ++openRequest.current
+      const isCurrent = () => !disposed && activeRoomIdRef.current === room.id && request === openRequest.current
       try {
         const next = await getCoachChatMessages(user, room)
-        if (disposed || activeRoomIdRef.current !== room.id) return
+        if (!isCurrent()) return
+        setNotice(current => current === 'Loading current room history...' ? '' : current)
         if (getMobileChatMessagesFingerprint(next) === getMobileChatMessagesFingerprint(messagesRef.current)) return
         setMessages(next)
         messagesRef.current = next
         await markCoachChatRead(user, room)
+        if (!isCurrent()) return
         await Promise.all([load({ silent: true }), reloadHome({ refresh: true, chatOnly: true })])
-      } catch {
+      } catch (error) {
+        if (isCurrent() && (error?.code === '42501' || error?.status === 403 || error?.statusCode === 403)) {
+          denyRoom(room)
+          setNotice(getCoachFriendlyError(error))
+        }
         // The secured fallback refresh will try again without disrupting the open composer.
       } finally {
         roomRefreshRef.current = false
@@ -860,7 +913,7 @@ function ChatDomain({ chatNotificationTarget, data, load, notice, onChatNotifica
       appStateSubscription.remove()
       unsubscribe()
     }
-  }, [load, reloadHome, room, user])
+  }, [denyRoom, load, reloadHome, room, setNotice, user])
   const send = async () => {
     if (sendInFlight.current || !room || !body.trim() || stale) return
     sendInFlight.current = true
@@ -1145,10 +1198,13 @@ function InvitesDomain({ data: serverData, context, load: loadDomain, onAvailabi
     return () => onAvailabilityFocus?.(false)
   }, [hasFocusedFixture, onAvailabilityFocus])
   const focusedInvites = useCoachMatchInvites({ user, context, fixture: focusedFixture,
-    cachedRows: (serverData.match || []).filter(invite => invite.eventId === matchId),
+    cachedRows: hasCompleteCoachAvailabilitySnapshot(serverData) ? (serverData.match || []).filter(invite => invite.eventId === matchId) : [],
+    cachedRowsComplete: hasCompleteCoachAvailabilitySnapshot(serverData),
     sourceRevision: serverData.match,
     loadRows: getCoachMatchInvites, readSaved: readSavedMatchInvites, createSaver: createMatchInviteSaver })
-  const fixtureSnapshot = focusedFixture ? { fixtureId: matchId, rows: focusedInvites.rows } : focusedInvites.lastSnapshot
+  const fixtureSnapshot = focusedFixture
+    ? { fixtureId: matchId, rows: focusedInvites.rows, complete: focusedInvites.hasCompleteRows }
+    : focusedInvites.lastSnapshot ? { ...focusedInvites.lastSnapshot, complete: true } : null
   const matchRows = fixtureSnapshot ? [...(serverData.match || []).filter(invite => invite.eventId !== fixtureSnapshot.fixtureId), ...fixtureSnapshot.rows] : serverData.match || []
   const stale = focusedFixture ? focusedInvites.stale : domainStale
   const refreshFocusedInvites = focusedInvites.refresh
@@ -1526,10 +1582,10 @@ function InvitesDomain({ data: serverData, context, load: loadDomain, onAvailabi
       <View key={`training:${group.key}`} style={[styles.panel, expanded && { padding: 0, borderWidth: 0, backgroundColor: 'transparent' }]}>
         <Pressable accessibilityRole="button" accessibilityLabel={`${expanded ? 'Hide' : 'Open'} availability for ${group.title || 'Training'}`} onPress={() => showAvailability('training', group.key)} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, borderWidth: 1, borderColor: palette.border, borderRadius: 9, padding: 12, backgroundColor: palette.surface }}>
           <MaterialIcons name="event" size={28} color={palette.textSecondary} />
-          <View style={{ flex: 1, gap: 4 }}><Text style={[styles.heading, { fontSize: 15, lineHeight: 20 }]}>{group.title || 'Training'}</Text><Text style={styles.helper}>{group.occurrenceDate ? new Date(`${group.occurrenceDate}T12:00:00`).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }) : 'Date to be confirmed'}</Text>{!expanded ? <Text style={styles.helper}>Attending {trainingSummary.attending} · Awaiting {trainingSummary.awaitingResponse}</Text> : null}</View>
+          <View style={{ flex: 1, gap: 4 }}><Text style={[styles.heading, { fontSize: 15, lineHeight: 20 }]}>{group.title || 'Training'}</Text><Text style={styles.helper}>{group.occurrenceDate ? new Date(`${group.occurrenceDate}T12:00:00`).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }) : 'Date to be confirmed'}</Text>{!expanded ? <Text style={styles.helper}>{hasCompleteCoachAvailabilitySnapshot(serverData, 'training') ? `Attending ${trainingSummary.attending} · Awaiting ${trainingSummary.awaitingResponse}` : 'Saved totals need refreshing'}</Text> : null}</View>
         </Pressable>
         {expanded ? <>
-          <CoachMatchInviteTable coachAttendance={selectedTrainingCoachAttendance} currentCoachId={user.id} onCoachRespond={respondToTrainingAsCoach} onLoadHistory={loadInviteHistory} key={group.key} kind="training" invites={selectedTrainingInvites} players={data.players} palette={palette} selectedPlayerIds={selectedPlayerIds} selectionDisabled={Boolean(bulkAction) || (stale && !activeInvites.some(invite => invite.attendancePreparation))} onToggleSelection={toggleSelection} onFilterChange={() => setSelectedPlayerIds([])} />
+          {hasCompleteCoachAvailabilitySnapshot(serverData, 'training') ? <CoachMatchInviteTable coachAttendance={selectedTrainingCoachAttendance} currentCoachId={user.id} onCoachRespond={respondToTrainingAsCoach} onLoadHistory={loadInviteHistory} key={group.key} kind="training" invites={selectedTrainingInvites} players={data.players} palette={palette} selectedPlayerIds={selectedPlayerIds} selectionDisabled={Boolean(bulkAction) || (stale && !activeInvites.some(invite => invite.attendancePreparation))} onToggleSelection={toggleSelection} onFilterChange={() => setSelectedPlayerIds([])} /> : <Text style={styles.helper}>Connect to refresh complete player availability.</Text>}
           {renderSelectedInviteActions()}
         </> : null}
       </View>
@@ -1544,7 +1600,7 @@ function InvitesDomain({ data: serverData, context, load: loadDomain, onAvailabi
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 1, borderColor: palette.border, borderRadius: 9, padding: 8, backgroundColor: palette.surface }}>
           <Pressable accessibilityRole="button" accessibilityLabel={`${expanded ? 'Hide' : 'Open'} availability for ${match.opponent || 'match'}`} onPress={() => showAvailability('match', match.id)} style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10, padding: 4 }}>
             <MaterialIcons name="event" size={28} color={palette.textSecondary} />
-            <View style={{ flex: 1, gap: 4 }}><Text style={[styles.heading, { fontSize: 15, lineHeight: 20 }]}>{getMatchDayDisplayName({ ...match, clubName: match.clubName || user.clubName })}</Text><Text style={styles.helper}>{match.matchDate ? new Date(`${match.matchDate}T12:00:00`).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }) : 'Date to be confirmed'} · {match.kickoffTimeTbc ? 'Time TBC' : match.kickoffTime?.slice(0, 5) || 'Time TBC'}{match.venueName ? ` · ${match.venueName}` : ''}</Text>{!expanded ? <Text style={styles.helper}>Available {matchSummary.available} · Awaiting {matchSummary.awaiting}</Text> : null}</View>
+            <View style={{ flex: 1, gap: 4 }}><Text style={[styles.heading, { fontSize: 15, lineHeight: 20 }]}>{getMatchDayDisplayName({ ...match, clubName: match.clubName || user.clubName })}</Text><Text style={styles.helper}>{match.matchDate ? new Date(`${match.matchDate}T12:00:00`).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }) : 'Date to be confirmed'} · {match.kickoffTimeTbc ? 'Time TBC' : match.kickoffTime?.slice(0, 5) || 'Time TBC'}{match.venueName ? ` · ${match.venueName}` : ''}</Text>{!expanded ? <Text style={styles.helper}>{hasCompleteCoachAvailabilitySnapshot(serverData) || fixtureSnapshot?.fixtureId === match.id && fixtureSnapshot.complete ? `Available ${matchSummary.available} · Awaiting ${matchSummary.awaiting}` : 'Saved totals need refreshing'}</Text> : null}</View>
           </Pressable>
         </View>
         {expanded ? <>
@@ -1558,7 +1614,7 @@ function InvitesDomain({ data: serverData, context, load: loadDomain, onAvailabi
             </> : <Text style={styles.body}>Every active Player already has a request.</Text>}
             {uncertainAttempt ? <Button disabled={creating || stale} label="Reconcile last request" onPress={() => void reconcile()} secondary styles={styles} /> : null}
           </View> : null}
-          <CoachMatchInviteTable onLoadHistory={loadInviteHistory} key={match.id} invites={selectedMatchInvites} players={data.players} palette={palette} selectedPlayerIds={selectedPlayerIds} selectionDisabled={Boolean(bulkAction) || (stale && !activeInvites.some(invite => invite.attendancePreparation))} onToggleSelection={toggleSelection} onFilterChange={() => setSelectedPlayerIds([])} />
+          {focusedInvites.hasCompleteRows ? <CoachMatchInviteTable onLoadHistory={loadInviteHistory} key={match.id} invites={selectedMatchInvites} players={data.players} palette={palette} selectedPlayerIds={selectedPlayerIds} selectionDisabled={Boolean(bulkAction) || (stale && !activeInvites.some(invite => invite.attendancePreparation))} onToggleSelection={toggleSelection} onFilterChange={() => setSelectedPlayerIds([])} /> : <Text style={styles.helper}>Connect to refresh complete player availability.</Text>}
           {renderSelectedInviteActions()}
         </> : null}
       </View>

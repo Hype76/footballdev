@@ -18,6 +18,7 @@ import {createRoot} from 'react-dom/client';
 import {View,Text,StyleSheet,Pressable,TextInput} from 'react-native';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import {createCoachTheme} from './apps/coach-mobile/src/coachThemeCore.js';
+import {getCoachFormationAuthorityScope} from './apps/coach-mobile/src/coachFormationEntryCore.js';
 import {coachPlayerFormFromPlayer,filterCoachPlayers,formatCoachParentAppInstallationStatus,getCoachPlayerMutationPolicy,normalizeCoachPlayerEvaluation} from './apps/mobile-core/src/coachPlayersCore.js';
 import {getParentPortalInviteActionForContact,getUnlistedParentAccessLinks} from './src/lib/parent-portal-invite-actions.js';
 import {sendNewMatchdayParentInvites} from './apps/mobile-core/src/coachParentAutoInvite.js';
@@ -98,16 +99,16 @@ try {
   assert.equal(await page.evaluate(()=>window.viewedEvaluationId),'evaluation-b-player-12')
   assert.equal(await page.getByText('Exact A response for player-12',{exact:true}).count(),0)
   await page.evaluate(()=>window.team('other-team'));await page.getByLabel('Saved development record',{exact:true}).waitFor({state:'hidden',timeout:1000})
-  assert.equal(await page.getByRole('button',{name:'Open development record FP TEST Saved Review A, 15:09:2026',exact:true}).isDisabled(),true)
-  await page.evaluate(()=>window.team('team'));await page.getByRole('button',{name:'Refresh player details',exact:true}).click()
+  assert.equal(await page.getByRole('button',{name:'Open development record FP TEST Saved Review A, 15:09:2026',exact:true}).count(),0)
+  await page.evaluate(()=>window.team('team'));await page.getByText('FP TEST Player 12',{exact:true}).click();await expectProfile('player-12')
   await page.getByRole('button',{name:'Show recent records',exact:true}).click()
   await page.getByRole('button',{name:'Open development record FP TEST Saved Review A, 15:09:2026',exact:true}).click()
   await page.evaluate(()=>window.account('another-coach'));await page.getByLabel('Saved development record',{exact:true}).waitFor({state:'hidden',timeout:1000})
-  assert.equal(await page.getByRole('button',{name:'Open development record FP TEST Saved Review A, 15:09:2026',exact:true}).isDisabled(),true)
-  await page.evaluate(()=>window.account('coach'));await page.getByRole('button',{name:'Refresh player details',exact:true}).click();await page.getByRole('button',{name:'Show recent records',exact:true}).click()
+  assert.equal(await page.getByRole('button',{name:'Open development record FP TEST Saved Review A, 15:09:2026',exact:true}).count(),0)
+  await page.evaluate(()=>window.account('coach'));await page.getByText('FP TEST Player 12',{exact:true}).click();await expectProfile('player-12');await page.getByRole('button',{name:'Show recent records',exact:true}).click()
   await page.getByRole('button',{name:'Open development record FP TEST Saved Review A, 15:09:2026',exact:true}).click()
   await page.evaluate(()=>window.role(0));await page.getByLabel('Saved development record',{exact:true}).waitFor({state:'hidden',timeout:1000})
-  await page.evaluate(()=>window.role(30));await page.getByRole('button',{name:'Refresh player details',exact:true}).click();await page.getByRole('button',{name:'Show recent records',exact:true}).click()
+  await page.evaluate(()=>window.role(30));await page.getByText('FP TEST Player 12',{exact:true}).click();await expectProfile('player-12');await page.getByRole('button',{name:'Show recent records',exact:true}).click()
   await page.getByRole('button',{name:'Open development record FP TEST Saved Review A, 15:09:2026',exact:true}).click()
   await page.screenshot({path:'output/playwright/coach-player-profile/saved-record-390.png',fullPage:true})
   await page.getByRole('button',{name:'Back to recent records',exact:true}).click()
@@ -205,7 +206,8 @@ try {
   await page.getByText('Additional Parent access',{exact:true}).waitFor({state:'hidden'})
   await page.evaluate(()=>window.readOnly(true))
   await page.getByRole('button',{name:'Edit Player',exact:true}).waitFor({state:'hidden'})
-  await expectProfile('player-11')
+  await page.getByLabel('Search Players',{exact:true}).waitFor()
+  assert.equal(await page.getByText('Private profile for player-11',{exact:true}).count(),0)
   await page.evaluate(()=>window.quickAdd())
   assert.equal(await page.getByLabel('Player name',{exact:true}).count(),0,'Read-only quick action cannot open a new player form')
   await page.evaluate(()=>{window.readOnly(false);window.matchday();window.quickAdd();window.inviteCalls=[];window.failInviteEmail='fail@example.test'})

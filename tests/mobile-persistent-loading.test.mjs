@@ -39,3 +39,124 @@ test('notification history publishes saved content before network and does not w
   const result=await Promise.race([request,new Promise((_,reject)=>setTimeout(()=>reject(Error('blocked by persistence')),100))]);assert.equal(result.items[0].id,'fresh');assert.equal(state.writes,1)
  }finally{delete globalThis.__notificationPerformanceTest}
 })
+
+test('notification refresh shows expired scoped data, ignores late storage and clears denied content',async()=>{
+ const state={cached:[{id:'expired'}],disk:null,finish:null,fail:null,reads:[],peekOptions:null,writes:0};globalThis.__notificationRefreshTest=state
+ const module=await cacheHarness(path.join(root,'apps/coach-mobile/src/coachNotificationCache.js'),[
+  [/coachNotificationHistory\.js$/,`export const getCoachNotificationHistory=()=>new Promise((resolve,reject)=>{globalThis.__notificationRefreshTest.finish=resolve;globalThis.__notificationRefreshTest.fail=reject});`],
+  [/mobileResourceCache\.js$/,`export const mobileResourceKey=(u,k)=>u.id+':'+k;export const peekMobileResource=(_u,_k,options)=>{const s=globalThis.__notificationRefreshTest;s.peekOptions=options;return s.cached};export const readMobileResource=(_u,_k,loader,options)=>{globalThis.__notificationRefreshTest.reads.push(options);return loader()};export const invalidateMobileResource=()=>{globalThis.__notificationRefreshTest.cached=undefined};`],
+  [/[\\/]offline\.js$/,`export const readCoachOfflineResources=()=>globalThis.__notificationRefreshTest.disk;export const saveCoachOfflineResources=async()=>{globalThis.__notificationRefreshTest.writes++};`],
+ ])
+ try{
+  const published=[], user={id:'coach'}, context={id:'team'}
+  let request=module.loadCoachNotificationHistory(user,context,{onSaved:items=>published.push(items)})
+  assert.equal(published[0][0].id,'expired');assert.equal(state.peekOptions.allowStale,true)
+  state.finish([]);assert.deepEqual((await request).items,[])
+  state.cached=undefined;let finishDisk;state.disk=new Promise(resolve=>{finishDisk=resolve})
+  request=module.loadCoachNotificationHistory(user,context,{onSaved:items=>published.push(items)})
+  state.finish([{id:'live'}]);assert.equal((await request).items[0].id,'live')
+  finishDisk({resources:{notifications:[{id:'old'}]}});await Promise.resolve()
+  assert.equal(published.some(items=>items[0]?.id==='old'),false)
+  state.cached=[{id:'protected'}];state.disk=Promise.resolve({resources:{notifications:[{id:'protected'}]}})
+  request=module.loadCoachNotificationHistory(user,context,{onSaved:items=>published.push(items)})
+  state.fail(Object.assign(new Error('permission denied'),{code:'42501'}));await assert.rejects(request)
+  assert.deepEqual(published.at(-1),[])
+  state.cached=[{id:'protected'}]
+  request=module.loadCoachNotificationHistory(user,context,{onSaved:items=>published.push(items)})
+  assert.equal(state.reads.at(-1).force,true);state.finish([]);assert.deepEqual((await request).items,[])
+  assert.deepEqual(published.at(-1),[])
+  state.cached=[{id:'protected'}];const writesBefore=state.writes
+  const old=module.loadCoachNotificationHistory(user,context,{force:true,onSaved:items=>published.push(items)})
+  const oldOutcome=old.catch(error=>error);const finishOld=state.finish
+  const newer=module.loadCoachNotificationHistory(user,context,{force:true,onSaved:items=>published.push(items)})
+  state.fail(Object.assign(new Error('restricted'),{status:403}));await assert.rejects(newer)
+  assert.equal((await oldOutcome).status,403)
+  finishOld([{id:'obsolete'}]);await Promise.resolve()
+  assert.equal(state.writes,writesBefore+1);assert.deepEqual(published.at(-1),[])
+  request=module.loadCoachNotificationHistory(user,context,{onSaved:items=>published.push(items)})
+  assert.equal(state.reads.at(-1).force,true);state.finish([]);await request
+ }finally{delete globalThis.__notificationRefreshTest}
+})
+
+test('open notification history follows a newer warmer result and receives its denial',async()=>{
+ const state={pending:[],writes:0};globalThis.__notificationOverlapTest=state
+ const module=await cacheHarness(path.join(root,'apps/coach-mobile/src/coachNotificationCache.js'),[
+  [/coachNotificationHistory\.js$/,`export const getCoachNotificationHistory=()=>{const s=globalThis.__notificationOverlapTest;return s.immediate?Promise.resolve(s.immediate):new Promise((resolve,reject)=>s.pending.push({resolve,reject}))};`],
+  [/mobileResourceCache\.js$/,`export const mobileResourceKey=(u,k)=>u.id+':'+k;export const peekMobileResource=()=>undefined;export const readMobileResource=(_u,_k,loader)=>loader();export const invalidateMobileResource=()=>{};`],
+  [/[\\/]offline\.js$/,`export const readCoachOfflineResources=async()=>null;export const saveCoachOfflineResources=async()=>{globalThis.__notificationOverlapTest.writes++};`],
+ ])
+ try{
+  const screen=[],user={id:'coach'},context={id:'team'}
+  const open=module.loadCoachNotificationHistory(user,context,{force:true,onSaved:items=>screen.push(items)})
+  const warmer=module.loadCoachNotificationHistory(user,context,{force:true})
+  state.pending[1].resolve([{id:'latest'}])
+  assert.equal((await warmer).items[0].id,'latest')
+  assert.equal((await open).items[0].id,'latest')
+  state.pending[0].resolve([{id:'old'}]);await Promise.resolve()
+  assert.equal(state.writes,1)
+  const olderFast=module.loadCoachNotificationHistory(user,context,{force:true})
+  const oldFastTransport=state.pending.at(-1)
+  state.immediate=[{id:'fast'}]
+  const faster=module.loadCoachNotificationHistory(user,context,{force:true})
+  assert.equal((await faster).items[0].id,'fast')
+  assert.equal((await olderFast).items[0].id,'fast')
+  oldFastTransport.resolve([{id:'obsolete'}]);await Promise.resolve()
+  state.immediate=null
+  assert.equal(state.writes,2)
+  const screen2=[],warm2=[]
+  const open2=module.loadCoachNotificationHistory(user,context,{force:true,onSaved:items=>screen2.push(items)})
+  const oldDeniedTransport=state.pending.at(-1)
+  const warmer2=module.loadCoachNotificationHistory(user,context,{force:true,onSaved:items=>warm2.push(items)})
+  const denied=Object.assign(new Error('restricted'),{status:403})
+  const openOutcome=open2.catch(error=>error),warmerOutcome=warmer2.catch(error=>error)
+  state.pending.at(-1).reject(denied)
+  assert.equal(await warmerOutcome,denied);assert.equal(await openOutcome,denied)
+  assert.deepEqual(screen2.at(-1),[]);assert.deepEqual(warm2.at(-1),[])
+  oldDeniedTransport.resolve([{id:'old'}]);await Promise.resolve()
+  assert.equal(state.writes,3)
+ }finally{delete globalThis.__notificationOverlapTest}
+})
+
+test('notification permission denial clears only the scoped phone copy across restart',async()=>{
+ const state={teams:{a:{notifications:[{id:'private'}],calendar:[{id:'kept'}]},b:{notifications:[{id:'other-team'}]}},failPurge:false};globalThis.__notificationPurgeTest=state
+ const mocks=[
+  [/coachNotificationHistory\.js$/,`export const getCoachNotificationHistory=async()=>{throw Object.assign(new Error('restricted'),{status:403})};`],
+  [/mobileResourceCache\.js$/,`export const mobileResourceKey=(u,k)=>u.id+':'+k;export const peekMobileResource=()=>undefined;export const readMobileResource=(_u,_k,loader)=>loader();export const invalidateMobileResource=()=>{};`],
+  [/[\\/]offline\.js$/,`export const readCoachOfflineResources=async(_u,c)=>({resources:{...globalThis.__notificationPurgeTest.teams[c.id]}});export const saveCoachOfflineResources=async(_u,c,patch)=>{const s=globalThis.__notificationPurgeTest;if(s.failPurge)throw new Error('storage unavailable');s.teams[c.id]={...s.teams[c.id],...patch}};`],
+ ]
+ try{
+  const first=await cacheHarness(path.join(root,'apps/coach-mobile/src/coachNotificationCache.js'),mocks)
+  const user={id:'coach'},team={id:'a'},published=[]
+  await assert.rejects(first.loadCoachNotificationHistory(user,team,{force:true,onSaved:items=>published.push(items)}),error=>error.status===403)
+  assert.deepEqual(state.teams.a.notifications,[]);assert.deepEqual(state.teams.a.calendar,[{id:'kept'}]);assert.equal(state.teams.b.notifications[0].id,'other-team')
+  const restarted=await cacheHarness(path.join(root,'apps/coach-mobile/src/coachNotificationCache.js'),mocks)
+  const afterRestart=await restarted.loadCoachNotificationHistory({...user,isOfflineProfile:true},team,{onSaved:items=>published.push(items)})
+  assert.deepEqual(afterRestart.items,[]);assert.deepEqual(published.at(-1),[])
+  state.failPurge=true
+  await assert.rejects(restarted.loadCoachNotificationHistory(user,team,{force:true}),error=>error.code==='42501' && /could not be cleared/.test(error.message))
+ }finally{delete globalThis.__notificationPurgeTest}
+})
+
+test('newer authorised notification save follows an in-flight denial purge',async()=>{
+ let releasePurge, markPurgeStarted
+ const state={pending:[],saved:[{id:'old'}],queue:Promise.resolve(),purgeGate:new Promise(resolve=>{releasePurge=resolve}),purgeStarted:new Promise(resolve=>{markPurgeStarted=resolve}),markPurgeStarted}
+ globalThis.__notificationPurgeRace=state
+ const module=await cacheHarness(path.join(root,'apps/coach-mobile/src/coachNotificationCache.js'),[
+  [/coachNotificationHistory\.js$/,`export const getCoachNotificationHistory=()=>new Promise((resolve,reject)=>globalThis.__notificationPurgeRace.pending.push({resolve,reject}));`],
+  [/mobileResourceCache\.js$/,`export const mobileResourceKey=(u,k)=>u.id+':'+k;export const peekMobileResource=()=>undefined;export const readMobileResource=(_u,_k,loader)=>loader();export const invalidateMobileResource=()=>{};`],
+  [/[\\/]offline\.js$/,`export const readCoachOfflineResources=async()=>({resources:{notifications:globalThis.__notificationPurgeRace.saved}});export const saveCoachOfflineResources=(_u,_c,patch)=>{const s=globalThis.__notificationPurgeRace;s.queue=s.queue.then(async()=>{if(!patch.notifications.length){s.markPurgeStarted();await s.purgeGate}s.saved=patch.notifications});return s.queue};`],
+ ])
+ try{
+  const user={id:'coach'},team={id:'team'}
+  const old=module.loadCoachNotificationHistory(user,team,{force:true})
+  const oldOutcome=old.catch(error=>error)
+  state.pending[0].reject(Object.assign(new Error('denied'),{status:403}))
+  await state.purgeStarted
+  const next=module.loadCoachNotificationHistory(user,team,{force:true})
+  state.pending[1].resolve([{id:'new'}])
+  assert.equal((await next).items[0].id,'new')
+  assert.equal((await oldOutcome).items[0].id,'new')
+  releasePurge();await state.queue
+  assert.deepEqual(state.saved,[{id:'new'}])
+ }finally{delete globalThis.__notificationPurgeRace}
+})
