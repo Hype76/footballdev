@@ -16,8 +16,28 @@ import {
   buildCompletedMatchResult,
   buildFinalMatchReportSummary,
 } from '../src/lib/matchday-final-report.js'
+import { getParentScorerTimerActions } from '../src/lib/matchday-lifecycle.js'
 
 const fixtureTypes = ['friendly', 'league', 'cup', 'tournament']
+
+test('completed periods always expose a finish action, including persisted 1-3 penalty fixtures', () => {
+  for (const conclusionRule of MATCH_DAY_CONCLUSION_RULE_OPTIONS.map((option) => option.value)) {
+    for (const currentMatchPhase of ['normal_time_complete', 'extra_time_complete']) {
+      for (const awayScore of [1, 3]) {
+        const match = { conclusionRule, currentMatchPhase, status: 'second_half', timerStatus: 'paused', homeScore: 1, awayScore }
+        assert.ok(getMatchDayExtendedTimerActions(match).some((action) => action.action === 'full_time' && !action.disabled))
+        assert.ok(getParentScorerTimerActions(match).some((action) => action.action === 'full_time' && !action.disabled))
+      }
+    }
+  }
+  assert.deepEqual(getMatchDayExtendedTimerActions({ current_match_phase: 'normal_time_complete', match_conclusion_rule: 'straight_to_penalties' }), [
+    { action: 'full_time', label: 'Finish match' },
+    { action: 'start_penalties', label: 'Start penalty shootout' },
+  ])
+  assert.deepEqual(getMatchDayExtendedTimerActions({ currentMatchPhase: 'penalties' }), [
+    { action: 'full_time', label: 'Finish shootout', disabled: true },
+  ])
+})
 
 test('every fixture type receives the same explicit conclusion rules', () => {
   const expectedRules = ['normal_time', 'extra_time', 'extra_time_then_penalties', 'straight_to_penalties']
@@ -31,16 +51,16 @@ test('every fixture type receives the same explicit conclusion rules', () => {
   assert.equal(normalizeExtraTimePeriodCount(3), 2)
 })
 
-test('normal time deliberately routes to only configured phases', () => {
+test('normal time allows finishing or continuing to the configured phase', () => {
   assert.equal(getNormalTimeCompletionAction({ conclusionRule: 'normal_time' }), 'full_time')
   assert.equal(getNormalTimeCompletionAction({ conclusionRule: 'extra_time' }), 'normal_time_complete')
   assert.deepEqual(
     getMatchDayExtendedTimerActions({ conclusionRule: 'straight_to_penalties', currentMatchPhase: 'normal_time_complete' }),
-    [{ action: 'start_penalties', label: 'Start penalty shootout' }],
+    [{ action: 'full_time', label: 'Finish match' }, { action: 'start_penalties', label: 'Start penalty shootout' }],
   )
   assert.deepEqual(
     getMatchDayExtendedTimerActions({ conclusionRule: 'extra_time', currentMatchPhase: 'normal_time_complete' }),
-    [{ action: 'start_extra_time', label: 'Start extra time' }],
+    [{ action: 'full_time', label: 'Finish match' }, { action: 'start_extra_time', label: 'Start extra time' }],
   )
 })
 

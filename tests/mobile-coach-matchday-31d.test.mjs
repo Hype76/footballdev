@@ -109,7 +109,7 @@ test('Start match remains available when the server confirms that the fixture da
 
 test('extended-time actions preserve extra time and shootout gates', () => {
   const normalComplete = getCoachMatchDayActions({ context, match: { ...baseMatch, conclusionRule: 'extra_time_then_penalties', currentMatchPhase: 'normal_time_complete', status: 'extra_time', timerStatus: 'paused' } })
-  assert.deepEqual(normalComplete.timerActions.map((item) => item.action), ['start_extra_time'])
+  assert.deepEqual(normalComplete.timerActions.map((item) => item.action), ['full_time', 'start_extra_time'])
   const shootout = getCoachMatchDayActions({ context, match: { ...baseMatch, conclusionRule: 'straight_to_penalties', currentMatchPhase: 'penalties', shootoutEvents: [], status: 'penalties', timerStatus: 'paused' } })
   assert.equal(shootout.timerActions[0].action, 'full_time')
   assert.equal(shootout.timerActions[0].disabled, true)

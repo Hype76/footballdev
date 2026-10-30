@@ -347,7 +347,7 @@
   "implementationHashes": {
     "scripts/security-supply-chain-gate.mjs": "dcf722bc6cbf2015da4250ea60cbb81e34d3c5c64ec7bb6059671cbae5ab4207",
     "scripts/security-apply-reviewed-backports.mjs": "5a2b139d5dc4ba1394c9fd2355b9ac6d17971514132cd0df0f9fc0a12aa53427",
-    "scripts/security-verify-reviewed-backports.mjs": "73ec4c56205466a5377ddbc11aa5d5c3cfdaf9a7c98f7eec03f72a99ffb0aae3",
+    "scripts/security-verify-reviewed-backports.mjs": "6dcef8cb9f0bbbe9d260c1b7f730323a0e0ff60a4a004b433e0673fc4698f318",
     "security/patches/braces-3.0.3.patch": "e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699",
     "security/patches/node-forge-1.4.0.patch": "2de065ac998bf58917a14d0935112d97ec2957ac41b5f06958d500934f188ed4",
     "security/patches/reviewed-source-manifest.json": "6ea54803506f98f76946bb3cc8d147b882d5f880584a8330d22eba6a95a3b578",
@@ -388,9 +388,9 @@
     },
     {
       "path": "apps/mobile-core/appConfig.cjs",
-      "normalisedUtf8Sha256": "1c7e36f3f05923ab4ddd86bf0b93edec94627584432091af416b347f4982c356",
+      "normalisedUtf8Sha256": "b184e97ead7fcdcca9a276cbc159ec046477d0e21193e6f80bdd7dd42222fb14",
       "unchanged": false,
-      "reason": "User-authorised 27 October native release 1.1.0: calendar subscriptions, Parent background actions, Expo SDK 54 task manager and matching native runtime versions. Existing five source-fixed package copies and all release checks remain required."
+      "reason": "User-authorised 27 October native release 1.1.0: calendar subscriptions, Parent background actions, Expo SDK 54 task manager and matching native runtime versions. Existing five source-fixed package copies and all release checks remain required. OTA-only 1.1.1 runtime selection is gated to confirmed store-live updates; resolved native build defaults remain identical, verified by tests/mobile-ota-runtime.test.mjs."
     },
     {
       "path": "apps/parent-mobile/package.json",
@@ -1482,7 +1482,7 @@
       "tests/event-response-read-model-06a.test.mjs": "72a657e0074e4653dd0cd0c0b0548ccea8cf50ba106758235233ca04638c4db8",
       "tests/fan-app-content-browser.mjs": "1ef7c42247b139e043bf4bd72c43c16d9e9d3d32924c2d6848901d3a1ac5773f",
       "tests/fans-endpoint.test.mjs": "7b2ab25033190f2f9d99d015a9ee85c8946f10f784db6f102122e13fb7aa575b",
-      "tests/fans-mobile-browser.mjs": "ad037f97dff031a55a46353cd2cabaf038d274d35c55d2a310964c252b5f423d",
+      "tests/fans-mobile-browser.mjs": "081721e90b72726ddcc9ea03e7d12b3e3d058774752c6d5c33b2e934c36301ce",
       "tests/feedback-forms-polish-browser.mjs": "34e1935b78f60a84defcb3f23cd34a3907c79779852328f3b893bfe500e45b19",
       "tests/first-250-branding-pglite.test.mjs": "85dbfb59949e89329d9cf214d46da1ff39fa6f228f8bcb6e67ef06226c4f405e",
       "tests/first-250-branding-postgres.mjs": "7f52a617c3cba72b62e265354409bba0719408dcf901210174e33234389b61f0",
@@ -1532,7 +1532,7 @@
       "tests/mobile-coach-comms-corrective-36.test.mjs": "5212e93139f6e1cfbdfb4c4947c946e710d25b363c492c3fa6bd45e3232808d6",
       "tests/mobile-coach-home-open-development.test.mjs": "40d4a0bfbd33bfdc46229f221dd5c0266e552a43391ed30c10c8bd5ce197fef3",
       "tests/mobile-coach-live-qa-corrective-35.test.mjs": "fa368bb1640a19d7f4f5e46d326e1310bc23346aa8652da1f42800625c11928c",
-      "tests/mobile-coach-matchday-31d.test.mjs": "302d6b0420918df166d4f0fe261bcf14f0f5c9cb1ed823e932ed2d747eacc048",
+      "tests/mobile-coach-matchday-31d.test.mjs": "21a4323094eeb7a60b9f5ec8a3d410387719728b9f1c7577349a8629da7eaaa5",
       "tests/mobile-coach-operational-31c.test.mjs": "002c075cf0174f80ea8399c4634e03a755548f615a0e490b50c70f528f016a0c",
       "tests/mobile-coach-parity-closure-31g.test.mjs": "c8a86537a961bc2d899e34b946e6dbdfeee2223776a1005514fb6fb9cbcb56d2",
       "tests/mobile-coach-phase31e.test.mjs": "98ecb711b44a7b137d01042e63b40cb0f0f1f8d5a27b363486e3e822eb2d60cb",
@@ -1568,7 +1568,7 @@
       "tests/mobile-parent-experience-52.test.mjs": "3ad280c0c01849c2e158d15203dfe0bed55132cde3f22f7a8a21ff5b5ca3effb",
       "tests/mobile-parent-live-account-qa-29.test.mjs": "69047075fce596d8b7b23c83105ac9756f17bd2d24c3ad5e5b6aef0eb9ebcc6b",
       "tests/mobile-parent-offline-sync-21a.test.mjs": "5e893758cfc5ebbb47a50e2f336f0cfc1498aa779a0e778b5a13143880f80735",
-      "tests/mobile-parent-portal-parity-final-25.test.mjs": "cd0c4554b9b491c1fc1524515e27094c59a3943e309f427a203969f39f779f4b",
+      "tests/mobile-parent-portal-parity-final-25.test.mjs": "8d8ba794f26dd083b96d5a5ede8c01ac2eeb6b87ecbe587d0e2ac524792afacf",
       "tests/mobile-parent-rebuild-20.test.mjs": "ef82b1682a1c36bf3ffd3e45d3674fb29373738f886e95deff06ef8062d3c1c6",
       "tests/mobile-parent-startup-28.test.mjs": "537d9971bd49b4891a4acc9e08576934e992f885b8f5d124cf8f212e2ea3e87c",
       "tests/mobile-password-recovery-contract-76.test.mjs": "1201afda15ab117e41fcb3d53c7593df693bc89490ecf7b9345126d7764e1aa4",
@@ -1580,7 +1580,7 @@
       "tests/mobile-scorer-parity-browser.mjs": "0910683bfda90e6df20e85084764869d28874fbb0e92934a1382235a2db19912",
       "tests/mobile-secure-session-08.test.mjs": "0e25590f85b9a5a4833ac1cfa63cdd3b5e3d7c5ec61b3f19f5bded7e678714e2",
       "tests/mobile-settings-menu-browser.mjs": "da19552ca4bdd415fd78d9d6d148c4eaf754f4fef36190ad01d7439f86702cb2",
-      "tests/mobile-signup-browser.mjs": "7bbb292128837ff26d718aa56d209d1defc9a5670a856237af6e613825db7cb2",
+      "tests/mobile-signup-browser.mjs": "8cf44ec711bee0f7afc540304c26c15afbd7ada25c8dd0625ad0c7a9d3fec0b8",
       "tests/netlify-built-functions.test.mjs": "7ee1454cf1da65700ede899c7a35a6f88486213c5ddf6c560416f9a421fcfde6",
       "tests/netlify-functions-packaging.test.mjs": "b7004c16d9ffe2cec9b21ac665dc8cb5ffe81ec2a12acbdee091d2007140a1d7",
       "tests/parent-access-removal-browser.mjs": "f0f12a72bb78f1926595b4029c1190bb606a86fe414bfa62103f0cd3ef64f61a",
@@ -1730,7 +1730,7 @@
       "apps/MOBILE_VERSIONING.md": "bd24578041ed3428f768880645dbf74c67c4bda8da2a7aa1acaf546ab3b2de3d",
       "apps/coach-mobile/app.config.js": "bd7965560eb2d548208a5b633a71b4a1f0213195d20cfd86b4ebe61a83511e74",
       "apps/coach-mobile/src/CoachCalendarSync.js": "07188f9256e15c3105f254afa5f8e779361cdd025625749a0d205ee4ea8bc2da",
-      "apps/mobile-core/appConfig.cjs": "1c7e36f3f05923ab4ddd86bf0b93edec94627584432091af416b347f4982c356",
+      "apps/mobile-core/appConfig.cjs": "b184e97ead7fcdcca9a276cbc159ec046477d0e21193e6f80bdd7dd42222fb14",
       "apps/mobile-core/src/calendarSubscriptionCore.js": "5acad2f91a2c224aded43a0d60223acdaa981d83536774d3615d6bea3f29c45c",
       "apps/mobile-core/src/coachCalendarSubscription.js": "c5cbe9ed0eb9294636d09f9283e30ed37293a0fda6469fddf5a2088ed5b10c6a",
       "apps/parent-mobile/app.config.js": "b8364ab4eee33e18edb30a5b8afdc94a44703f6ad707a8201fc9eb07050f9020",
@@ -1774,7 +1774,20 @@
       "src/pages/FansPage.jsx": "10747b58059170d10f47423bf49fa463db78c464cf6b3623eec8589ca4ce1d58",
       "supabase/migrations/20261027160846_player_training_resource_notifications.sql": "9f8e1556ce1a14e6ca71e531ae7ca8ad1414d6b695b71a2d43e43963c25df055",
       "tests/fans-web-redesign-browser.mjs": "29b86ee9e26fa557614b87c3fd8942d5a65d08c4020bac638e386281e270b83a",
-      "tests/player-resource-notification-migration-pglite.test.mjs": "63ca0339aea51fd61a845304c3e5d126c10df92d9a87aea6cc71311604a7629a"
+      "tests/player-resource-notification-migration-pglite.test.mjs": "63ca0339aea51fd61a845304c3e5d126c10df92d9a87aea6cc71311604a7629a",
+      "apps/coach-mobile/src/coachLocalStateCore.js": "e563702101cfa5fa9eea78607da113526e87c1564c6706dac4e00e1697fbd3ee",
+      "apps/mobile-core/src/deviceThemeCore.js": "abd4c2bdc005d60facc39ceec761e6643f083cc593045e82537338b0f96958a9",
+      "apps/mobile-core/src/deviceThemePreferenceCore.js": "6f0b27ef8cc451ce4ed1f7bfc6e56bbe76e1f93d81134ac0074e7ad3e01b36aa",
+      "apps/mobile-core/src/useDeviceAppearance.js": "804aafd67c4ec74147dfa17849942c28dc93ce79b5ee753c9459cd2bbfd36658",
+      "apps/parent-mobile/src/displayThemePreference.js": "5ab5d5c9f1166f986487e54a5f267bfc88e0a89245f808a4931af9011f1b71c8",
+      "apps/scripts/mobile-update-guard.mjs": "8b606185955c04d61bfbaaae7e24c03e1a3bf0b4f5fc839c6de7dcc9868fd17f",
+      "src/lib/matchday-extended-ops.js": "f6c66580ddbe0babfcaefe6c7a15b4b808f7e736ef3c7968ba1c90383eef7f5e",
+      "supabase/migrations/20261030075557_matchday_finish_before_optional_phases.sql": "5f0e03b9d29dd5a295fc41b53ec16aa5d0afd9becc002b9f9dd04003b2904fd7",
+      "tests/device-theme-browser.mjs": "fa5e99fc628c2ca796a84470ca29533379fac14da50ab26acb4044e6771b61c0",
+      "tests/device-theme-preference.test.mjs": "5ddb8456d9a0a11513acddc66b3c2f8817a7ac41546d3c0a435b6f64ac0a55a0",
+      "tests/matchday-extended-ops-db.test.mjs": "4b47836ca1b8aaaec1fb5abb487ca5f6fa3c022e0fe7d292025f09e858b52246",
+      "tests/matchday-extended-ops.test.mjs": "fde81d33e5c27cb816d78af1871e5d4e5876b77ed7c7b03ed830e229b174769d",
+      "tests/mobile-ota-runtime.test.mjs": "209c2a0b914bdb628fb9c66fc63d401ae645503ab692e130c29b78a2a563b522"
     },
     "externalTrustInputs": [
       "FOOTBALL_REVIEW_RECEIPT_BASE64",
@@ -3105,9 +3118,38 @@
       "independentExactCandidateReviewRequired": true,
       "nativeArtifactReuseRequiresIndependentEvidence": true,
       "publicationApproved": false
+    },
+    "matchFinishAndLightDefault": {
+      "reference": "FP-MATCH-FINISH-LIGHT-DEFAULT-301026",
+      "baseline": "d1749886ef0ee6ed6ed791a7e56fe36f635685cf",
+      "scope": [
+        "apps/coach-mobile/src/coachLocalStateCore.js",
+        "apps/mobile-core/appConfig.cjs",
+        "apps/mobile-core/src/deviceThemeCore.js",
+        "apps/mobile-core/src/deviceThemePreferenceCore.js",
+        "apps/mobile-core/src/useDeviceAppearance.js",
+        "apps/parent-mobile/src/displayThemePreference.js",
+        "apps/scripts/mobile-update-guard.mjs",
+        "src/lib/matchday-extended-ops.js",
+        "supabase/migrations/20261030075557_matchday_finish_before_optional_phases.sql",
+        "tests/device-theme-browser.mjs",
+        "tests/device-theme-preference.test.mjs",
+        "tests/fans-mobile-browser.mjs",
+        "tests/matchday-extended-ops-db.test.mjs",
+        "tests/matchday-extended-ops.test.mjs",
+        "tests/mobile-coach-matchday-31d.test.mjs",
+        "tests/mobile-ota-runtime.test.mjs",
+        "tests/mobile-parent-portal-parity-final-25.test.mjs",
+        "tests/mobile-signup-browser.mjs"
+      ],
+      "reason": "Finish completed normal or extra time without a configured continuation; reset both native apps to Light once and preserve later explicit device choices. Publish compatible OTA updates to existing 1.1.0 and iOS 1.1.1 runtimes.",
+      "migration": "supabase/migrations/20261030075557_matchday_finish_before_optional_phases.sql",
+      "nativeBuildChanges": 0,
+      "dependencyChanges": 0,
+      "independentExactCandidateReviewRequired": true
     }
   },
-  "releasePreparationSha256": "036baf1a792448413ec1e520b525fc6d2bcf5a45423a80f766ae627d87616808",
+  "releasePreparationSha256": "8a2d70121fc10b17377f78ee2073010e49d16dfe4abdce4d70aff1e5a61d935b",
   "rootOnlyProposalSha256": "45c3b7352c7328c84982e114b7e87e09cf79514d02d102297ae75ec0925812eb",
   "remediationMode": "maintained-source-fixes"
 }

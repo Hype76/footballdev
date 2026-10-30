@@ -216,6 +216,33 @@ test('disposable database validates extended lifecycle, authority, score separat
       home_score: 1,
       away_score: 1,
     })
+
+    const finishMigration = await readFile(new URL('../supabase/migrations/20261030075557_matchday_finish_before_optional_phases.sql', import.meta.url), 'utf8')
+    await db.exec(finishMigration)
+    // Once a shootout is underway, the existing winner requirement still applies.
+    await db.query("update public.match_days set status = 'penalties', timer_status = 'paused', current_match_phase = 'penalties', home_shootout_score = 0, away_shootout_score = 0 where id = $1", [ids.match])
+    await expectDatabaseError(db.query("select public.set_match_day_timer_state($1, 'full_time')", [ids.match]), /clear winner/)
+
+    for (const rule of ['normal_time', 'straight_to_penalties', 'extra_time', 'extra_time_then_penalties']) {
+      for (const phase of ['normal_time_complete', 'extra_time_complete']) {
+        for (const awayScore of [1, 3]) {
+          await db.query(`update public.match_days set status = 'second_half', timer_status = 'paused',
+            current_match_phase = $2, match_conclusion_rule = $3, timer_elapsed_seconds = 4477,
+            timer_started_at = null, concluded_at = null, concluded_by = null,
+            home_score = 1, away_score = $4, shootout_winner = null where id = $1`, [ids.match, phase, rule, awayScore])
+          await setActor(db, ids.ordinaryParent)
+          await expectDatabaseError(db.query("select public.set_match_day_timer_state($1, 'full_time')", [ids.match]), /access is required/)
+          await setActor(db, ids.staff)
+          await db.query("select public.set_match_day_timer_state($1, 'full_time')", [ids.match])
+          const finished = (await db.query('select status, current_match_phase, timer_elapsed_seconds, home_score, away_score, shootout_winner, concluded_at from public.match_days where id = $1', [ids.match])).rows[0]
+          assert.deepEqual(finished, { status: 'full_time', current_match_phase: 'full_time', timer_elapsed_seconds: 4477, home_score: 1, away_score: awayScore, shootout_winner: null, concluded_at: null })
+          await db.query("select public.set_match_day_timer_state($1, 'conclude')", [ids.match])
+          const concluded = (await db.query('select concluded_at from public.match_days where id = $1', [ids.match])).rows[0]
+          assert.ok(concluded.concluded_at)
+          await expectDatabaseError(db.query("select public.set_match_day_timer_state($1, 'resume')", [ids.match]), /concluded/i)
+        }
+      }
+    }
   } finally {
     await db.close()
   }

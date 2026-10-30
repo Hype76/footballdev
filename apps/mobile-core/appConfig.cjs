@@ -53,7 +53,10 @@ function createMobileExpoConfig({
       slug,
       description,
       version,
-      runtimeVersion: {
+      runtimeVersion: process.env.MOBILE_OTA_RUNTIME_VERSION === '1.1.1'
+        && process.env.MOBILE_OTA_UPDATE_CONFIRMED === 'true'
+        && process.env.EXPO_PUBLIC_BUILD_PROFILE === 'store-live'
+        && process.env.MOBILE_EAS_REMOTE_BUILD !== 'true' ? '1.1.1' : {
         policy: 'appVersion',
       },
       ...(resolvedEasProjectId ? {

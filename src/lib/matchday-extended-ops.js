@@ -103,13 +103,15 @@ export function getMatchDayExtendedTimerActions(match = {}) {
   )
 
   if (phase === 'normal_time_complete') {
+    const finishAction = { action: 'full_time', label: 'Finish match' }
     if (rule === 'straight_to_penalties') {
-      return [{ action: 'start_penalties', label: 'Start penalty shootout' }]
+      return [finishAction, { action: 'start_penalties', label: 'Start penalty shootout' }]
     }
 
     if (matchUsesExtraTime(match)) {
-      return [{ action: 'start_extra_time', label: 'Start extra time' }]
+      return [finishAction, { action: 'start_extra_time', label: 'Start extra time' }]
     }
+    return [finishAction]
   }
 
   if (phase === 'extra_time_first_half') {
@@ -129,7 +131,7 @@ export function getMatchDayExtendedTimerActions(match = {}) {
 
   if (phase === 'extra_time_complete') {
     if (rule === 'extra_time_then_penalties') {
-      return [{ action: 'start_penalties', label: 'Start penalty shootout' }]
+      return [{ action: 'full_time', label: 'Finish match' }, { action: 'start_penalties', label: 'Start penalty shootout' }]
     }
 
     return [{ action: 'full_time', label: 'Full time' }]

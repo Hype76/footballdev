@@ -582,7 +582,10 @@ try {
   for (const relationship of ['fan', 'player']) {
     await page.emulateMedia({ colorScheme: 'light' })
     await page.goto(`http://localhost:9877/?appearance=${relationship}`)
-    await page.evaluate(() => localStorage.removeItem('fp.parent.display-theme.v1'))
+    await page.evaluate(() => {
+      localStorage.setItem('fp.parent.display-theme.v1', 'dark')
+      localStorage.removeItem('fp.parent.display-theme.v2')
+    })
     await page.reload()
     const openSettings = async () => {
       await page.getByRole('tab', { name: 'More', exact: true }).click()
@@ -591,15 +594,17 @@ try {
     const choice = name => page.getByRole('radio', { name, exact: true })
     const background = () => page.getByRole('tablist').evaluate(element => getComputedStyle(element).backgroundColor)
     await openSettings()
-    assert.equal(await choice('System').getAttribute('aria-checked'), 'true')
+    assert.equal(await choice('Light').getAttribute('aria-checked'), 'true')
     const lightBackground = await background()
     await page.emulateMedia({ colorScheme: 'dark' })
+    assert.equal(await background(), lightBackground, `${relationship}: Light default ignores dark device appearance`)
+    await choice('System').click()
     await page.waitForFunction(light => getComputedStyle(document.querySelector('[role="tablist"]')).backgroundColor !== light, lightBackground)
     const darkBackground = await background()
     assert.notEqual(lightBackground, darkBackground, `${relationship}: System follows live device appearance`)
     for (const mode of ['Light', 'Dark', 'System']) {
       await choice(mode).click()
-      await page.waitForFunction(value => localStorage.getItem('fp.parent.display-theme.v1') === value, mode.toLowerCase())
+      await page.waitForFunction(value => localStorage.getItem('fp.parent.display-theme.v2') === value, mode.toLowerCase())
       await page.emulateMedia({ colorScheme: mode === 'Dark' ? 'light' : 'dark' })
       const expected = mode === 'Light' ? lightBackground : darkBackground
       await page.waitForFunction(colour => getComputedStyle(document.querySelector('[role="tablist"]')).backgroundColor === colour, expected)
@@ -621,7 +626,7 @@ try {
     await page.getByRole('alert').filter({ hasText: 'Theme preference could not be saved' }).waitFor()
     await page.evaluate(() => { window.failThemeSave = false })
     await choice('Light').click()
-    await page.waitForFunction(() => localStorage.getItem('fp.parent.display-theme.v1') === 'light')
+    await page.waitForFunction(() => localStorage.getItem('fp.parent.display-theme.v2') === 'light')
     await page.getByRole('alert').filter({ hasText: 'Theme preference could not be saved' }).waitFor({ state: 'hidden' })
     await page.reload()
     await openSettings()
