@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises'
 import vm from 'node:vm'
 import test from 'node:test'
 import { parse } from '@babel/parser'
+import { restoreCoachAvailabilitySnapshot } from '../apps/mobile-core/src/coachAvailabilityCache.js'
 import { getCoachCacheByteLength, COACH_PHASE_31F_MAX_CACHE_BYTES } from '../apps/mobile-core/src/coachPhase31FCore.js'
 import { createCoachOfflineDocument, setCoachOfflineProfile, setCoachOfflineResources } from '../apps/mobile-core/src/coachOfflineCore.js'
 
@@ -43,23 +44,24 @@ const ast = parse(screenSource, { sourceType: 'module', plugins: ['jsx'] })
 const screen = ast.program.body.find(node => node.type === 'ExportNamedDeclaration' && node.declaration?.id?.name === 'CoachPhase31EScreen').declaration
 const callback = screen.body.body.find(node => node.type === 'VariableDeclaration' && node.declarations[0].id.name === 'load').declarations[0].init.arguments[0]
 
-function loadHarness({ saveError, savePending, loadError, cachedValue, cachePending, memoryValue, offline = false, matchSnapshot, initialData = null } = {}) {
+function loadHarness({ saveError, savePending, loadError, cachedValue, cachePending, memoryValue, memoryFresh = false, domain = 'invites', offline = false, matchSnapshot, availabilitySnapshot, initialData = null } = {}) {
   const state = { data: initialData, error: '', notice: '', loading: true, refreshing: false, stale: false, invitesRefreshing: false, saves: 0, reads: 0, timeoutMs: null, scopeCurrent: true }
   const next = { invites: [{ playerId: 'synthetic-player', status: 'maybe' }] }
   const environment = {
-    captureLoadScope: () => () => state.scopeCurrent, attendanceLoadGeneration: { current: 0 },
-    domain: 'invites', context: { id: 'team:test' }, user: { id: 'coach', isOfflineProfile: offline },
-    LOADERS: { invites: async (_user, options) => { state.reads += 1; state.publishMatch = options.onMatchReady; if (matchSnapshot) options.onMatchReady(matchSnapshot); if (loadError) throw loadError; return next } },
-    TITLES: { invites: 'Invites' }, dataRef: { get current() { return state.data } }, offlinePolicy: { cache: true },
-    peekMobileResource: () => memoryValue,
+    restoreCoachAvailabilitySnapshot, captureLoadScope: () => () => state.scopeCurrent, attendanceLoadGeneration: { current: 0 },
+    domain, dataScope: domain, deniedScopeRef: { current: '' }, context: { id: 'team:test' }, user: { id: 'coach', isOfflineProfile: offline },
+    LOADERS: { [domain]: async (_user, options) => { state.reads += 1; state.publishMatch = options?.onMatchReady; if (matchSnapshot) options?.onMatchReady?.(matchSnapshot); if (availabilitySnapshot) options?.onAvailabilityReady?.(availabilitySnapshot); if (loadError) throw loadError; return next } },
+    TITLES: { [domain]: domain }, dataRef: { get current() { return state.data } }, offlinePolicy: { cache: true },
+    peekMobileResource: (_user, _key, options) => options?.allowStale || memoryFresh ? memoryValue : undefined,
+    invalidateMobileResource() {}, sanitizeCoachChatOfflineValue: value => value,
     readMobileResource: (_user, _key, loader) => loader(), withMobileAsyncTimeout: (loader, options) => { state.timeoutMs = options?.timeoutMs; return loader() },
-    readCoachOfflineResources: async () => { if (cachePending) await cachePending; return { resources: { 'phase31e:invites': cachedValue } } },
+    readCoachOfflineResources: async () => { if (cachePending) await cachePending; return { resources: { [`phase31e:${domain}`]: cachedValue } } },
     hasUsableCoachPhase31ECache: (_domain, value) => Boolean(value),
     saveCoachOfflineResources: async () => { state.saves += 1; if (savePending) await savePending; if (saveError) throw saveError },
     getCoachFriendlyError: error => error.message,
-    ...Object.fromEntries(['Data', 'Error', 'Notice', 'Loading', 'Refreshing', 'Stale', 'InvitesRefreshing'].map(name => [`set${name}`, value => { state[name.charAt(0).toLowerCase() + name.slice(1)] = name === 'Data' && typeof value === 'function' ? value(state.data) : value }])),
+    ...Object.fromEntries(['Data', 'Error', 'Notice', 'Loading', 'Refreshing', 'Stale', 'InvitesRefreshing'].map(name => [`set${name}`, value => { state[name.charAt(0).toLowerCase() + name.slice(1)] = typeof value === 'function' ? value(state[name.charAt(0).toLowerCase() + name.slice(1)]) : value }])),
   }
-  return { state, next, load: vm.runInNewContext(`(${screenSource.slice(callback.start, callback.end)})`, environment) }
+  return { state, next, environment, load: vm.runInNewContext(`(${screenSource.slice(callback.start, callback.end)})`, environment) }
 }
 
 test('a failed optional save never hides successfully loaded Coach invites', async () => {
@@ -97,7 +99,7 @@ test('offline and failed-network fallback keep cached data read-only', async () 
   for (const options of [{ offline: true }, { loadError: new Error('Network request failed') }]) {
     const { state, load } = loadHarness({ ...options, cachedValue })
     await load()
-    assert.equal(state.data, cachedValue)
+    assert.deepEqual(state.data, { ...cachedValue, availabilityCacheVersion: 0 })
     assert.equal(state.stale, true)
     assert.equal(state.error, '')
     assert.equal(state.saves, 0)
@@ -219,4 +221,84 @@ test('availability background polling defers to the open fixture and stops while
   AppState.currentState = 'active'
   foreground('active'); assert.equal(calls, 2)
   cleanup(); assert.equal(removed && cleared, true)
+})
+
+for (const domain of ['development', 'resources', 'chat', 'messages', 'polls']) {
+  test(`${domain} keeps expired same-scope content during a failed refresh`, async () => {
+    const memoryValue = { items: [{ id: 'saved' }] }
+    const h = loadHarness({ domain, memoryValue, loadError: new Error('Offline') })
+    const loading = h.load({ reuseFresh: true })
+    assert.equal(h.state.data, memoryValue)
+    assert.equal(h.state.loading, false)
+    await loading
+    assert.equal(h.state.reads, 1, 'Expired content is displayed but still revalidated')
+    assert.equal(h.state.data, memoryValue)
+    assert.equal(h.state.error, '')
+    assert.equal(h.state.stale, true)
+    assert.ok(h.state.notice)
+  })
+  test(`${domain} starts its online read while encrypted storage is blocked`, { timeout: 1000 }, async () => {
+    let release
+    const cachePending = new Promise(resolve => { release = resolve })
+    const h = loadHarness({ domain, cachePending, cachedValue: { id: 'old' } })
+    await h.load()
+    assert.equal(h.state.data, h.next)
+    release()
+    await new Promise(resolve => setImmediate(resolve))
+    assert.equal(h.state.data, h.next)
+    assert.equal(h.state.stale, false)
+  })
+}
+
+test('a confirmed access denial clears retained content and fences cached data on retry', async () => {
+  const h = loadHarness({ domain: 'resources', memoryValue: { items: ['private'] }, cachedValue: { items: ['private'] },
+    loadError: Object.assign(new Error('Permission denied'), { code: '42501' }) })
+  await h.load({ reuseFresh: true })
+  assert.equal(h.state.data, null)
+  assert.equal(h.environment.deniedScopeRef.current, 'resources')
+  assert.equal(h.state.error, 'Permission denied')
+  const retry = h.load({ reuseFresh: true })
+  assert.equal(h.state.data, null)
+  await retry
+  assert.equal(h.state.data, null)
+})
+
+test('a newer Coach room refresh cannot be replaced by an older room-open request', async () => {
+  const chat = ast.program.body.find(node => node.type === 'FunctionDeclaration' && node.id.name === 'ChatDomain')
+  const open = chat.body.body.find(node => node.type === 'VariableDeclaration' && node.declarations[0].id.name === 'open').declarations[0].init.arguments[0]
+  const effect = chat.body.body.find(node => node.type === 'ExpressionStatement' && node.expression.callee?.name === 'useEffect'
+    && screenSource.slice(node.start, node.end).includes('const refreshOpenRoom')).expression.arguments[0]
+  const refresh = effect.body.body.find(node => node.type === 'VariableDeclaration' && node.declarations[0].id.name === 'refreshOpenRoom').declarations[0].init
+  let finishOpen, messages = [], notice = ''
+  const room = { id: 'room', kind: 'staff' }, old = [{ id: 'old' }], next = [{ id: 'new' }]
+  const env = { user: { id: 'coach' }, room, disposed: false, openRequest: { current: 0 }, activeRoomIdRef: { current: '' },
+    roomRefreshRef: { current: false }, messagesRef: { current: messages }, AppState: { currentState: 'active' },
+    setMessages(value) { messages = value; env.messagesRef.current = value }, setBody() {}, setRoomId() {},
+    setNotice(value) { notice = typeof value === 'function' ? value(notice) : value },
+    peekMobileResource: () => old, readMobileResource: () => new Promise(resolve => { finishOpen = resolve }),
+    getCoachChatMessages: async () => next, getMobileChatMessagesFingerprint: JSON.stringify,
+    markCoachChatRead: async () => {}, load: async () => {}, reloadHome: async () => {}, denyRoom() {}, getCoachFriendlyError: error => error.message,
+  }
+  const openRoom = vm.runInNewContext(`(${screenSource.slice(open.start, open.end)})`, env)
+  const refreshRoom = vm.runInNewContext(`(${screenSource.slice(refresh.start, refresh.end)})`, env)
+  const opening = openRoom(room)
+  await refreshRoom()
+  assert.equal(messages, next)
+  assert.equal(notice, '')
+  finishOpen(old)
+  await opening
+  assert.equal(messages, next)
+})
+
+test('complete availability is saved before optional enrichment fails', async () => {
+  const availabilitySnapshot = { matches: [{ id: 'fixture' }], match: [{ id: 'response', eventId: 'fixture', playerId: 'player', status: 'available' }], training: [], calendar: [] }
+  const h = loadHarness({ availabilitySnapshot, loadError: new Error('Optional preparation timed out') })
+  const saved = []
+  h.environment.saveCoachOfflineResources = async (_user, _context, resources) => { saved.push(resources) }
+  await h.load()
+  assert.equal(saved.length, 1)
+  assert.equal(saved[0]['phase31e:invites'].availabilityCacheVersion, 1)
+  assert.equal(saved[0]['phase31e:invites'].match, availabilitySnapshot.match)
+  assert.equal(h.state.data.match, availabilitySnapshot.match)
+  assert.equal(h.state.error, '')
 })

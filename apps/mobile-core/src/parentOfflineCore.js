@@ -15,6 +15,12 @@ function isoNow(now) {
   return new Date(now()).toISOString()
 }
 
+export function parentOfflineResourceAuthority(profile, link) {
+  return JSON.stringify([profile?.id, profile?.accountStatus || 'active', link?.id,
+    link?.clubId, link?.teamId, link?.playerId, link?.linkType || 'parent',
+    profile?.hasActivePlanAccess === true, profile?.planStatus || 'active', link?.planStatus, link?.planKey].map(normalize))
+}
+
 export function sanitizeParentOfflineProfile(profile) {
   const links = getParentPortalLinks(profile).filter((link) => !['fan', 'family'].includes(link.linkType)).map((link) => ({
     clubId: normalize(link.clubId),
@@ -98,6 +104,17 @@ export function setParentOfflineProfile(document, profile, { now = Date.now } = 
     ? normalize(document.selectedLinkId)
     : normalize(profile.selectedParentLinkId || links[0]?.id)
   const activeLinkIds = new Set(links.map((link) => normalize(link?.id)).filter(Boolean))
+  const oldLinks = document.profile?.value?.parentPortalLinks || []
+  const retainedResources = Object.fromEntries(Object.entries(document.resources || {}).flatMap(([linkId, entry]) => {
+    const nextLink = links.find(link => normalize(link.id) === linkId)
+    const previousLink = oldLinks.find(link => normalize(link.id) === linkId)
+    if (!nextLink || !previousLink) return []
+    const previousAuthority = entry.authority || parentOfflineResourceAuthority(document.profile.value, previousLink)
+    const authority = parentOfflineResourceAuthority(profile, nextLink)
+    // Migrate unchanged legacy links using their saved profile. A same-ID team,
+    // child or role change must not carry the previous resources into that scope.
+    return previousAuthority === authority ? [[linkId, { ...entry, authority }]] : []
+  }))
   const privateFanIds = new Set((document.profile?.value?.parentPortalLinks || []).filter((link) => ['fan', 'family'].includes(link.linkType)).map((link) => normalize(link.id)))
   return {
     ...document,
@@ -117,7 +134,7 @@ export function setParentOfflineProfile(document, profile, { now = Date.now } = 
       staleAfter: new Date(now() + (24 * 60 * 60 * 1000)).toISOString(),
       value: { ...profile, selectedParentLinkId: retainedSelection },
     },
-    resources: Object.fromEntries(Object.entries(document.resources || {}).filter(([linkId]) => activeLinkIds.has(linkId))),
+    resources: retainedResources,
     parentScorerOutboxes: Object.fromEntries(Object.entries(document.parentScorerOutboxes || {}).filter(([linkId]) => activeLinkIds.has(linkId))),
     selectedLinkId: retainedSelection,
     updatedAt: isoNow(now),
@@ -141,13 +158,17 @@ export function setParentOfflineSelection(document, linkId, { now = Date.now } =
   }
 }
 
-export function setParentOfflineResources(document, linkId, resources, { now = Date.now } = {}) {
+export function setParentOfflineResources(document, linkId, resources, { now = Date.now, expectedAuthority } = {}) {
   const normalizedLinkId = normalize(linkId)
   const links = Array.isArray(document?.profile?.value?.parentPortalLinks)
     ? document.profile.value.parentPortalLinks
     : []
   if (!links.some((link) => normalize(link?.id) === normalizedLinkId)) throw new Error('offline_child_scope_invalid')
   const retrievedAt = isoNow(now)
+  const authority = parentOfflineResourceAuthority(document.profile.value, links.find(link => normalize(link.id) === normalizedLinkId))
+  if (expectedAuthority !== undefined && expectedAuthority !== authority) throw new Error('offline_resource_authority_changed')
+  const existing = document.resources?.[normalizedLinkId]
+  const retained = !existing?.authority || existing.authority === authority ? existing : {}
   const entityTypes = ['calendar', 'chatHistory', 'chatRooms', 'development', 'invitations', 'matches', 'messages', 'notifications', 'polls', 'resources']
   const values = Object.fromEntries(entityTypes.filter((entityType) => Array.isArray(resources?.[entityType])).map((entityType) => [entityType, {
     entityType,
@@ -159,15 +180,18 @@ export function setParentOfflineResources(document, linkId, resources, { now = D
     ...document,
     resources: {
       ...(document.resources || {}),
-      [normalizedLinkId]: { ...document.resources?.[normalizedLinkId], ...values },
+      [normalizedLinkId]: { ...retained, authority, ...values },
     },
     updatedAt: retrievedAt,
   }
 }
 
-export function getParentOfflineResources(document, linkId, { now = Date.now } = {}) {
+export function getParentOfflineResources(document, linkId, { now = Date.now, expectedAuthority } = {}) {
   const scoped = document?.resources?.[normalize(linkId)]
   if (!scoped) return null
+  const link = document.profile?.value?.parentPortalLinks?.find(item => normalize(item.id) === normalize(linkId))
+  if (!link || scoped.authority && scoped.authority !== parentOfflineResourceAuthority(document.profile.value, link)) return null
+  if (expectedAuthority !== undefined && expectedAuthority !== (scoped.authority || parentOfflineResourceAuthority(document.profile.value, link))) return null
   const entityTypes = ['calendar', 'chatHistory', 'chatRooms', 'development', 'invitations', 'matches', 'messages', 'notifications', 'polls', 'resources']
   const entries = entityTypes.map((name) => scoped[name]).filter((entry) => Array.isArray(entry?.value))
   if (entries.length === 0) return null

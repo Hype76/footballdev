@@ -1,3 +1,4 @@
+import { discardDeniedParentCache } from './parentRefreshCore'
 import { requiresWatchedMatch } from '../../../src/lib/poll-watched-match.js'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { xchacha20poly1305 } from '@noble/ciphers/chacha.js'
@@ -16,6 +17,7 @@ import {
   getParentOfflineProfile,
   getParentSyncAttentionItems,
   getParentSyncSummary,
+  parentOfflineResourceAuthority,
   reconcileParentSyncAttention,
   sanitizeParentOfflineProfile,
   setParentOfflineProfile,
@@ -138,9 +140,21 @@ export async function inspectParentOfflineStorage(userScope) {
   return store.inspect(userScope)
 }
 
-export async function readParentOfflineView(userScope, linkId) {
+export async function readParentOfflineView(userScope, linkId, expectedUser) {
+  let expectedAuthority
+  if (expectedUser) {
+    const profile = sanitizeParentOfflineProfile(expectedUser)
+    const link = profile.parentPortalLinks.find(item => item.id === normalize(linkId))
+    if (profile.id !== normalize(userScope) || !link) throw new Error('offline_child_scope_invalid')
+    expectedAuthority = parentOfflineResourceAuthority(profile, link)
+  }
   const document = (await (store.readSnapshot ? store.readSnapshot(userScope) : store.read(userScope))).document
-  const cache = getParentOfflineResources(document, linkId)
+  const savedProfile = document?.profile?.value
+  const savedLink = savedProfile?.parentPortalLinks?.find(item => normalize(item.id) === normalize(linkId))
+  if (expectedAuthority !== undefined && (!savedLink || parentOfflineResourceAuthority(savedProfile, savedLink) !== expectedAuthority)) {
+    return { cache: null, document: null, scorerOutboxes: {}, sync: null }
+  }
+  const cache = getParentOfflineResources(document, linkId, { expectedAuthority })
   const activeCommands = (document?.journal || []).filter((command) => (
     command.childScope === normalize(linkId)
     && ['pending', 'syncing', 'retryable_failure'].includes(command.status)
@@ -188,17 +202,36 @@ export async function readParentOfflineView(userScope, linkId) {
 }
 
 export async function saveParentOfflineResources(user, linkId, resources) {
-  return updateParentDocument(user, (document) => setParentOfflineResources(document, linkId, resources))
+  const profile = sanitizeParentOfflineProfile(user)
+  const link = profile.parentPortalLinks.find(item => item.id === normalize(linkId))
+  if (!link) throw new Error('offline_child_scope_invalid')
+  const expectedAuthority = parentOfflineResourceAuthority(profile, link)
+  return updateParentDocument(user, (document) => setParentOfflineResources(document, linkId, resources, { expectedAuthority }))
+}
+
+export async function discardParentOfflineResources(user, linkId, { names = [], roomId = '' } = {}) {
+  const profile = sanitizeParentOfflineProfile(user)
+  const link = profile.parentPortalLinks.find(item => item.id === normalize(linkId))
+  if (!link) throw new Error('offline_child_scope_invalid')
+  const expectedAuthority = parentOfflineResourceAuthority(profile, link)
+  return updateParentDocument(user, (document) => {
+    const verified = setParentOfflineResources(document, linkId, {}, { expectedAuthority })
+    return discardDeniedParentCache(verified, normalize(linkId), names, roomId)
+  })
 }
 
 export async function markParentOfflineNotificationRead(user, linkId, notificationIds, action = 'read', appliedAt = '') {
+  const profile = sanitizeParentOfflineProfile(user)
+  const link = profile.parentPortalLinks.find(item => item.id === normalize(linkId))
+  if (!link) throw new Error('offline_child_scope_invalid')
+  const expectedAuthority = parentOfflineResourceAuthority(profile, link)
   return updateParentDocument(user, (document) => {
     const cache = getParentOfflineResources(document, linkId)
     const ids = [...new Set((Array.isArray(notificationIds) ? notificationIds : [notificationIds]).map(normalize).filter(Boolean))]
     if (!cache || ids.length === 0) return document
     return setParentOfflineResources(document, linkId, {
       notifications: applyParentNotificationAction(cache.resources.notifications || [], ids, action, appliedAt),
-    })
+    }, { expectedAuthority })
   })
 }
 

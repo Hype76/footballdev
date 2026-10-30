@@ -3,6 +3,7 @@ import test from 'node:test'
 import fs from 'node:fs'
 import { attendanceTargetKey, createAttendanceOutbox, projectAttendanceChoice } from '../apps/mobile-core/src/attendanceOutboxCore.js'
 import { canRespondToCoachInviteOnBehalf } from '../apps/mobile-core/src/coachPhase31ECore.js'
+import { isParentAccessDenied, shouldClearParentChatOnSettlement } from '../apps/parent-mobile/src/parentRefreshCore.js'
 import { createRequire } from 'node:module'
 const {parse}=createRequire(import.meta.url)('@babel/parser')
 function extracted(file,name) {
@@ -242,6 +243,7 @@ test('actual Parent load reconciles only successful current invitation reads',()
  const run=bind(extracted('../apps/parent-mobile/App.js','onSettled'),'onSettled',{
    requestId:1,requestIdRef,reconcileAttendance:items=>{reconciled.push(items);return Promise.resolve()},
    calendarDependencies:['calendar','invitations','matches'],setResources:()=>{},
+   isParentAccessDenied,shouldClearParentChatOnSettlement,deniedResourceScopesRef:{current:new Set()},cacheScopeKey:'test',
  })
  run('invitations',{status:'fulfilled',value:[{attendancePreparation:preparation}]},{})
  assert.deepEqual(reconciled,[[preparation]])

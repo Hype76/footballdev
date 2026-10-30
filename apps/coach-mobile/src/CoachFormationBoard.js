@@ -306,7 +306,7 @@ function ScrollSafePressable({ onPress, ...props }) {
 }
 
 
-export function CoachFormationBoard({ context, initialBoardId = '', match = null, matches = [], onBack, onMarkerGestureEnd, onMarkerGestureStart, palette, players, registerBackHandler, user }) {
+export function CoachFormationBoard({ context, initialBoardId = '', match = null, matches = [], onBack, onMarkerGestureEnd, onMarkerGestureStart, palette, players, registerBackHandler, stale = false, user }) {
   const inWorkspace = useContext(CoachFormationWorkspaceContext)
   const fullScreen = Boolean(inWorkspace)
   const styles = useMemo(() => createStyles(palette, fullScreen), [palette, fullScreen])
@@ -590,7 +590,7 @@ export function CoachFormationBoard({ context, initialBoardId = '', match = null
   const availabilityMatch = linkedMatch || match || null
   const availabilityRows = availabilityMatch?.playerAvailability || []
   const activePublication = getActiveFormationPublication(matchPublications, linkedMatchId)
-  const hasEditAuthority = canEditCoachFormationBoard(user)
+  const hasEditAuthority = !stale && canEditCoachFormationBoard(user)
   const canEdit = hasEditAuthority && !refreshPending && !serverBoardUnavailable && !board?.isLocked && board?.canEdit !== false
   const capacity = getMobileFormationCapacity(draft.gameFormat)
   const availablePlayers = getMobileAvailableFormationPlayers(players, availabilityRows)
@@ -1047,7 +1047,7 @@ export function CoachFormationBoard({ context, initialBoardId = '', match = null
       </View>
 
       <ScrollView style={fullScreen ? styles.canvasAlert : null}>
-      {!hasEditAuthority ? <View style={styles.warning}><Text style={styles.label}>Viewing only</Text><Text style={styles.body}>Coach or manager plan access is required to edit, save or share this Formation Board.</Text></View> : null}
+      {!hasEditAuthority ? <View style={styles.warning}><Text style={styles.label}>Viewing only</Text><Text style={styles.body}>{stale ? 'Refresh the Team data before editing, saving or sharing this Formation Board.' : 'Coach or manager plan access is required to edit, save or share this Formation Board.'}</Text></View> : null}
       {localState === 'failed' ? <Text accessibilityRole="alert" style={styles.body}>Changes could not be protected on this device. Keep this screen open and save to the match when connected.</Text> : null}
       {serverBoardUnavailable ? <View style={styles.warning}><Text style={styles.heading}>Board unavailable</Text><Text style={styles.body}>The saved board is no longer available to this account. Cached content cannot be edited or sent.</Text></View> : null}
       {error ? <View style={styles.warning}><Text style={styles.body}>{error}</Text><Action disabled={busy || (!canEdit && errorRetry === 'save')} label={errorRetry === 'conflict' ? 'Reload latest version' : errorRetry === 'save' ? 'Retry save' : errorRetry === 'back' ? 'Retry Back' : 'Try again'} onPress={errorRetry === 'conflict' ? reloadLatestBoard : errorRetry === 'save' ? save : errorRetry === 'back' ? handleBack : load} secondary styles={styles} /></View> : null}

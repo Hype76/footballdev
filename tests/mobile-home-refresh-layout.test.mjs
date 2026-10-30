@@ -24,8 +24,8 @@ const effect = find(ast, node => node.type === 'CallExpression' && node.callee.n
 const evaluate = (node, dependencies) => new Function(...Object.keys(dependencies), `return (${source.slice(node.start, node.end)})`)(...Object.values(dependencies))
 const deferred = () => { let resolve; const promise = new Promise(done => { resolve = done }); return { promise, resolve } }
 const invite = (id, extra = {}) => ({ id, kind: 'match', eventId: 'match', playerId: id, status: 'awaiting', sentAt: '2026-01-01', eventAt: new Date(Date.now() + 86400000).toISOString(), ...extra })
-function harness() {
-  let state = { pendingAvailability: 107, unreadChat: 2, errors: ['polls:unavailable'] }
+function harness(initial = { pendingAvailability: 107, unreadChat: 2, errors: ['polls:unavailable'] }) {
+  let state = initial
   const reads = []
   const dependencies = {
     isMatchdayPlan, isMobileRouteAllowed,
@@ -33,12 +33,13 @@ function harness() {
     selectedMobileUser: { id: 'coach', clubId: 'club', activeTeamId: 'team' },
     requestIdRef: { current: 1 }, chatRefreshIdRef: { current: 0 }, availabilityRefreshIdRef: { current: 0 },
     developmentRefreshIdRef: { current: 0 }, homeStateRef: { current: state },
+    homeDeniedScopeRef: { current: false },
     readCoachDevelopmentDrafts: async () => ({}), mergeUnfinishedDevelopmentDrafts, preserveCoachDevelopmentSummary,
-    setHomeState: update => { state = typeof update === 'function' ? update(state) : update },
+    setHomeState: update => { state = typeof update === 'function' ? update(state) : update; dependencies.homeStateRef.current = state },
     readMobileResource: async (user, key, loader, options) => { reads.push({ user, key, options }); return loader() },
     getCoachInvitesAndAvailability: async () => ({ all: [invite('one'), invite('two', { status: 'available' })] }),
     getCoachChatRooms: async () => [], countPendingCoachAvailability, buildCoachChatSummary, preserveCoachAvailabilitySummary, preserveCoachChatSummary, updateCoachHomeSourceState,
-    setIsRefreshing() {}, peekMobileResource: () => undefined, readCoachOfflineResources: async () => null,
+    setIsRefreshing() {}, peekMobileResource: () => undefined, readCoachOfflineResources: async () => null, readCoachHomeOfflineView: async () => ({ cache: null, developmentDrafts: {} }),
     activeContext: {}, user: { id: 'coach' }, getCoachPhase31GPrimaryHomeSnapshot: async () => ({ pendingAvailability: 0 }),
     setLastUpdatedAt() {}, lastHomeRefreshAtRef: { current: 0 }, saveCoachOfflineResources: async () => {},
     InteractionManager: { runAfterInteractions() {} },
@@ -49,6 +50,148 @@ function harness() {
   }
   return { dependencies, reads, state: () => state, load: () => evaluate(callback, dependencies) }
 }
+
+test('Coach Home keeps same-scope data while refreshing without replacing it from storage', async () => {
+  const h = harness({ savedAt: '2026-01-01', hasSnapshot: true, loading: false, pendingAvailability: 23, errors: [] })
+  const primary = deferred(); let diskReads = 0
+  h.dependencies.getCoachPhase31GPrimaryHomeSnapshot = () => primary.promise
+  h.dependencies.readCoachHomeOfflineView = async () => { diskReads++; return { cache: { resources: { home: { pendingAvailability: 3 } } } } }
+  const refresh = h.load()()
+  await Promise.resolve()
+  assert.equal(h.state().pendingAvailability, 23)
+  assert.equal(h.state().loading, false)
+  assert.equal(diskReads, 0)
+  primary.resolve({ pendingAvailability: 4 })
+  await refresh
+})
+
+test('Coach Home publishes expired scoped cache while fetching live data', async () => {
+  const h = harness({ loading: true, savedAt: '', error: '', pendingAvailability: 0, errors: [] })
+  const primary = deferred(); let options
+  h.dependencies.peekMobileResource = (_user, _key, value) => { options = value; return { nextMatch: { id: 'cached' } } }
+  h.dependencies.getCoachPhase31GPrimaryHomeSnapshot = () => primary.promise
+  const refresh = h.load()()
+  await Promise.resolve()
+  assert.deepEqual(options, { allowStale: true })
+  assert.equal(h.state().nextMatch.id, 'cached')
+  assert.equal(h.state().stale, true)
+  assert.equal(h.state().loading, false)
+  primary.resolve({ nextMatch: null })
+  await refresh
+  assert.equal(h.state().nextMatch, null)
+})
+
+test('Coach Home live result does not wait for a slow phone read and ignores its late result', async () => {
+  const h = harness({ loading: true, savedAt: '', error: '', errors: [] }), disk = deferred()
+  h.dependencies.readCoachHomeOfflineView = () => disk.promise
+  h.dependencies.getCoachPhase31GPrimaryHomeSnapshot = async () => ({ nextMatch: { id: 'live' } })
+  await h.load()()
+  assert.equal(h.state().nextMatch.id, 'live')
+  disk.resolve({ cache: { resources: { home: { nextMatch: { id: 'old' } } } }, developmentDrafts: {} })
+  await Promise.resolve()
+  assert.equal(h.state().nextMatch.id, 'live')
+})
+
+test('Coach Home permission denial clears retained data and prevents cached rehydration', async () => {
+  const h = harness({ savedAt: '2026-01-01', hasSnapshot: true, loading: false, nextMatch: { id: 'protected' }, errors: [] })
+  h.dependencies.getCoachPhase31GPrimaryHomeSnapshot = async () => { throw Object.assign(new Error('permission denied'), { code: '42501' }) }
+  await h.load()({ refresh: true })
+  assert.equal(h.state().nextMatch, undefined)
+  assert.equal(h.dependencies.homeDeniedScopeRef.current, true)
+  let readOptions
+  h.dependencies.readMobileResource = async (_user, _key, loader, options) => { readOptions = options; return loader() }
+  h.dependencies.peekMobileResource = () => ({ nextMatch: { id: 'old' } })
+  const pending = deferred()
+  h.dependencies.getCoachPhase31GPrimaryHomeSnapshot = () => pending.promise
+  const retry = h.load()()
+  await Promise.resolve()
+  assert.equal(h.state().nextMatch, undefined)
+  assert.equal(readOptions.force, true)
+  pending.resolve({ nextMatch: null })
+  await retry
+})
+
+test('an older Coach Home success cannot clear a newer permission denial', async () => {
+  const h = harness({ savedAt: '2026-01-01', hasSnapshot: true, loading: false, nextMatch: { id: 'protected' }, errors: [] })
+  const pending = deferred()
+  h.dependencies.getCoachPhase31GPrimaryHomeSnapshot = () => pending.promise
+  const older = h.load()({ refresh: true })
+  h.dependencies.getCoachPhase31GPrimaryHomeSnapshot = async () => { throw Object.assign(new Error('restricted'), { status: 403 }) }
+  await h.load()({ refresh: true })
+  assert.equal(h.dependencies.homeDeniedScopeRef.current, true)
+  pending.resolve({ nextMatch: { id: 'obsolete' } })
+  await older
+  assert.equal(h.dependencies.homeDeniedScopeRef.current, true)
+  assert.equal(h.state().nextMatch, undefined)
+})
+
+test('Coach operational permission classifiers recognise HTTP 403 without message text', async () => {
+  for (const [file, name] of [
+    ['CoachOperationalScreens.js', 'operationalAccessDenied'],
+    ['CoachFormationScreen.js', 'isFormationAccessDenied'],
+    ['CoachMatchDayScreen.js', 'isMatchDayAccessDenied'],
+  ]) {
+    const input = await readFile(new URL(`../apps/coach-mobile/src/${file}`, import.meta.url), 'utf8')
+    const node = parse(input, { sourceType: 'module', plugins: ['jsx'] }).program.body.find(item => item.type === 'FunctionDeclaration' && item.id.name === name)
+    const classify = new Function(`${input.slice(node.start, node.end)}; return ${name}`)()
+    assert.equal(classify({ status: 403 }), true, file)
+    assert.equal(classify({ statusCode: 403 }), true, file)
+    assert.equal(classify({ status: 500 }), false, file)
+  }
+})
+
+test('Coach Home retains known source values on partial network failure but clears successful empty results', async () => {
+  const h = harness({ savedAt: '2026-01-01', hasSnapshot: true, loading: false, nextMatch: { id: 'saved-match' }, pendingAvailability: 8, homeSources: { invites: true }, errors: [] })
+  h.dependencies.getCoachPhase31GPrimaryHomeSnapshot = async () => ({ nextMatch: null, matches: [], errors: ['matches:network unavailable'], partial: true })
+  h.dependencies.getCoachPhase31GAttentionSnapshot = async () => ({ pendingAvailability: 0, errors: ['invites:network unavailable'] })
+  await h.load()({ refresh: true })
+  assert.equal(h.state().nextMatch.id, 'saved-match')
+  assert.equal(h.state().homeSavedSources.matches, true)
+  assert.equal(h.state().pendingAvailability, 8)
+  assert.equal(h.state().homeSources.invites, true)
+  h.dependencies.getCoachPhase31GPrimaryHomeSnapshot = async () => ({ nextMatch: null, matches: [], errors: [] })
+  h.dependencies.getCoachPhase31GAttentionSnapshot = async () => ({ pendingAvailability: 0, errors: [] })
+  await h.load()({ refresh: true })
+  assert.equal(h.state().nextMatch, null)
+  assert.equal(h.state().pendingAvailability, 0)
+})
+
+test('Coach Home primary reports pending, ready and denied sources and preserves typed total failure', async () => {
+  const data = await readFile(new URL('../apps/mobile-core/src/coachPhase31GData.js', import.meta.url), 'utf8')
+  const start = data.indexOf('export async function getCoachPhase31GPrimaryHomeSnapshot(')
+  const end = data.indexOf('export async function getCoachPhase31GAttentionSnapshot(', start)
+  const body = data.slice(start, end).replace('export async function', 'async function')
+  const matches = deferred(), sessions = deferred(), calendar = deferred(), progress = []
+  const create = new Function('getCoachMatchDays', 'getCoachSessions', 'getCoachCalendarResources', 'withMobileAsyncTimeout', 'isMobileRouteAllowed', 'buildCoachHomeOperationalSnapshot', 'sourceError', `${body}; return getCoachPhase31GPrimaryHomeSnapshot`)
+  const sourceError = (name, result) => result.status === 'rejected' ? `${name}:${result.reason.message}` : ''
+  const load = create(() => matches.promise, () => sessions.promise, () => calendar.promise, fn => fn(), () => true, value => ({ ...value }), sourceError)
+  const request = load({}, value => progress.push(value))
+  matches.resolve([])
+  await new Promise(resolve => setImmediate(resolve))
+  assert.deepEqual(progress.at(-1).sourceStates, { matches: 'ready', sessions: 'pending', calendar: 'pending' })
+  sessions.resolve([]); calendar.resolve([])
+  const result = await request
+  assert.deepEqual(result.sourceStates, { matches: 'ready', sessions: 'ready', calendar: 'ready' })
+  const denied = Object.assign(new Error('access refused'), { code: '42501' })
+  const fail = create(async () => { throw new Error('network') }, async () => { throw denied }, async () => { throw new Error('network') }, fn => fn(), () => true, value => value, sourceError)
+  await assert.rejects(fail({}, value => progress.push(value)), error => error === denied)
+  assert.equal(progress.at(-1).sourceStates.sessions, 'denied')
+  const forbidden = Object.assign(new Error('restricted'), { status: 403 })
+  const fail403 = create(async () => { throw new Error('network') }, async () => { throw forbidden }, async () => { throw new Error('network') }, fn => fn(), () => true, value => value, sourceError)
+  await assert.rejects(fail403({}, value => progress.push(value)), error => error === forbidden)
+  assert.equal(progress.at(-1).sourceStates.sessions, 'denied')
+})
+
+test('Coach Home source errors preserve code-only and HTTP permission denials', async () => {
+  const data = await readFile(new URL('../apps/mobile-core/src/coachPhase31GData.js', import.meta.url), 'utf8')
+  const start = data.indexOf('function sourceError(')
+  const end = data.indexOf('export async function getCoachPhase31GHomeSnapshot(', start)
+  const sourceError = new Function(`${data.slice(start, end)}; return sourceError`)()
+  assert.equal(sourceError('invites', { status: 'rejected', reason: { code: '42501' } }), 'invites:permission denied')
+  assert.equal(sourceError('chatRooms', { status: 'rejected', reason: { status: 403 } }), 'chatRooms:permission denied')
+  assert.equal(sourceError('development', { status: 'rejected', reason: { statusCode: 403 } }), 'development:permission denied')
+  assert.equal(sourceError('polls', { status: 'rejected', reason: { message: 'network unavailable' } }), 'polls:network unavailable')
+})
 
 test('actual Coach targeted refresh replaces 107 with current responses without reloading other domains', async () => {
   const h = harness()

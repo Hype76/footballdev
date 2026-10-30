@@ -211,6 +211,7 @@ function CoachHome() {
   const displayTheme = resolveDeviceThemeMode(themePreference, systemTheme)
   const [homeState, setHomeState] = useState({ activePolls: 0, developmentRecords: 0, error: '', loading: true, matches: [], nextCalendar: null, pendingAvailability: 0, savedAt: '', sessions: [], stale: false, summary: null, unreadChat: 0, unreadCommunication: 0 })
   const homeStateRef = useRef(homeState)
+  const homeDeniedScopeRef = useRef(false)
   homeStateRef.current = homeState
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [lastUpdatedAt, setLastUpdatedAt] = useState('')
@@ -361,7 +362,10 @@ function CoachHome() {
 
   const resetContextDomainState = useCallback(() => {
     requestIdRef.current += 1
-    setHomeState({ activePolls: 0, developmentRecords: 0, error: '', loading: true, matches: [], nextCalendar: null, pendingAvailability: 0, savedAt: '', sessions: [], stale: false, summary: null, unreadChat: 0, unreadCommunication: 0 })
+    homeDeniedScopeRef.current = false
+    const resetHome = { activePolls: 0, developmentRecords: 0, error: '', loading: true, matches: [], nextCalendar: null, pendingAvailability: 0, savedAt: '', sessions: [], stale: false, summary: null, unreadChat: 0, unreadCommunication: 0 }
+    homeStateRef.current = resetHome
+    setHomeState(resetHome)
     setLastUpdatedAt('')
     setMatchDayTarget(null)
     setMoreRoute('')
@@ -480,6 +484,7 @@ function CoachHome() {
 
   const loadHome = useCallback(async ({ refresh = false, chatOnly = false, availabilityOnly = false, developmentOnly = false, diagnostics = false } = {}) => {
     if (!selectedMobileUser?.clubId) return
+    if (homeDeniedScopeRef.current && (chatOnly || availabilityOnly || developmentOnly)) return
     if (developmentOnly) {
       if (!selectedMobileUser.activeTeamId || !isMobileRouteAllowed(selectedMobileUser, 'development', selectedMobileUser.matchdayPolicy)) return
       const requestId = requestIdRef.current
@@ -494,11 +499,12 @@ function CoachHome() {
         ])
         if (!isCurrent()) return
         const developmentDrafts = mergeUnfinishedDevelopmentDrafts(development.drafts || [], Object.values(localDrafts || {}))
-        setHomeState(current => updateCoachHomeSourceState(current, 'development', { developmentDrafts, developmentRecords: developmentDrafts.length }))
+        setHomeState(current => updateCoachHomeSourceState(current, 'development', { developmentDrafts, developmentRecords: developmentDrafts.length, homeSources: { ...current.homeSources, development: true } }))
         const home = updateCoachHomeSourceState(homeStateRef.current, 'development', { developmentDrafts, developmentRecords: developmentDrafts.length })
         void saveCoachOfflineResources(user.id, activeContext, { home }).catch(() => {})
-      } catch {
-        if (isCurrent()) setHomeState(current => updateCoachHomeSourceState(current, 'development', {}, 'unavailable'))
+      } catch (error) {
+        const denied = error?.code === '42501' || error?.status === 403 || error?.statusCode === 403 || /permission denied|row.level security|not authori[sz]ed/i.test(String(error?.message || ''))
+        if (isCurrent()) setHomeState(current => updateCoachHomeSourceState(current, 'development', denied ? { developmentDrafts: [], developmentRecords: 0, homeSources: { ...current.homeSources, development: false } } : {}, denied ? 'permission denied' : 'unavailable'))
       }
       return
     }
@@ -514,9 +520,11 @@ function CoachHome() {
           () => getCoachInvitesAndAvailability(selectedMobileUser, { summaryOnly: true }), { force: true, maxAgeMs: HOME_REFRESH_MIN_INTERVAL_MS })
         if (isCurrent()) setHomeState(current => updateCoachHomeSourceState(current, 'invites', {
           pendingAvailability: countPendingCoachAvailability(invites.all, new Date(), 7),
+          homeSources: { ...current.homeSources, invites: true },
         }))
-      } catch {
-        if (isCurrent()) setHomeState(current => updateCoachHomeSourceState(current, 'invites', {}, 'unavailable'))
+      } catch (error) {
+        const denied = error?.code === '42501' || error?.status === 403 || error?.statusCode === 403 || /permission denied|row.level security|not authori[sz]ed/i.test(String(error?.message || ''))
+        if (isCurrent()) setHomeState(current => updateCoachHomeSourceState(current, 'invites', denied ? { pendingAvailability: 0, homeSources: { ...current.homeSources, invites: false } } : {}, denied ? 'permission denied' : 'unavailable'))
       }
       return
     }
@@ -527,9 +535,10 @@ function CoachHome() {
       try {
         const rooms = await readMobileResource(selectedMobileUser, 'coach:phase31e:chat',
           () => getCoachChatRooms(selectedMobileUser), { force: true })
-        if (isCurrent()) setHomeState(current => updateCoachHomeSourceState(current, 'chatRooms', buildCoachChatSummary(rooms)))
-      } catch {
-        if (isCurrent()) setHomeState(current => updateCoachHomeSourceState(current, 'chatRooms', {}, 'unavailable'))
+        if (isCurrent()) setHomeState(current => updateCoachHomeSourceState(current, 'chatRooms', { ...buildCoachChatSummary(rooms), homeSources: { ...current.homeSources, chatRooms: true } }))
+      } catch (error) {
+        const denied = error?.code === '42501' || error?.status === 403 || error?.statusCode === 403 || /permission denied|row.level security|not authori[sz]ed/i.test(String(error?.message || ''))
+        if (isCurrent()) setHomeState(current => updateCoachHomeSourceState(current, 'chatRooms', denied ? { unreadChat: 0, chatRooms: [], homeSources: { ...current.homeSources, chatRooms: false } } : {}, denied ? 'permission denied' : 'unavailable'))
       }
       return
     }
@@ -537,35 +546,65 @@ function CoachHome() {
     const chatRefreshId = chatRefreshIdRef.current
     const availabilityRefreshId = availabilityRefreshIdRef.current
     const developmentRefreshId = developmentRefreshIdRef.current
+    const hasCurrentHome = !homeDeniedScopeRef.current && Boolean(homeStateRef.current.hasSnapshot || homeStateRef.current.savedAt || (!homeStateRef.current.loading && !homeStateRef.current.error))
     if (refresh) setIsRefreshing(true)
-    setHomeState((current) => ({ ...current, error: '', loading: !refresh }))
+    setHomeState((current) => ({ ...current, error: '', loading: !hasCurrentHome }))
 
     const primaryCacheKey = isMatchdayPlan(selectedMobileUser)
       ? `coach:home-primary:${JSON.stringify(selectedMobileUser.matchdayPolicy?.flags || {})}`
       : 'coach:home-primary'
-    const recentPrimary = !refresh && peekMobileResource(selectedMobileUser, primaryCacheKey)
+    const recentPrimary = homeDeniedScopeRef.current ? undefined : peekMobileResource(selectedMobileUser, primaryCacheKey, { allowStale: true })
     const shouldReadDevelopment = selectedMobileUser.activeTeamId && isMobileRouteAllowed(selectedMobileUser, 'development', selectedMobileUser.matchdayPolicy)
+    if (!hasCurrentHome && recentPrimary) {
+      setHomeState(current => ({ ...current, ...recentPrimary, error: '', hasSnapshot: true, loading: false, stale: true }))
+    }
+    const homeStartedAt = Date.now()
+    const recordTiming = (name, durationMs, status) => recordCoachPerformanceSample({
+      durationMs, name: `home.${name}`, source: diagnostics ? 'manual' : 'automatic', status,
+    })
+    let savedHome = null
+    const primaryRequest = selectedMobileUser.isOfflineProfile ? null : readMobileResource(selectedMobileUser, primaryCacheKey,
+      () => getCoachPhase31GPrimaryHomeSnapshot(selectedMobileUser, partial => {
+        if (requestId === requestIdRef.current && !hasCurrentHome && !savedHome && !recentPrimary) setHomeState(current => {
+          const states = partial.sourceStates || {}
+          const next = { ...current, sourceStates: states, loading: false }
+          if (states.matches === 'ready') { next.matches = partial.matches; next.nextMatch = partial.nextMatch }
+          if (states.calendar === 'ready') { next.calendar = partial.calendar; next.nextCalendar = partial.nextCalendar }
+          if (states.sessions === 'ready') next.sessions = partial.sessions
+          if (states.calendar === 'ready' && states.sessions === 'ready') next.nextSession = partial.nextSession
+          return next
+        })
+      }, recordTiming), { force: refresh || homeDeniedScopeRef.current }).then(value => ({ value }), error => ({ error }))
     let cached = null
     let localDevelopmentDrafts = {}
     let developmentReadFailed = false
-    try {
-      if (recentPrimary) {
-        if (shouldReadDevelopment) localDevelopmentDrafts = await readCoachDevelopmentDrafts(user.id, activeContext)
-      } else {
-        const offlineView = await readCoachHomeOfflineView(user.id, activeContext)
-        cached = offlineView.cache
-        if (shouldReadDevelopment) localDevelopmentDrafts = offlineView.developmentDrafts
-      }
-    } catch {
-      developmentReadFailed = shouldReadDevelopment
+    const offlineRequest = (async () => {
+      try {
+        if (homeDeniedScopeRef.current) return { cache: null, developmentDrafts: {} }
+        if (hasCurrentHome || recentPrimary) {
+          return { cache: null, developmentDrafts: shouldReadDevelopment ? await readCoachDevelopmentDrafts(user.id, activeContext) : {} }
+        }
+        return await readCoachHomeOfflineView(user.id, activeContext)
+      } catch { return { cache: null, developmentDrafts: {}, failed: true } }
+    })()
+    const first = primaryRequest
+      ? await Promise.race([offlineRequest.then(value => ({ offline: value })), primaryRequest.then(value => {
+        const denied = value.error?.code === '42501' || value.error?.status === 403 || value.error?.statusCode === 403 || /permission denied|row.level security|not authori[sz]ed/i.test(String(value.error?.message || ''))
+        return value.error && !denied && !hasCurrentHome && !recentPrimary ? offlineRequest.then(offline => ({ offline })) : { primary: value }
+      })])
+      : { offline: await offlineRequest }
+    if (first.offline) {
+      cached = first.offline.cache
+      if (shouldReadDevelopment) localDevelopmentDrafts = first.offline.developmentDrafts || {}
+      developmentReadFailed = Boolean(first.offline.failed && shouldReadDevelopment)
     }
-    const savedHome = cached?.resources?.home
+    savedHome = cached?.resources?.home
     if (requestId !== requestIdRef.current) return
-    if (savedHome) {
+    if (savedHome && !hasCurrentHome && !recentPrimary) {
       const developmentDrafts = mergeUnfinishedDevelopmentDrafts(savedHome.developmentDrafts || [], Object.values(localDevelopmentDrafts || {}))
       const cachedHome = { ...savedHome, developmentDrafts, developmentRecords: developmentDrafts.length,
         errors: developmentReadFailed ? [...(savedHome.errors || []), 'development:unavailable'] : savedHome.errors,
-        error: '', loading: false, savedAt: savedHome.savedAt || cached.savedAt, stale: true }
+        error: '', hasSnapshot: true, loading: false, savedAt: savedHome.savedAt || cached.savedAt, stale: true }
       setHomeState(current => developmentRefreshId === developmentRefreshIdRef.current
         ? cachedHome : preserveCoachDevelopmentSummary(cachedHome, current))
       setLastUpdatedAt(savedHome.savedAt || cached.savedAt)
@@ -576,26 +615,37 @@ function CoachHome() {
     }
 
     if (selectedMobileUser.isOfflineProfile) {
-      if (!savedHome) setHomeState(current => ({ ...current, loading: false, error: 'Connect once to download your Coach overview.' }))
+      if (!savedHome && !hasCurrentHome && !recentPrimary) setHomeState(current => ({ ...current, loading: false, error: 'Connect once to download your Coach overview.' }))
       setIsRefreshing(false)
       return
     }
 
-    const homeStartedAt = Date.now()
-    const recordTiming = (name, durationMs, status) => recordCoachPerformanceSample({
-      durationMs,
-      name: `home.${name}`,
-      source: diagnostics ? 'manual' : 'automatic',
-      status,
-    })
     try {
-      const primary = await readMobileResource(selectedMobileUser, primaryCacheKey,
-        () => getCoachPhase31GPrimaryHomeSnapshot(selectedMobileUser, partial => {
-          if (requestId === requestIdRef.current && !savedHome) setHomeState(current => preserveCoachDevelopmentSummary(preserveCoachChatSummary(preserveCoachAvailabilitySummary({ ...current, ...partial, loading: false }, current), current), current))
-        }, recordTiming), { force: refresh })
+      const result = first.primary || await primaryRequest
+      if (result.error) throw result.error
+      const primary = result.value
       if (requestId !== requestIdRef.current) return
+      homeDeniedScopeRef.current = false
       const savedAt = new Date().toISOString()
-      const primarySnapshot = { ...primary, error: '', loading: false, savedAt, stale: false }
+      const primarySnapshot = { ...primary, error: '', hasSnapshot: true, loading: false, savedAt, stale: false }
+      const previousPrimary = homeStateRef.current
+      const primaryErrors = primary.errors || []
+      const sourceFailure = source => primaryErrors.find(error => String(error).startsWith(`${source}:`))
+      const retainSource = source => {
+        const failure = sourceFailure(source)
+        return Boolean((failure || primary.sourceStates?.[source] === 'failed') && primary.sourceStates?.[source] !== 'denied' && !/permission denied|row.level security|not authori[sz]ed/i.test(String(failure || '')) && (previousPrimary.hasSnapshot || previousPrimary.savedAt))
+      }
+      primarySnapshot.homeSavedSources = {}
+      if (retainSource('matches')) {
+        primarySnapshot.matches = previousPrimary.matches; primarySnapshot.nextMatch = previousPrimary.nextMatch; primarySnapshot.homeSavedSources.matches = true
+      }
+      if (retainSource('calendar')) {
+        primarySnapshot.calendar = previousPrimary.calendar; primarySnapshot.nextCalendar = previousPrimary.nextCalendar; primarySnapshot.homeSavedSources.calendar = true
+      }
+      if ((retainSource('calendar') || retainSource('sessions')) && !['calendar', 'sessions'].some(source => primary.sourceStates?.[source] === 'denied' || /permission denied|row.level security|not authori[sz]ed/i.test(String(sourceFailure(source) || '')))) {
+        primarySnapshot.nextSession = previousPrimary.nextSession; primarySnapshot.homeSavedSources.sessions = true
+      }
+      if (retainSource('sessions')) primarySnapshot.sessions = previousPrimary.sessions
       setHomeState((current) => preserveCoachDevelopmentSummary(preserveCoachChatSummary(preserveCoachAvailabilitySummary({ ...current, ...primarySnapshot }, current), current), current))
       setLastUpdatedAt(savedAt)
       lastHomeRefreshAtRef.current = Date.now()
@@ -613,13 +663,28 @@ function CoachHome() {
         .then(value => ({ value }), error => ({ error }))
       if (requestId !== requestIdRef.current) return
       if (attentionResult.error) {
-        setHomeState(current => updateCoachHomeSourceState(current, 'attention', {}, 'unavailable'))
+        const denied = attentionResult.error?.code === '42501' || attentionResult.error?.status === 403 || attentionResult.error?.statusCode === 403 || /permission denied|row.level security|not authori[sz]ed/i.test(String(attentionResult.error?.message || ''))
+        setHomeState(current => {
+          let next = current
+          const fields = { invites: { pendingAvailability: 0 }, polls: { activePolls: 0, polls: [] }, chatRooms: { unreadChat: 0, chatRooms: [] }, development: { developmentRecords: 0, developmentDrafts: [] } }
+          for (const [source, empty] of Object.entries(fields)) next = updateCoachHomeSourceState(next, source, denied ? { ...empty, homeSources: { ...next.homeSources, [source]: false } } : {}, denied ? 'permission denied' : 'unavailable')
+          return next
+        })
         recordCoachPerformanceSample({ durationMs: Date.now() - homeStartedAt, name: 'home', source: diagnostics ? 'manual' : 'automatic', status: 'error' })
         return
       }
+      const previousHome = homeStateRef.current
+      const sourceFields = { invites: ['pendingAvailability'], polls: ['activePolls', 'polls'], chatRooms: ['unreadChat', 'chatRooms'], development: ['developmentRecords', 'developmentDrafts'] }
       const completeSnapshot = {
         ...mergeCoachPhase31GHomeSnapshots(primarySnapshot, attentionResult.value),
+        homeSources: { ...previousHome.homeSources },
         savedAt,
+      }
+      for (const [source, fields] of Object.entries(sourceFields)) {
+        const failure = (attentionResult.value.errors || []).find(item => String(item).startsWith(`${source}:`))
+        if (!failure) completeSnapshot.homeSources[source] = true
+        else if (/permission denied|row.level security|not authori[sz]ed/i.test(String(failure))) completeSnapshot.homeSources[source] = false
+        else if (previousHome.homeSources?.[source]) for (const field of fields) completeSnapshot[field] = previousHome[field]
       }
       setHomeState((current) => {
         const next = chatRefreshId === chatRefreshIdRef.current
@@ -639,7 +704,16 @@ function CoachHome() {
     } catch (error) {
       recordCoachPerformanceSample({ durationMs: Date.now() - homeStartedAt, name: 'home', source: diagnostics ? 'manual' : 'automatic', status: 'error' })
       if (requestId !== requestIdRef.current) return
-      if (!savedHome) setHomeState((current) => ({ ...current, error: getCoachFriendlyError(error, 'Coach overview could not be loaded.'), loading: false }))
+      const denied = error?.code === '42501' || error?.status === 403 || error?.statusCode === 403 || /permission denied|row.level security|not authori[sz]ed/i.test(String(error?.message || ''))
+      if (denied) {
+        homeDeniedScopeRef.current = true
+        chatRefreshIdRef.current += 1; availabilityRefreshIdRef.current += 1; developmentRefreshIdRef.current += 1
+        const deniedHome = { activePolls: 0, developmentRecords: 0, error: getCoachFriendlyError(error, 'Coach overview could not be loaded.'), loading: false, matches: [], nextCalendar: null, pendingAvailability: 0, savedAt: '', sessions: [], stale: true, summary: null, unreadChat: 0, unreadCommunication: 0 }
+        homeStateRef.current = deniedHome
+        setHomeState(deniedHome)
+        setLastUpdatedAt('')
+      }
+      else setHomeState((current) => ({ ...current, error: getCoachFriendlyError(error, 'Coach overview could not be loaded.'), loading: false, stale: Boolean(hasCurrentHome || savedHome || recentPrimary) }))
     } finally {
       if (requestId === requestIdRef.current) setIsRefreshing(false)
     }
@@ -1170,51 +1244,64 @@ function HomeScreen({ context, homeState, onNavigate, reloadHome, user }) {
   const nextMatch = homeState.nextMatch
   const nextSession = homeState.nextSession
   const nextCalendar = homeState.nextCalendar
+  const hasHomeContent = Boolean(homeState.hasSnapshot || homeState.savedAt || nextMatch || nextSession || nextCalendar)
   const canOpen = route => Boolean(resolveCoachRoute(route, context, user?.matchdayPolicy))
   const attentionVisible = ['invites', 'polls', 'chat', 'development'].some(canOpen)
+  const homeValue = (sources, item, format, empty, saved) => {
+    const states = sources.map(source => homeState.sourceStates?.[source]).filter(Boolean)
+    if (states.includes('denied')) return 'Unavailable'
+    if (states.includes('pending') && !saved) return 'Loading...'
+    if (states.includes('failed') && !saved) return 'Unavailable'
+    return item ? format(item) : empty
+  }
+  const attentionValue = (source, value) => {
+    const failure = homeState.errors?.find(error => error.startsWith(`${source}:`))
+    if (!failure) return homeState.homeSources?.[source] ? value || 0 : 'Loading...'
+    return homeState.homeSources?.[source] && !/permission denied|row.level security|not authori[sz]ed/i.test(failure) ? `${value || 0} (saved)` : 'Unavailable'
+  }
 
   return (
     <View style={styles.stack}>
       {homeState.loading ? <LoadingPanel message="Loading your Coach overview..." /> : null}
       {homeState.error ? <StatePanel actionLabel="Try again" message={homeState.error} onAction={reloadHome} title="Overview unavailable" tone="danger" /> : null}
       {homeState.partial && !homeState.stale ? <Pressable accessibilityRole="button" accessibilityLabel="Retry unavailable overview information" onPress={() => reloadHome({ refresh: true })} style={{ paddingVertical: 8 }}><Text style={styles.helperText}>Some overview information could not refresh. Tap to retry.</Text></Pressable> : null}
-      <View style={styles.iconList}>
+      {(!homeState.loading || hasHomeContent) && (!homeState.error || hasHomeContent) ? <><View style={styles.iconList}>
         {user?.id && context.teamId ? <TeamLeagueLinkRow client={coachSupabase} coach palette={palette} scope={coachTeamLeagueScope(user, context.teamId)} styles={styles} /> : null}
         {canOpen('calendar') ? <HomeNextRow
           iconKey="route.calendar"
           label="Next Calendar item"
-          meta={nextCalendar?.title || ''}
+          meta={[nextCalendar?.title, homeState.homeSavedSources?.calendar ? 'Saved' : ''].filter(Boolean).join(' | ')}
           onPress={() => onNavigate('calendar', nextCalendar ? { eventId: nextCalendar.id, sourceId: nextCalendar.sourceId, sourceType: nextCalendar.sourceType, occurrenceDate: nextCalendar.occurrenceDate || nextCalendar.calendarDate } : null)}
-          value={nextCalendar ? formatDateTime(nextCalendar.startsAt) : 'No upcoming Calendar item'}
+          value={homeValue(['calendar'], nextCalendar, item => formatDateTime(item.startsAt), 'No upcoming Calendar item', homeState.homeSavedSources?.calendar)}
         /> : null}
         {context.teamId ? (
           <>
             {canOpen('matchday') ? <HomeNextRow
               iconKey="coach.match"
               label="Next match"
-              meta={nextMatch?.opponent || ''}
+              meta={[nextMatch?.opponent, homeState.homeSavedSources?.matches ? 'Saved' : ''].filter(Boolean).join(' | ')}
               onPress={() => onNavigate('matchday', nextMatch?.id ? { fixtureId: nextMatch.id } : null)}
-              value={nextMatch ? formatFixtureDateTime(nextMatch) : 'No upcoming match'}
+              value={homeValue(['matches'], nextMatch, formatFixtureDateTime, 'No upcoming match', homeState.homeSavedSources?.matches)}
             /> : null}
             {canOpen('sessions') ? <HomeNextRow
               iconKey="coach.session"
               label="Next session"
-              meta={nextSession?.title || nextSession?.type || ''}
+              meta={[nextSession?.title || nextSession?.type, homeState.homeSavedSources?.sessions ? 'Saved' : ''].filter(Boolean).join(' | ')}
               onPress={() => onNavigate('sessions')}
-              value={nextSession ? formatDateTime(nextSession.startsAt || `${nextSession.sessionDate || nextSession.session_date}${nextSession.startTime || nextSession.start_time ? `T${nextSession.startTime || nextSession.start_time}` : ''}`) : 'No upcoming session'}
+              value={homeValue(['sessions', 'calendar'], nextSession, item => formatDateTime(item.startsAt || `${item.sessionDate || item.session_date}${item.startTime || item.start_time ? `T${item.startTime || item.start_time}` : ''}`), 'No upcoming session', homeState.homeSavedSources?.sessions)}
             /> : null}
           </>
         ) : <EmptyPanel message="Choose a Team context to see Team fixtures, Players, and Sessions." title="Club overview" />}
       </View>
       {attentionVisible ? <IconSection iconKey="coach.attention" title="Operational attention">
         <View style={styles.iconStatGrid}>
-          {canOpen('invites') ? <IconStat iconKey="coach.availability" label="Availability next 7 days" onPress={() => onNavigate('invites')} value={homeState.errors?.some(error => error.startsWith('invites:')) ? 'Unavailable' : homeState.pendingAvailability || 0} /> : null}
-          {canOpen('polls') ? <IconStat iconKey="coach.polls" label="Active Polls" onPress={() => onNavigate('polls')} value={homeState.errors?.some(error => error.startsWith('polls:')) ? 'Unavailable' : homeState.activePolls || 0} /> : null}
-          {canOpen('chat') ? <IconStat iconKey="coach.chat" label="Unread Chat" onPress={() => onNavigate('chat')} value={homeState.errors?.some(error => error.startsWith('chatRooms:')) ? 'Unavailable' : homeState.unreadChat || 0} /> : null}
-          {canOpen('development') ? <IconStat iconKey="coach.development" label="Open development" onPress={() => onNavigate('development')} value={homeState.errors?.some(error => error.startsWith('development:')) ? 'Unavailable' : homeState.developmentRecords || 0} /> : null}
+          {canOpen('invites') ? <IconStat iconKey="coach.availability" label="Availability next 7 days" onPress={() => onNavigate('invites')} value={attentionValue('invites', homeState.pendingAvailability)} /> : null}
+          {canOpen('polls') ? <IconStat iconKey="coach.polls" label="Active Polls" onPress={() => onNavigate('polls')} value={attentionValue('polls', homeState.activePolls)} /> : null}
+          {canOpen('chat') ? <IconStat iconKey="coach.chat" label="Unread Chat" onPress={() => onNavigate('chat')} value={attentionValue('chatRooms', homeState.unreadChat)} /> : null}
+          {canOpen('development') ? <IconStat iconKey="coach.development" label="Open development" onPress={() => onNavigate('development')} value={attentionValue('development', homeState.developmentRecords)} /> : null}
         </View>
         {canOpen('invites') ? <Text style={styles.helperText}>Availability covers the next 7 days. Tap the count to see all outstanding requests.</Text> : null}
-      </IconSection> : null}
+      </IconSection> : null}</> : null}
 
     </View>
   )

@@ -180,6 +180,8 @@ export function applyCoachContext(profile, context) {
   return Object.freeze({
     ...profile,
     activeCoachContextId: context.id,
+    activeCoachAuthorityId: context.authorityId,
+    activeCoachAuthoritySource: context.authoritySource,
     activeTeamId: context.teamId,
     activeTeamName: context.teamName,
     teamBrandingDisplay: getScopedTeamBranding(context),

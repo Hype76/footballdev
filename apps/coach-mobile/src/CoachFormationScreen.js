@@ -32,6 +32,10 @@ function normalizeCachedMatches(value) {
     .map(normalizeCoachMatchDay)
 }
 
+function isFormationAccessDenied(error) {
+  return error?.code === '42501' || error?.status === 403 || error?.statusCode === 403 || /permission denied|row.level security|not authori[sz]ed/i.test(String(error?.message || ''))
+}
+
 export function CoachFormationScreen({ context, onBack, onMarkerGestureEnd, onMarkerGestureStart, onPitchVisibilityChange, onQuickActionHandled, palette, quickAction, registerBackHandler, user }) {
   const inWorkspace = useContext(CoachFormationWorkspaceContext)
   const styles = useMemo(() => createStyles(palette), [palette])
@@ -41,9 +45,12 @@ export function CoachFormationScreen({ context, onBack, onMarkerGestureEnd, onMa
   const [selectedMatchId, setSelectedMatchId] = useState('')
   const [players, setPlayers] = useState([])
   const [readyScope, setReadyScope] = useState('')
+  const [snapshotScope, setSnapshotScope] = useState('')
   const [stale, setStale] = useState(false)
   const authorityScope = getCoachFormationAuthorityScope(user, context)
   const loadSequence = useRef(0)
+  const readyScopeRef = useRef('')
+  const deniedScopeRef = useRef('')
   const propsRef = useRef({ context, user })
   useEffect(() => {
     propsRef.current = { context, user }
@@ -55,16 +62,20 @@ export function CoachFormationScreen({ context, onBack, onMarkerGestureEnd, onMa
     const { context: currentContext, user: currentUser } = propsRef.current
     await Promise.resolve()
     if (!isCurrent()) return
+    const hasCurrentData = readyScopeRef.current === authorityScope
     setLoading(true)
     setError('')
-    setReadyScope('')
-    setSelectedMatchId('')
-    setStale(false)
+    if (!hasCurrentData) {
+      setReadyScope('')
+      setSelectedMatchId('')
+    }
+    setStale(true)
     const remoteResult = Promise.all([
       readMobileResource(currentUser, 'coach:match-list', () => getCoachMatchDayList(currentUser), { force: refresh }),
       readMobileResource(currentUser, 'coach:players', () => getCoachPlayerList(currentUser), { force: refresh }),
     ]).then(value => ({ value }), error => ({ error }))
-    const saved = await readCoachOfflineResources(currentUser.id, currentContext).catch(() => null)
+    const offline = hasCurrentData || deniedScopeRef.current === authorityScope ? Promise.resolve(null) : readCoachOfflineResources(currentUser.id, currentContext).catch(() => null)
+    const saved = await Promise.race([offline, remoteResult.then(result => result.value || isFormationAccessDenied(result.error) ? null : offline)])
     if (!isCurrent()) return
     const cachedMatches = normalizeCachedMatches(saved?.resources?.matchDayList)
     const cachedPlayers = Array.isArray(saved?.resources?.matchDayPlayers) ? saved.resources.matchDayPlayers : []
@@ -72,6 +83,8 @@ export function CoachFormationScreen({ context, onBack, onMarkerGestureEnd, onMa
     if (hasCachedData) {
       setMatches(getLinkableCoachFormationMatches(cachedMatches, { teamId: currentUser.activeTeamId }))
       setPlayers(cachedPlayers)
+      readyScopeRef.current = authorityScope
+      setSnapshotScope(authorityScope)
       setReadyScope(authorityScope)
       setStale(true)
       setLoading(false)
@@ -83,15 +96,25 @@ export function CoachFormationScreen({ context, onBack, onMarkerGestureEnd, onMa
       const ordered = getLinkableCoachFormationMatches(nextMatches, { teamId: currentUser.activeTeamId })
       setMatches(ordered)
       setPlayers(nextPlayers)
+      deniedScopeRef.current = ''
+      readyScopeRef.current = authorityScope
+      setSnapshotScope(authorityScope)
       setReadyScope(authorityScope)
       setStale(false)
       setLoading(false)
       await saveCoachOfflineResources(currentUser.id, currentContext, { matchDayList: ordered, matchDayPlayers: nextPlayers }).catch(() => {})
     } else {
-      if (!hasCachedData) {
+      if (isFormationAccessDenied(result.error)) {
+        deniedScopeRef.current = authorityScope
+        readyScopeRef.current = ''
+        setSnapshotScope('')
+        setMatches([]); setPlayers([]); setSelectedMatchId(''); setStale(true)
         setReadyScope(authorityScope)
-        setError(getCoachFriendlyError(result.error, 'The Formation Board workspace could not be loaded.'))
       }
+      if (!hasCachedData && !hasCurrentData) {
+        setReadyScope(authorityScope)
+      }
+      setError(getCoachFriendlyError(result.error, 'The Formation Board workspace could not be loaded.'))
       setLoading(false)
     }
   }, [authorityScope])
@@ -108,7 +131,7 @@ export function CoachFormationScreen({ context, onBack, onMarkerGestureEnd, onMa
     if (quickAction?.route === 'formation') onQuickActionHandled?.()
   }, [onQuickActionHandled, quickAction])
 
-  const boardRendered = readyScope === authorityScope && !error
+  const boardRendered = readyScope === authorityScope && (!error || snapshotScope === authorityScope)
   const selectedMatch = matches.find((item) => item.id === selectedMatchId) || null
   const clearSelectedMatch = useCallback(() => setSelectedMatchId(''), [])
   useEffect(() => {
@@ -123,7 +146,7 @@ export function CoachFormationScreen({ context, onBack, onMarkerGestureEnd, onMa
   return (
     <View style={[styles.stack, inWorkspace && { flex: 1 }]}>
       {!boardRendered && onBack && !inWorkspace ? <Pressable accessibilityLabel="Back from Formation Board" accessibilityRole="button" onPress={onBack} style={styles.back}><Text style={styles.backText}>Back</Text></Pressable> : null}
-      {readyScope === authorityScope && error ? <View style={styles.warning}><Text style={styles.error}>{error}</Text><Pressable accessibilityRole="button" onPress={() => void load()} style={styles.secondary}><Text style={styles.secondaryText}>Try again</Text></Pressable></View> : null}
+      {readyScope === authorityScope && error ? <View style={styles.warning}><Text style={styles.error}>{error}</Text><Pressable accessibilityRole="button" onPress={() => void load({ refresh: true })} style={styles.secondary}><Text style={styles.secondaryText}>Try again</Text></Pressable></View> : null}
       {readyScope === authorityScope && stale && !inWorkspace ? <View style={styles.warning}><Text style={styles.body}>The last encrypted Team data is available to view. Saving, linking and publishing stay blocked until the connection refreshes.</Text></View> : null}
       {readyScope !== authorityScope && loading ? <View style={styles.loading}><BrandLoader /><Text style={styles.body}>Loading Formation Board...</Text></View> : null}
       {boardRendered && !selectedMatch ? <ScrollView contentContainerStyle={{ paddingTop: inWorkspace ? 52 : 0, paddingHorizontal: 16, gap: 8 }}>

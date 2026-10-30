@@ -12,6 +12,7 @@ import { BrandLoader } from '../../mobile-core/src/BrandLoader'
 import { useMobileActivity, useMobileOffline } from '../../mobile-core/src/MobileActivityContext'
 import { MobileFailureNotice } from '../../mobile-core/src/MobileFailureNotice'
 import { MobileLoadingStatus } from '../../mobile-core/src/MobileHeaderActivity'
+import { getCoachFormationAuthorityScope } from './coachFormationEntryCore'
 import MaterialIcons from '@expo/vector-icons/MaterialIcons'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { activateKeepAwakeAsync, deactivateKeepAwake, isAvailableAsync } from 'expo-keep-awake'
@@ -598,7 +599,16 @@ function ReportPanel({ busy, canConclude, canSave, concludeBlockedReason, match,
   </View>
 }
 
-export function CoachMatchDayScreen({ context, matchDayTarget, onMatchDayTargetHandled, onNavigate, onQuickActionHandled, onRequestScrollTo, onRequestScrollTop, palette, quickAction, user }) {
+export function CoachMatchDayScreen(props) {
+  const scope = JSON.stringify([getCoachFormationAuthorityScope(props.user, props.context), props.user?.activeCoachContextId, props.user?.accountStatus, props.user?.planStatus, props.context?.paymentAccess])
+  return <CoachMatchDayScoped key={scope} {...props} />
+}
+
+function isMatchDayAccessDenied(error) {
+  return error?.code === '42501' || error?.status === 403 || error?.statusCode === 403 || /permission denied|row.level security|not authori[sz]ed/i.test(String(error?.message || ''))
+}
+
+function CoachMatchDayScoped({ context, matchDayTarget, onMatchDayTargetHandled, onNavigate, onQuickActionHandled, onRequestScrollTo, onRequestScrollTop, palette, quickAction, user }) {
   const templateStore = useMemo(() => createCoachSquadTemplateStore(user), [user])
   const styles = useMemo(() => createStyles(palette), [palette])
   const [busy, setBusy] = useState(false)
@@ -623,14 +633,15 @@ export function CoachMatchDayScreen({ context, matchDayTarget, onMatchDayTargetH
   const [players, setPlayers] = useState([])
   const [scoreDraft, setScoreDraft] = useState({ away: '0', home: '0' })
   const [stale, setStale] = useState(false)
+  const [accessDenied, setAccessDenied] = useState(false)
   const [reconciling, setReconciling] = useState(false)
   const outbox = useCoachMatchDayOutbox({ user, context, matchId: serverMatch?.id })
   const activity = useMobileActivity(busy || reconciling || loading || refreshing || outbox.syncing)
   useMobileOffline(stale)
-  const pendingCount = outbox.journal?.pending?.length || 0
-  const match = selectCoachMatchDayDisplayMatch(serverMatch, outbox.projected, pendingCount)
+  const pendingCount = accessDenied ? 0 : outbox.journal?.pending?.length || 0
+  const match = accessDenied ? null : selectCoachMatchDayDisplayMatch(serverMatch, outbox.projected, pendingCount)
   const refreshOutbox = outbox.refresh
-  const offlineReady = Boolean(outbox.journal?.baseMatch && Date.now() - Date.parse(outbox.journal.verifiedAt) < MATCH_DAY_OFFLINE_MAX_AGE)
+  const offlineReady = Boolean(!accessDenied && outbox.journal?.baseMatch && Date.now() - Date.parse(outbox.journal.verifiedAt) < MATCH_DAY_OFFLINE_MAX_AGE)
   useEffect(() => {
     if (serverMatch && !stale) void refreshOutbox(serverMatch).catch(() => setNotice('Offline storage is unavailable. Match actions cannot be safely saved on this device.'))
   }, [serverMatch, stale, refreshOutbox])
@@ -642,6 +653,11 @@ export function CoachMatchDayScreen({ context, matchDayTarget, onMatchDayTargetH
   const reconciliationPendingRef = useRef(false)
   const contextRef = useRef(context)
   const loadInFlight = useRef(false)
+  const hasMatchListSnapshot = useRef(false)
+  const accessDeniedRef = useRef(false)
+  const playersStaleRef = useRef(false)
+  const playersRef = useRef(players)
+  playersRef.current = players
   const matchRef = useRef(null)
   const selectedMatchId = useRef('')
   const targetRequestId = useRef('')
@@ -669,22 +685,36 @@ export function CoachMatchDayScreen({ context, matchDayTarget, onMatchDayTargetH
   }, [match, requestedFixtureId])
 
   const cache = useCallback(async (nextMatches, nextMatch, nextPlayers) => saveCoachOfflineResources(userRef.current.id, contextRef.current, { matchDayDetail: nextMatch || null, matchDayList: nextMatches, matchDayPlayers: nextPlayers }), [])
+  const clearDenied = () => {
+    accessDeniedRef.current = true
+    setAccessDenied(true)
+    hasMatchListSnapshot.current = false; playersStaleRef.current = true
+    matchRef.current = null; selectedMatchId.current = ''; playersRef.current = []
+    setMatches([]); setPlayers([]); setMatch(null); setFixtureFormOpen(false); setFixtureFormMatch(null); setPending(null); setPanel('overview'); setBusy(false); setStale(true)
+  }
   const load = useCallback(async () => {
     if (loadInFlight.current || (busyRef.current && !reconciliationPendingRef.current) || appState.current !== 'active') return
     loadInFlight.current = true
     setRefreshing(true)
-    setError(''); setNotice(''); setLoading(true)
+    setError(''); setNotice(''); setLoading(!hasMatchListSnapshot.current)
     const currentUser = userRef.current
     const currentContext = contextRef.current
     const isCurrentScope = () => currentUser.id === userRef.current.id && currentUser.activeTeamId === userRef.current.activeTeamId && currentContext.id === contextRef.current.id
     const selectionBeforeLoad = selectedMatchId.current
-    const saved = await readCoachOfflineResources(currentUser.id, currentContext).catch(() => null)
+    const remote = currentUser.isOfflineProfile ? null : Promise.allSettled([
+      readMobileResource(currentUser, 'coach:match-list', () => withMobileAsyncTimeout(() => getCoachMatchDayList(currentUser)), { force: true }),
+      readMobileResource(currentUser, 'coach:players', () => withMobileAsyncTimeout(() => getCoachPlayerList(currentUser))),
+    ])
+    const offline = accessDeniedRef.current ? Promise.resolve(null) : readCoachOfflineResources(currentUser.id, currentContext).catch(() => null)
+    const initialOffline = hasMatchListSnapshot.current ? Promise.resolve(null) : offline
+    const saved = remote ? await Promise.race([initialOffline, remote.then(results => results[0].status === 'fulfilled' || isMatchDayAccessDenied(results[0].reason) ? null : initialOffline)]) : await initialOffline
     if (!isCurrentScope()) { loadInFlight.current = false; setRefreshing(false); return }
     const hasCachedMatches = Array.isArray(saved?.resources?.matchDayList)
     const cachedMatch = saved?.resources?.matchDayDetail && typeof saved.resources.matchDayDetail === 'object'
       ? normalizeCoachMatchDay(saved.resources.matchDayDetail)
       : null
     if (hasCachedMatches) {
+      hasMatchListSnapshot.current = true
       setMatches(normalizeCachedMatches(saved.resources.matchDayList))
       setPlayers(Array.isArray(saved.resources.matchDayPlayers) ? saved.resources.matchDayPlayers : [])
       if (cachedMatch && !matchRef.current && (!selectionBeforeLoad || selectionBeforeLoad === cachedMatch.id)) {
@@ -702,16 +732,20 @@ export function CoachMatchDayScreen({ context, matchDayTarget, onMatchDayTargetH
       return
     }
     try {
-      const [matchesResult, playersResult] = await Promise.allSettled([
-        readMobileResource(currentUser, 'coach:match-list', () => withMobileAsyncTimeout(() => getCoachMatchDayList(currentUser)), { force: true }),
-        readMobileResource(currentUser, 'coach:players', () => withMobileAsyncTimeout(() => getCoachPlayerList(currentUser))),
-      ])
+      const [matchesResult, playersResult] = await remote
       if (!isCurrentScope()) return
       if (matchesResult.status === 'rejected') throw matchesResult.reason
+      if (playersResult.status === 'rejected' && isMatchDayAccessDenied(playersResult.reason)) throw playersResult.reason
       const nextMatches = matchesResult.value
+      hasMatchListSnapshot.current = true
+      setMatches(nextMatches); setLoading(false)
+      if (playersResult.status === 'rejected') { playersStaleRef.current = true; setStale(true); setError('Players could not be refreshed. Showing saved information until the connection is restored.') }
+      const fallback = playersResult.status === 'rejected' ? saved || await offline : saved
+      if (!isCurrentScope()) return
       const nextPlayers = playersResult.status === 'fulfilled'
         ? playersResult.value
-        : Array.isArray(saved?.resources?.matchDayPlayers) ? saved.resources.matchDayPlayers : []
+        : Array.isArray(fallback?.resources?.matchDayPlayers) ? fallback.resources.matchDayPlayers : playersRef.current
+      playersStaleRef.current = playersResult.status === 'rejected'
       setMatches(nextMatches); setPlayers(nextPlayers)
       if (!reconciliationPendingRef.current) setReconciling(false)
       const activeSelectionId = selectedMatchId.current
@@ -722,7 +756,12 @@ export function CoachMatchDayScreen({ context, matchDayTarget, onMatchDayTargetH
           if (!isCurrentScope()) return
         } catch (detailError) {
           if (!isCurrentScope()) return
-          const exactCachedMatch = cachedMatch?.id === activeSelectionId ? cachedMatch : null
+          if (isMatchDayAccessDenied(detailError)) { clearDenied(); setError(errorMessage(detailError, 'Fixture access was denied.')); return }
+          setStale(true)
+          setError(errorMessage(detailError, 'Fixture details could not be refreshed.'))
+          const fallbackDetail = cachedMatch || (await offline)?.resources?.matchDayDetail
+          if (!isCurrentScope()) return
+          const exactCachedMatch = fallbackDetail?.id === activeSelectionId ? normalizeCoachMatchDay(fallbackDetail) : null
           if (exactCachedMatch) {
             matchRef.current = exactCachedMatch
             setMatch(exactCachedMatch)
@@ -730,9 +769,6 @@ export function CoachMatchDayScreen({ context, matchDayTarget, onMatchDayTargetH
             matchRef.current = null
             setMatch(null)
           }
-          setStale(true)
-          setError(errorMessage(detailError, 'Fixture details could not be refreshed.'))
-          await cache(nextMatches, exactCachedMatch, nextPlayers)
           return
         }
       }
@@ -746,13 +782,16 @@ export function CoachMatchDayScreen({ context, matchDayTarget, onMatchDayTargetH
           setReconciling(false)
         }
       }
-      setStale(false)
-      void cache(nextMatches, nextMatch || matchRef.current, nextPlayers).catch(() => {
+      setStale(playersStaleRef.current)
+      if (!playersStaleRef.current && (!accessDeniedRef.current || nextMatch)) { accessDeniedRef.current = false; setAccessDenied(false) }
+      if (playersStaleRef.current) setError('Players could not be refreshed. Showing saved information until the connection is restored.')
+      if (!playersStaleRef.current) void cache(nextMatches, nextMatch || matchRef.current, nextPlayers).catch(() => {
         if (isCurrentScope()) setNotice('Match Day is up to date. Offline storage could not be refreshed.')
       })
     } catch (loadError) {
+      if (isCurrentScope() && isMatchDayAccessDenied(loadError)) clearDenied()
       if (isCurrentScope()) setStale(true)
-      if (isCurrentScope() && !hasCachedMatches) setError(errorMessage(loadError, 'Match Day could not be loaded.'))
+      if (isCurrentScope()) setError(errorMessage(loadError, 'Match Day could not be loaded.'))
     } finally {
       loadInFlight.current = false
       if (isCurrentScope()) setRefreshing(false)
@@ -846,14 +885,19 @@ export function CoachMatchDayScreen({ context, matchDayTarget, onMatchDayTargetH
     try {
       const detail = await withMobileAsyncTimeout(() => getCoachMatchDayDetail(user, summary.id))
       if (!isCurrent()) return
-      matchRef.current = detail; setMatch(detail); setStale(false)
+      matchRef.current = detail; setMatch(detail); setStale(playersStaleRef.current)
+      if (!playersStaleRef.current) { accessDeniedRef.current = false; setAccessDenied(false) }
       if (!cached) {
         setScoreDraft({ away: String(detail.awayScore), home: String(detail.homeScore) })
         setEventForm(createCoachMatchDayEventForm('goal', detail)); setPanel(isLiveMatch(detail) ? 'live' : 'overview')
       }
-      void cache(matches, detail, players).catch(() => { if (isCurrent()) setNotice('The fixture is open online. Phone storage could not be refreshed.') })
+      if (!playersStaleRef.current) void cache(matches, detail, players).catch(() => { if (isCurrent()) setNotice('The fixture is open online. Phone storage could not be refreshed.') })
     } catch (openError) {
-      if (isCurrent() && !cached) setError(errorMessage(openError, 'Fixture details could not be loaded.'))
+      if (isCurrent()) {
+        if (isMatchDayAccessDenied(openError)) clearDenied()
+        else setStale(true)
+        setError(errorMessage(openError, 'Fixture details could not be loaded.'))
+      }
     } finally { if (isCurrent()) setBusy(false) }
   }
   const replace = async (operation, verify) => {
@@ -1033,7 +1077,7 @@ export function CoachMatchDayScreen({ context, matchDayTarget, onMatchDayTargetH
     {reconciling && !activity ? <View accessibilityLiveRegion="assertive" style={styles.warning}><BrandLoader /><Text style={styles.cardTitle}>Reconciling the last action</Text><Text style={styles.body}>The current fixture remains visible, but changes are blocked until the server result is known.</Text></View> : null}
     {notice && !activity ? <View accessibilityLiveRegion="polite" style={styles.card}><Text style={styles.body}>{notice}</Text></View> : null}
     {activity ? <MobileFailureNotice scopeKey={`${user.id}:${context.id}:${match?.id || ''}`} message={error || (/unavailable|could not|failed|too long/i.test(notice) ? notice : '') || (reconciling ? 'The last action is still being checked. Your fixture remains visible; refresh before making more changes.' : '')} onRetry={load} /> : null}
-    {activity ? <MobileFailureNotice scopeKey={`${user.id}:${context.id}:${match?.id || ''}:pending`} message={outbox.journal?.error || ''} actionLabel="Review saved actions" onRetry={() => setPanel('saved-actions')} /> : null}
+    {activity ? <MobileFailureNotice scopeKey={`${user.id}:${context.id}:${match?.id || ''}:pending`} message={accessDenied ? '' : outbox.journal?.error || ''} actionLabel="Review saved actions" onRetry={() => setPanel('saved-actions')} /> : null}
     {error && !visibleError ? <MobileLoadingStatus message="Checking Match Day" /> : null}
     {visibleError && !activity ? <View style={styles.warning}><Text style={styles.dangerText}>{visibleError}</Text><Button label="Refresh" onPress={load} secondary styles={styles} /></View> : null}
     {confirmedStale && !activity ? <View style={styles.warning}><Text style={styles.cardTitle}>{offlineReady ? 'Recording on this device' : 'Saved fixture'}</Text><Text style={styles.body}>{offlineReady ? 'Goals, cards, substitutions and clock actions save here while you are offline. Parents receive updates after your connection returns and the actions sync.' : 'Connect and open this fixture once to prepare offline recording.'}</Text></View> : null}

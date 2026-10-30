@@ -7,7 +7,10 @@ import { withMobileAsyncTimeout } from './http'
 import { isMobileRouteAllowed } from './matchdayPolicyCore.js'
 
 function sourceError(name, result) {
-  return result.status === 'rejected' ? `${name}:${String(result.reason?.message || 'unavailable')}` : ''
+  if (result.status !== 'rejected') return ''
+  const reason = result.reason
+  const denied = reason?.code === '42501' || reason?.status === 403 || reason?.statusCode === 403
+  return `${name}:${denied ? 'permission denied' : String(reason?.message || 'unavailable')}`
 }
 
 export async function getCoachPhase31GHomeSnapshot(user) {
@@ -26,6 +29,8 @@ export async function getCoachPhase31GPrimaryHomeSnapshot(user, onProgress, onTi
   const names = ['matches', 'sessions', 'calendar']
   const routes = ['matchday', 'sessions', 'calendar']
   const partial = {}
+  const sourceStates = Object.fromEntries(names.map(name => [name, 'pending']))
+  const publish = () => onProgress?.({ ...buildCoachHomeOperationalSnapshot(partial), sourceStates: { ...sourceStates } })
   const started = {}
   const timed = (name, loader) => {
     started[name] = Date.now()
@@ -40,13 +45,21 @@ export async function getCoachPhase31GPrimaryHomeSnapshot(user, onProgress, onTi
     () => getCoachCalendarResources(user, { homeSummary: true, includeDetails: false }),
   ].map((loader, index) => withMobileAsyncTimeout(() => isMobileRouteAllowed(user, routes[index], user?.matchdayPolicy) ? timed(names[index], loader) : []).then(value => {
     partial[names[index]] = value
-    onProgress?.(buildCoachHomeOperationalSnapshot(partial))
+    sourceStates[names[index]] = 'ready'
+    publish()
     return value
+  }, error => {
+    sourceStates[names[index]] = error?.code === '42501' || error?.status === 403 || error?.statusCode === 403 || /permission denied|row.level security|not authori[sz]ed/i.test(String(error?.message || '')) ? 'denied' : 'failed'
+    publish()
+    throw error
   })))
   const values = Object.fromEntries(results.map((result, index) => [names[index], result.status === 'fulfilled' ? result.value : null]))
   const errors = results.map((result, index) => sourceError(names[index], result)).filter(Boolean)
-  if (!values.matches && !values.sessions && !values.calendar) throw new Error('Coach operational summary could not be loaded.')
-  return buildCoachHomeOperationalSnapshot({ ...values, errors })
+  if (!values.matches && !values.sessions && !values.calendar) {
+    const denied = results.find((result, index) => result.status === 'rejected' && sourceStates[names[index]] === 'denied')
+    throw denied?.reason || results.find(result => result.status === 'rejected')?.reason || new Error('Coach operational summary could not be loaded.')
+  }
+  return { ...buildCoachHomeOperationalSnapshot({ ...values, errors }), sourceStates: { ...sourceStates } }
 }
 
 export async function getCoachPhase31GAttentionSnapshot(user, { force = true, onTiming, readLocalDevelopmentDrafts = async () => ({}) } = {}) {

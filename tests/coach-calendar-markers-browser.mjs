@@ -16,6 +16,7 @@ const screen = source.slice(source.indexOf('function useDomainStyles('), source.
 const entry = `
 import {CoachCalendarSync} from './apps/coach-mobile/src/CoachCalendarSync.js';
 import React,{useCallback,useEffect,useMemo,useRef,useState} from 'react'
+import {getCoachFormationAuthorityScope} from './apps/coach-mobile/src/coachFormationEntryCore.js'
 import {createRoot} from 'react-dom/client'
 import {Pressable,StyleSheet,Switch,Text,TextInput,View} from 'react-native'
 import MaterialIcons from '@expo/vector-icons/MaterialIcons'

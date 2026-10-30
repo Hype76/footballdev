@@ -539,11 +539,11 @@ export async function getParentNotificationInbox(user) {
   const config = getMobileRuntimeConfig('parent')
   const accessToken = await getAccessToken()
   if (!accessToken) throw new Error('Sign in again before opening notifications.')
-  const { ok, result } = await fetchJsonWithTimeout(joinApiPath(config.apiBaseUrl, `/.netlify/functions/parent-mobile-notifications?parentLinkId=${encodeURIComponent(link.id)}`), {
+  const { ok, response, result } = await fetchJsonWithTimeout(joinApiPath(config.apiBaseUrl, `/.netlify/functions/parent-mobile-notifications?parentLinkId=${encodeURIComponent(link.id)}`), {
     method: 'GET',
     headers: { Authorization: `Bearer ${accessToken}` },
   })
-  if (!ok || result.success === false) throw new Error(result.message || 'Notifications could not be loaded.')
+  if (!ok || result.success === false) throw parentApiError(response, result, 'Notifications could not be loaded.')
   return Array.isArray(result.notifications) ? result.notifications : []
 }
 
@@ -588,16 +588,23 @@ function getParentApiPaths(config) {
   }
 }
 
+function parentApiError(response, result, fallback) {
+  const error = new Error(result?.message || result?.error || fallback)
+  error.status = response?.status
+  if (result?.code) error.code = result.code
+  return error
+}
+
 async function callParentApi(path, body) {
   const config = getMobileRuntimeConfig('parent')
   const accessToken = await getAccessToken()
   if (!accessToken) throw new Error('Sign in again before continuing.')
-  const { ok, result } = await fetchJsonWithTimeout(joinApiPath(config.apiBaseUrl, path), {
+  const { ok, response, result } = await fetchJsonWithTimeout(joinApiPath(config.apiBaseUrl, path), {
     method: 'POST',
     headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   })
-  if (!ok) throw new Error(result.message || result.error || 'The Parent service could not complete this request.')
+  if (!ok) throw parentApiError(response, result, 'The Parent service could not complete this request.')
   return result
 }
 
