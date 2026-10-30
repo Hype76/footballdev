@@ -6,7 +6,7 @@ import { mobileApps } from './mobile-apps.mjs'
 import { loadMobileLocalEnv } from './mobile-local-env.mjs'
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
-const [appRole, updatePlatform = 'all'] = process.argv.slice(2)
+const [appRole, updatePlatform = 'all', runtimeVersion = ''] = process.argv.slice(2)
 const app = mobileApps.find((candidate) => candidate.appRole === appRole)
 const supportedUpdatePlatforms = new Set(['all', 'ios', 'android'])
 const updateConfirmed = String(process.env.MOBILE_OTA_UPDATE_CONFIRMED || '').trim().toLowerCase() === 'true'
@@ -20,6 +20,13 @@ if (!app) {
 
 if (!supportedUpdatePlatforms.has(updatePlatform)) {
   console.error('Unknown mobile update platform. Expected all, ios, or android.')
+  process.exit(1)
+}
+
+// Current public iOS builds use 1.1.1; Android and older iOS use 1.1.0.
+// Only this known, native-compatible runtime can be selected for an iOS OTA.
+if (runtimeVersion && (runtimeVersion !== '1.1.1' || updatePlatform !== 'ios')) {
+  console.error('The additional OTA runtime is restricted to iOS 1.1.1.')
   process.exit(1)
 }
 
@@ -73,6 +80,7 @@ const updateEnvironment = {
   ...process.env,
   ...loadMobileLocalEnv(repoRoot, app.path),
   EXPO_PUBLIC_BUILD_PROFILE: productionProfile,
+  MOBILE_OTA_RUNTIME_VERSION: runtimeVersion,
 }
 
 console.log(`Validating the resolved ${appRole} ${productionProfile} update environment without printing values.`)

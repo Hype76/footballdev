@@ -5,7 +5,7 @@ export function createDeviceThemePreference({ read, write }) {
   let current = null
   let pendingWrite = Promise.resolve()
   return {
-    peek: () => current || 'system',
+    peek: () => current || 'light',
     async read() {
       if (current !== null) return current
       const saved = await read()

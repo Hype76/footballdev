@@ -1,3 +1,5 @@
+import { getDeviceThemeStorageKey } from '../../mobile-core/src/deviceThemeCore.js'
+
 export const COACH_LOCAL_STATE_SCHEMA_VERSION = 1
 
 const CATEGORIES = Object.freeze(['context', 'deep-link', 'offline', 'notification', 'theme'])
@@ -22,7 +24,7 @@ export function getCoachLocalStateKeys(userId = '') {
     deepLink: getMobileLocalStateKey('coach', 'deep-link', normalizedUserId),
     offline: getMobileLocalStateKey('coach', 'offline', normalizedUserId),
     notification: getMobileLocalStateKey('coach', 'notification', normalizedUserId),
-    theme: getMobileLocalStateKey('coach', 'theme'),
+    theme: getDeviceThemeStorageKey('coach'),
   })
 }
 

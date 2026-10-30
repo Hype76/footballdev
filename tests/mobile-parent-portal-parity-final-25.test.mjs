@@ -129,5 +129,5 @@ test('settings include password reauthentication, biometrics, notifications and 
     assert.equal(resolveDeviceThemeMode('dark', 'light'), 'dark')
   assert.match(app, /parentThemePreference/)
   const preference = await fs.readFile(`${root}/apps/parent-mobile/src/displayThemePreference.js`, 'utf8')
-  assert.match(preference, /PARENT_THEME_STORAGE_KEY = 'fp\.parent\.display-theme\.v1'/)
+  assert.match(preference, /PARENT_THEME_STORAGE_KEY = getDeviceThemeStorageKey\('parent'\)/)
 })
