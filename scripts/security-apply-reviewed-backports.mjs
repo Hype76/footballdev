@@ -16,22 +16,22 @@ for (const copy of copies) {
     assert.equal(hash(Buffer.from(JSON.stringify(inventory(copy.dir)))), copy.target.originalTreeSha256, 'Official package tree drift: no writes')
     continue
   }
-  assert.equal(copy.target.mode, 'reviewed-source', 'Unapproved source remediation mode')
+  assert.equal(copy.target.mode, copy.target.name === 'glob' ? 'reviewed-compatibility' : 'reviewed-source', 'Unapproved source remediation mode')
   const library = payload.libraries.find(item => item.name === copy.target.name)
   assert.ok(library, 'Missing reviewed library payload')
   assert.deepEqual(library.files.map(x => x.path).sort(), copy.target.files.map(x => x.path).sort(), 'Incomplete payload file set')
   const prospective = inventory(copy.dir)
   for (const file of library.files) {
-    assert.match(file.path, copy.target.name === 'deepmerge' ? /^(?:index|dist\/(?:cjs|umd))\.js$/ : /^lib\/[a-z]+\.js$/, 'Unsafe payload path')
+    assert.match(file.path, copy.target.name === 'glob' ? /^(?:glob|sync)\.js$/ : copy.target.name === 'deepmerge' ? /^(?:index|dist\/(?:cjs|umd))\.js$/ : /^lib\/[a-z]+\.js$/, 'Unsafe payload path')
     assert.ok(copy.target.files.some(x => x.path === file.path && x.originalSha256 === file.originalSha256 && x.patchedSha256 === file.patchedSha256), 'Payload not in reviewed scope')
     const content = Buffer.from(file.contentBase64, 'base64')
     assert.equal(hash(content), file.patchedSha256, 'Payload source hash mismatch')
     const destination = path.join(copy.dir, file.path)
     assert.equal(fs.realpathSync(destination).toLowerCase(), path.resolve(destination).toLowerCase(), 'Linked payload destination')
     const original = fs.readFileSync(destination)
-    if (copy.target.name === 'deepmerge') {
-      assert.equal(content.length, file.patchedBytes, 'Deepmerge payload byte length mismatch')
-      assert.equal(original.length, copy.treeSha256 === copy.target.patchedTreeSha256 ? file.patchedBytes : file.originalBytes, 'Deepmerge preimage byte length mismatch')
+    if (['deepmerge', 'glob'].includes(copy.target.name)) {
+      assert.equal(content.length, file.patchedBytes, 'Payload byte length mismatch')
+      assert.equal(original.length, copy.treeSha256 === copy.target.patchedTreeSha256 ? file.patchedBytes : file.originalBytes, 'Preimage byte length mismatch')
     }
     const item = prospective.find(x => x.path === file.path)
     assert.ok(item, 'Missing prospective package file')
@@ -59,5 +59,5 @@ try {
   throw error
 }
 fs.writeFileSync(receiptPath, JSON.stringify({ head: source.head, installerSha256: record.implementationHashes['scripts/security-apply-reviewed-backports.mjs'], installedAt: new Date().toISOString(), filesWritten: writes.length, recordSha256: hash(fs.readFileSync(path.join(root, 'security/reviewed-source-remediations.json'))), patches: record.patches, copies: verifyCopies(root, record).map(({ relative, treeSha256 }) => ({ relative, treeSha256 })), publicationApproved: false }, null, 2) + '\n')
-console.log(`Verified all eight owned copies, including two unchanged official node-forge releases; wrote ${writes.length} exact reviewed braces/deepmerge source files. No release action.`)
+console.log(`Verified sixteen owned copies and six unchanged official tooling trees; wrote ${writes.length} exact reviewed source and glob7 compatibility files. No release action.`)
 }

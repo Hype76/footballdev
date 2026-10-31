@@ -11,6 +11,7 @@ export const maintainedTestFiles = [
   'tests/security-tooling-updates.test.mjs',
   'tests/security-toml-upstream.test.mjs',
   'tests/tooling-glob-minimatch-compatibility.test.mjs',
+  'tests/security-glob-compatibility.test.mjs',
 ]
 export function runRequiredCommands(root, run = spawnSync) {
   for (const [command, args] of [
@@ -38,5 +39,5 @@ if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.ar
   assert.equal(process.argv.length, 2, 'No check-skipping or scope arguments permitted')
   runRequiredCommands(process.cwd())
   await verifyMaintainedRelease(process.cwd())
-  console.log('Maintained source release gate passed: current advisories, published packages, three exact braces backports, three exact deepmerge corrections and two unchanged official node-forge copies verified. No calendar approval renewal.')
+  console.log('Maintained source release gate passed: current advisories, published packages, eight existing source/security copies, eight glob7 compatibility copies and six unchanged fixed official tooling trees verified. No calendar approval renewal.')
 }
