@@ -81,6 +81,7 @@ export async function saveCoachMatchFormationBoard(user, match, board, draft, ti
     target_match_day_id: match.id,
     expected_version_number: board?.currentVersionNumber ?? null,
     shared_value: shared === true,
+    version_reason_value: 'coach_mobile_save',
   }))
 }
 

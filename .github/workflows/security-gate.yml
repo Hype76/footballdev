@@ -191,6 +191,7 @@ jobs:
           tests/poll-expiry-duration-102-pglite.test.mjs
           tests/mobile-persistent-loading.test.mjs
           tests/coach-availability-counts.test.mjs
+          tests/coach-renewal.test.mjs
           tests/coach-availability-cache-completeness.test.mjs
           tests/mobile-parent-refresh-retention-20261030.test.mjs
           tests/parent-chat-connectivity-20261030.test.mjs

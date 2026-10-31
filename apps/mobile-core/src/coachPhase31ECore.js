@@ -484,7 +484,12 @@ export function buildCoachPollClosesAt(dateValue, timeValue) {
 export function canRespondToCoachInviteOnBehalf(user, invite) {
   return Boolean(user?.id && user.clubId && user.activeTeamId && Number(user.roleRank || 0) >= 20
     && invite?.clubId === user.clubId && invite.teamId === user.activeTeamId
-    && ['match', 'training'].includes(invite.kind) && !invite.cancelled && !invite.stale)
+    && ['match', 'training'].includes(invite.kind) && !invite.cancelled && !invite.stale
+    && !isCoachInviteParticipationRemoved(invite))
+}
+
+export function isCoachInviteParticipationRemoved(invite) {
+  return invite?.kind === 'match' && (invite.allParticipationRemoved ?? invite.participationRemoved) === true
 }
 
 export function normalizeCoachInvite(row = {}, kind = 'calendar') {
@@ -600,11 +605,13 @@ export function summarizeCoachInvites(rows = []) {
     notSelected: 0,
     stale: 0,
     cancelled: 0,
+    removed: 0,
   }
   for (const row of Array.isArray(rows) ? rows : []) {
     const status = normalize(row?.status).toLowerCase()
     const deliveryStatus = normalize(row?.deliveryStatus).toLowerCase()
-    if (status === 'available') summary.attending += 1
+    if (isCoachInviteParticipationRemoved(row)) summary.removed += 1
+    else if (status === 'available') summary.attending += 1
     else if (status === 'unavailable') summary.notAttending += 1
     else if (status === 'maybe') summary.maybe += 1
     else if (status === 'not_selected') summary.notSelected += 1
@@ -654,20 +661,21 @@ export function collapseCoachInvitesByPlayer(rows = []) {
     if (!key) continue
     const current = invitesByPlayer.get(key)
     if (!current) {
-      invitesByPlayer.set(key, invite)
+      invitesByPlayer.set(key, Object.freeze({ ...invite, allParticipationRemoved: isCoachInviteParticipationRemoved(invite) }))
       continue
     }
     const priorityDifference = getCoachInviteStatusPriority(invite?.status) - getCoachInviteStatusPriority(current?.status)
     const deliveryPriorityDifference = getCoachInviteDeliveryPriority(invite?.deliveryStatus) - getCoachInviteDeliveryPriority(current?.deliveryStatus)
     const participationRemoved = current.participationRemoved === true || invite.participationRemoved === true
+    const allParticipationRemoved = isCoachInviteParticipationRemoved(current) && isCoachInviteParticipationRemoved(invite)
     if (
       priorityDifference > 0
       || (priorityDifference === 0 && deliveryPriorityDifference > 0)
       || (priorityDifference === 0 && deliveryPriorityDifference === 0 && getCoachInviteSortTime(invite) > getCoachInviteSortTime(current))
     ) {
-      invitesByPlayer.set(key, Object.freeze({ ...invite, participationRemoved }))
+      invitesByPlayer.set(key, Object.freeze({ ...invite, participationRemoved, allParticipationRemoved }))
     } else {
-      invitesByPlayer.set(key, Object.freeze({ ...current, participationRemoved }))
+      invitesByPlayer.set(key, Object.freeze({ ...current, participationRemoved, allParticipationRemoved }))
     }
   }
   return Object.freeze([...invitesByPlayer.values()])
@@ -708,7 +716,7 @@ export function canResendSelectedCoachInvites(invites = []) {
 
 export function canFollowUpSelectedCoachInvites(invites = []) {
   return Array.isArray(invites) && invites.length > 0 && invites.every(invite =>
-    ['match', 'training'].includes(invite.kind) && ['maybe', 'awaiting', 'pending'].includes(normalize(invite.status).toLowerCase()) && !invite.stale && !invite.cancelled)
+    ['match', 'training'].includes(invite.kind) && ['maybe', 'awaiting', 'pending'].includes(normalize(invite.status).toLowerCase()) && !invite.stale && !invite.cancelled && !isCoachInviteParticipationRemoved(invite))
 }
 
 export function isCoachMatchAvailabilityRequestCreationApplied(data, matchDayId, playerIds = []) {
