@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useAttendanceUiGuard } from '../../mobile-core/src/useAttendanceOutbox'
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native'
 import MaterialIcons from '@expo/vector-icons/MaterialIcons'
-import { getCoachInviteDeliveryProgress, getCoachInviteStatusLabel } from '../../mobile-core/src/coachPhase31ECore'
+import { getCoachInviteDeliveryProgress, getCoachInviteStatusLabel, isCoachInviteParticipationRemoved } from '../../mobile-core/src/coachPhase31ECore'
 import { contrastSafeColor, themeForeground } from '../../mobile-core/src/themeContrast'
 import { formatUkDateTime } from '../../../src/lib/date-format.js'
 import { useMobileActivity } from '../../mobile-core/src/MobileActivityContext'
@@ -26,17 +26,19 @@ export function CoachMatchInviteTable({ coachAttendance = [], currentCoachId = '
     awaiting: { label: 'Awaiting', icon: 'schedule', color: awaitingColor },
     unavailable: { label: kind === 'training' ? 'Not attending' : 'Unavailable', icon: 'cancel', color: palette.danger },
     maybe: { label: 'Maybe', icon: 'help-outline', color: palette.warning },
+    removed: { label: 'Removed', icon: 'remove-circle-outline', color: palette.textSecondary },
   }
-  const response = invite => responses[responseKey(invite.status)] || { label: getCoachInviteStatusLabel(invite.status, kind), icon: 'info-outline', color: palette.textSecondary }
-  const counts = invites.reduce((value, invite) => { const key = responseKey(invite.status); value[key] = (value[key] || 0) + 1; return value }, {})
+  const inviteResponseKey = invite => isCoachInviteParticipationRemoved(invite) ? 'removed' : responseKey(invite.status)
+  const response = invite => responses[inviteResponseKey(invite)] || { label: getCoachInviteStatusLabel(invite.status, kind), icon: 'info-outline', color: palette.textSecondary }
+  const counts = invites.reduce((value, invite) => { const key = inviteResponseKey(invite); value[key] = (value[key] || 0) + 1; return value }, {})
   const filterKeys = [...new Set(['available', 'awaiting', 'unavailable', ...Object.keys(counts)])]
   const playerById = new Map(players.map(player => [player.id, player]))
-  const visible = invites.filter(invite => filter === 'all' || responseKey(invite.status) === filter).sort((a, b) => {
+  const visible = invites.filter(invite => filter === 'all' || inviteResponseKey(invite) === filter).sort((a, b) => {
     const comparison = sort.key === 'response' ? response(a).label.localeCompare(response(b).label) : a.playerName.localeCompare(b.playerName)
     return comparison * sort.direction || a.playerName.localeCompare(b.playerName)
   })
   useEffect(() => {
-    const hiddenSelection = selectedPlayerIds.some(id => !invites.some(invite => invite.playerId === id && (filter === 'all' || responseKey(invite.status) === filter)))
+    const hiddenSelection = selectedPlayerIds.some(id => !invites.some(invite => invite.playerId === id && (filter === 'all' || inviteResponseKey(invite) === filter)))
     if (hiddenSelection) onFilterChange?.()
   }, [filter, invites, onFilterChange, selectedPlayerIds])
   const details = invites.find(invite => invite.id === detailsId)

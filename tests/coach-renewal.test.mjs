@@ -37,7 +37,22 @@ test('collapsing multiple guardians retains withdrawal eligibility and selected 
   for (const rows of [[active,withdrawn],[withdrawn,active]]) {
     const collapsed=core.collapseCoachInvitesByPlayer(rows)
     assert.equal(collapsed.length,1);assert.equal(collapsed[0].status,'available');assert.equal(collapsed[0].participationRemoved,true)
+    assert.equal(core.isCoachInviteParticipationRemoved(collapsed[0]),false)
   }
+})
+test('fully removed match requests are not actionable or counted as awaiting, including after repeated collapse',()=>{
+  const user={id:'coach',clubId:'club',activeTeamId:'team',roleRank:50}
+  const removed=core.normalizeCoachInvite({id:'removed',club_id:'club',team_id:'team',match_day_id:'fixture',player_id:'player',status:'pending',sent_at:'2099-01-01',expires_at:'1970-01-01',token_revoked_at:'2099-01-02',token_revoked_reason:'event_participation_removed'},'match')
+  const [row]=core.collapseCoachInvitesByPlayer(core.collapseCoachInvitesByPlayer([removed]))
+  assert.equal(core.isCoachInviteParticipationRemoved(row),true)
+  assert.equal(core.canRespondToCoachInviteOnBehalf(user,row),false)
+  assert.equal(core.canFollowUpSelectedCoachInvites([row]),false)
+  assert.equal(core.canResendSelectedCoachInvites([row]),true)
+  assert.equal(core.summarizeCoachInvites([row]).awaiting,0)
+  assert.equal(core.summarizeCoachInvites([row]).removed,1)
+  const expired=core.normalizeCoachInvite({id:'expired',club_id:'club',team_id:'team',match_day_id:'fixture',player_id:'player',status:'pending',expires_at:'2000-01-01'},'match')
+  assert.equal(core.isCoachInviteParticipationRemoved(expired),false)
+  assert.equal(core.canRespondToCoachInviteOnBehalf(user,expired),true)
 })
 function dataHarness() {
   const calls=[],user={id:'coach',activeTeamId:'team'},deps={

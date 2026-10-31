@@ -23,6 +23,11 @@ function responses() {
     head: { sha: source.headSha }, base: { sha: source.baseSha }, state: source.state, merged: source.merged,
   })
   for (const target of record.targets) map.set('https://registry.npmjs.org/' + target.name + '/latest', { name: target.name, version: target.version, dist: { integrity: target.registryIntegrity } })
+  map.delete('https://registry.npmjs.org/glob/latest')
+  const glob = record.targets.find(target => target.name === 'glob')
+  map.set('https://registry.npmjs.org/glob/7.2.3', { name: 'glob', version: '7.2.3', dist: { integrity: glob.registryIntegrity }, gitHead: 'c3cd57ae128faa0e9190492acc743bb779ac4054' })
+  map.set('https://registry.npmjs.org/glob', { name: 'glob', versions: Object.fromEntries(record.glob7CompatibilityPublishedVersions.map(version => [version, {}])) })
+  for (const target of Object.values(record.compatibilityUpstream)) map.set('https://registry.npmjs.org/' + target.name + '/latest', { name: target.name, version: target.version, dist: { integrity: target.registryIntegrity }, gitHead: target.gitHead })
   return map
 }
 test('standing maintenance authority rejects legacy expiry, changed schema, mode and owner', () => {
@@ -76,7 +81,8 @@ test('every upstream verification makes fresh advisory, revision and published-p
   for (let i = 0; i < 2; i++) {
     const result = await verifyUpstream(record, payload, request)
     assert.equal(result.receipts.length, map.size)
-    assert.equal(result.receipts.filter(item => item.type === 'registry').length, 3)
+    assert.equal(result.receipts.filter(item => item.type === 'registry').length, 5)
+    assert.equal(result.receipts.filter(item => item.type === 'registry-target').length, 1)
   }
   assert.equal(seen.length, map.size * 2)
   for (const url of map.keys()) assert.equal(seen.filter(item => item === url).length, 2)
@@ -104,6 +110,17 @@ test('changed advisory, upstream patch, published version or registry integrity 
     ['https://api.github.com/repos/pnpm/pnpm/pulls/17443', value => { value.head.sha = '0'.repeat(40) }],
     ['https://registry.npmjs.org/deepmerge/latest', value => { value.version = '4.3.2' }],
     ['https://registry.npmjs.org/deepmerge/latest', value => { value.dist.integrity = 'substituted' }],
+    ['https://registry.npmjs.org/glob/7.2.3', value => { value.version = '7.2.2' }],
+    ['https://registry.npmjs.org/glob/7.2.3', value => { value.dist.integrity = 'substituted' }],
+    ['https://registry.npmjs.org/glob/7.2.3', value => { value.gitHead = '0'.repeat(40) }],
+    ['https://registry.npmjs.org/glob', value => { value.versions['7.2.4'] = {} }],
+    ['https://registry.npmjs.org/glob', value => { value.versions['8.1.1'] = {} }],
+    ['https://registry.npmjs.org/glob/latest', value => { value.version = '14.0.4' }],
+    ['https://registry.npmjs.org/glob/latest', value => { value.dist.integrity = 'substituted' }],
+    ['https://registry.npmjs.org/glob/latest', value => { value.gitHead = '0'.repeat(40) }],
+    ['https://registry.npmjs.org/minimatch/latest', value => { value.version = '11.0.4' }],
+    ['https://registry.npmjs.org/minimatch/latest', value => { value.dist.integrity = 'substituted' }],
+    ['https://registry.npmjs.org/minimatch/latest', value => { value.gitHead = '0'.repeat(40) }],
   ]) {
     const map = responses(); mutate(map.get(url))
     await assert.rejects(() => verifyUpstream(record, payload, async key => ({ ok: true, json: async () => map.get(key) })))

@@ -8,15 +8,16 @@
     "proposalSha256": "95f1b5c782335dea22aee6223bbf1426cfe5f2e281dc30e5076f4c7ad0177a91",
     "calendarQualificationExpiry": "2026-10-19T22:59:59Z"
   },
-  "scope": "Three exact source-fixed braces3.0.3 copies, three exact locally corrected deepmerge4.3.1 copies and two unchanged official node-forge1.4.2 copies. Complete package trees, registry integrity, locks and native inputs remain verified. No generic advisory exceptions.",
+  "scope": "Three exact source-fixed braces3.0.3 copies, three exact locally corrected deepmerge4.3.1 copies and two unchanged official node-forge1.4.2 copies. Complete package trees, registry integrity, locks and native inputs remain verified. No generic advisory exceptions. Eight exact glob7.2.3 compatibility copies retain callback consumers with official minimatch11.0.3; six official minimatch/glob package trees remain byte-identical to registry artifacts. No new advisory acceptance.",
   "controls": [
     "Independent external receipt SHA256 binds exact clean HEAD, record, policy, implementation, native and release preparation identities.",
-    "Every release checks full installed package trees, all eight physical copies, exact registry preimages/postimages, locks and native inputs. Official-maintained copies must remain byte-identical to the reviewed registry tree and receive no local source writes.",
+    "Every release checks full installed package trees, all sixteen source/security copies and six unchanged official tooling copies, exact registry preimages/postimages, locks and native inputs. Official-maintained copies must remain byte-identical to the reviewed registry tree and receive no local source writes.",
     "Every release fetches official advisory meaning, exact upstream revision/status and latest published package version/integrity without cached acceptance. Lookup failures block release.",
     "Full raw audits remain visible. Only the pinned braces and deepmerge GHSA roots can be covered by their exact proven source corrections. Official node-forge has no advisory acceptance. Any new or uncovered advisory blocks release.",
     "Runtime, provisioning, source/receipt and invalidation regressions must pass on every mobile release and Netlify build, before publication.",
     "Official published version changes, patch revisions/status, advisory meaning, source/native identity or maintenance-policy changes require fresh review and compatibility checks.",
-    "There is no calendar renewal. A passing maintained-fix verification is required for each release; historical temporary approval cannot authorise this mode."
+    "There is no calendar renewal. A passing maintained-fix verification is required for each release; historical temporary approval cannot authorise this mode.",
+    "All eight glob7 compatibility copies and all six fixed official glob/minimatch dependency trees are verified in every release. Compatibility corrections accept no advisory roots."
   ],
   "preservedPayloadSha256": "829c5002c6462e3b47df82812a6e2538895146c6946628ceb34f81265b353f34",
   "preservedPatchIdentities": [
@@ -119,7 +120,8 @@
   "limitations": [
     "The three braces copies remain locally maintained source fixes. The two node-forge copies use the compatible official1.4.2 release without source patches; full registry audits remain mandatory.",
     "Fix ownership and future security maintenance remain necessary. New security evidence can still block releases.",
-    "No app feature, publisher path, production data, store binary or handset-acceptance change is approved by this policy."
+    "No app feature, publisher path, production data, store binary or handset-acceptance change is approved by this policy.",
+    "Eight glob7.2.3 copies carry a local compatibility correction for the fixed official minimatch11 Matcher API. This is not an official glob7 release or an advisory waiver."
   ],
   "securityRequalification": {
     "authorisedOn": "2026-10-23",
@@ -169,5 +171,87 @@
     "officialPatchedReleaseAvailable": false,
     "auditException": false,
     "independentExactSourceAcceptanceRequired": true
+  },
+  "glob7Compatibility": {
+    "purpose": "Use Matcher.pattern and Matcher.test in both glob7 entrypoints while preserving the existing dot and negation branches.",
+    "targets": [
+      {
+        "scope": ".",
+        "packagePath": "node_modules/exceljs/node_modules/glob"
+      },
+      {
+        "scope": ".",
+        "packagePath": "node_modules/rimraf/node_modules/glob"
+      },
+      {
+        "scope": "apps/parent-mobile",
+        "packagePath": "node_modules/@react-native/codegen/node_modules/glob"
+      },
+      {
+        "scope": "apps/parent-mobile",
+        "packagePath": "node_modules/react-native/node_modules/glob"
+      },
+      {
+        "scope": "apps/parent-mobile",
+        "packagePath": "node_modules/rimraf/node_modules/glob"
+      },
+      {
+        "scope": "apps/coach-mobile",
+        "packagePath": "node_modules/@react-native/codegen/node_modules/glob"
+      },
+      {
+        "scope": "apps/coach-mobile",
+        "packagePath": "node_modules/react-native/node_modules/glob"
+      },
+      {
+        "scope": "apps/coach-mobile",
+        "packagePath": "node_modules/rimraf/node_modules/glob"
+      }
+    ],
+    "registryVersion": "7.2.3",
+    "registryIntegrity": "sha512-nFR0zLpU2YCaRxwoCJvL6UvCH2JFyFVIvwTLsIf21AuHlMskA1hhTdk+LlYJtOlYt9v6dvszD2BGRqBL+iQK9Q==",
+    "originalTreeSha256": "e5934ac4474d9971f8e2ebe25e8073122e5fa05a037ffe4ebbe8d6027a02976b",
+    "patchedTreeSha256": "c88ad563cec6a84b835eda010386afcd6794ee6660db63b389150462cc218d5f",
+    "patchSha256": "0521132b1174bc849cb0c95ef463c84eead81a5b3ecd54369aba7eb1a86a7273",
+    "upstreamLatest": {
+      "glob": {
+        "name": "glob",
+        "version": "14.0.3",
+        "registryIntegrity": "sha512-A1vjIwC3qpdCso45Iw127gnp7sPhqgY8lUQhDrArIs+GbmfaaVPFuoyy7WyLT9EPZCRZ7j7aLdwUhQmHWesEow==",
+        "gitHead": "fc93fd5dab2bd40ea02681e8a1f027dacca216ce"
+      },
+      "minimatch": {
+        "name": "minimatch",
+        "version": "11.0.3",
+        "registryIntegrity": "sha512-iny/40PEGkNJQ5/Pv6z3nm6FbRAby32GeZRjCUJk2WnNDbgPSTcdI+DDvLqsgBdD4cD5sMtMheqPPnehCCa8Nw==",
+        "gitHead": "b0c2aa83161cb6aaa19fa2e612f0b64edffd18ee"
+      }
+    },
+    "advisoryAcceptanceAllowed": false,
+    "independentExactSourceAcceptanceRequired": true,
+    "maintenance": "Every release freshly verifies both target glob7 registry metadata and the exact reviewed latest glob/minimatch versions, integrities and git revisions. Any upstream change blocks until reviewed. Any new glob7 or glob8 publication also blocks until compatibility replacement is reviewed.",
+    "publishedCompatibilityVersions": [
+      "7.0.0",
+      "7.0.1",
+      "7.0.3",
+      "7.0.4",
+      "7.0.5",
+      "7.0.6",
+      "7.1.0",
+      "7.1.1",
+      "7.1.2",
+      "7.1.3",
+      "7.1.4",
+      "7.1.5",
+      "7.1.6",
+      "7.1.7",
+      "7.2.0",
+      "7.2.2",
+      "7.2.3",
+      "8.0.1",
+      "8.0.2",
+      "8.0.3",
+      "8.1.0"
+    ]
   }
 }

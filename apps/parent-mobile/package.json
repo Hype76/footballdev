@@ -90,6 +90,9 @@
     "compression@<1.8.2": "1.8.2",
     "source-map-js@>=1.0.0 <1.2.2": "1.2.2",
     "argparse@<2.0.1": "2.0.1",
-    "node-forge": "1.4.2"
+    "node-forge": "1.4.2",
+    "minimatch": "11.0.3",
+    "glob@>=9.0.0 <=14.0.1": "14.0.3",
+    "test-exclude": "8.0.0"
   }
 }

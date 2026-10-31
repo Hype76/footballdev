@@ -89,12 +89,12 @@ test('the real Metro cross-package cycle remains fully traceable to reviewed roo
 test('all owned physical copies, complete package contents and lock identities are verified', () => {
   // This is an integration check against freshly installed, actually patched dependencies.
   const record = loadRecord(root).record
-  assert.equal(verifyCopies(root, record).length, 8)
+  assert.equal(verifyCopies(root, record).length, 16)
 })
 test('an additional nested vulnerable package and an unpatched copy stop verification', () => {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'football-backport-check-'))
   try {
-    for (const target of policy.targets) {
+    for (const target of [...policy.targets, ...policy.officialCompatibilityDependencies]) {
       const relative = (target.scope === '.' ? '' : target.scope + '/') + target.packagePath
       fs.cpSync(path.join(root, relative), path.join(directory, relative), { recursive: true })
     }
@@ -102,7 +102,13 @@ test('an additional nested vulnerable package and an unpatched copy stop verific
       const relative = (item.scope === 'root' ? '' : item.scope + '/') + 'package-lock.json'
       fs.copyFileSync(path.join(root, relative), path.join(directory, relative))
     }
-    assert.equal(verifyCopies(directory, policy).length, 8)
+    assert.equal(verifyCopies(directory, policy).length, 16)
+    for (const file of ['node_modules/minimatch/dist/commonjs/index.js', 'node_modules/glob/dist/commonjs/index.min.js', 'node_modules/exceljs/node_modules/glob/glob.js']) {
+      const source = path.join(directory, file), bytes = fs.readFileSync(source)
+      fs.appendFileSync(source, '\n// unreviewed tooling drift\n')
+      assert.throws(() => verifyCopies(directory, policy), /tree drift/)
+      fs.writeFileSync(source, bytes)
+    }
     const extra = path.join(directory, 'node_modules/braces/node_modules/braces')
     fs.mkdirSync(extra, { recursive: true })
     fs.writeFileSync(path.join(extra, 'package.json'), JSON.stringify({ name: 'braces', version: '3.0.3' }))

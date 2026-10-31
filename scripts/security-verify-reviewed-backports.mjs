@@ -19,6 +19,7 @@ const implementationFiles = [
   'security/maintained-source-policy.json', 'scripts/security-maintained-release-gate.mjs',
   'scripts/security-netlify-build.mjs', 'tests/security-maintained-source.test.mjs', 'tests/security-toml-upstream.test.mjs', 'netlify.toml',
   'tests/security-m3-governance.test.mjs',
+  'security/patches/glob-7.2.3-minimatch11.patch', 'tests/security-glob-compatibility.test.mjs',
 ]
 const safe = (root, relative) => {
   assert.ok(relative && !relative.includes('\\') && !relative.split('/').includes('..') && !path.isAbsolute(relative), 'Unsafe relative path')
@@ -64,9 +65,9 @@ export function loadRecord(root) {
   const record = JSON.parse(fs.readFileSync(safe(root, 'security/reviewed-source-remediations.json')))
   verifyMaintainedAuthority(record)
   assert.equal(record.baseline, '864a6ad3856a02b65ec33bfe8e952e6f98d13dbd')
-  assert.equal(record.adoptionProposalSha256, '63834f4e77c682741e678303c65c9566dbf4e9dd06a796c3b4de4c7f3ae693a3', 'Maintained source policy identity changed')
+  assert.equal(record.adoptionProposalSha256, '8933f0cc35bfb1a8b950853295a5f401725fb950b5b413da042d3313c84f82d9', 'Maintained source policy identity changed')
   assert.equal(hash(fs.readFileSync(safe(root, 'security/maintained-source-policy.json'))), record.adoptionProposalSha256, 'Maintained source policy evidence drift')
-  assert.equal(record.releasePreparationSha256, "869ae2e987e8a74e57b379d85a65108dda297907b472447c879b21bd25ca55f5", 'Release preparation scope drift')
+  assert.equal(record.releasePreparationSha256, "f997ed3b457b416853f2bf8efaaacd4e6e69074e81c74f7d92b91c7b68e2eb78", 'Release preparation scope drift')
   assert.equal(hash(Buffer.from(JSON.stringify(record.releasePreparation, null, 2) + '\n')), record.releasePreparationSha256, 'Release preparation pins drift')
   assert.equal(record.releasePreparation.baseline, record.baseline, 'Release preparation baseline mismatch')
   verifyReleasePreparation(root, record.releasePreparation)
@@ -74,7 +75,7 @@ export function loadRecord(root) {
   assert.equal(hash(fs.readFileSync(safe(root, 'security/root-backport-proposal.json'))), record.rootOnlyProposalSha256, 'Retained root proposal drift')
   assert.equal(hash(Buffer.from(JSON.stringify(record.dependencyRemediation, null, 2) + '\n')), record.dependencyRemediationSha256, 'Dependency remediation pins drift')
   for (const [file, expected] of Object.entries(record.dependencyRemediation.changedSourceHashes)) assert.equal(textHash(fs.readFileSync(safe(root, file))), expected, 'Approved dependency/test source drift: ' + file)
-  assert.equal(record.targets.length, 8)
+  assert.equal(record.targets.length, 16)
   assert.deepEqual(Object.keys(record.implementationHashes).sort(), [...implementationFiles].sort(), 'Implementation allowlist changed')
   assert.deepEqual(record.targets.map(t => [t.scope, t.packagePath, t.name, t.version]), [
     ['.', 'node_modules/braces', 'braces', '3.0.3'],
@@ -85,6 +86,14 @@ export function loadRecord(root) {
     ['.', 'node_modules/deepmerge', 'deepmerge', '4.3.1'],
     ['apps/parent-mobile', 'node_modules/deepmerge', 'deepmerge', '4.3.1'],
     ['apps/coach-mobile', 'node_modules/deepmerge', 'deepmerge', '4.3.1'],
+    ['.', 'node_modules/exceljs/node_modules/glob', 'glob', '7.2.3'],
+    ['.', 'node_modules/rimraf/node_modules/glob', 'glob', '7.2.3'],
+    ['apps/parent-mobile', 'node_modules/@react-native/codegen/node_modules/glob', 'glob', '7.2.3'],
+    ['apps/parent-mobile', 'node_modules/react-native/node_modules/glob', 'glob', '7.2.3'],
+    ['apps/parent-mobile', 'node_modules/rimraf/node_modules/glob', 'glob', '7.2.3'],
+    ['apps/coach-mobile', 'node_modules/@react-native/codegen/node_modules/glob', 'glob', '7.2.3'],
+    ['apps/coach-mobile', 'node_modules/react-native/node_modules/glob', 'glob', '7.2.3'],
+    ['apps/coach-mobile', 'node_modules/rimraf/node_modules/glob', 'glob', '7.2.3'],
   ], 'Exact reviewed copy/version scope changed')
   assert.deepEqual(record.eligibleAdvisories, { braces: ['GHSA-vfj7-8cjw-p6xm'], 'node-forge': [], deepmerge: ['GHSA-gcqx-w48m-w2h4'] })
   for (const t of record.targets) {
@@ -92,9 +101,15 @@ export function loadRecord(root) {
       ? ['ac0f50ef3e9a557dccb4805fc6bb0c8bf9b9502783b7d5baed4c9c8c55cd91a4', 'b024f34af0a56743116dec3c1da981519a0744e9dffe0dd1d31fecc1c0a50c77']
       : t.name === 'deepmerge'
         ? ['7ebc2bd97fe2ba61dbece477cdffea35fe840069176cd501ef26f95104d0b8a7', '286d2a30d121c50de539f45ff69196a5c0aa949f262302c3cb511c370376a432']
-        : ['dbe2e243bd0239e3a366332f5265ca6bf4b32b050e9178c64e383de3d3455ea4', 'dbe2e243bd0239e3a366332f5265ca6bf4b32b050e9178c64e383de3d3455ea4']
+        : t.name === 'glob'
+          ? ['e5934ac4474d9971f8e2ebe25e8073122e5fa05a037ffe4ebbe8d6027a02976b', 'c88ad563cec6a84b835eda010386afcd6794ee6660db63b389150462cc218d5f']
+          : ['dbe2e243bd0239e3a366332f5265ca6bf4b32b050e9178c64e383de3d3455ea4', 'dbe2e243bd0239e3a366332f5265ca6bf4b32b050e9178c64e383de3d3455ea4']
     assert.deepEqual([t.originalTreeSha256, t.patchedTreeSha256], trees, 'Reviewed package-tree identities changed')
-    assert.equal(t.mode, t.name === 'node-forge' ? 'official-maintained' : 'reviewed-source', 'Package verification mode changed')
+    assert.equal(t.mode, t.name === 'node-forge' ? 'official-maintained' : t.name === 'glob' ? 'reviewed-compatibility' : 'reviewed-source', 'Package verification mode changed')
+    if (t.name === 'glob') {
+      assert.equal(t.registryIntegrity, 'sha512-nFR0zLpU2YCaRxwoCJvL6UvCH2JFyFVIvwTLsIf21AuHlMskA1hhTdk+LlYJtOlYt9v6dvszD2BGRqBL+iQK9Q==', 'Reviewed glob integrity changed')
+      assert.deepEqual(t.files.map(file => [file.path, file.originalBytes, file.patchedBytes]), [['glob.js', 19445, 19445], ['sync.js', 12020, 12020]], 'Both exact glob7 entrypoints must be corrected')
+    }
     if (t.name === 'deepmerge') {
       assert.equal(t.registryIntegrity, 'sha512-3sUqbMEc77XqpdNO7FRyRog+eW3ph+GYCbj+rK+uYyRMuwsVy0rMiVtPn+QJlKFvWP/1PYpapqYn0Me2knFn+A==', 'Reviewed deepmerge integrity changed')
       assert.deepEqual(t.files.map(file => [file.path, file.originalBytes, file.patchedBytes]), [['dist/cjs.js', 4048, 4194], ['dist/umd.js', 4420, 4572], ['index.js', 3293, 3439]], 'All shipped deepmerge entrypoints and exact byte lengths must be corrected')
@@ -108,12 +123,26 @@ export function loadRecord(root) {
     'patches/braces-3.0.3.patch': 'e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699',
     'patches/node-forge-1.4.0.patch': '2de065ac998bf58917a14d0935112d97ec2957ac41b5f06958d500934f188ed4',
     'patches/deepmerge-4.3.1.patch': '6241e75cd0ebdeefbe93564d0f9a0da153bc6608add12970bd3c390910e7e4f4',
+    'patches/glob-7.2.3-minimatch11.patch': '0521132b1174bc849cb0c95ef463c84eead81a5b3ecd54369aba7eb1a86a7273',
   }
   assert.deepEqual(Object.fromEntries(record.patches.map(p => [p.file, p.sha256])), expectedPatches)
   for (const p of record.patches) assert.equal(hash(fs.readFileSync(safe(root, 'security/' + p.file))), p.sha256, 'Patch bytes changed')
   const payloadFile = safe(root, 'security/patches/reviewed-source-manifest.json')
   assert.equal(hash(fs.readFileSync(payloadFile)), record.payloadSha256, 'Reviewed payload drift')
   const payload = JSON.parse(fs.readFileSync(payloadFile))
+  assert.deepEqual(Object.keys(record.compatibilityUpstream).sort(), ['glob', 'minimatch'], 'Compatibility upstream scope changed')
+  assert.deepEqual(record.compatibilityUpstream, JSON.parse(fs.readFileSync(safe(root, 'security/maintained-source-policy.json'))).glob7Compatibility.upstreamLatest, 'Compatibility upstream differs from the pinned maintenance policy')
+  assert.deepEqual(record.glob7CompatibilityPublishedVersions, JSON.parse(fs.readFileSync(safe(root, 'security/maintained-source-policy.json'))).glob7Compatibility.publishedCompatibilityVersions, 'Compatibility publication inventory differs from the pinned maintenance policy')
+  assert.deepEqual(record.officialCompatibilityDependencies.map(t => [t.scope, t.packagePath, t.name, t.version]), ['.', 'apps/parent-mobile', 'apps/coach-mobile'].flatMap(scope => [
+    [scope, 'node_modules/minimatch', 'minimatch', '11.0.3'], [scope, 'node_modules/glob', 'glob', '14.0.3'],
+  ]), 'Fixed official compatibility dependency scope changed')
+  for (const t of record.officialCompatibilityDependencies) {
+    assert.equal(t.mode, 'official-tooling')
+    assert.deepEqual(t.files, [], 'Fixed official tooling must not receive source patches')
+    assert.equal(t.originalTreeSha256, t.patchedTreeSha256, 'Fixed official tooling must remain unchanged')
+    assert.equal(t.registryIntegrity, record.compatibilityUpstream[t.name].registryIntegrity, 'Fixed official tooling registry identity differs')
+    assert.equal(t.originalTreeSha256, t.name === 'minimatch' ? '136263d4f714b1f6e0f3f76dec3ea1e8613fa245366d325f31c9877e5bcd98f2' : '42540866292120333b7e3b6898defb1bfa29d97717fee8248a2d1431076ed1f0', 'Fixed official tooling tree identity changed')
+  }
   assert.equal(payload.qualificationManifestSha256, 'c6b590786dac4bf3ffeeec900f9d3e47e9550f649aa6c5820da83b3a64afc47d')
   for (const [file, expected] of Object.entries(record.implementationHashes)) assert.equal(textHash(fs.readFileSync(safe(root, file))), expected, `Implementation drift: ${file}`)
   for (const item of record.nativeInputs) assert.equal(textHash(fs.readFileSync(safe(root, item.path))), item.normalisedUtf8Sha256, `Native/dependency input drift: ${item.path}`)
@@ -148,7 +177,7 @@ function discover(root, scope) {
     const metadata = path.join(dir, 'package.json')
     if (fs.existsSync(metadata)) {
       const pkg = JSON.parse(fs.readFileSync(metadata))
-      if (['braces', 'node-forge', 'deepmerge'].includes(pkg.name)) copies.push({ scope, packagePath: path.relative(path.resolve(root, scope), dir).replaceAll('\\', '/'), name: pkg.name, version: pkg.version })
+      if (['braces', 'node-forge', 'deepmerge', 'glob', 'minimatch'].includes(pkg.name)) copies.push({ scope, packagePath: path.relative(path.resolve(root, scope), dir).replaceAll('\\', '/'), name: pkg.name, version: pkg.version })
     }
     if (fs.existsSync(path.join(dir, 'node_modules'))) walk(relative + '/node_modules')
   }
@@ -157,10 +186,11 @@ function discover(root, scope) {
 }
 export function verifyCopies(root, record, mode = 'patched') {
   const scopes = ['.', 'apps/parent-mobile', 'apps/coach-mobile']
-  const expected = record.targets.map(({ scope, packagePath, name, version }) => ({ scope, packagePath, name, version }))
+  const targets = [...record.targets, ...record.officialCompatibilityDependencies]
+  const expected = targets.map(({ scope, packagePath, name, version }) => ({ scope, packagePath, name, version }))
   const actual = scopes.flatMap(scope => discover(root, scope))
   const sort = items => items.map(x => JSON.stringify(x)).sort()
-  assert.deepEqual(sort(actual), sort(expected), 'Physical affected-copy set differs from reviewed five copies')
+  assert.deepEqual(sort(actual), sort(expected), 'Physical affected-copy set differs from reviewed source and fixed official copies')
   const locks = new Map()
   for (const item of record.scopeLocks) {
     const scope = item.scope === 'root' ? '.' : item.scope
@@ -169,7 +199,7 @@ export function verifyCopies(root, record, mode = 'patched') {
     assert.equal(textHash(bytes), item.normalisedUtf8Sha256, `Lock drift: ${scope}`)
     locks.set(scope, JSON.parse(bytes))
   }
-  return record.targets.map(target => {
+  return targets.map(target => {
     const relative = (target.scope === '.' ? '' : target.scope + '/') + target.packagePath
     const dir = safe(root, relative)
     const entry = locks.get(target.scope).packages[target.packagePath]
@@ -179,7 +209,7 @@ export function verifyCopies(root, record, mode = 'patched') {
     const treeSha256 = hash(Buffer.from(JSON.stringify(inventory(dir))))
     assert.ok(treeSha256 === target.patchedTreeSha256 || (mode === 'install' && treeSha256 === target.originalTreeSha256), `Package tree drift: ${relative}`)
     return { target, relative, dir, treeSha256 }
-  })
+  }).filter(copy => copy.target.mode !== 'official-tooling')
 }
 export function verifyReview(root, record, source, trustedReceiptSha256 = process.env.FOOTBALL_REVIEW_RECEIPT_SHA256) {
   const file = artifactPath(root, 'implementation-review.json')
@@ -243,11 +273,36 @@ export async function verifyUpstream(record, payload, request = fetch) {
   }
   const packages = [...new Map(record.targets.map(target => [target.name, target])).values()]
   for (const target of packages) {
+    // glob7 is retained only for its callback contract. It is not the latest
+    // release and receives no advisory acceptance. Verify its exact published
+    // metadata separately from the currently reviewed latest official release.
+    if (target.name === 'glob') {
+      const current = await get('https://registry.npmjs.org/glob/7.2.3')
+      assert.equal(current.name, 'glob', 'Compatibility target identity changed')
+      assert.equal(current.version, target.version, 'Compatibility target version changed')
+      assert.equal(current.dist?.integrity, target.registryIntegrity, 'Compatibility target registry integrity changed')
+      assert.equal(current.gitHead, 'c3cd57ae128faa0e9190492acc743bb779ac4054', 'Compatibility target source revision changed')
+      receipts.push({ type: 'registry-target', name: 'glob', version: current.version, integrity: current.dist.integrity, gitHead: current.gitHead })
+      const published = await get('https://registry.npmjs.org/glob')
+      assert.equal(published.name, 'glob', 'Compatibility publication identity changed')
+      const versions = Object.keys(published.versions).filter(version => /^[78]\./.test(version)).sort()
+      assert.deepEqual(versions, record.glob7CompatibilityPublishedVersions, 'Official callback-compatible glob branch publication changed; replacement review required')
+      receipts.push({ type: 'published-compatibility-branches', name: 'glob', versionsSha256: hash(Buffer.from(JSON.stringify(versions))) })
+      continue
+    }
     const current = await get('https://registry.npmjs.org/' + target.name + '/latest')
     assert.equal(current.name, target.name, 'Official package identity changed')
     assert.equal(current.version, target.version, 'Official published version changed; replacement review required')
     assert.equal(current.dist?.integrity, target.registryIntegrity, 'Official published package integrity changed')
     receipts.push({ type: 'registry', name: target.name, latest: current.version, integrity: current.dist.integrity })
+  }
+  for (const target of Object.values(record.compatibilityUpstream)) {
+    const current = await get('https://registry.npmjs.org/' + target.name + '/latest')
+    assert.equal(current.name, target.name, 'Official compatibility package identity changed')
+    assert.equal(current.version, target.version, 'Official compatibility published version changed; replacement review required')
+    assert.equal(current.dist?.integrity, target.registryIntegrity, 'Official compatibility registry integrity changed')
+    assert.equal(current.gitHead, target.gitHead, 'Official compatibility source revision changed')
+    receipts.push({ type: 'registry', name: target.name, latest: current.version, integrity: current.dist.integrity, gitHead: current.gitHead })
   }
   return { checkedAt: new Date().toISOString(), receipts }
 }

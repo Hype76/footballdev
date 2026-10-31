@@ -72,6 +72,7 @@ import {
   getCoachResourceErrorMessage,
   hasUsableCoachPhase31ECache,
   isCoachMatchAvailabilityRequestCreationApplied,
+  isCoachInviteParticipationRemoved,
   isSyntheticCoachTarget,
   sanitizeCoachChatOfflineValue,
   summarizeCoachInvites,
@@ -1291,6 +1292,7 @@ function InvitesDomain({ data: serverData, context, load: loadDomain, onAvailabi
   const selectedAvailabilityInvite = selectedInvites.length === 1 && ['match', 'training'].includes(selectedInvites[0]?.kind)
     ? selectedInvites[0]
     : null
+  const selectedRemovedInvite = selectedAvailabilityInvite && isCoachInviteParticipationRemoved(selectedAvailabilityInvite)
   const availablePlayers = getCoachPlayersWithoutAvailabilityRequest(data.players, data.match, matchId)
   const matchRequestPlayerCount = selectedMatchInvites.length
   const selectedCanBeResent = canResendSelectedCoachInvites(selectedInvites)
@@ -1551,7 +1553,7 @@ function InvitesDomain({ data: serverData, context, load: loadDomain, onAvailabi
           </View>
         </View>
       </Modal>
-      {selectedAvailabilityInvite ? <View style={styles.row}>
+      {selectedRemovedInvite ? <Text style={styles.body}>This player was removed from this match. A manager or admin can use Resend invite to review and send a fresh invitation before recording availability.</Text> : selectedAvailabilityInvite ? <View style={styles.row}>
         <Button disabled={Boolean(bulkAction) || (selectionDisabled && !selectedAvailabilityInvite.attendancePreparation) || selectedAvailabilityInvite.attendancePending || selectedAvailabilityInvite.status === 'available' || Number(user.roleRank || 0) < 20} label={bulkAction === 'available' ? 'Recording Available...' : 'Accept on behalf of player'} onPress={() => confirmAvailabilityOnBehalf('available')} styles={styles} />
         <Button destructive disabled={Boolean(bulkAction) || (selectionDisabled && !selectedAvailabilityInvite.attendancePreparation) || selectedAvailabilityInvite.attendancePending || selectedAvailabilityInvite.status === 'unavailable' || Number(user.roleRank || 0) < 20} label={bulkAction === 'unavailable' ? 'Recording Unavailable...' : 'Mark unavailable'} onPress={() => confirmAvailabilityOnBehalf('unavailable')} styles={styles} />
       </View> : <Text style={styles.body}>Select one Player to record availability on their behalf.</Text>}
