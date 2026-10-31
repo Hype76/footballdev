@@ -10,6 +10,7 @@ export const maintainedTestFiles = [
   'tests/security-backport-runtime.test.mjs', 'tests/security-maintained-source.test.mjs',
   'tests/security-tooling-updates.test.mjs',
   'tests/security-toml-upstream.test.mjs',
+  'tests/tooling-glob-minimatch-compatibility.test.mjs',
 ]
 export function runRequiredCommands(root, run = spawnSync) {
   for (const [command, args] of [
