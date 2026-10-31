@@ -605,12 +605,11 @@ export function summarizeCoachInvites(rows = []) {
     notSelected: 0,
     stale: 0,
     cancelled: 0,
-    removed: 0,
   }
   for (const row of Array.isArray(rows) ? rows : []) {
     const status = normalize(row?.status).toLowerCase()
     const deliveryStatus = normalize(row?.deliveryStatus).toLowerCase()
-    if (isCoachInviteParticipationRemoved(row)) summary.removed += 1
+    if (isCoachInviteParticipationRemoved(row)) summary.removed = (summary.removed || 0) + 1
     else if (status === 'available') summary.attending += 1
     else if (status === 'unavailable') summary.notAttending += 1
     else if (status === 'maybe') summary.maybe += 1
