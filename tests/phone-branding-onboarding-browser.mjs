@@ -109,12 +109,21 @@ try {
   assert.equal(await paid.page.getByRole('button', { name: "Claim this team's place" }).count(), 0)
   assertions += 2; await paid.page.close()
 
-  const paidTeam = await pageFor({ state: { ...base, claimAllowed: false, logoAllowed: true } })
-  await paidTeam.page.getByText('New promotional places are available to Matchday teams only.').waitFor()
+  const paidTeam = await pageFor({ state: { ...base, claimAllowed: false, paidTeam: true, logoAllowed: true, coloursAllowed: true } })
+  await paidTeam.page.getByText('Team branding is included in your plan.').waitFor()
+  assert.equal(await paidTeam.page.getByLabel('Team colour').count(), 1)
+  assert.equal(await paidTeam.page.getByText('New promotional places are available to Matchday teams only.').count(), 0)
   assert.equal(await paidTeam.page.getByRole('button', { name: "Claim this team's place" }).count(), 0)
   assert.equal(await paidTeam.page.locator('input[type=file]').count(), 1)
   assert.equal(paidTeam.calls.some(c => c.action === 'claim'), false)
   assertions += 3; await paidTeam.page.close()
+  for (const offerState of ['provisional', 'failed']) {
+    const upgraded = await pageFor({ state: { ...base, state: offerState, paidTeam: true, claimAllowed: false, logoAllowed: true, coloursAllowed: true } })
+    await upgraded.page.getByText('Team branding is included in your plan.').waitFor()
+    assert.equal(await upgraded.page.getByLabel('Team colour').count(), 1)
+    assert.equal(await upgraded.page.getByText(/eligible paid plan can restore display|Qualify by/).count(), 0)
+    await upgraded.page.close()
+  }
 
   const upgraded = await pageFor()
   await upgraded.page.getByRole('checkbox').check()
