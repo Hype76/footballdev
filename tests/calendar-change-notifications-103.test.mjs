@@ -93,7 +93,8 @@ test('Coach OTA Calendar asks the same question and supports reschedule, cancel,
 test('server captures recipient authority before the change and verifies it before delivery', async () => {
   const sender = await source('netlify/functions/calendar-change-notifications.js')
   assert.match(sender, /parent_link_ids: previousParentLinkIds/)
-  assert.match(sender, /confirmedParentLinkIds = unique\(\[\.\.\.claimed\.parent_link_ids, \.\.\.currentParentLinkIds\]\)/)
+  assert.match(sender, /claimed\.change_action === 'cancelled'[\s\S]*getCurrentCancellationRecipients/)
+  assert.match(sender, /unique\(\[\.\.\.claimed\.parent_link_ids, \.\.\.currentParentLinkIds\]\)/)
   assert.match(sender, /verifyChange\(preparation\)/)
   assert.match(sender, /if \(!verification\.changed\)/)
   assert.match(sender, /writeParentNotificationInbox/)

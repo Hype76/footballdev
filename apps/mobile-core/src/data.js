@@ -113,6 +113,8 @@ export function normalizeMatchDay(row) {
     requestScorer: row.request_scorer === true || row.requestScorer === true,
     scorerRequestMessage: normalizeText(row.scorer_request_message ?? row.scorerRequestMessage),
     squadDecisionState: normalizeText(row.squad_decision_state ?? row.squadDecisionState) || 'undecided',
+    cancellationReason: normalizeText(row.cancellation_reason ?? row.cancellationReason),
+    showCancelled: row.showCancelled ?? (row.cancellation_reason != null || row.cancellationReason != null),
     status: normalizeText(row.status) || 'scheduled',
     teamId: row.team_id ?? row.teamId ?? '',
     teamName: normalizeText(team?.name ?? row.team_name ?? row.teamName) || 'Our team',
@@ -253,12 +255,17 @@ function normalizePoll(row) {
 function normalizeCalendarEvent(row) {
   return {
     cancelledAt: row.cancelled_at ?? row.cancelledAt ?? '',
+    cancellationReason: normalizeText(row.cancellation_reason ?? row.cancellationReason),
+    showCancelled: row.show_cancelled === true,
     endsAt: row.ends_at ?? row.endsAt ?? '',
     eventType: normalizeText(row.event_type ?? row.eventType) || 'general',
     id: row.id ?? '',
     location: normalizeText(row.location),
     notes: normalizeText(row.notes),
     parentAudience: normalizeText(row.parent_audience ?? row.parentAudience),
+    recurrenceFrequency: normalizeText(row.recurrence_frequency ?? row.recurrenceFrequency),
+    recurrenceUntil: normalizeText(row.recurrence_until ?? row.recurrenceUntil),
+    deletedOccurrenceDates: row.deleted_occurrence_dates ?? row.deletedOccurrenceDates ?? [],
     startsAt: row.starts_at ?? row.startsAt ?? '',
     status: row.cancelled_at || row.cancelledAt ? 'cancelled' : 'scheduled',
     teamId: row.team_id ?? row.teamId ?? '',
@@ -401,16 +408,18 @@ export async function getParentMatchDays(user) {
     return []
   }
 
-  const [matchResult, shirtResult] = await Promise.all([
+  const [matchResult, shirtResult, cancelledResult] = await Promise.all([
     supabase.rpc('get_parent_portal_match_days', { parent_link_id_value: selectedLink.id }),
     supabase.rpc('get_parent_portal_match_shirt_choices', { parent_link_id_value: selectedLink.id }),
+    supabase.rpc('get_parent_cancelled_match_days', { parent_link_id_value: selectedLink.id }),
   ])
 
   if (matchResult.error) throw matchResult.error
   if (shirtResult.error) throw shirtResult.error
+  if (cancelledResult.error) throw cancelledResult.error
 
   const shirtsByMatchId = new Map((shirtResult.data || []).map((row) => [String(row.match_day_id ?? row.matchDayId), row.shirt_choice ?? row.shirtChoice]))
-  return (matchResult.data || []).map((row) => normalizeMatchDay({
+  return [...(matchResult.data || []), ...(cancelledResult.data || [])].map((row) => normalizeMatchDay({
     ...row,
     clubName: selectedLink.clubName,
     shirt_choice: shirtsByMatchId.get(String(row.id)),
@@ -424,15 +433,14 @@ export async function getParentCalendarEvents(user) {
     return []
   }
 
-  const { data, error } = await supabase.rpc('get_parent_portal_shared_calendar_events', {
-    parent_link_id_value: selectedLink.id,
-  })
-
-  if (error) {
-    throw error
-  }
-
-  return (data || []).map(normalizeCalendarEvent)
+  const args = { parent_link_id_value: selectedLink.id }
+  const [shared, cancelled] = await Promise.all([
+    supabase.rpc('get_parent_portal_shared_calendar_events', args),
+    supabase.rpc('get_parent_portal_cancelled_shared_calendar_events', args),
+  ])
+  if (shared.error) throw shared.error
+  if (cancelled.error) throw cancelled.error
+  return [...(shared.data || []), ...(cancelled.data || []).map(row => ({ ...row, show_cancelled: true }))].map(normalizeCalendarEvent)
 }
 
 export async function getParentMessages(user) {

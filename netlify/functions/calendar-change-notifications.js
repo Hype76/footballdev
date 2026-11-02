@@ -19,6 +19,8 @@ import { getParentCommunicationChannels, allowsParentAppNotifications, allowsPar
 import { writeParentNotificationInbox } from './lib/_parent-notification-inbox.js'
 import { sendPlayerResourceNotifications } from './lib/_player-resource-notifications.js'
 import { supabaseAdmin } from './lib/_supabase.js'
+import { getTrainingChangeParentLinkIds } from './lib/_training-change-recipients.js'
+import { getCurrentCancellationRecipients } from './lib/_cancelled-change-recipients.js'
 
 const SOURCE_TYPES = new Set(['calendar', 'match-day', 'session', 'assessment-reminder'])
 const CHANGE_ACTIONS = new Set(['rescheduled', 'cancelled', 'deleted'])
@@ -107,7 +109,7 @@ async function loadSource(sourceType, sourceId, clubId, { required = true } = {}
   if (sourceType === 'calendar') {
     const source = await maybeSingle(
       supabaseAdmin.from('calendar_events')
-        .select('id, club_id, team_id, event_type, title, starts_at, ends_at, location, notes, parent_visible, parent_audience, recurrence_frequency, recurrence_until, cancelled_at, updated_at')
+        .select('id, club_id, team_id, event_type, title, starts_at, ends_at, location, notes, parent_visible, parent_audience, recurrence_frequency, recurrence_until, cancelled_at, cancellation_reason, updated_at')
         .eq('id', sourceId).eq('club_id', clubId),
       required ? 'Calendar event could not be found.' : '',
     )
@@ -142,7 +144,7 @@ async function loadSource(sourceType, sourceId, clubId, { required = true } = {}
   if (sourceType === 'match-day') {
     const source = await maybeSingle(
       supabaseAdmin.from('match_days')
-        .select('id, club_id, team_id, notification_team_name, opponent, match_date, kickoff_time, kickoff_time_tbc, venue_name, notes, parent_visible, parent_audience, request_scorer, request_linesman, request_referee, status, deleted_at, updated_at')
+        .select('id, club_id, team_id, notification_team_name, opponent, match_date, kickoff_time, kickoff_time_tbc, venue_name, notes, parent_visible, parent_audience, request_scorer, request_linesman, request_referee, status, deleted_at, cancellation_reason, updated_at')
         .eq('id', sourceId).eq('club_id', clubId),
       required ? 'Match Day fixture could not be found.' : '',
     )
@@ -155,7 +157,7 @@ async function loadSource(sourceType, sourceId, clubId, { required = true } = {}
   if (sourceType === 'session') {
     const source = await maybeSingle(
       supabaseAdmin.from('assessment_sessions')
-        .select('id, club_id, team_id, team, opponent, session_type, session_date, start_time, end_time, location, notes, title, status, updated_at')
+        .select('id, club_id, team_id, team, opponent, session_type, session_date, start_time, end_time, location, notes, title, status, cancellation_reason, updated_at')
         .eq('id', sourceId).eq('club_id', clubId),
       required ? 'Session could not be found.' : '',
     )
@@ -223,7 +225,10 @@ async function getParentLinkIdsForScope({ clubId, source, sourceId, sourceType, 
       if (playerError) throw playerError
       return unique([...directIds, ...fallbackIds, ...await getParentLinkIdsForPlayers(clubId, (sessionPlayers || []).map((row) => row.player_id))])
     }
-    return unique([...directIds, ...fallbackIds])
+    const trainingIds = sourceType === 'calendar' && source.event_type === 'training' && source.parent_visible === true && audience === 'involved_players'
+      ? await getTrainingChangeParentLinkIds(supabaseAdmin, { clubId, teamId, eventId: sourceId })
+      : []
+    return unique([...directIds, ...fallbackIds, ...trainingIds])
   }
 
   const { data, error } = await supabaseAdmin.from('match_day_availability_requests')
@@ -345,7 +350,10 @@ async function getNotificationScope(profile, body) {
     source = { ...source, player_name: player?.player_name || '' }
   }
   await assertTeamAuthority(profile, teamId)
-  const previous = await getParentLinkIdsForScope({ clubId: profile.clubId, source, sourceId, sourceType, teamId })
+  let previous = await getParentLinkIdsForScope({ clubId: profile.clubId, source, sourceId, sourceType, teamId })
+  if (normalizeText(body.changeAction) === 'cancelled') {
+    previous = await getCurrentCancellationRecipients(supabaseAdmin, { clubId: profile.clubId, teamId, sourceId, sourceType, source, preparedIds: previous })
+  }
   const planned = sourceType === 'assessment-reminder'
     ? []
     : await getPlannedParentLinkIds(profile, body, teamId)
@@ -507,6 +515,8 @@ async function deliverPreparation(preparation, currentSource) {
   const changeAction = resolveCalendarChangeAction(preparation.change_action,
     getSourcePresentation(preparation.source_type, preparation.source_snapshot, club.name), presentation)
   const copy = getChangeCopy(changeAction, presentation)
+  const cancellationReason = changeAction === 'cancelled' ? normalizeText(currentSource?.cancellation_reason) : ''
+  if (cancellationReason) copy.body += ` Reason: ${cancellationReason}`
   const editReview = ['cancelled', 'deleted'].includes(changeAction)
     ? null
     : getConfirmedEditReview(preparation.source_type, preparation.source_snapshot, source)
@@ -569,7 +579,7 @@ async function deliverPreparation(preparation, currentSource) {
       action: changeAction,
       clubLogoUrl: club.logo_url,
       clubName: club.name,
-      changes: editReview?.changes.map((change) => change.detail) || [],
+      changes: cancellationReason ? [`Reason: ${cancellationReason}`] : editReview?.changes.map((change) => change.detail) || [],
       endsAt: presentation.endsAt,
       eventTitle: presentation.title,
       eventType: presentation.eventType,
@@ -670,7 +680,9 @@ async function commitNotification(profile, body) {
           teamId: currentTeamId,
         })
       : []
-    const confirmedParentLinkIds = unique([...claimed.parent_link_ids, ...currentParentLinkIds])
+    const confirmedParentLinkIds = claimed.change_action === 'cancelled'
+      ? await getCurrentCancellationRecipients(supabaseAdmin, { clubId: profile.clubId, teamId: currentTeamId, sourceId: claimed.source_id, sourceType: claimed.source_type, source: verification.current, preparedIds: claimed.parent_link_ids })
+      : unique([...claimed.parent_link_ids, ...currentParentLinkIds])
     const { error: scopeError } = await supabaseAdmin.from('calendar_change_notification_preparations')
       .update({ parent_link_ids: confirmedParentLinkIds, updated_at: new Date().toISOString() })
       .eq('id', claimed.id).eq('status', 'committing')

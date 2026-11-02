@@ -1,3 +1,4 @@
+import { expandCancelledParentSeries } from '../lib/parent-cancelled-series.js'
 import { VenueDirectionsLinks } from '../components/club-settings/VenueDirectionsLinks.jsx'
 import { FanIcon } from '../components/parent-portal/FanIcon.jsx'
 import { ClubKitDisplay } from '../components/club-settings/ClubKitDisplay.jsx'
@@ -2454,12 +2455,12 @@ function buildParentCalendarEvents({ childName = '', invitationEvents = [], matc
   )
   const sharedEventIds = new Set(sharedCalendarEvents.map((event) => String(event.id)))
 
-  const sharedEvents = sharedCalendarEvents
+  const sharedEvents = expandCancelledParentSeries(sharedCalendarEvents)
     .map((event) => {
       const invitationGroup = invitationGroupsByEventId.get(String(event.id))
 
       return {
-        id: `calendar:${event.id}`,
+        id: `calendar:${event.id}${event.occurrenceKey ? `:${event.occurrenceKey}` : ''}`,
         sourceId: event.id,
         sourceType: 'parent-calendar-event',
         date: toDateOnly(event.startsAt),
@@ -2487,13 +2488,15 @@ function buildParentCalendarEvents({ childName = '', invitationEvents = [], matc
     .filter((group) => group.sourceEventType !== 'match_day')
     .filter((group) => !sharedEventIds.has(String(group.eventId)))
     .map((group) => ({
-      id: `invitation-event:${group.eventId}:${group.childId}`,
+      id: `invitation-event:${group.eventId}:${group.childId}:${group.eventStatus === 'cancelled' ? String(group.eventStart).slice(0, 10) : ''}`,
       sourceId: group.eventId,
       sourceType: 'parent-invitation-event',
       date: toDateOnly(group.eventStart),
       time: toTimeOnly(group.eventStart),
       startsAt: group.eventStart,
       endsAt: group.eventEnd,
+      eventStatus: group.eventStatus,
+      cancellationReason: group.cancellationReason,
       type: group.eventType === 'general' ? 'club-event' : group.eventType,
       title: group.eventTitle || 'Invited event',
       description: [group.eventLocation, group.teamName].filter(Boolean).join(', '),
@@ -2508,6 +2511,7 @@ function buildParentCalendarEvents({ childName = '', invitationEvents = [], matc
     .filter((event) => event.date)
 
   const matchEvents = matches
+    .filter((match) => match.status !== 'cancelled' || match.showCancelled === true)
     .map((match) => {
       const invitationGroup = invitationGroupsByEventId.get(String(match.id))
       const kickoffTimeTbc = isFixtureKickoffTimeTbc(match.kickoffTimeTbc)
@@ -3469,6 +3473,8 @@ function ParentCalendarEventModal({ activeInvitationId, event, onClose, onRespon
   const attendanceInvitations = invitations.filter((invitation) => invitation.invitationType !== 'match_role')
   const roleInvitations = invitations.filter((invitation) => invitation.invitationType === 'match_role')
   const isMatch = event.sourceType === 'parent-match-day'
+  const isCancelled = event.eventStatus === 'cancelled' || Boolean(event.cancelledAt) || data.status === 'cancelled'
+  const cancellationReason = event.cancellationReason || data.cancellationReason || ''
   const kickoffTimeTbc = isMatch && isFixtureKickoffTimeTbc(data.kickoffTimeTbc)
   const startLabel = kickoffTimeTbc ? 'TBC' : event.time || data.kickoffTime || ''
   const meetLabel = !kickoffTimeTbc && data.arrivalTime ? `Meet time: ${data.arrivalTime}` : ''
@@ -3511,6 +3517,7 @@ function ParentCalendarEventModal({ activeInvitationId, event, onClose, onRespon
             <p className="text-sm font-black text-[#101828]">
               {[event.date, startLabel ? `Time: ${startLabel}` : '', meetLabel].filter(Boolean).join(', ')}
             </p>
+            {isCancelled ? <p className="text-sm font-black text-red-700">Cancelled{cancellationReason ? `: ${cancellationReason}` : ''}</p> : null}
             {event.location ? <p className="text-sm font-semibold text-[#4b5f55]">{event.location}</p> : null}
             {event.description ? <p className="text-sm font-semibold leading-6 text-[#4b5f55]">{event.description}</p> : null}
             {isMatch && data.opponent ? (
@@ -3523,7 +3530,7 @@ function ParentCalendarEventModal({ activeInvitationId, event, onClose, onRespon
             </p>
           </div>
 
-          <section className="mt-4 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4">
+          {!isCancelled ? <section className="mt-4 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4">
             <p className={eyebrowClass}>Player availability</p>
             <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">
               An Available response confirms availability only. The coaching team will confirm the final squad separately.
@@ -3542,9 +3549,9 @@ function ParentCalendarEventModal({ activeInvitationId, event, onClose, onRespon
                 </p>
               )}
             </div>
-          </section>
+          </section> : null}
 
-          <section className="mt-4 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4">
+          {!isCancelled ? <section className="mt-4 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4">
             <p className={eyebrowClass}>Match Day roles</p>
             <div className="mt-3 space-y-3">
               {roleInvitations.length > 0 ? roleInvitations.map((invitation) => (
@@ -3560,7 +3567,7 @@ function ParentCalendarEventModal({ activeInvitationId, event, onClose, onRespon
                 </p>
               )}
             </div>
-          </section>
+          </section> : null}
         </div>
       </div>
     </div>

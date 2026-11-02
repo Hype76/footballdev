@@ -432,16 +432,20 @@ export async function prepareCoachMatchCancellationNotification(match) {
   })
 }
 
-export async function cancelCoachCalendarEvent(user, event) {
+export async function cancelCoachCalendarEvent(user, event, reason = '') {
   assertCoachOperationalMutation(user)
   if (!event?.sourceId || event.sourceType !== 'calendar_event' || event.canEdit === false) {
     throw new Error('This event cannot be cancelled here.')
   }
   const now = new Date().toISOString()
-  const { error } = await supabase.from('calendar_events')
-    .update({ ...getCoachEntryIdentity(user, 'updated'), cancelled_at: now, updated_at: now, updated_by: user.id })
-    .eq('id', event.sourceId).eq('club_id', user.clubId)
-  if (error) throw error
+  const { data, error } = await supabase.from('calendar_events')
+    .update({ ...getCoachEntryIdentity(user, 'updated'), cancelled_at: now, cancellation_reason: normalize(reason), updated_at: now, updated_by: user.id })
+    .eq('id', event.sourceId).eq('club_id', user.clubId).is('cancelled_at', null)
+    .select('id').maybeSingle()
+  if (error || !data) {
+    if (error) throw error
+    throw new Error('This event changed or could not be cancelled. Refresh the calendar and try again.')
+  }
   await recordCoachOperationalAudit({ action: 'calendar_event_cancelled', entityId: event.sourceId, entityType: 'calendar_event', metadata: { title: event.title }, user })
 }
 

@@ -170,6 +170,7 @@ export {
 } from './domain/evaluations.js'
 
 export {
+  cancelCalendarEvent,
   createCalendarEvent,
   deleteCalendarEvent,
   deleteCalendarEventOccurrence,

@@ -16,6 +16,7 @@ export function normalizeAssessmentSessionRow(row) {
     notes: String(row.notes ?? '').trim(),
     title: String(row.title ?? '').trim(),
     status: String(row.status ?? 'open').trim() || 'open',
+    cancellationReason: String(row.cancellation_reason ?? row.cancellationReason ?? '').trim(),
     completedBy: row.completed_by ?? row.completedBy ?? '',
     completedByName: String(row.completed_by_name ?? row.completedByName ?? '').trim(),
     completedByEmail: String(row.completed_by_email ?? row.completedByEmail ?? '').trim(),

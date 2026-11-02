@@ -26,13 +26,13 @@ import {
   blockDemoMutation,
 } from './demo-guards.js'
 
-export async function getAssessmentSessions({ user } = {}) {
+export async function getAssessmentSessions({ user, includeCancelled = false } = {}) {
   if (!user?.clubId || user.role === 'super_admin') {
     return []
   }
 
   const activeTeamId = String(user.activeTeamId ?? '').trim()
-  const cacheKey = `assessment-sessions:${user.clubId}:${user.id}:${user.roleRank}:${activeTeamId || 'assigned'}`
+  const cacheKey = `assessment-sessions:${user.clubId}:${user.id}:${user.roleRank}:${activeTeamId || 'assigned'}:${includeCancelled ? 'all' : 'active'}`
 
   return getCachedResource(cacheKey, async () => {
     const teams = await getSessionTeamsForUser(user)
@@ -57,7 +57,7 @@ export async function getAssessmentSessions({ user } = {}) {
 
     const normalizedSessions = (data ?? [])
       .map(normalizeAssessmentSessionRow)
-      .filter((session) => session.status !== 'cancelled')
+      .filter((session) => includeCancelled || session.status !== 'cancelled')
 
     if (teamNames.length === 0) {
       return normalizedSessions
@@ -331,6 +331,50 @@ export async function completeAssessmentSession({ user, sessionId }) {
   return normalizeAssessmentSessionRow(data)
 }
 
+export async function cancelAssessmentSession({ user, sessionId, cancellationReason = '' }) {
+  await blockDemoMutation(user)
+
+  if (!user?.clubId || !sessionId) {
+    throw new Error('Session and club are required.')
+  }
+
+  if (Number(user.roleRank ?? 0) < 50) {
+    throw new Error('Only managers and team admins can cancel sessions.')
+  }
+
+  const reason = String(cancellationReason ?? '').trim()
+  const { data, error } = await supabase
+    .from('assessment_sessions')
+    .update({
+      status: 'cancelled',
+      cancellation_reason: reason,
+      updated_by: getEntryUserId(user),
+      ...getEntryIdentity(user, 'updated_by'),
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', sessionId)
+    .eq('club_id', user.clubId)
+    .select('*')
+    .single()
+
+  if (error) {
+    console.error(error)
+    throw error
+  }
+
+  invalidateMemoryCacheByPrefix(`assessment-sessions:${user.clubId}:`)
+  clearViewCaches()
+  await createAuditLog({
+    user,
+    action: 'assessment_session_cancelled',
+    entityType: 'assessment_session',
+    entityId: sessionId,
+    metadata: { title: data.title, team: data.team, sessionDate: data.session_date },
+  })
+
+  return normalizeAssessmentSessionRow(data)
+}
+
 export async function getAssessmentSessionPlayers({ user, sessionId } = {}) {
   if (!user?.clubId || !sessionId || user.role === 'super_admin') {
     return []
@@ -354,7 +398,7 @@ export async function getAssessmentSessionPlayers({ user, sessionId } = {}) {
   })
 }
 
-export async function deleteAssessmentSession({ user, sessionId }) {
+export async function deleteAssessmentSession({ user, sessionId, cancellationReason }) {
   await blockDemoMutation(user)
 
   if (!user?.clubId || !sessionId) {
@@ -419,6 +463,7 @@ export async function deleteAssessmentSession({ user, sessionId }) {
       .from('assessment_sessions')
       .update({
         status: 'cancelled',
+        ...(cancellationReason === undefined ? {} : { cancellation_reason: String(cancellationReason ?? '').trim() }),
         updated_by: getEntryUserId(user),
         ...getEntryIdentity(user, 'updated_by'),
         updated_at: new Date().toISOString(),

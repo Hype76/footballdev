@@ -1,3 +1,4 @@
+import { expandCancelledParentSeries } from '../../../src/lib/parent-cancelled-series.js'
 import {
   getParentProductDateTimeParts,
   getParentProductSortTimestamp,
@@ -32,6 +33,20 @@ function normalizeStatus(value) {
 
 function isTerminalStatus(value) {
   return ['cancelled', 'closed', 'completed', 'expired', 'full_time', 'postponed'].includes(normalizeStatus(value))
+}
+
+export function applyParentInvitationCancellations(rows = [], calendarEvents = [], sessions = []) {
+  const reasons = new Map()
+  for (const event of calendarEvents) {
+    if (event.cancelled_at && event.cancellation_reason != null) reasons.set(`calendar_event:${event.id}`, event.cancellation_reason)
+  }
+  for (const session of sessions) {
+    if (session.status === 'cancelled' && session.cancellation_reason != null) reasons.set(`assessment_session:${session.id}`, session.cancellation_reason)
+  }
+  return rows.map((row) => {
+    const key = `${row.source_event_type}:${row.event_id}`
+    return reasons.has(key) ? { ...row, invitation_state: 'cancelled', show_cancelled: true, is_pending: false, can_respond: false, can_change_response: false, cancellation_reason: reasons.get(key) } : row
+  })
 }
 
 export function isParentCalendarEventCancelled(event = {}) {
@@ -117,7 +132,7 @@ function normalizeSharedEvent(event, invitation) {
     calendarDate,
     calendarTime,
     childName: invitation?.childName || '',
-    id: `calendar:${event.id}`,
+    id: `calendar:${event.id}${event.occurrenceKey ? `:${event.occurrenceKey}` : ''}`,
     invitationId: invitation?.invitationId || '',
     responseState: invitationDisplayState,
     requiresResponse: Boolean(invitation?.isPending),
@@ -125,7 +140,7 @@ function normalizeSharedEvent(event, invitation) {
     sortTimestamp: timestampFor(event.startsAt),
     sourceId: event.id,
     sourceType: 'calendar_event',
-    status: ['cancelled', 'closed', 'expired'].includes(invitationDisplayState)
+    status: isParentCalendarEventCancelled(event) ? 'cancelled' : ['cancelled', 'closed', 'expired'].includes(invitationDisplayState)
       ? invitationDisplayState
       : event.status,
     teamName: invitation?.teamName || '',
@@ -141,6 +156,8 @@ function normalizeInvitationEvent(invitation) {
     calendarDate,
     calendarTime,
     childName: invitation.childName || '',
+    cancellationReason: normalizeText(invitation.cancellationReason),
+    showCancelled: invitation.showCancelled === true,
     endsAt: invitation.eventEnd || '',
     eventType: normalizeText(invitation.sourceType || invitation.invitationType) || 'invitation',
     id: `invitation:${sourceId}:${invitation.invitationId}`,
@@ -172,6 +189,8 @@ function normalizeMatchEvent(match, invitation) {
     calendarDate: date,
     calendarTime: time,
     childName: invitation?.childName || '',
+    cancellationReason: normalizeText(match.cancellationReason),
+    showCancelled: match.showCancelled === true,
     endsAt: invitation?.eventEnd || '',
     eventType: 'match_day',
     homeAway: match.homeAway ?? match.home_away,
@@ -185,7 +204,7 @@ function normalizeMatchEvent(match, invitation) {
     notes: match.notes || '',
     resources: Array.isArray(match.resources) ? match.resources : [],
     responseState: invitation ? invitationStatus(invitation) : match.availabilityStatus || '',
-    requiresResponse: Boolean(invitation?.isPending),
+    requiresResponse: match.status !== 'cancelled' && Boolean(invitation?.isPending),
     sortKey: calendarSortKey(date, time),
     sortTimestamp: timestampFor(invitation?.eventStart || `${matchSortValue(match)}:00`),
     sourceId: match.id,
@@ -207,7 +226,7 @@ export function buildParentCalendarEvents({ calendarEvents = [], invitations = [
   const sharedIds = new Set(calendarEvents.map((event) => normalizeText(event?.id)).filter(Boolean))
   const matchIds = new Set(matches.map((match) => normalizeText(match?.id)).filter(Boolean))
   const events = [
-    ...calendarEvents.map((event) => normalizeSharedEvent(event, getParentCalendarAttendanceInvitation(event, invitations))),
+    ...expandCancelledParentSeries(calendarEvents).map((event) => normalizeSharedEvent(event, getParentCalendarAttendanceInvitation(event, invitations))),
     ...matches.map((match) => normalizeMatchEvent(match, getParentCalendarAttendanceInvitation({ ...match, startsAt: match.matchDate }, invitations) || invitationByEvent.get(normalizeText(match?.id)))),
     ...invitations
       .filter((invitation) => {
@@ -218,7 +237,7 @@ export function buildParentCalendarEvents({ calendarEvents = [], invitations = [
   ]
 
   return events
-    .filter((event) => !isParentCalendarEventCancelled(event))
+    .filter((event) => !isParentCalendarEventCancelled(event) || event.showCancelled === true)
     .sort((left, right) => (
       left.sortKey.localeCompare(right.sortKey)
       || left.title.localeCompare(right.title)

@@ -415,6 +415,7 @@ export function CalendarEventDetail({ activeActionId, backLabel = 'Back to Calen
     <Button label={backLabel} onPress={onBack} outline styles={styles} />
     <View style={styles.eventDetailCard}>
       <Text accessibilityRole="header" style={styles.header}>{event.title}</Text>
+      {isParentCalendarEventCancelled(event) && event.cancellationReason ? <Text style={styles.body}>Reason: {event.cancellationReason}</Text> : null}
       <PinnedEventNotes notes={event.notes} pinned={event.notesPinned} styles={styles} colors={colors} />
       <Text style={styles.meta}>{[getParentEventDateTimeLabel(event), presentation.label, event.teamName, labelize(event.status)].filter(Boolean).join(' | ')}</Text>
       {event.endsAt ? <Text style={styles.body}>Ends {formatParentProductDateTime(event.endsAt)}</Text> : null}
