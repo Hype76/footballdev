@@ -1,0 +1,37 @@
+build:
+  name: Coach internal iOS with reviewed dependencies
+  steps:
+    - eas/checkout
+    - run:
+        name: Verify reviewed source and install secured dependencies
+        command: |
+          set -eu
+          node ../../scripts/security-eas-coach-test.mjs preflight
+          node ../scripts/mobile-eas-toolchain.mjs
+          cd ../..
+          npm ci --ignore-scripts --no-audit --no-fund
+          cd apps/coach-mobile
+          node ../../scripts/security-eas-coach-test.mjs provision
+    - eas/resolve_build_config
+    - eas/resolve_apple_team_id_from_credentials:
+        id: resolve_apple_team_id_from_credentials
+    - run: node ../../scripts/security-eas-coach-test.mjs verify
+    - run:
+        name: Generate iOS project without reinstalling dependencies
+        command: APPLE_TEAM_ID=${ steps.resolve_apple_team_id_from_credentials.apple_team_id } EXPO_IMAGE_UTILS_NO_SHARP=1 node ./node_modules/expo/bin/cli prebuild --no-install --platform ios
+    - run: node ../../scripts/security-eas-coach-test.mjs verify
+    - run:
+        name: Install pods
+        working_directory: ./ios
+        command: pod install
+    - run: node ../../scripts/security-eas-coach-test.mjs verify
+    - eas/configure_eas_update
+    - eas/configure_ios_credentials
+    - eas/configure_ios_version
+    - eas/generate_gymfile_from_template:
+        inputs:
+          credentials: ${ eas.job.secrets.buildCredentials }
+    - run: node ../../scripts/security-eas-coach-test.mjs capture
+    - eas/run_fastlane
+    - run: node ../../scripts/security-eas-coach-test.mjs finalize
+    - eas/find_and_upload_build_artifacts
