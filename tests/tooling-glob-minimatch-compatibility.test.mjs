@@ -21,6 +21,10 @@ function applyApprovedCoachNativeDelta(pkg, lock) {
   assert.equal(entry?.integrity, 'sha512-hZs0Ng+coNjx7YJ8MPwfJpoU1SRul6OZ9LZycFzozUeoR+denbyr944YrMP9NVn+Zf1tdC7p0K0zgah3ZySOYg==')
   assert.equal(lock.packages[direct], undefined)
   pkg.version = '1.1.2'
+  assert.equal(pkg.scripts.android, 'expo start --android')
+  assert.equal(pkg.scripts.ios, 'expo start --ios')
+  pkg.scripts.android = 'expo start -a'
+  pkg.scripts.ios = 'expo start -i'
   pkg.dependencies['expo-file-system'] = '19.0.24'
   lock.version = '1.1.2'
   lock.packages[''].version = '1.1.2'

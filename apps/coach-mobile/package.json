@@ -5,8 +5,8 @@
   "private": true,
   "scripts": {
     "start": "expo start",
-    "android": "expo start --android",
-    "ios": "expo start --ios",
+    "android": "expo start -a",
+    "ios": "expo start -i",
     "web": "expo start --web",
     "doctor": "npx expo-doctor",
     "build:android:internal": "node ../scripts/mobile-build-guard.mjs coach internal android",
