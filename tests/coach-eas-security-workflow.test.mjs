@@ -6,7 +6,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { gzipSync } from 'node:zlib'
 import test from 'node:test'
-import { assertEasIdentity, assertGeneratedPaths, assertNativeInputsUnchanged, assertPristineInputs, findArtifacts, nativeInventory, readTrustedReview } from '../scripts/security-eas-coach-test.mjs'
+import { assertAndroidSigningFiles, assertEasIdentity, assertGeneratedPaths, assertNativeInputsUnchanged, assertPristineInputs, findArtifacts, nativeInventory, readTrustedReview } from '../scripts/security-eas-coach-test.mjs'
 
 const require = createRequire(import.meta.url)
 const yaml = require('js-yaml')
@@ -32,6 +32,26 @@ test('trusted receipt is bounded, canonical and checked against the independent 
 test('only generated files for the current Coach platform are accepted', () => {
   assert.doesNotThrow(() => assertGeneratedPaths(['apps/coach-mobile/android/app/build.gradle'], 'android'))
   for (const path of ['apps/coach-mobile/ios/Podfile', 'apps/parent-mobile/android/app/build.gradle', 'apps/coach-mobile/android/../../secrets', 'apps/coach-mobile/android/..\\secrets']) assert.throws(() => assertGeneratedPaths([path], 'android'))
+})
+
+test('Android signing files are accepted only after injection and only as regular files', () => {
+  const key = 'keystore-aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+  assert.throws(() => assertGeneratedPaths(['credentials.json'], 'android'))
+  assert.throws(() => assertGeneratedPaths(['credentials.json'], 'ios', true))
+  assert.throws(() => assertGeneratedPaths(['keystore-not-a-uuid'], 'android', true))
+  assert.doesNotThrow(() => assertGeneratedPaths(['credentials.json', key], 'android', true))
+  const fixture = mkdtempSync(path.join(os.tmpdir(), 'coach-signing-'))
+  try {
+    assert.throws(() => assertAndroidSigningFiles(fixture))
+    writeFileSync(path.join(fixture, 'credentials.json'), 'synthetic')
+    mkdirSync(path.join(fixture, key))
+    assert.throws(() => assertAndroidSigningFiles(fixture))
+    rmSync(path.join(fixture, key), { recursive: true })
+    writeFileSync(path.join(fixture, key), 'synthetic')
+    assert.doesNotThrow(() => assertAndroidSigningFiles(fixture))
+    writeFileSync(path.join(fixture, 'keystore-bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'), 'synthetic')
+    assert.throws(() => assertAndroidSigningFiles(fixture))
+  } finally { rmSync(fixture, { recursive: true, force: true }) }
 })
 
 test('pre-existing native inputs are rejected and native files and artifacts have exact identities', () => {

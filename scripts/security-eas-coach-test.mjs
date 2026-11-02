@@ -11,11 +11,22 @@ import { hash, loadRecord, verifyCopies, verifyInstallation, verifyReviewBytes, 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const baselineRepository = 'https://github.com/Hype76/footballdev.git'
 
-export function assertGeneratedPaths(paths, platform) {
+export function assertGeneratedPaths(paths, platform, allowSigningFiles = false) {
   assert.ok(['android', 'ios'].includes(platform), 'Unexpected build platform')
   const prefix = `apps/coach-mobile/${platform}/`
   for (const name of paths) {
-    assert.ok(name.startsWith(prefix) && !name.includes('\\') && !name.split('/').includes('..'), `Unexpected generated path: ${name}`)
+    const signingFile = allowSigningFiles && platform === 'android' && (name === 'credentials.json' || /^keystore-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(name))
+    assert.ok(signingFile || (name.startsWith(prefix) && !name.includes('\\') && !name.split('/').includes('..')), `Unexpected generated path: ${name}`)
+  }
+}
+
+export function assertAndroidSigningFiles(repoRoot) {
+  const names = fs.readdirSync(repoRoot).filter(name => name === 'credentials.json' || /^keystore-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(name))
+  assert.equal(names.length, 2, 'Expected two Android signing files')
+  assert.ok(names.includes('credentials.json'), 'Android credentials file missing')
+  for (const name of names) {
+    const stat = fs.lstatSync(path.join(repoRoot, name))
+    assert.ok(stat.isFile() && !stat.isSymbolicLink(), 'Android signing file is not a regular file')
   }
 }
 
@@ -137,7 +148,9 @@ export function runEasSecurityGate(mode, env = process.env) {
     })
   }
   const untracked = git('ls-files', '--others', '--exclude-standard', '-z').split('\0').filter(Boolean)
-  assertGeneratedPaths(untracked, env.EAS_BUILD_PLATFORM)
+  const signingInjected = env.EAS_BUILD_PLATFORM === 'android' && ['capture', 'finalize'].includes(mode)
+  assertGeneratedPaths(untracked, env.EAS_BUILD_PLATFORM, signingInjected)
+  if (signingInjected) assertAndroidSigningFiles(root)
   const copies = verifyCopies(root, record)
   verifyInstallation(root, record, source, copies, review)
   const evidence = { buildId: env.EAS_BUILD_ID, head: source.head, platform: env.EAS_BUILD_PLATFORM, reviewSha256: env.FP_COACH_QA_REVIEW_SHA256, recordSha256: hash(fs.readFileSync(path.join(root, 'security/reviewed-source-remediations.json'))), copies: copies.map(({ relative, treeSha256 }) => ({ path: relative, treeSha256 })) }
