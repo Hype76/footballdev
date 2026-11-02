@@ -5,7 +5,14 @@ import os from 'node:os'
 import path from 'node:path'
 import { execFileSync } from 'node:child_process'
 import { gzipSync } from 'node:zlib'
-import { hash, verifyMaintainedAuthority, verifyReviewBytes, verifyUpstream } from '../scripts/security-verify-reviewed-backports.mjs'
+import { hash, upstreamRequestHeaders, verifyMaintainedAuthority, verifyReviewBytes, verifyUpstream } from '../scripts/security-verify-reviewed-backports.mjs'
+
+test('upstream authentication is scoped to the official GitHub API', () => {
+  assert.equal(upstreamRequestHeaders('https://api.github.com/advisories/test', 'synthetic').Authorization, 'Bearer synthetic')
+  assert.equal(upstreamRequestHeaders('https://registry.npmjs.org/glob', 'synthetic').Authorization, undefined)
+  assert.equal(upstreamRequestHeaders('https://api.github.com.example.invalid/advisories/test', 'synthetic').Authorization, undefined)
+  assert.equal(upstreamRequestHeaders('https://api.github.com/advisories/test').Authorization, undefined)
+})
 import { runRequiredCommands, maintainedTestFiles } from '../scripts/security-maintained-release-gate.mjs'
 import { decodeNetlifyReceipt, runNetlifyBuild } from '../scripts/security-netlify-build.mjs'
 

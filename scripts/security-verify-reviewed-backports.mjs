@@ -250,9 +250,15 @@ export function verifyInstallation(root, record, source, copies, review) {
   assert.equal(receipt.publicationApproved, false)
   return receipt
 }
+export function upstreamRequestHeaders(url, token) {
+  const github = url.startsWith('https://api.github.com/')
+  const headers = { 'User-Agent': 'Football-local-security-verification', Accept: github ? 'application/vnd.github+json' : 'application/json' }
+  if (github && token) headers.Authorization = `Bearer ${token}`
+  return headers
+}
 export async function verifyUpstream(record, payload, request = fetch) {
   const get = async url => {
-    const response = await request(url, { headers: { 'User-Agent': 'Football-local-security-verification', Accept: url.startsWith('https://api.github.com/') ? 'application/vnd.github+json' : 'application/json' }, signal: AbortSignal.timeout(20000) })
+    const response = await request(url, { headers: upstreamRequestHeaders(url, process.env.FOOTBALL_GITHUB_READ_TOKEN), redirect: 'error', signal: AbortSignal.timeout(20000) })
     assert.ok(response.ok, `Official upstream lookup failed: ${response.status}`)
     return response.json()
   }
