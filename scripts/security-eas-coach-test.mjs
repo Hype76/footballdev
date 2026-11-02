@@ -124,12 +124,20 @@ export function prepareIosCodegen(repoRoot, env, fixture) {
   assert.ok(fs.lstatSync(ios).isDirectory() && !fs.lstatSync(ios).isSymbolicLink(), 'Unsafe iOS project directory')
   assert.equal(fs.realpathSync(ios), path.join(fs.realpathSync(repoRoot), 'apps/coach-mobile/ios'), 'iOS project directory escapes workspace')
   assert.ok(fs.lstatSync(evidenceDir).isDirectory() && !fs.lstatSync(evidenceDir).isSymbolicLink(), 'Unsafe security evidence directory')
-  const scratch = fs.mkdtempSync(path.join(evidenceDir, 'ios-codegen-'))
+  assert.equal(fs.realpathSync(rn), path.join(fs.realpathSync(repoRoot), 'apps/coach-mobile/node_modules/react-native'), 'React Native path escapes workspace')
+  const buildDir = path.join(ios, 'build')
+  if (!fs.existsSync(buildDir)) fs.mkdirSync(buildDir)
+  assert.ok(fs.lstatSync(buildDir).isDirectory() && !fs.lstatSync(buildDir).isSymbolicLink(), 'Unsafe iOS build directory')
+  const expectedOutput = path.join(buildDir, 'Build/Intermediates.noindex/ArchiveIntermediates/FootballPlayerCoach/IntermediateBuildFilesPath/Pods.build/Release-iphoneos/ReactCodegen.build/DerivedSources/generated/source/codegen/out')
+  const scratch = fs.mkdtempSync(path.join(buildDir, 'coach-codegen-'))
   try {
     const results = []
     for (const name of ['first', 'second']) {
-      const output = path.join(scratch, name)
-      fs.mkdirSync(output)
+      const output = path.join(scratch, ...Array(11).fill('level'), name)
+      fs.mkdirSync(output, { recursive: true })
+      assert.equal(fs.realpathSync(output), output, 'Codegen replay path escapes workspace')
+      assert.equal(path.relative(output, app), path.relative(expectedOutput, app), 'Codegen replay app path differs from observed Xcode path')
+      assert.equal(path.relative(output, rn), path.relative(expectedOutput, rn), 'Codegen replay React Native path differs from observed Xcode path')
       if (fixture?.run) fixture.run(output)
       else execFileSync(process.execPath, [path.join(rn, 'scripts/generate-codegen-artifacts.js'), '--path', app, '--outputPath', output, '--targetPlatform', 'ios'], { cwd: rn, stdio: 'inherit', env })
       const items = nativeInventory(output, repoRoot).sort((a, b) => a.path < b.path ? -1 : a.path > b.path ? 1 : 0)
@@ -151,9 +159,13 @@ export function prepareIosCodegen(repoRoot, env, fixture) {
         const stat = fs.lstatSync(destination)
         assert.ok(stat.isFile() && !stat.isSymbolicLink(), 'Unsafe generated output file')
       } catch (error) { if (error.code !== 'ENOENT') throw error }
-      fs.copyFileSync(path.join(scratch, 'first', item.path), destination)
+      fs.copyFileSync(path.join(scratch, ...Array(11).fill('level'), 'first', item.path), destination)
     }
-  } finally { fs.rmSync(scratch, { recursive: true, force: true }) }
+  } finally {
+    assert.equal(path.dirname(scratch), buildDir, 'Unsafe codegen scratch directory')
+    assert.ok(path.basename(scratch).startsWith('coach-codegen-') && !fs.lstatSync(scratch).isSymbolicLink(), 'Unsafe codegen scratch directory')
+    fs.rmSync(scratch, { recursive: true, force: true })
+  }
 }
 
 export function assertNoIosArchiveOverrides(env) {

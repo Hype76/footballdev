@@ -96,6 +96,7 @@ test('iOS codegen replay requires matching outputs before copying', () => {
   try {
     mkdirSync(path.join(fixture, '.security-artifacts'), { recursive: true })
     mkdirSync(path.join(fixture, 'apps/coach-mobile/ios'), { recursive: true })
+    mkdirSync(path.join(fixture, 'apps/coach-mobile/node_modules/react-native'), { recursive: true })
     let count = 0
     const run = output => {
       const dir = path.join(output, 'build/generated/ios')
@@ -118,7 +119,7 @@ test('iOS codegen replay requires matching outputs before copying', () => {
     assert.throws(() => prepareIosCodegen(fixture, { EAS_BUILD_PLATFORM: 'ios' }, { run: output => writeFileSync(path.join(output, 'unexpected'), 'bad') }), /Unexpected codegen output/)
     rmSync(path.join(fixture, 'apps/coach-mobile/ios/build'), { recursive: true })
     writeFileSync(path.join(fixture, 'apps/coach-mobile/ios/build'), 'not a directory')
-    assert.throws(() => prepareIosCodegen(fixture, { EAS_BUILD_PLATFORM: 'ios' }, { run }), /Unsafe generated output directory/)
+    assert.throws(() => prepareIosCodegen(fixture, { EAS_BUILD_PLATFORM: 'ios' }, { run }), /Unsafe iOS build directory/)
   } finally { rmSync(fixture, { recursive: true, force: true }) }
 })
 
