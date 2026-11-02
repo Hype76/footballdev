@@ -84,10 +84,11 @@ try {
   assert.equal(login.calls.filter(c => c.action === 'claim').length, 1)
   assert.equal(login.calls.find(c => c.action === 'claim').termsVersion, 'v1')
   assert.match(await login.page.locator('main').innerText(), /04:01:2027/)
-  await login.page.getByLabel('Team colour', { exact: true }).fill('#123456')
+  assert.equal(await login.page.getByLabel('Team colour', { exact: true }).count(), 0)
+  await login.page.locator('input[type=file]').setInputFiles({ name: 'synthetic.png', mimeType: 'image/png', buffer: Buffer.from('synthetic-image-only') })
   await login.page.getByRole('button', { name: 'Save team branding' }).click()
   await login.page.getByText('Team branding saved.', { exact: false }).waitFor()
-  assert.equal(login.calls.find(c => c.action === 'save').accent, '#123456')
+  assert.equal(login.calls.find(c => c.action === 'save').accent, undefined)
   await login.page.screenshot({ path: path.join(output, 'phone-claimed.png'), fullPage: true })
   assertions += 8; await login.page.close()
 
