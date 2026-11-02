@@ -149,6 +149,7 @@ create table app_private.cancelled_training_event_recipients (
   request_player_id uuid not null references public.training_availability_request_players(id) on delete cascade,
   primary key (event_id, request_player_id)
 );
+alter table app_private.cancelled_training_event_recipients enable row level security;
 revoke all on table app_private.cancelled_training_event_recipients from public, anon, authenticated, service_role;
 
 create function app_private.capture_cancelled_training_event_recipients()
