@@ -77,7 +77,8 @@ const authorisedProductionSubmission = (
 )
 
 if ((profile === 'store-live' && !authorisedProductionSubmission)
-  || (qaUpload && promotionReference !== 'FP-MOBILE-CALENDAR-BACKGROUND-ACTIONS-271026')) {
+  || (qaUpload && promotionReference !== 'FP-MOBILE-CALENDAR-BACKGROUND-ACTIONS-271026'
+    && !(appRole === 'coach' && promotionReference === 'FP-COACH-OFFLINE-15MB-20261102'))) {
   console.error(platform === 'ios'
     ? 'Production iOS submission not authorised for this app and reference.'
     : 'Production Android submission not authorised for this app and reference.')

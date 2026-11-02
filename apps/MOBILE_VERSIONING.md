@@ -6,6 +6,7 @@ Use this before creating TestFlight, Google internal, or store review builds for
 
 - Coach app version: `1.1.0`
 - Parents app version: `1.1.0`
+- Coach version `1.1.2` is prepared as a separate native runtime for offline storage testing. The Parents app keeps its existing version. Public release and physical-device acceptance remain separate steps.
 - iOS initial build number: `1`
 - Android initial version code: `1`
 
