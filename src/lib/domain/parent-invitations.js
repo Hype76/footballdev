@@ -1,4 +1,4 @@
-import { expandCancelledParentSeries } from '../parent-cancelled-series.js'
+import { excludeDeletedParentOccurrences, expandCancelledParentSeries } from '../parent-cancelled-series.js'
 import { supabase } from '../supabase-client.js'
 
 const ATTENDANCE_RESPONSE_OPTIONS = [
@@ -667,7 +667,8 @@ export async function getParentPortalInvitationState({ parentLinkId } = {}) {
   for (const result of [invitations, invitedEvents, sharedEvents, sessions]) {
     if (result.error) throw result.error
   }
-  const rows = applyParentEventCancellations(invitations.data ?? [], [...(invitedEvents.data ?? []), ...(sharedEvents.data ?? [])], sessions.data ?? [])
+  const calendarEvents = [...(invitedEvents.data ?? []), ...(sharedEvents.data ?? [])]
+  const rows = applyParentEventCancellations(excludeDeletedParentOccurrences(invitations.data ?? [], calendarEvents), calendarEvents, sessions.data ?? [])
   const occurrences = expandCancelledParentSeries((invitedEvents.data ?? []).filter((event) => event.cancelled_at && event.cancellation_reason != null).map((event) => ({
     ...event, startsAt: event.starts_at, endsAt: event.ends_at, cancelledAt: event.cancelled_at,
     recurrenceFrequency: event.recurrence_frequency, recurrenceUntil: event.recurrence_until,

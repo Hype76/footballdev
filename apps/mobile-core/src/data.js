@@ -264,6 +264,7 @@ function normalizeCalendarEvent(row) {
     parentAudience: normalizeText(row.parent_audience ?? row.parentAudience),
     recurrenceFrequency: normalizeText(row.recurrence_frequency ?? row.recurrenceFrequency),
     recurrenceUntil: normalizeText(row.recurrence_until ?? row.recurrenceUntil),
+    deletedOccurrenceDates: row.deleted_occurrence_dates ?? row.deletedOccurrenceDates ?? [],
     startsAt: row.starts_at ?? row.startsAt ?? '',
     status: row.cancelled_at || row.cancelledAt ? 'cancelled' : 'scheduled',
     teamId: row.team_id ?? row.teamId ?? '',

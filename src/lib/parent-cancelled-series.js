@@ -24,6 +24,19 @@ function dateKey(date) {
   return date.toISOString().slice(0, 10)
 }
 
+export function excludeDeletedParentOccurrences(rows = [], events = []) {
+  const excluded = new Map(events.filter(event => event.cancelled_at && event.cancellation_reason != null)
+    .map(event => [String(event.id), new Set(event.deleted_occurrence_dates ?? event.deletedOccurrenceDates ?? [])]))
+  return rows.filter(row => {
+    if (row.source_event_type !== 'calendar_event' || !excluded.has(String(row.event_id))) return true
+    const start = new Date(row.event_start)
+    if (Number.isNaN(start.getTime())) return true
+    const parts = londonParts(start)
+    const key = `${parts.year}-${String(parts.month).padStart(2, '0')}-${String(parts.day).padStart(2, '0')}`
+    return !excluded.get(String(row.event_id)).has(key)
+  })
+}
+
 // Keep the original identity and London wall time for each remaining cancelled occurrence.
 export function expandCancelledParentSeries(events = [], now = new Date()) {
   const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London', year: 'numeric', month: '2-digit', day: '2-digit' }).format(now)
@@ -37,10 +50,11 @@ export function expandCancelledParentSeries(events = [], now = new Date()) {
     const anchor = new Date(Date.UTC(original.year, original.month - 1, original.day))
     let date = anchor
     const occurrences = []
+    const deletedDates = new Set(event.deletedOccurrenceDates ?? event.deleted_occurrence_dates ?? [])
     for (let i = 0; i < 10000 && dateKey(date) <= event.recurrenceUntil && occurrences.length < 80; i += 1) {
       const occurrenceKey = dateKey(date)
       const instant = localToInstant({ ...original, year: date.getUTCFullYear(), month: date.getUTCMonth() + 1, day: date.getUTCDate() })
-      if (instant && occurrenceKey >= today) occurrences.push({ ...event, occurrenceKey, startsAt: instant.toISOString(), endsAt: new Date(instant.getTime() + duration).toISOString() })
+      if (instant && occurrenceKey >= today && !deletedDates.has(occurrenceKey)) occurrences.push({ ...event, occurrenceKey, startsAt: instant.toISOString(), endsAt: new Date(instant.getTime() + duration).toISOString() })
       if (event.recurrenceFrequency === 'monthly') {
         // Match the established calendar recurrence, which advances from the prior occurrence.
         const next = new Date(date)
@@ -50,6 +64,6 @@ export function expandCancelledParentSeries(events = [], now = new Date()) {
         date = new Date(date.getTime() + (event.recurrenceFrequency === 'weekly' ? 7 : 14) * 86400000)
       }
     }
-    return occurrences.length ? occurrences : [event]
+    return occurrences
   })
 }

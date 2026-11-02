@@ -106,6 +106,8 @@ jobs:
         run: node --test tests/club-matchday-tv.test.mjs tests/club-matchday-tv-weather.test.mjs && node tests/club-matchday-tv-browser.mjs
       - name: Season awards, calendar poll results and compact team pagination
         run: node --test tests/season-potential-award-counts-pglite.test.mjs tests/season-stats-date-range.test.mjs tests/calendar-poll-results.test.mjs tests/hidden-feature-batch4-resurface.test.mjs && node tests/season-stats-date-range-browser.mjs && node tests/calendar-poll-modal-browser.mjs && node tests/team-pagination-browser.mjs
+      - name: Event cancellation reasons and recipient authority
+        run: node --test tests/calendar-event-cancellation.test.mjs tests/calendar-event-cancellation-pglite.test.mjs tests/session-cancellation-reason.test.mjs tests/session-cancellation-rls.test.mjs tests/matchday-cancellation-reason.test.mjs tests/matchday-cancellation-reason-pglite.test.mjs tests/parent-web-cancellation-reason.test.mjs tests/training-change-recipients.test.mjs tests/cancelled-change-recipients.test.mjs
       - name: Parent scorer save completion and handover
         run: node --test tests/parent-gameplay-notifications-followup.test.mjs tests/parent-scorer-handover-controller.test.mjs
       - name: Matchday automatic parent invitations and chat isolation

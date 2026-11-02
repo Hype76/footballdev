@@ -1,5 +1,5 @@
 import { applyParentInvitationCancellations } from '../../mobile-core/src/parentCalendarCore.js'
-import { expandCancelledParentSeries } from '../../../src/lib/parent-cancelled-series.js'
+import { excludeDeletedParentOccurrences, expandCancelledParentSeries } from '../../../src/lib/parent-cancelled-series.js'
 import { mergeMatchDayParticipantEventIdentities, normalizeMatchDayParticipantRoster } from '../../mobile-core/src/matchDayParticipantRoster.js'
 import { getCalendarSubscriptionToken } from '../../mobile-core/src/calendarSubscriptionCore.js'
 import { validateScorerMatchEvent } from '../../../src/lib/matchday-scorer-event.js'
@@ -465,7 +465,7 @@ export async function getParentInvitations(user) {
   if (calendarInviteResult.error) throw calendarInviteResult.error
   const shirtsById = new Map((shirtResult.data || []).map((row) => [String(row.match_day_id ?? row.matchDayId), row.shirt_choice ?? row.shirtChoice]))
   const transportByRequestId = new Map((transportResult.data || []).map((row) => [String(row.request_id ?? row.requestId), row]))
-  const invitationRows = [...(invitationResult.data || [])]
+  const invitationRows = excludeDeletedParentOccurrences(invitationResult.data || [], calendarInviteResult.data || [])
   const occurrences = expandCancelledParentSeries((calendarInviteResult.data || []).filter(event => event.cancelled_at && event.cancellation_reason != null).map(event => ({
     ...event, startsAt: event.starts_at, endsAt: event.ends_at, cancelledAt: event.cancelled_at,
     recurrenceFrequency: event.recurrence_frequency, recurrenceUntil: event.recurrence_until,

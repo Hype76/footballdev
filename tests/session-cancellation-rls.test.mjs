@@ -10,6 +10,7 @@ test('session cancellation RPC only returns invited sessions for the active auth
       create role anon; create role authenticated;
       create schema auth;
       create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
+      create function public.current_user_can_access_parent_link(uuid, uuid) returns boolean language sql stable as $$ select coalesce(current_setting('test.user_status', true), 'active') = 'active' and coalesce(current_setting('test.player_status', true), 'active') <> 'archived' and coalesce(current_setting('test.plan_enabled', true), 'true') = 'true' $$;
       create table parent_player_links (id uuid, auth_user_id uuid, status text, club_id uuid, player_id uuid);
       create table calendar_event_invites (parent_link_id uuid, player_id uuid, club_id uuid, team_id uuid, invite_status text, assessment_session_id uuid);
       create table assessment_sessions (id uuid, club_id uuid, team_id uuid, title text, session_type text, session_date date, arrival_time time, start_time time, end_time time, location text, notes text, team text, status text, updated_at timestamptz);
@@ -27,6 +28,11 @@ test('session cancellation RPC only returns invited sessions for the active auth
     await db.query("select set_config('request.jwt.claim.sub', $1, false)", [user])
     const query = () => db.query('select * from get_parent_portal_invited_sessions($1)', [link])
     assert.equal((await query()).rows[0].cancellation_reason, 'Pitch closed')
+    for (const [key, denied, allowed] of [['test.user_status', 'suspended', 'active'], ['test.player_status', 'archived', 'active'], ['test.plan_enabled', 'false', 'true']]) {
+      await db.query("select set_config($1, $2, false)", [key, denied])
+      assert.equal((await query()).rows.length, 0, denied)
+      await db.query("select set_config($1, $2, false)", [key, allowed])
+    }
     await db.query("select set_config('request.jwt.claim.sub', $1, false)", ['00000000-0000-0000-0000-000000000099'])
     assert.equal((await query()).rows.length, 0)
     await db.query("select set_config('request.jwt.claim.sub', $1, false)", [user])

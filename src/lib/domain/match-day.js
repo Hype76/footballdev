@@ -1374,7 +1374,7 @@ export function normalizeMatchLocations(rows = []) {
         id: row.id,
         name,
         address,
-        label: `${name} Â· ${address}`,
+        label: `${name} · ${address}`,
         notes: normalizeText(row.notes),
       })
     }

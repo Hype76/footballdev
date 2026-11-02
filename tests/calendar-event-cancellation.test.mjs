@@ -19,11 +19,9 @@ test('parent cancellation reads are explicitly linked and return only parent-fac
   assert.doesNotMatch(sql, /create policy/i)
 })
 
-test('training cancellation closes queued requests before updating the event and reports partial failures', async () => {
+test('coach cancellation updates the event without a separate request mutation', async () => {
   const data = await readFile(new URL('../apps/mobile-core/src/coachCalendarData.js', import.meta.url), 'utf8')
   const cancel = data.split('export async function cancelCoachCalendarEvent')[1].split('export async function deleteCoachCalendarEvent')[0]
-  assert.ok(cancel.indexOf("from('training_availability_requests')") < cancel.indexOf("from('calendar_events')"))
-  assert.match(cancel, /\.in\('status', \['pending', 'queued'\]\)/)
-  assert.match(cancel, /Availability requests were closed, but the event could not be cancelled/)
+  assert.doesNotMatch(cancel, /from\('training_availability_requests'\)/)
   assert.match(cancel, /cancellation_reason: normalize\(reason\)/)
 })

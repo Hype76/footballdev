@@ -14,7 +14,7 @@ async function setup(t) {
     create schema auth; create schema app_private;
     create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('test.uid', true), '')::uuid $$;
     create function app_private.actor_can_manage_team_resource(uuid, uuid, uuid, integer) returns boolean language sql as $$ select $1 = '${ids.actor}'::uuid $$;
-    create function public.current_user_can_access_parent_link(uuid, uuid) returns boolean language sql as $$ select true $$;
+    create function public.current_user_can_access_parent_link(uuid, uuid) returns boolean language sql stable as $$ select coalesce(current_setting('test.user_status', true), 'active') = 'active' and coalesce(current_setting('test.player_status', true), 'active') <> 'archived' and coalesce(current_setting('test.plan_enabled', true), 'true') = 'true' $$;
     create table public.clubs (id uuid primary key, status text);
     create table public.teams (id uuid primary key, club_id uuid, name text, status text);
     create table public.players (id uuid primary key, club_id uuid, team_id uuid, status text);
@@ -56,6 +56,11 @@ test('cancelled fixture visibility checks active identity, audience, team and in
   const db = await setup(t)
   await db.query('select public.cancel_match_day_fixture_for_team($1, $2, $3)', [ids.match, ids.team, null])
   assert.equal((await visible(db))[0].cancellation_reason, '')
+  for (const [key, denied, allowed] of [['test.user_status', 'suspended', 'active'], ['test.player_status', 'archived', 'active'], ['test.plan_enabled', 'false', 'true']]) {
+    await db.query("select set_config($1, $2, false)", [key, denied])
+    assert.equal((await visible(db)).length, 0, denied)
+    await db.query("select set_config($1, $2, false)", [key, allowed])
+  }
   await db.query(`select set_config('test.uid', $1, false)`, [ids.other])
   assert.equal((await visible(db)).length, 0)
   await db.query(`select set_config('test.uid', $1, false)`, [ids.actor])
@@ -70,6 +75,14 @@ test('cancelled fixture visibility checks active identity, audience, team and in
   assert.equal((await visible(db)).length, 0)
   await db.query("insert into public.match_day_availability_requests values ($1, $2, $3, 'active')", [ids.match, ids.club, ids.player])
   assert.equal((await visible(db)).length, 1)
+  await db.query("select set_config('test.plan_enabled', 'false', false)")
+  assert.equal((await visible(db)).length, 0)
+  await db.query("select set_config('test.plan_enabled', 'true', false)")
+  await db.query("update public.match_days set parent_audience = 'all_club_parents'")
+  await db.query("select set_config('test.user_status', 'suspended', false)")
+  assert.equal((await visible(db)).length, 0)
+  await db.query("select set_config('test.user_status', 'active', false)")
+  await db.query("update public.match_days set parent_audience = 'involved_players'")
   await db.query("update public.match_day_availability_requests set status = 'expired'")
   assert.equal((await visible(db)).length, 0)
 })

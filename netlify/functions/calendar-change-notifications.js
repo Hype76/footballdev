@@ -19,6 +19,8 @@ import { getParentCommunicationChannels, allowsParentAppNotifications, allowsPar
 import { writeParentNotificationInbox } from './lib/_parent-notification-inbox.js'
 import { sendPlayerResourceNotifications } from './lib/_player-resource-notifications.js'
 import { supabaseAdmin } from './lib/_supabase.js'
+import { getTrainingChangeParentLinkIds } from './lib/_training-change-recipients.js'
+import { getCurrentCancellationRecipients } from './lib/_cancelled-change-recipients.js'
 
 const SOURCE_TYPES = new Set(['calendar', 'match-day', 'session', 'assessment-reminder'])
 const CHANGE_ACTIONS = new Set(['rescheduled', 'cancelled', 'deleted'])
@@ -223,7 +225,10 @@ async function getParentLinkIdsForScope({ clubId, source, sourceId, sourceType, 
       if (playerError) throw playerError
       return unique([...directIds, ...fallbackIds, ...await getParentLinkIdsForPlayers(clubId, (sessionPlayers || []).map((row) => row.player_id))])
     }
-    return unique([...directIds, ...fallbackIds])
+    const trainingIds = sourceType === 'calendar' && source.event_type === 'training' && source.parent_visible === true && audience === 'involved_players'
+      ? await getTrainingChangeParentLinkIds(supabaseAdmin, { clubId, teamId, eventId: sourceId })
+      : []
+    return unique([...directIds, ...fallbackIds, ...trainingIds])
   }
 
   const { data, error } = await supabaseAdmin.from('match_day_availability_requests')
@@ -345,7 +350,10 @@ async function getNotificationScope(profile, body) {
     source = { ...source, player_name: player?.player_name || '' }
   }
   await assertTeamAuthority(profile, teamId)
-  const previous = await getParentLinkIdsForScope({ clubId: profile.clubId, source, sourceId, sourceType, teamId })
+  let previous = await getParentLinkIdsForScope({ clubId: profile.clubId, source, sourceId, sourceType, teamId })
+  if (normalizeText(body.changeAction) === 'cancelled') {
+    previous = await getCurrentCancellationRecipients(supabaseAdmin, { clubId: profile.clubId, teamId, sourceId, sourceType, source, preparedIds: previous })
+  }
   const planned = sourceType === 'assessment-reminder'
     ? []
     : await getPlannedParentLinkIds(profile, body, teamId)
@@ -672,7 +680,9 @@ async function commitNotification(profile, body) {
           teamId: currentTeamId,
         })
       : []
-    const confirmedParentLinkIds = unique([...claimed.parent_link_ids, ...currentParentLinkIds])
+    const confirmedParentLinkIds = claimed.change_action === 'cancelled'
+      ? await getCurrentCancellationRecipients(supabaseAdmin, { clubId: profile.clubId, teamId: currentTeamId, sourceId: claimed.source_id, sourceType: claimed.source_type, source: verification.current, preparedIds: claimed.parent_link_ids })
+      : unique([...claimed.parent_link_ids, ...currentParentLinkIds])
     const { error: scopeError } = await supabaseAdmin.from('calendar_change_notification_preparations')
       .update({ parent_link_ids: confirmedParentLinkIds, updated_at: new Date().toISOString() })
       .eq('id', claimed.id).eq('status', 'committing')

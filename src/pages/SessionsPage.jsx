@@ -3898,16 +3898,11 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
     calendarChangeDecisionRef.current = null
     setIsSaving(true)
     setErrorMessage('')
-    let requestsClosed = false
     try {
       const preparation = decision.notifyEveryone ? await prepareCalendarChangeNotification({
         changeAction: 'cancelled', requestToken: crypto.randomUUID(), sourceId: event.sourceId, sourceType: event.sourceType,
       }) : null
       if (event.sourceType === 'calendar') {
-        if (event.data?.eventType === 'training') {
-          await cancelPendingTrainingAvailabilityRequests({ user, calendarEventId: event.sourceId })
-          requestsClosed = true
-        }
         const saved = await cancelCalendarEvent({ user, eventId: event.sourceId, reason: decision.cancellationReason })
         const next = [saved, ...calendarItems.filter((item) => item.id !== saved.id)]
         setCalendarItems(next)
@@ -3922,7 +3917,7 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
       setCalendarModal(null)
       showToast({ title: 'Event cancelled', message: 'The cancellation has been saved.' })
     } catch (error) {
-      const message = requestsClosed ? 'Training availability requests were closed, but cancellation could not be confirmed. Refresh the calendar before trying again.' : error.message || 'The event could not be cancelled.'
+      const message = error.message || 'The event could not be cancelled.'
       setErrorMessage(message)
       showToast({ title: 'Cancellation needs attention', message, tone: 'error' })
     } finally {

@@ -23,7 +23,7 @@ test('legacy deletion and unrelated event types are not interpreted as deliberat
   const rows = [{ event_id: 'x', source_event_type: 'assessment_session', invitation_state: 'active' }]
   assert.deepEqual(applyParentEventCancellations(rows, [{ id: 'x', cancelled_at: 'now', cancellation_reason: 'Other event' }], [{ id: 'x', status: 'cancelled', cancellation_reason: null }]), rows)
 })
-import { expandCancelledParentSeries } from '../src/lib/parent-cancelled-series.js'
+import { excludeDeletedParentOccurrences, expandCancelledParentSeries } from '../src/lib/parent-cancelled-series.js'
 
 test('old cancelled recurring series retains its upcoming occurrences', () => {
   const [first, second] = expandCancelledParentSeries([{ id: 'series', startsAt: '2024-01-01T18:00:00Z', endsAt: '2024-01-01T19:00:00Z', cancelledAt: '2026-11-01T10:00:00Z', recurrenceFrequency: 'weekly', recurrenceUntil: '2026-11-16' }], new Date('2026-11-02T08:00:00Z'))
@@ -42,6 +42,15 @@ test('cancelled recurring series preserves London wall time through both clock c
 test('monthly cancellations follow the established prior-occurrence month advancement', () => {
   const items = expandCancelledParentSeries([{ id: 'monthly', startsAt: '2026-01-31T18:00:00Z', endsAt: '2026-01-31T19:00:00Z', cancelledAt: '2026-01-01T10:00:00Z', recurrenceFrequency: 'monthly', recurrenceUntil: '2026-04-04' }], new Date('2026-01-01T00:00:00Z'))
   assert.deepEqual(items.map(item => item.occurrenceKey), ['2026-01-31', '2026-03-03', '2026-04-03'])
+})
+
+test('cancelled series does not restore previously deleted occurrences', () => {
+  const event = { id: 'series', startsAt: '2026-11-02T18:00:00Z', endsAt: '2026-11-02T19:00:00Z', cancelledAt: '2026-11-01T10:00:00Z', recurrenceFrequency: 'weekly', recurrenceUntil: '2026-11-16', deleted_occurrence_dates: ['2026-11-09'] }
+  const now = new Date('2026-11-02T08:00:00Z')
+  assert.deepEqual(expandCancelledParentSeries([event], now).map(item => item.occurrenceKey), ['2026-11-02', '2026-11-16'])
+  assert.deepEqual(expandCancelledParentSeries([{ ...event, deletedOccurrenceDates: ['2026-11-02', '2026-11-09', '2026-11-16'] }], now), [])
+  const rows = [{ source_event_type: 'calendar_event', event_id: 'series', event_start: '2026-11-09T18:00:00Z' }, { source_event_type: 'calendar_event', event_id: 'series', event_start: '2026-11-16T18:00:00Z' }, { source_event_type: 'match_day', event_id: 'series', event_start: '2026-11-09T18:00:00Z' }]
+  assert.deepEqual(excludeDeletedParentOccurrences(rows, [{ id: 'series', cancelled_at: 'now', cancellation_reason: '', deleted_occurrence_dates: ['2026-11-09'] }]), rows.slice(1))
 })
 import { applyParentInvitationCancellations, buildParentCalendarEvents } from '../apps/mobile-core/src/parentCalendarCore.js'
 
