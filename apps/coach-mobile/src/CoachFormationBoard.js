@@ -459,8 +459,8 @@ export function CoachFormationBoard({ context, initialBoardId = '', match = null
     const restored = localDraft || (pendingSave ? { board: pendingSave.board || null, draft: pendingSave.draft, title: pendingSave.title, shared: pendingSave.shared } : null)
     if (restored?.draft || (cacheMatchesRoute && savedFormation?.draft)) {
       const cachedBoard = restored ? restored.board || null : savedFormation.board || null
-      const cachedDraft = cachedBoard?.isLocked ? createMobileFormationDraft({ board: cachedBoard }) : restored?.draft || savedFormation.draft
-      const cachedTitle = (cachedBoard?.isLocked ? cachedBoard.title : restored?.title) || cachedBoard?.title || 'Formation Board'
+      const cachedDraft = restored?.draft || savedFormation.draft
+      const cachedTitle = restored?.title || cachedBoard?.title || 'Formation Board'
       setDraftScope(routeScope)
       setBoard(cachedBoard)
       setBoards(Array.isArray(savedFormation.boards) ? savedFormation.boards : [])

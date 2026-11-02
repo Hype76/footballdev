@@ -400,6 +400,7 @@ try {
     console.log('PASS: Players, Formation, Save and empty positions repeatedly open and close without writes')
   } else if (process.env.FORMATION_ASYNC_SCENARIO === 'restored-denied') {
     await page.getByText('Board unavailable', { exact: true }).waitFor()
+    assert.equal(await readPlanTitle(), 'Draft lineup')
     assert.equal(await page.getByRole('button', { name: 'Formation', exact: true }).isEnabled(), false)
     assert.equal(await page.getByRole('button', { name: 'Try again', exact: true }).count(), 1)
     console.log('PASS: denied refresh keeps a restored board blocked and offers a retry')
