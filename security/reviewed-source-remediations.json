@@ -689,7 +689,7 @@
   "dependencyRemediation": {
     "baseline": "1f635088b522079c119048e3ca996c93f0e106f1",
     "originalReviewedHead": "da51884f9364faa786a58aa063b8e631b02c253d",
-    "scope": "apps/coach-mobile/package.json,apps/coach-mobile/package-lock.json,tests/parent-chat-layout-browser.mjs,apps/parent-mobile/package.json,apps/parent-mobile/package-lock.json,package.json,package-lock.json Required official JavaScript tooling security updates: minimatch 11.0.3 in all three scopes; glob 14.0.3 only for modern glob callers, retaining callback-compatible glob 7.2.3; mobile test-exclude 8.0.0; root config-array 0.23.5 with object-schema 3.0.5 for real ESM compatibility. Direct app dependencies, native packages, app configurations and runtimes remain unchanged. All eight existing maintained-source copy protections and advisory rules remain unchanged. Real installed consumer tests, complete release checks, mobile export comparison and independent exact-source acceptance remain required before publication.",
+    "scope": "apps/coach-mobile/package.json,apps/coach-mobile/package-lock.json,tests/parent-chat-layout-browser.mjs,apps/parent-mobile/package.json,apps/parent-mobile/package-lock.json,package.json,package-lock.json Required official JavaScript tooling security updates: minimatch 11.0.3 in all three scopes; glob 14.0.3 only for modern glob callers, retaining callback-compatible glob 7.2.3; mobile test-exclude 8.0.0; root config-array 0.23.5 with object-schema 3.0.5 for real ESM compatibility. Direct app dependencies, native packages, app configurations and runtimes remain unchanged. All eight existing maintained-source copy protections and advisory rules remain unchanged. Real installed consumer tests, complete release checks, mobile export comparison and independent exact-source acceptance remain required before publication. Subsequent Coach-only internal offline-storage testing adds direct Expo file system 19.0.24 and runtime 1.1.2; all prior statements about unchanged native inputs apply to their original tooling prerequisite, not this named native change. Independent review and all existing security and release controls remain required.",
     "reason": "Parent-authorised compatible official Coach tooling updates and observed Chat test render-commit timing repair.",
     "additionalAdvisoryAcceptanceAllowed": false,
     "nativeDirectDependenciesAndRuntimeChanged": true,
@@ -841,8 +841,8 @@
     ],
     "lockImpactSha256": "d6f3d9e1a0f877643ed90ac381c7838a170159c327ff5903c7dafb895b8516a6",
     "changedSourceHashes": {
-      "apps/coach-mobile/package.json": "b9ff7a71c5a59edc91c7a71dc2928b91cc0bab233f50cdcc2b277edcb59f062a",
-      "apps/coach-mobile/package-lock.json": "b921569166911552de6e1396e6b2ded9e52dc786c75c80bc9353ddff3c57cad8",
+      "apps/coach-mobile/package.json": "6120353b5c2fe2e457f3edbc1e3f365ad5685cae0df467d633d98598ac6a0978",
+      "apps/coach-mobile/package-lock.json": "e8ab4f183e3f01961892593cfd7eee4d88cecfaa4a756c5c8af2b437e66d60ea",
       "tests/parent-chat-layout-browser.mjs": "baf6f282e3aa374c345219e7cdb6928532cd2a1b66d3616e367f183b98aa8dc8",
       "apps/parent-mobile/package.json": "d2af5c9b21a59bd9a096a9e2fed23a0e9f03ea6db2a77fe42aad52e33b7ac56c",
       "apps/parent-mobile/package-lock.json": "2f6ff6be7b60d237d3d419375051a761e8d56adbaad244ec8fd0a0c7eb84bbb0",
@@ -1329,9 +1329,20 @@
       "newAdvisoryAcceptance": false,
       "nativeDirectDependenciesChanged": false,
       "publicationRequiresFullChecks": true
+    },
+    "coachOfflineNativeTesting": {
+      "reference": "FP-COACH-OFFLINE-15MB-20261102",
+      "scope": "Coach-only internal store testing, runtime 1.1.2; no public submission authorised.",
+      "package": {
+        "name": "expo-file-system",
+        "version": "19.0.24",
+        "resolved": "https://registry.npmjs.org/expo-file-system/-/expo-file-system-19.0.24.tgz",
+        "integrity": "sha512-hZs0Ng+coNjx7YJ8MPwfJpoU1SRul6OZ9LZycFzozUeoR+denbyr944YrMP9NVn+Zf1tdC7p0K0zgah3ZySOYg=="
+      },
+      "additionalAdvisoryAcceptanceAllowed": false
     }
   },
-  "dependencyRemediationSha256": "0465a266f17e006da4b28edec9e0e9e7c0bca8d6917051654697e9ddb4cc7d37",
+  "dependencyRemediationSha256": "56d7041441b571f43f9814043ed8d9bfa3e3f4b49b665ba93755eed8b9c682ed",
   "releasePreparation": {
     "previousCandidate": "ef466f2584f5dcf429150aea9ed943473ed094ac",
     "originalApplicationBaseline": "041ae89454ed0b2f032f36089335a34d357ad1a4",
