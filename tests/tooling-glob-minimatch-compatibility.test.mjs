@@ -12,17 +12,36 @@ const normalize = files => files.map(file => file.replaceAll('\\', '/')).sort()
 const baseline = 'a891ce5fea782b6f17052a1cee4c65c271717447'
 const toolingPackages = new Set(['glob', 'minimatch', 'path-scurry', 'test-exclude', '@eslint/config-array', '@eslint/object-schema', '@isaacs/nonrecursive-glob-match', '@isaacs/cliui', 'balanced-match', 'brace-expansion', 'concat-map', 'foreground-child', 'jackspeak', 'package-json-from-dist'])
 
-test('official tooling updates preserve direct app dependencies and every unrelated package artifact', () => {
+function applyApprovedCoachNativeDelta(pkg, lock) {
+  const nested = 'node_modules/expo/node_modules/expo-file-system'
+  const direct = 'node_modules/expo-file-system'
+  const entry = lock.packages[nested]
+  assert.equal(entry?.version, '19.0.24')
+  assert.equal(entry?.resolved, 'https://registry.npmjs.org/expo-file-system/-/expo-file-system-19.0.24.tgz')
+  assert.equal(entry?.integrity, 'sha512-hZs0Ng+coNjx7YJ8MPwfJpoU1SRul6OZ9LZycFzozUeoR+denbyr944YrMP9NVn+Zf1tdC7p0K0zgah3ZySOYg==')
+  assert.equal(lock.packages[direct], undefined)
+  pkg.version = '1.1.2'
+  pkg.dependencies['expo-file-system'] = '19.0.24'
+  lock.version = '1.1.2'
+  lock.packages[''].version = '1.1.2'
+  lock.packages[''].dependencies['expo-file-system'] = '19.0.24'
+  lock.packages[direct] = entry
+  delete lock.packages[nested]
+}
+
+test('official tooling updates preserve unrelated dependencies and the exact approved Coach native change', () => {
   for (const scope of ['.', 'apps/coach-mobile', 'apps/parent-mobile']) {
     const prefix = scope === '.' ? '' : `${scope}/`
     const previous = file => JSON.parse(execFileSync('git', ['show', `${baseline}:${prefix}${file}`], { encoding: 'utf8', maxBuffer: 8 * 1024 * 1024 }))
     const before = previous('package.json')
+    const previousLock = previous('package-lock.json')
+    if (scope === 'apps/coach-mobile') applyApprovedCoachNativeDelta(before, previousLock)
     const current = JSON.parse(fs.readFileSync(`${prefix}package.json`))
     const { overrides: oldOverrides, ...oldPackage } = before
     const { overrides, ...newPackage } = current
     assert.deepEqual(newPackage, oldPackage, `${scope} direct dependencies, scripts, engines and versions remain unchanged`)
     assert.deepEqual(overrides, { ...oldOverrides, minimatch: '11.0.4', 'glob@>=9.0.0 <=14.0.1': '14.0.3', ...(scope === '.' ? { '@eslint/config-array': '0.23.5' } : { 'test-exclude': '8.0.0' }) })
-    const oldLock = previous('package-lock.json').packages
+    const oldLock = previousLock.packages
     const newLock = JSON.parse(fs.readFileSync(`${prefix}package-lock.json`)).packages
     for (const file of new Set([...Object.keys(oldLock), ...Object.keys(newLock)])) {
       if (!file) continue
@@ -45,9 +64,10 @@ test('minimatch 11.0.4 changes only the official package identity and supported 
     const prefix = scope === '.' ? '' : `${scope}/`
     const oldPackage = JSON.parse(execFileSync('git', ['show', `${candidate}:${prefix}package.json`], { encoding: 'utf8' }))
     const newPackage = JSON.parse(fs.readFileSync(`${prefix}package.json`))
+    const oldLock = JSON.parse(execFileSync('git', ['show', `${candidate}:${prefix}package-lock.json`], { encoding: 'utf8', maxBuffer: 8 * 1024 * 1024 }))
+    if (scope === 'apps/coach-mobile') applyApprovedCoachNativeDelta(oldPackage, oldLock)
     oldPackage.overrides.minimatch = '11.0.4'
     assert.deepEqual(newPackage, oldPackage)
-    const oldLock = JSON.parse(execFileSync('git', ['show', `${candidate}:${prefix}package-lock.json`], { encoding: 'utf8', maxBuffer: 8 * 1024 * 1024 }))
     const newLock = JSON.parse(fs.readFileSync(`${prefix}package-lock.json`))
     const oldEntry = oldLock.packages['node_modules/minimatch']
     Object.assign(oldEntry, { version: '11.0.4', resolved: 'https://registry.npmjs.org/minimatch/-/minimatch-11.0.4.tgz', integrity: 'sha512-/UJ1dEoVQTjPNDh6SGlUo+ueLMmoHTas4q+8yaAR/5t6nLAIiBDJtoYUh20IYleix7ehiQkgczb84PE3uzHkxg==' })
