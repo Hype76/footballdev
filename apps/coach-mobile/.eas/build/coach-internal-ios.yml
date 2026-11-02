@@ -32,6 +32,7 @@ build:
         inputs:
           credentials: ${ eas.job.secrets.buildCredentials }
     - run: node ../../scripts/security-eas-coach-test.mjs prepare-ios
+    - run: node ../../scripts/security-eas-coach-test.mjs prepare-codegen
     - run: node ../../scripts/security-eas-coach-test.mjs capture
     - eas/run_fastlane
     - run: node ../../scripts/security-eas-coach-test.mjs finalize

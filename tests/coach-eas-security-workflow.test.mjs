@@ -6,7 +6,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { gzipSync } from 'node:zlib'
 import test from 'node:test'
-import { assertAndroidSigningFiles, assertEasIdentity, assertFrameworkInventory, assertGeneratedPaths, assertNativeInputsUnchanged, assertNoIosArchiveOverrides, assertPristineInputs, assertReviewedFile, codegenDiagnostic, findArtifacts, nativeInventory, prepareIosReleaseFrameworks, readTrustedReview } from '../scripts/security-eas-coach-test.mjs'
+import { assertAndroidSigningFiles, assertEasIdentity, assertFrameworkInventory, assertGeneratedPaths, assertNativeInputsUnchanged, assertNoIosArchiveOverrides, assertPristineInputs, assertReviewedFile, codegenDiagnostic, findArtifacts, nativeInventory, prepareIosCodegen, prepareIosReleaseFrameworks, readTrustedReview } from '../scripts/security-eas-coach-test.mjs'
 
 const require = createRequire(import.meta.url)
 const yaml = require('js-yaml')
@@ -91,6 +91,37 @@ test('codegen diagnostic exposes only identifiers and a content hash', () => {
   } finally { rmSync(fixture, { recursive: true, force: true }) }
 })
 
+test('iOS codegen replay requires matching outputs before copying', () => {
+  const fixture = mkdtempSync(path.join(os.tmpdir(), 'coach-codegen-replay-'))
+  try {
+    mkdirSync(path.join(fixture, '.security-artifacts'), { recursive: true })
+    mkdirSync(path.join(fixture, 'apps/coach-mobile/ios'), { recursive: true })
+    let count = 0
+    const run = output => {
+      const dir = path.join(output, 'build/generated/ios')
+      mkdirSync(dir, { recursive: true })
+      writeFileSync(path.join(dir, 'provider.mm'), 'reviewed')
+      count++
+    }
+    assert.doesNotThrow(() => prepareIosCodegen(fixture, { EAS_BUILD_PLATFORM: 'ios' }, { run }))
+    assert.equal(count, 2)
+    assert.equal(readFileSync(path.join(fixture, 'apps/coach-mobile/ios/build/generated/ios/provider.mm'), 'utf8'), 'reviewed')
+    count = 0
+    const inconsistent = output => {
+      const dir = path.join(output, 'build/generated/ios')
+      mkdirSync(dir, { recursive: true })
+      writeFileSync(path.join(dir, 'provider.mm'), String(count++))
+    }
+    assert.throws(() => prepareIosCodegen(fixture, { EAS_BUILD_PLATFORM: 'ios' }, { run: inconsistent }), /differs/)
+    assert.equal(readFileSync(path.join(fixture, 'apps/coach-mobile/ios/build/generated/ios/provider.mm'), 'utf8'), 'reviewed')
+    assert.throws(() => prepareIosCodegen(fixture, { EAS_BUILD_PLATFORM: 'ios' }, { run: () => {} }), /Unexpected codegen output/)
+    assert.throws(() => prepareIosCodegen(fixture, { EAS_BUILD_PLATFORM: 'ios' }, { run: output => writeFileSync(path.join(output, 'unexpected'), 'bad') }), /Unexpected codegen output/)
+    rmSync(path.join(fixture, 'apps/coach-mobile/ios/build'), { recursive: true })
+    writeFileSync(path.join(fixture, 'apps/coach-mobile/ios/build'), 'not a directory')
+    assert.throws(() => prepareIosCodegen(fixture, { EAS_BUILD_PLATFORM: 'ios' }, { run }), /Unsafe generated output directory/)
+  } finally { rmSync(fixture, { recursive: true, force: true }) }
+})
+
 test('iOS preparation rejects overrides, missing markers and incomplete extraction', () => {
   for (const name of ['ENTERPRISE_REPOSITORY', 'RCT_TESTONLY_RNCORE_TARBALL_PATH', 'RCT_TESTONLY_RNCORE_VERSION', 'RCT_USE_LOCAL_RN_DEP', 'RCT_DEPS_VERSION', 'HERMES_ENGINE_TARBALL_PATH', 'REACT_NATIVE_OVERRIDE_HERMES_DIR', 'HERMES_COMMIT', 'HERMES_OVERRIDE_HERMESC_PATH', 'RCT_BUILD_HERMES_FROM_SOURCE']) assert.throws(() => assertNoIosArchiveOverrides({ [name]: 'unexpected' }))
   const fixture = mkdtempSync(path.join(os.tmpdir(), 'coach-prepare-'))
@@ -164,7 +195,8 @@ for (const platform of ['android', 'ios']) test(`${platform} custom build verifi
   assert.ok(commands.slice(prebuild + 1, nativeBuild).some(value => value.includes('security-eas-coach-test.mjs capture')))
   if (platform === 'ios') {
     const preparation = commands.indexOf('node ../../scripts/security-eas-coach-test.mjs prepare-ios')
+    const codegen = commands.indexOf('node ../../scripts/security-eas-coach-test.mjs prepare-codegen')
     const capture = commands.indexOf('node ../../scripts/security-eas-coach-test.mjs capture')
-    assert.ok(preparation >= 0 && capture > preparation && nativeBuild > capture)
+    assert.ok(preparation >= 0 && codegen > preparation && capture > codegen && nativeBuild > capture)
   }
 })

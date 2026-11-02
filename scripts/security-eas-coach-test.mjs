@@ -115,6 +115,47 @@ export function codegenDiagnostic(file) {
   return { sha256: hash(Buffer.from(source)), modules: matches.map(match => match[1]) }
 }
 
+export function prepareIosCodegen(repoRoot, env, fixture) {
+  assert.equal(env.EAS_BUILD_PLATFORM, 'ios')
+  const app = path.join(repoRoot, 'apps/coach-mobile')
+  const ios = path.join(app, 'ios')
+  const rn = path.join(app, 'node_modules/react-native')
+  const evidenceDir = path.join(repoRoot, '.security-artifacts')
+  assert.ok(fs.lstatSync(ios).isDirectory() && !fs.lstatSync(ios).isSymbolicLink(), 'Unsafe iOS project directory')
+  assert.equal(fs.realpathSync(ios), path.join(fs.realpathSync(repoRoot), 'apps/coach-mobile/ios'), 'iOS project directory escapes workspace')
+  assert.ok(fs.lstatSync(evidenceDir).isDirectory() && !fs.lstatSync(evidenceDir).isSymbolicLink(), 'Unsafe security evidence directory')
+  const scratch = fs.mkdtempSync(path.join(evidenceDir, 'ios-codegen-'))
+  try {
+    const results = []
+    for (const name of ['first', 'second']) {
+      const output = path.join(scratch, name)
+      fs.mkdirSync(output)
+      if (fixture?.run) fixture.run(output)
+      else execFileSync(process.execPath, [path.join(rn, 'scripts/generate-codegen-artifacts.js'), '--path', app, '--outputPath', output, '--targetPlatform', 'ios'], { cwd: rn, stdio: 'inherit', env })
+      const items = nativeInventory(output, repoRoot).sort((a, b) => a.path < b.path ? -1 : a.path > b.path ? 1 : 0)
+      assert.ok(items.length && items.every(item => item.type === 'file' && item.path.startsWith('build/generated/ios/')), 'Unexpected codegen output')
+      results.push(items)
+    }
+    assert.deepEqual(results[0], results[1], 'Codegen output differs between identical runs')
+    for (const item of results[0]) {
+      const components = item.path.split('/')
+      let parent = ios
+      for (const part of components.slice(0, -1)) {
+        parent = path.join(parent, part)
+        if (!fs.existsSync(parent)) fs.mkdirSync(parent)
+        const stat = fs.lstatSync(parent)
+        assert.ok(stat.isDirectory() && !stat.isSymbolicLink(), 'Unsafe generated output directory')
+      }
+      const destination = path.join(ios, item.path)
+      try {
+        const stat = fs.lstatSync(destination)
+        assert.ok(stat.isFile() && !stat.isSymbolicLink(), 'Unsafe generated output file')
+      } catch (error) { if (error.code !== 'ENOENT') throw error }
+      fs.copyFileSync(path.join(scratch, 'first', item.path), destination)
+    }
+  } finally { fs.rmSync(scratch, { recursive: true, force: true }) }
+}
+
 export function assertNoIosArchiveOverrides(env) {
   for (const name of ['ENTERPRISE_REPOSITORY', 'RCT_TESTONLY_RNCORE_TARBALL_PATH', 'RCT_TESTONLY_RNCORE_VERSION', 'RCT_USE_LOCAL_RN_DEP', 'RCT_DEPS_VERSION', 'HERMES_ENGINE_TARBALL_PATH', 'REACT_NATIVE_OVERRIDE_HERMES_DIR', 'HERMES_COMMIT', 'HERMES_OVERRIDE_HERMESC_PATH', 'RCT_BUILD_HERMES_FROM_SOURCE']) assert.ok(!Object.hasOwn(env, name), 'Unreviewed React Native archive override')
 }
@@ -197,7 +238,7 @@ export function runEasSecurityGate(mode, env = process.env) {
     assert.equal(git('ls-files', '--others', '--ignored', '--exclude-standard', '-z'), '', 'Ignored files present in the source archive')
     return { head: source.head }
   }
-  assert.ok(['provision', 'verify', 'prepare-ios', 'capture', 'finalize'].includes(mode), 'Unknown EAS security gate mode')
+  assert.ok(['provision', 'verify', 'prepare-ios', 'prepare-codegen', 'capture', 'finalize'].includes(mode), 'Unknown EAS security gate mode')
   const source = { head: env.EAS_BUILD_GIT_COMMIT_HASH }
   const review = verifyReviewBytes(root, record, source, bytes, env.FP_COACH_QA_REVIEW_SHA256)
   if (mode === 'provision') {
@@ -218,6 +259,7 @@ export function runEasSecurityGate(mode, env = process.env) {
   const nativeManifest = path.join(evidenceDir, 'eas-coach-native-inputs-private.json')
   const codegenEvidence = path.join(evidenceDir, 'eas-coach-codegen-diagnostic.json')
   if (mode === 'prepare-ios') prepareIosReleaseFrameworks(root, env)
+  if (mode === 'prepare-codegen') prepareIosCodegen(root, env)
   if (mode === 'capture') {
     if (env.EAS_BUILD_PLATFORM === 'ios') fs.writeFileSync(codegenEvidence, JSON.stringify(codegenDiagnostic(path.join(root, 'apps/coach-mobile/ios/build/generated/ios/RCTUnstableModulesRequiringMainQueueSetupProvider.mm'))))
     const app = JSON.parse(fs.readFileSync(path.join(root, 'apps/coach-mobile/package.json')))
