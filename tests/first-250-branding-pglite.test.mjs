@@ -272,3 +272,84 @@ test('completed approved transfers reconcile private scope atomically and preser
     assert.deepEqual(artwork,{team_id:team(40),club_id:destination,theme_accent:'#047857'})
   } finally {await db.close()}
 })
+
+
+test('paid standalone teams can save and display colour independently of the promotion while Matchday remains gated', async () => {
+  const db = await database()
+  try {
+    const parentSql = await readFile(new URL('../supabase/migrations/20261008135335_parent_invite_team_branding.sql', import.meta.url), 'utf8')
+    const teamColourSql = await readFile(new URL('../supabase/migrations/20261102162446_single_team_branding_colour.sql', import.meta.url), 'utf8')
+    await db.exec(parentSql)
+    await db.exec(`create or replace function public.can_use_plan_feature(c uuid,f text) returns boolean language sql as $$
+      select exists(select 1 from public.clubs where id=c and status='active' and coalesce(current_setting('test.plan_active',true),'true') <> 'false' and (plan_key='club' or (plan_key in ('team','single_team') and f='basicLogoBranding'))) $$`)
+    await db.exec(teamColourSql)
+    for (const role of ['anon', 'authenticated', 'service_role']) {
+      await db.exec(`set role ${role}`)
+      await assert.rejects(db.query('select app_private.paid_team_colour_entitled($1)', [club]), /permission denied/)
+      await db.exec('reset role')
+    }
+    await db.exec("update public.clubs set plan_key='team'; select set_config('request.jwt.claim.role','service_role',false)")
+    await assert.rejects(db.query('select public.get_team_branding_display($1,$2)',[team(40),club]), /actor_denied/)
+    const management = (await db.query('select public.read_first_250_team_branding_management($1,$2,$3) v', [admin,team(40),club])).rows[0].v
+    assert.equal(management.enabled, true); assert.equal(management.coloursAllowed, true); assert.equal(management.claimAllowed, false)
+    await db.query('select public.save_first_250_team_branding($1,$2,$3,$4,$5,$6)', [admin,team(40),club,null,'#123456',null])
+    await db.exec(`select set_config('request.jwt.claim.sub','${admin}',false)`)
+    const display = (await db.query('select public.get_team_branding_display($1,$2) v',[team(40),club])).rows[0].v
+    assert.equal(display.source,'team'); assert.equal(display.accent,'#123456'); assert.equal(display.baseColoursAllowed,true)
+    const parent = (await db.query('select public.read_parent_invite_branding($1,$2) v',[team(40),club])).rows[0].v
+    assert.equal(parent.accent,'#123456')
+    await db.exec("update public.clubs set plan_key='club', theme_accent='#445566'")
+    const clubOff = (await db.query('select public.get_team_branding_display($1,$2) v',[team(40),club])).rows[0].v
+    assert.equal(clubOff.source,'paid_club'); assert.equal(clubOff.accent,'#445566')
+    await db.exec("update public.clubs set plan_key='single_team'")
+    assert.equal((await db.query('select public.read_first_250_team_branding_management($1,$2,$3) v',[admin,team(40),club])).rows[0].v.coloursAllowed,true)
+    await db.exec("select set_config('test.plan_active','false',false)")
+    await assert.rejects(db.query('select public.save_first_250_team_branding($1,$2,$3,$4,$5,$6)', [admin,team(40),club,null,'#abcdef',null]), /not_active|not_entitled/)
+    await db.exec("select set_config('test.plan_active','true',false); update public.clubs set plan_key='matchday'")
+    await assert.rejects(db.query('select public.save_first_250_team_branding($1,$2,$3,$4,$5,$6)', [admin,team(40),club,null,'#abcdef',null]), /not_active|not_entitled/)
+    await mapExisting(db); await enableSynthetic(db)
+    await db.query('select public.reserve_new_branding_team($1,$2,$3)',[team(41),club,'synthetic-v1'])
+    await db.query('select public.save_first_250_team_branding($1,$2,$3,$4,$5,$6)',[admin,team(41),club,null,'#aabbcc',null])
+    const promoted = (await db.query('select public.get_team_branding_display($1,$2) v',[team(41),club])).rows[0].v
+    assert.equal(promoted.accent,'#aabbcc'); assert.equal(promoted.coloursAllowed,true)
+    await db.exec("update public.clubs set plan_key='club', theme_accent='#445566'")
+    const clubDisplay = (await db.query('select public.get_team_branding_display($1,$2) v',[team(40),club])).rows[0].v
+    assert.equal(clubDisplay.source,'paid_club'); assert.equal(clubDisplay.accent,'#445566')
+    await db.exec("update public.clubs set plan_key='team', status='suspended'")
+    await assert.rejects(db.query('select public.save_first_250_team_branding($1,$2,$3,$4,$5,$6)', [admin,team(40),club,null,'#abcdef',null]), /denied|not_active|not_entitled/)
+  } finally { await db.close() }
+})
+
+
+test('paid Team colour uses the production plan policy for active, overdue and comped subscriptions', async () => {
+  const db = await database()
+  try {
+    const billing = await readFile(new URL('../supabase/migrations/20260508133000_enforce_active_plan_access.sql', import.meta.url), 'utf8')
+    const parentSql = await readFile(new URL('../supabase/migrations/20261008135335_parent_invite_team_branding.sql', import.meta.url), 'utf8')
+    const colourSql = await readFile(new URL('../supabase/migrations/20261102162446_single_team_branding_colour.sql', import.meta.url), 'utf8')
+    const functionSql = (source, name) => {
+      const start = source.indexOf(`create or replace function ${name}(`)
+      assert.ok(start >= 0, name)
+      const body = source.indexOf('$$', start), end = source.indexOf('$$;', body + 2)
+      assert.ok(body >= 0 && end > body, name)
+      return source.slice(start, end + 3)
+    }
+    await db.exec("alter table public.clubs add column plan_status text default 'active', add column is_plan_comped boolean default false; create table public.matchday_plan_config(singleton boolean,flags jsonb); insert into public.matchday_plan_config values(true,'{}')")
+    await db.exec(functionSql(planSource,'app_private.matchday_default_flags'))
+    await db.exec(functionSql(planSource,'app_private.plan_capability_key'))
+    await db.exec(functionSql(billing,'public.is_club_plan_access_active'))
+    await db.exec('drop function public.can_use_plan_feature(uuid,text)')
+    await db.exec(functionSql(planSource,'public.can_use_plan_feature'))
+    await db.exec(parentSql); await db.exec(colourSql)
+    for (const plan of ['team','single_team']) {
+      await db.query("update public.clubs set plan_key=$1,plan_status='active',is_plan_comped=false", [plan])
+      assert.equal((await db.query('select app_private.paid_team_colour_entitled($1) ok',[club])).rows[0].ok,true)
+      await db.exec("update public.clubs set plan_status='past_due'")
+      assert.equal((await db.query('select app_private.paid_team_colour_entitled($1) ok',[club])).rows[0].ok,false)
+      await db.exec('update public.clubs set is_plan_comped=true')
+      assert.equal((await db.query('select app_private.paid_team_colour_entitled($1) ok',[club])).rows[0].ok,true)
+    }
+    await db.exec("update public.clubs set plan_key='matchday',plan_status='active',is_plan_comped=true")
+    assert.equal((await db.query('select app_private.paid_team_colour_entitled($1) ok',[club])).rows[0].ok,false)
+  } finally { await db.close() }
+})
