@@ -576,7 +576,7 @@
     "security/backport-requalification.json": "95f1b5c782335dea22aee6223bbf1426cfe5f2e281dc30e5076f4c7ad0177a91",
     "scripts/security-maintained-release-gate.mjs": "73d668b0c10dbd6f05cac3c0dbcf5dea652152677a6542aeb4d8d166a4cd7781",
     "scripts/security-netlify-build.mjs": "addebe95880ca66b90fe784f68cc23a61d67cf9e4482f8af1ed87f98d54243f6",
-    "tests/security-maintained-source.test.mjs": "2a631ca9e18fe7b6ccc830de5dbb2beaed682dff26dbac1a9dedab44ebac40b5",
+    "tests/security-maintained-source.test.mjs": "b052ab4434a54908e3a5e69e49c6aca2554e170e5566b84cb3bed0310f48730d",
     "netlify.toml": "7a6f3e35c22d35413e0f1e1b647eadf54b28aefcf45494447ca8f67163a38a51",
     "security/maintained-source-policy.json": "b13b4051d0b842a211f6322c4db7eb0de3fe48c8f53b2a91c67f671ad7bc53c4",
     "tests/security-m3-governance.test.mjs": "1e1134b46175e6b8a5fcfd853dc85ae0a74393bdb99cfddba6945de4c5114e20",
