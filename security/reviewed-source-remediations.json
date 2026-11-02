@@ -525,7 +525,7 @@
     },
     {
       "scope": "apps/coach-mobile",
-      "normalisedUtf8Sha256": "b921569166911552de6e1396e6b2ded9e52dc786c75c80bc9353ddff3c57cad8"
+      "normalisedUtf8Sha256": "e8ab4f183e3f01961892593cfd7eee4d88cecfaa4a756c5c8af2b437e66d60ea"
     }
   ],
   "patches": [
@@ -3605,4 +3605,4 @@
     "8.0.3",
     "8.1.0"
   ]
-}
+}\n
