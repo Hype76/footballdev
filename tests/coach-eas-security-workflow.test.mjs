@@ -6,7 +6,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { gzipSync } from 'node:zlib'
 import test from 'node:test'
-import { assertAndroidSigningFiles, assertEasIdentity, assertFrameworkInventory, assertGeneratedPaths, assertNativeInputsUnchanged, assertNoIosArchiveOverrides, assertPristineInputs, assertReviewedFile, findArtifacts, nativeInventory, prepareIosReleaseFrameworks, readTrustedReview } from '../scripts/security-eas-coach-test.mjs'
+import { assertAndroidSigningFiles, assertEasIdentity, assertFrameworkInventory, assertGeneratedPaths, assertNativeInputsUnchanged, assertNoIosArchiveOverrides, assertPristineInputs, assertReviewedFile, codegenDiagnostic, findArtifacts, nativeInventory, prepareIosReleaseFrameworks, readTrustedReview } from '../scripts/security-eas-coach-test.mjs'
 
 const require = createRequire(import.meta.url)
 const yaml = require('js-yaml')
@@ -73,6 +73,21 @@ test('reviewed iOS archives and extracted framework trees reject tampering', () 
     assert.throws(() => assertFrameworkInventory(framework, fixture, 'framework', expected))
     writeFileSync(path.join(framework, 'extra'), 'unexpected')
     assert.throws(() => assertFrameworkInventory(framework, fixture, 'framework', expected))
+  } finally { rmSync(fixture, { recursive: true, force: true }) }
+})
+
+test('codegen diagnostic exposes only identifiers and a content hash', () => {
+  const fixture = mkdtempSync(path.join(os.tmpdir(), 'coach-codegen-'))
+  try {
+    const file = path.join(fixture, 'generated.mm')
+    writeFileSync(file, '@"PrivateOutsideList"; return @[ @"SafeModule", @"Other_1" ]; private text')
+    const result = codegenDiagnostic(file)
+    assert.deepEqual(result.modules, ['SafeModule', 'Other_1'])
+    assert.match(result.sha256, /^[0-9a-f]{64}$/)
+    assert.equal(JSON.stringify(result).includes('private text'), false)
+    assert.equal(JSON.stringify(result).includes('PrivateOutsideList'), false)
+    writeFileSync(file, 'return @[ @"bad identifier" ];')
+    assert.throws(() => codegenDiagnostic(file))
   } finally { rmSync(fixture, { recursive: true, force: true }) }
 })
 

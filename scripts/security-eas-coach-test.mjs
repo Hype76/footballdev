@@ -106,6 +106,15 @@ export function assertFrameworkInventory(directory, repoRoot, prefix, expectedSh
   assert.equal(hash(Buffer.from(JSON.stringify(items))), expectedSha256, 'Release framework inventory changed')
 }
 
+export function codegenDiagnostic(file) {
+  const source = fs.readFileSync(file, 'utf8')
+  const expression = source.match(/return\s+@\[([\s\S]*?)\];/)
+  assert.ok(expression && expression[1].length <= 10000, 'Unexpected generated module list')
+  const matches = [...expression[1].matchAll(/@"([A-Za-z_][A-Za-z0-9_]{0,79})"/g)]
+  assert.ok(matches.length <= 100 && !expression[1].replace(/@"[A-Za-z_][A-Za-z0-9_]{0,79}"/g, '').replace(/[\s,]/g, ''), 'Unexpected generated module list')
+  return { sha256: hash(Buffer.from(source)), modules: matches.map(match => match[1]) }
+}
+
 export function assertNoIosArchiveOverrides(env) {
   for (const name of ['ENTERPRISE_REPOSITORY', 'RCT_TESTONLY_RNCORE_TARBALL_PATH', 'RCT_TESTONLY_RNCORE_VERSION', 'RCT_USE_LOCAL_RN_DEP', 'RCT_DEPS_VERSION', 'HERMES_ENGINE_TARBALL_PATH', 'REACT_NATIVE_OVERRIDE_HERMES_DIR', 'HERMES_COMMIT', 'HERMES_OVERRIDE_HERMESC_PATH', 'RCT_BUILD_HERMES_FROM_SOURCE']) assert.ok(!Object.hasOwn(env, name), 'Unreviewed React Native archive override')
 }
@@ -207,8 +216,10 @@ export function runEasSecurityGate(mode, env = process.env) {
   const evidenceDir = path.join(root, '.security-artifacts')
   const nativeEvidence = path.join(evidenceDir, 'eas-coach-native-inputs.json')
   const nativeManifest = path.join(evidenceDir, 'eas-coach-native-inputs-private.json')
+  const codegenEvidence = path.join(evidenceDir, 'eas-coach-codegen-diagnostic.json')
   if (mode === 'prepare-ios') prepareIosReleaseFrameworks(root, env)
   if (mode === 'capture') {
+    if (env.EAS_BUILD_PLATFORM === 'ios') fs.writeFileSync(codegenEvidence, JSON.stringify(codegenDiagnostic(path.join(root, 'apps/coach-mobile/ios/build/generated/ios/RCTUnstableModulesRequiringMainQueueSetupProvider.mm'))))
     const app = JSON.parse(fs.readFileSync(path.join(root, 'apps/coach-mobile/package.json')))
     const eas = JSON.parse(fs.readFileSync(path.join(root, 'apps/coach-mobile/eas.json')))
     const appConfig = createRequire(import.meta.url)(path.join(root, 'apps/coach-mobile/app.config.js')).expo
@@ -226,6 +237,11 @@ export function runEasSecurityGate(mode, env = process.env) {
     fs.writeFileSync(nativeManifest, JSON.stringify(items))
   }
   if (mode === 'finalize') {
+    if (env.EAS_BUILD_PLATFORM === 'ios') {
+      const before = JSON.parse(fs.readFileSync(codegenEvidence))
+      const after = codegenDiagnostic(path.join(root, 'apps/coach-mobile/ios/build/generated/ios/RCTUnstableModulesRequiringMainQueueSetupProvider.mm'))
+      if (before.sha256 !== after.sha256) console.log(`FP_COACH_CODEGEN_DIAGNOSTIC=${JSON.stringify({ before, after })}`)
+    }
     const native = JSON.parse(fs.readFileSync(nativeEvidence))
     assert.equal(native.buildId, env.EAS_BUILD_ID)
     assert.equal(native.head, source.head)
