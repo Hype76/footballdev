@@ -225,6 +225,13 @@ function CoachResourcesHeader({ context, onNavigate, styles }) {
   </View>
 }
 
+function CoachOfflineCopyWarning({ message, onRetry, palette, styles }) {
+  return <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+    <Text accessibilityLiveRegion="polite" style={[styles.body, { flex: 1 }]}>{message}</Text>
+    <Pressable accessibilityRole="button" accessibilityLabel="Retry saving offline copy" onPress={onRetry} style={{ minHeight: 44, minWidth: 64, alignItems: 'center', justifyContent: 'center' }}><Text style={{ color: palette.accentText, fontWeight: '700' }}>Retry</Text></Pressable>
+  </View>
+}
+
 export function CoachPhase31EScreen({ chatNotificationTarget, domain, context, onChatNotificationTargetHandled, onNavigate, onCaptureScrollPosition, onRestoreScrollPosition, palette, reloadHome, user }) {
   const styles = useMemo(() => phaseStyles(palette), [palette])
   const dataScope = JSON.stringify([user.id, context.id, context.authorityId, context.authoritySource, context.clubId, context.teamId, context.role, domain])
@@ -238,6 +245,7 @@ export function CoachPhase31EScreen({ chatNotificationTarget, domain, context, o
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [notice, setNotice] = useState('')
+  const [offlineWarning, setOfflineWarning] = useState({ scope: '', message: '' })
   const [stale, setStale] = useState(false)
   const [invitesRefreshing, setInvitesRefreshing] = useState(false)
   const activity = useMobileActivity(loading || invitesRefreshing || refreshing)
@@ -252,6 +260,7 @@ export function CoachPhase31EScreen({ chatNotificationTarget, domain, context, o
 
   const captureLoadScope = useAttendanceUiGuard(JSON.stringify([user.id, context.id, context.authorityId, context.authoritySource, context.clubId, context.teamId, context.role, domain]))
   const attendanceLoadGeneration = useRef(0)
+  const inviteSaveRef = useRef(0)
   const deniedScopeRef = useRef('')
   const load = useCallback(async ({ silent = false, reuseFresh = false } = {}) => {
     const scopeCurrent = captureLoadScope()
@@ -259,6 +268,21 @@ export function CoachPhase31EScreen({ chatNotificationTarget, domain, context, o
     const current = () => scopeCurrent() && generation === attendanceLoadGeneration.current
     const loader = LOADERS[domain]
     if (!loader) return
+    const saveInvitesCache = domain === 'invites' ? createCoachOfflineResourceSaver(user, context) : null
+    const saveInviteSnapshot = (value) => {
+      const saveId = ++inviteSaveRef.current
+      const saveCurrent = () => scopeCurrent() && saveId === inviteSaveRef.current
+      void saveInvitesCache(value).then(() => {
+        if (saveCurrent()) setOfflineWarning({ scope: dataScope, message: '' })
+      }).catch(error => {
+        const reason = `${error?.code || ''} ${error?.message || ''}`.toLowerCase()
+        const reference = /scope|boundary|profile|context/.test(reason) ? 'ACCESS'
+          : /payload_too_large/.test(reason) ? 'CACHE'
+            : /quota|disk.*full|database.*full|not enough.*storage/.test(reason) ? 'SPACE'
+              : /crypto|key_store|key_readback|securestore|secure.store/.test(reason) ? 'SECURE' : 'DEVICE'
+        if (saveCurrent()) setOfflineWarning({ scope: dataScope, message: `Offline copy unavailable. Stay online and retry. Reference: ${reference}.` })
+      })
+    }
     const memoryKey = `coach:phase31e:${domain}`
     const deniedAtStart = deniedScopeRef.current === dataScope
     // Freshness controls network reuse, not whether saved content stays visible.
@@ -330,9 +354,9 @@ export function CoachPhase31EScreen({ chatNotificationTarget, domain, context, o
             setError('')
             // These sources are complete. Save them before optional player and
             // offline-command enrichment can time out or the app is backgrounded.
-            void saveCoachOfflineResources(user.id, context, { 'phase31e:invites': {
+            saveInviteSnapshot({ 'phase31e:invites': {
               ...snapshot, ...(dataRef.current?.players ? { players: dataRef.current.players } : {}), availabilityCacheVersion: 1,
-            } }).catch(() => { if (current()) setNotice(cacheWarning) })
+            } })
           },
           onMatchReady(snapshot) {
             if (!current() || !acceptingMatches || deniedAtStart) return
@@ -352,7 +376,8 @@ export function CoachPhase31EScreen({ chatNotificationTarget, domain, context, o
       setError('')
       try {
         const offlineValue = domain === 'chat' ? sanitizeCoachChatOfflineValue(next) : next
-        void saveCoachOfflineResources(user.id, context, { [`phase31e:${domain}`]: offlineValue }).then(() => {
+        if (domain === 'invites') saveInviteSnapshot({ [`phase31e:${domain}`]: offlineValue })
+        else void saveCoachOfflineResources(user.id, context, { [`phase31e:${domain}`]: offlineValue }).then(() => {
           if (current()) setNotice(value => value === cacheWarning ? '' : value)
         }).catch(() => {
           if (current()) setNotice(cacheWarning)
@@ -434,6 +459,7 @@ export function CoachPhase31EScreen({ chatNotificationTarget, domain, context, o
           <View style={{ flex: 1 }} />
           <Pressable accessibilityRole="button" accessibilityLabel="Refresh invitations" disabled={invitesRefreshing} onPress={() => void load({ silent: true })} style={{ minHeight: 44, minWidth: 72, alignItems: 'center', justifyContent: 'center', opacity: invitesRefreshing ? 0.5 : 1 }}><Text style={{ color: palette.accentText, fontWeight: '700' }}>Refresh</Text></Pressable>
         </View> : confirmedStale && !activity ? <Text accessibilityLabel="Offline stale data" style={styles.status}>{domain === 'invites' ? 'Showing saved invitations. Reconnect to refresh.' : 'Offline and read-only'}</Text> : null}
+        {domain === 'invites' && offlineWarning.scope === dataScope && offlineWarning.message ? <CoachOfflineCopyWarning message={offlineWarning.message} onRetry={() => void load({ silent: true })} palette={palette} styles={styles} /> : null}
         {notice ? <MobileFailureNotice message={/could not|failed|unavailable|too long/i.test(notice) ? notice : ''} scopeKey={dataScope} onRetry={() => load({ silent: true })} /> : null}
       </>}
       {loading ? <MobileLoadingStatus message={`Loading ${TITLES[domain]}`} /> : null}

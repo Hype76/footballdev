@@ -239,7 +239,17 @@ async function saveCoachOfflineResourcesWithProfile(userId, contextId, resources
   const next = await store.update(userId, (current) => {
     if (!current?.profile) {
       if (!liveProfile || normalize(liveProfile.id) !== normalize(userId)) throw new Error('offline_profile_scope_mismatch')
-      current = setCoachOfflineProfile(current || createCoachOfflineDocument({ userScope: userId }), liveProfile)
+      const previous = current || createCoachOfflineDocument({ userScope: userId })
+      const contextKey = typeof contextId === 'object' ? contextId.id || contextId.contextId : contextId
+      const priorContext = previous.contexts?.[contextKey]
+      if (priorContext && typeof contextId === 'object' && ['authorityId', 'authoritySource', 'clubId', 'role', 'teamId'].some(field =>
+        normalize(contextId[field]) && normalize(priorContext[field]) !== normalize(contextId[field]),
+      )) throw new Error('offline_profile_recovery_would_reset_context')
+      const repaired = setCoachOfflineProfile(previous, liveProfile)
+      if (Object.keys(previous.contexts || {}).some(key => !Object.hasOwn(repaired.contexts || {}, key))) {
+        throw new Error('offline_profile_recovery_would_remove_context')
+      }
+      current = repaired
     }
     const key = typeof contextId === 'object' ? contextId.id || contextId.contextId : contextId
     const authority = current.profile.value.coachContexts.find((context) => context.id === key)
