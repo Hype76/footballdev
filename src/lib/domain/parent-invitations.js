@@ -1,3 +1,4 @@
+import { expandCancelledParentSeries } from '../parent-cancelled-series.js'
 import { supabase } from '../supabase-client.js'
 
 const ATTENDANCE_RESPONSE_OPTIONS = [
@@ -104,6 +105,7 @@ export function normalizeParentInvitation(row = {}) {
     parentLinkId: row.parent_link_id ?? row.parentLinkId ?? '',
     roleType: normalizeText(row.role_type ?? row.roleType).toLowerCase(),
     invitationState: normalizeText(row.invitation_state ?? row.invitationState).toLowerCase() || 'active',
+    cancellationReason: normalizeText(row.cancellation_reason ?? row.cancellationReason),
     responseState: normalizeText(row.response_state ?? row.responseState).toLowerCase() || 'awaiting_response',
     selectionState: normalizeText(row.selection_state ?? row.selectionState).toLowerCase() || 'not_applicable',
     canRespond: normalizeBoolean(row.can_respond ?? row.canRespond),
@@ -578,7 +580,7 @@ export function groupParentInvitationsByEvent(invitations = []) {
   const groups = new Map()
 
   invitations.forEach((invitation) => {
-    const key = invitation.eventKey
+    const key = invitation.invitationState === 'cancelled' ? `${invitation.eventKey}:${String(invitation.eventStart).slice(0, 10)}` : invitation.eventKey
     const current = groups.get(key)
 
     if (current) {
@@ -588,6 +590,10 @@ export function groupParentInvitationsByEvent(invitations = []) {
       current.eventDate = current.eventDate || invitation.eventDate
       current.kickoffTimeTbc = current.kickoffTimeTbc || invitation.kickoffTimeTbc
       current.eventLocation = current.eventLocation || invitation.eventLocation
+      if (invitation.invitationState === 'cancelled') {
+        current.eventStatus = 'cancelled'
+        current.cancellationReason = current.cancellationReason || invitation.cancellationReason
+      }
       return
     }
 
@@ -605,6 +611,8 @@ export function groupParentInvitationsByEvent(invitations = []) {
       kickoffTimeTbc: invitation.kickoffTimeTbc,
       childId: invitation.childId,
       childName: invitation.childName,
+      eventStatus: invitation.invitationState === 'cancelled' ? 'cancelled' : '',
+      cancellationReason: invitation.cancellationReason,
       invitations: [invitation],
     })
   })
@@ -620,23 +628,56 @@ export function groupParentInvitationsByEvent(invitations = []) {
       || left.eventTitle.localeCompare(right.eventTitle))
 }
 
+export function applyParentEventCancellations(rows = [], calendarEvents = [], sessions = []) {
+  const cancelled = new Map()
+  for (const event of calendarEvents) {
+    if (event.cancelled_at && event.cancellation_reason != null) {
+      cancelled.set(`calendar_event:${event.id}`, event.cancellation_reason)
+    }
+  }
+  for (const session of sessions) {
+    if (session.status === 'cancelled' && session.cancellation_reason != null) {
+      cancelled.set(`assessment_session:${session.id}`, session.cancellation_reason)
+    }
+  }
+  return rows.map((row) => {
+    const key = `${row.source_event_type}:${row.event_id}`
+    return cancelled.has(key) ? {
+      ...row,
+      invitation_state: 'cancelled',
+      cancellation_reason: cancelled.get(key),
+      is_pending: false,
+      can_respond: false,
+      can_change_response: false,
+    } : row
+  })
+}
+
 export async function getParentPortalInvitationState({ parentLinkId } = {}) {
   const normalizedParentLinkId = normalizeText(parentLinkId)
+  if (!normalizedParentLinkId) return []
 
-  if (!normalizedParentLinkId) {
-    return []
+  const args = { parent_link_id_value: normalizedParentLinkId }
+  const [invitations, invitedEvents, sharedEvents, sessions] = await Promise.all([
+    supabase.rpc('get_parent_portal_invitation_summary', args),
+    supabase.rpc('get_parent_portal_invited_calendar_events', args),
+    supabase.rpc('get_parent_portal_cancelled_shared_calendar_events', args),
+    supabase.rpc('get_parent_portal_invited_sessions', args),
+  ])
+  for (const result of [invitations, invitedEvents, sharedEvents, sessions]) {
+    if (result.error) throw result.error
   }
-
-  const { data, error } = await supabase.rpc('get_parent_portal_invitation_summary', {
-    parent_link_id_value: normalizedParentLinkId,
-  })
-
-  if (error) {
-    console.error(error)
-    throw error
+  const rows = applyParentEventCancellations(invitations.data ?? [], [...(invitedEvents.data ?? []), ...(sharedEvents.data ?? [])], sessions.data ?? [])
+  const occurrences = expandCancelledParentSeries((invitedEvents.data ?? []).filter((event) => event.cancelled_at && event.cancellation_reason != null).map((event) => ({
+    ...event, startsAt: event.starts_at, endsAt: event.ends_at, cancelledAt: event.cancelled_at,
+    recurrenceFrequency: event.recurrence_frequency, recurrenceUntil: event.recurrence_until,
+  })))
+  for (const event of occurrences) {
+    if (!event.occurrenceKey || rows.some((row) => row.event_id === event.id && String(row.event_start).slice(0, 10) === event.occurrenceKey)) continue
+    const related = rows.find((row) => row.event_id === event.id) ?? {}
+    rows.push({ ...related, invitation_id: `cancelled:${event.id}:${event.occurrenceKey}`, invitation_type: 'calendar_attendance', source_event_type: 'calendar_event', event_id: event.id, event_title: event.title, event_type: event.event_type, event_start: event.startsAt, event_end: event.endsAt, event_location: event.location, parent_link_id: normalizedParentLinkId, invitation_state: 'cancelled', cancellation_reason: event.cancellation_reason, is_pending: false, can_respond: false, can_change_response: false })
   }
-
-  return (data ?? []).map(normalizeParentInvitation)
+  return rows.map(normalizeParentInvitation)
 }
 
 export async function respondToParentPortalInvitation({ parentLinkId, invitation, responseState } = {}) {

@@ -292,6 +292,10 @@ function normalizeParentPortalInvite(row) {
     endsAt,
     location: normalizeText(isSession ? session.location : calendarEvent?.location),
     notes: normalizeText(isSession ? session.notes : calendarEvent?.notes),
+    cancelledAt: calendarEvent?.cancelled_at ?? '',
+    cancellationReason: normalizeText(calendarEvent?.cancellation_reason),
+    recurrenceFrequency: normalizeText(calendarEvent?.recurrence_frequency),
+    recurrenceUntil: normalizeText(calendarEvent?.recurrence_until),
     parentContactEmail: normalizeEmail(row.parent_contact_email),
     notifyRequested: row.notify_requested === true,
     invitedAt: row.invited_at ?? '',
@@ -319,7 +323,7 @@ export async function getParentPortalEventInvites({ parentLinkId } = {}) {
 
   const { data, error } = await supabase
     .from('calendar_event_invites')
-    .select('*, calendar_events:calendar_event_id (id, title, event_type, starts_at, ends_at, location, notes, parent_visible, parent_audience), assessment_sessions:assessment_session_id (id, title, session_type, session_date, arrival_time, start_time, end_time, location, notes, team)')
+    .select('*, assessment_sessions:assessment_session_id (id, title, session_type, session_date, arrival_time, start_time, end_time, location, notes, team)')
     .eq('club_id', link.club_id)
     .eq('player_id', link.player_id)
     .eq('parent_link_id', normalizedParentLinkId)
@@ -331,14 +335,20 @@ export async function getParentPortalEventInvites({ parentLinkId } = {}) {
     throw error
   }
 
+  const { data: invitedEvents, error: invitedEventsError } = await supabase.rpc('get_parent_portal_invited_calendar_events', {
+    parent_link_id_value: normalizedParentLinkId,
+  })
+  if (invitedEventsError) throw invitedEventsError
+  const eventsById = new Map((invitedEvents ?? []).map((event) => [event.id, event]))
   const now = Date.now()
 
   return (data ?? [])
+    .map((row) => ({ ...row, calendar_events: eventsById.get(row.calendar_event_id) ?? null }))
     .filter((row) => {
       const calendarEvent = Array.isArray(row.calendar_events) ? row.calendar_events[0] : row.calendar_events
 
       if (!calendarEvent?.id) {
-        return true
+        return !row.calendar_event_id
       }
 
       return calendarEvent.parent_visible === true && calendarEvent.parent_audience === 'involved_players'
@@ -346,7 +356,8 @@ export async function getParentPortalEventInvites({ parentLinkId } = {}) {
     .map(normalizeParentPortalInvite)
     .filter((invite) => {
       const startsAt = new Date(invite.startsAt)
-      return !Number.isNaN(startsAt.getTime()) && startsAt.getTime() >= now - 86400000
+      return (!Number.isNaN(startsAt.getTime()) && startsAt.getTime() >= now - 86400000)
+        || (invite.cancelledAt && invite.recurrenceFrequency !== 'none' && new Date(`${invite.recurrenceUntil}T23:59:59Z`).getTime() >= now - 86400000)
     })
     .sort((left, right) => String(left.startsAt).localeCompare(String(right.startsAt)))
 }

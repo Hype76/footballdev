@@ -1,3 +1,5 @@
+import { applyParentInvitationCancellations } from '../../mobile-core/src/parentCalendarCore.js'
+import { expandCancelledParentSeries } from '../../../src/lib/parent-cancelled-series.js'
 import { mergeMatchDayParticipantEventIdentities, normalizeMatchDayParticipantRoster } from '../../mobile-core/src/matchDayParticipantRoster.js'
 import { getCalendarSubscriptionToken } from '../../mobile-core/src/calendarSubscriptionCore.js'
 import { validateScorerMatchEvent } from '../../../src/lib/matchday-scorer-event.js'
@@ -98,6 +100,8 @@ function wakeParentChatNotifications() {
 export function normalizeParentInvitation(row = {}) {
   const invitationType = normalizeText(row.invitation_type ?? row.invitationType).toLowerCase()
   return {
+    cancellationReason: normalizeText(row.cancellation_reason ?? row.cancellationReason),
+    showCancelled: row.show_cancelled === true || row.showCancelled === true,
     canChangeResponse: normalizeBoolean(row.can_change_response ?? row.canChangeResponse),
     canRespond: normalizeBoolean(row.can_respond ?? row.canRespond),
     childId: row.child_id ?? row.childId ?? '',
@@ -447,17 +451,32 @@ export async function getParentPortalMatchDayPlayers(user) {
 
 export async function getParentInvitations(user) {
   const link = requireSelectedLink(user)
-  const [invitationResult, shirtResult, transportResult] = await Promise.all([
+  const [invitationResult, shirtResult, transportResult, sessionResult, calendarInviteResult] = await Promise.all([
     supabase.rpc('get_parent_portal_invitation_summary', { parent_link_id_value: link.id }),
     supabase.rpc('get_parent_portal_match_shirt_choices', { parent_link_id_value: link.id }),
     supabase.rpc('get_parent_portal_match_transport_states_v2', { parent_link_id_value: link.id }),
+    supabase.rpc('get_parent_portal_invited_sessions', { parent_link_id_value: link.id }),
+    supabase.rpc('get_parent_portal_invited_calendar_events', { parent_link_id_value: link.id }),
   ])
   if (invitationResult.error) throw invitationResult.error
   if (shirtResult.error) throw shirtResult.error
   if (transportResult.error) throw transportResult.error
+  if (sessionResult.error) throw sessionResult.error
+  if (calendarInviteResult.error) throw calendarInviteResult.error
   const shirtsById = new Map((shirtResult.data || []).map((row) => [String(row.match_day_id ?? row.matchDayId), row.shirt_choice ?? row.shirtChoice]))
   const transportByRequestId = new Map((transportResult.data || []).map((row) => [String(row.request_id ?? row.requestId), row]))
-  const invitations = prepareParentInvitations((invitationResult.data || []).map((row) => ({
+  const invitationRows = [...(invitationResult.data || [])]
+  const occurrences = expandCancelledParentSeries((calendarInviteResult.data || []).filter(event => event.cancelled_at && event.cancellation_reason != null).map(event => ({
+    ...event, startsAt: event.starts_at, endsAt: event.ends_at, cancelledAt: event.cancelled_at,
+    recurrenceFrequency: event.recurrence_frequency, recurrenceUntil: event.recurrence_until,
+  })))
+  for (const event of occurrences) {
+    if (!event.occurrenceKey || invitationRows.some(row => row.event_id === event.id && String(row.event_start).slice(0, 10) === event.occurrenceKey)) continue
+    const related = invitationRows.find(row => row.event_id === event.id) || {}
+    invitationRows.push({ ...related, invitation_id: `cancelled:${event.id}:${event.occurrenceKey}`, invitation_type: 'calendar_attendance', source_event_type: 'calendar_event', event_id: event.id, event_title: event.title, event_type: event.event_type, event_start: event.startsAt, event_end: event.endsAt, event_location: event.location, parent_link_id: link.id, invitation_state: 'cancelled', cancellation_reason: event.cancellation_reason, is_pending: false, can_respond: false, can_change_response: false })
+  }
+  const cancellationsApplied = applyParentInvitationCancellations(invitationRows, calendarInviteResult.data || [], sessionResult.data || [])
+  const invitations = prepareParentInvitations(cancellationsApplied.map((row) => ({
     ...row,
     ...(transportByRequestId.get(String(row.source_record_id ?? row.sourceRecordId)) || {}),
     shirt_choice: normalizeText(row.source_event_type ?? row.sourceEventType).toLowerCase() === 'match_day'

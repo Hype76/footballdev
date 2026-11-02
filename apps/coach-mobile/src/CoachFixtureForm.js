@@ -54,6 +54,8 @@ export function CoachFixtureForm({ defaultMatchDate = '', match = null, matches,
   const [form, setForm] = useState(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const [showCancellation, setShowCancellation] = useState(false)
+  const [cancellationReason, setCancellationReason] = useState('')
   const [carpoolLoadError, setCarpoolLoadError] = useState('')
   const [carpoolReady, setCarpoolReady] = useState(false)
   const [carpoolSaving, setCarpoolSaving] = useState(false)
@@ -197,7 +199,7 @@ export function CoachFixtureForm({ defaultMatchDate = '', match = null, matches,
     setError('')
     try {
       const preparation = notifyEveryone ? await prepareCoachMatchCancellationNotification(match) : null
-      const cancelled = await cancelCoachMatchDayFixture(user, match)
+      const cancelled = await cancelCoachMatchDayFixture(user, match, cancellationReason)
       let notificationMessage = ''
       if (preparation?.preparationId) {
         try {
@@ -332,7 +334,8 @@ export function CoachFixtureForm({ defaultMatchDate = '', match = null, matches,
       {!isEditing ? <Button disabled={busy || carpoolSaving} label="Add to Coach calendars" onPress={() => save({ calendarTarget: 'coach' })} secondary styles={styles} /> : null}
       {!isEditing ? <Button disabled={busy || carpoolSaving || !hasSquadPlayers} label="Add to squad calendars" onPress={() => save({ calendarTarget: 'squad' })} secondary styles={styles} /> : null}
       <Button disabled={busy} label={isEditing ? 'Back without saving' : 'Cancel'} onPress={onCancel} secondary styles={styles} />
-      {isEditing ? <Pressable accessibilityRole="button" accessibilityLabel="Cancel fixture" accessibilityState={{ disabled: busy || carpoolSaving }} disabled={busy || carpoolSaving} onPress={confirmCancelFixture} style={({ pressed }) => [styles.compactAction, (busy || carpoolSaving) && styles.actionDisabled, pressed && { opacity: 0.74 }]}><Text style={styles.dangerText}>Cancel fixture</Text></Pressable> : null}
+      {isEditing && showCancellation ? <Field label="Cancellation reason (optional)" multiline onChangeText={setCancellationReason} styles={styles} value={cancellationReason} /> : null}
+      {isEditing ? <Pressable accessibilityRole="button" accessibilityLabel="Cancel fixture" accessibilityState={{ disabled: busy || carpoolSaving }} disabled={busy || carpoolSaving} onPress={() => showCancellation ? confirmCancelFixture() : setShowCancellation(true)} style={({ pressed }) => [styles.compactAction, (busy || carpoolSaving) && styles.actionDisabled, pressed && { opacity: 0.74 }]}><Text style={styles.dangerText}>Cancel fixture</Text></Pressable> : null}
     </View>
   )
 }

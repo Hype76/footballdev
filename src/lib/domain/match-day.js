@@ -594,6 +594,7 @@ export function normalizeMatchDay(row) {
     parentVisible: row.parent_visible === true || row.parentVisible === true,
     parentAudience: normalizeParentAudience(row.parent_audience ?? row.parentAudience),
     notificationRevision: Number(row.notification_revision ?? row.notificationRevision ?? 1),
+    cancellationReason: normalizeText(row.cancellation_reason ?? row.cancellationReason),
     status: normalizeText(row.status) || 'scheduled',
     homeScore: Number(row.home_score ?? row.homeScore ?? 0),
     awayScore: Number(row.away_score ?? row.awayScore ?? 0),
@@ -1373,7 +1374,7 @@ export function normalizeMatchLocations(rows = []) {
         id: row.id,
         name,
         address,
-        label: `${name} · ${address}`,
+        label: `${name} Â· ${address}`,
         notes: normalizeText(row.notes),
       })
     }
@@ -1596,7 +1597,10 @@ export async function updateMatchDay({ user, matchId, updates }) {
     }
   }
   if (updates.parentAudience !== undefined) payload.parent_audience = updates.parentVisible === false ? 'none' : normalizeParentAudience(updates.parentAudience)
-  if (updates.status !== undefined) payload.status = normalizeStatus(updates.status)
+  if (updates.status !== undefined) {
+    payload.status = normalizeStatus(updates.status)
+    payload.cancellation_reason = payload.status === 'cancelled' ? normalizeText(updates.cancellationReason) : ''
+  } else if (updates.cancellationReason !== undefined) payload.cancellation_reason = normalizeText(updates.cancellationReason)
   if (updates.homeScore !== undefined) payload.home_score = Math.max(Number(updates.homeScore ?? 0), 0)
   if (updates.awayScore !== undefined) payload.away_score = Math.max(Number(updates.awayScore ?? 0), 0)
   if (updates.phaseStartedAt !== undefined) payload.phase_started_at = updates.phaseStartedAt || null
@@ -2060,6 +2064,7 @@ export async function getParentPortalMatchDays({ parentLinkId, clubName }) {
     { data: scorerGameModeData, error: scorerGameModeError },
     { data: formationPlanData, error: formationPlanError },
     { data: shirtChoiceData, error: shirtChoiceError },
+    { data: cancelledData, error: cancelledError },
   ] = await Promise.all([
     supabase.rpc('get_parent_portal_match_days', { parent_link_id_value: normalizedParentLinkId }),
     supabase.rpc('get_parent_portal_match_day_extended_state', { parent_link_id_value: normalizedParentLinkId }),
@@ -2067,6 +2072,7 @@ export async function getParentPortalMatchDays({ parentLinkId, clubName }) {
     supabase.rpc('get_parent_scorer_game_mode_match_ids', { parent_link_id_value: normalizedParentLinkId }),
     supabase.rpc('get_parent_portal_match_formation_plans', { parent_link_id_value: normalizedParentLinkId }),
     supabase.rpc('get_parent_portal_match_shirt_choices', { parent_link_id_value: normalizedParentLinkId }),
+    supabase.rpc('get_parent_cancelled_match_days', { parent_link_id_value: normalizedParentLinkId }),
   ])
 
   if (error) {
@@ -2093,6 +2099,8 @@ export async function getParentPortalMatchDays({ parentLinkId, clubName }) {
     console.error(formationPlanError)
     throw formationPlanError
   }
+
+  if (cancelledError) throw cancelledError
 
   if (shirtChoiceError) {
     console.error(shirtChoiceError)
@@ -2154,6 +2162,7 @@ export async function getParentPortalMatchDays({ parentLinkId, clubName }) {
     }
   })
 
+  matches.push(...(cancelledData ?? []).map((row) => normalizeParentPortalMatchDay({ ...row, clubName })))
   return attachMatchDayPresentationStates(matches)
 }
 

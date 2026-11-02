@@ -3384,7 +3384,7 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
     }
   }
 
-  const saveMatchStatus = async (match, status) => {
+  const saveMatchStatus = async (match, status, cancellationReason = '') => {
     if (EXTENDED_MATCH_ACTIONS.has(status)) {
       const actionLabel = getExtendedMatchActionLabel(status)
       await persistTimerAction(match, status, {
@@ -3424,7 +3424,7 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
     setErrorMessage('')
 
     try {
-      const savedMatch = await updateMatchDay({ user, matchId: match.id, updates: { status } })
+      const savedMatch = await updateMatchDay({ user, matchId: match.id, updates: { status, ...(status === 'cancelled' ? { cancellationReason } : {}) } })
       if (allowsCommunication && (status === 'half_time' || status === 'second_half' || status === 'extra_time' || status === 'penalties' || status === 'full_time')) {
         void sendMatchDayPushNotification({
           matchDayId: match.id,
@@ -3601,7 +3601,7 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
           sourceType: 'match-day',
         })
       }
-      const savedMatch = await saveMatchStatus(match, status)
+      const savedMatch = await saveMatchStatus(match, status, pendingStatusAction.cancellationReason || '')
       if (preparation?.preparationId && savedMatch) {
         const delivery = await commitCalendarChangeNotification(preparation.preparationId)
         showToast({ title: 'People notified', message: `${delivery.recipientCount || 0} involved contact${delivery.recipientCount === 1 ? '' : 's'} received the cancellation update.` })
@@ -5150,7 +5150,20 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
         secondaryActionLabel={pendingStatusAction?.notificationChoice ? 'Do not notify' : ''}
         onSecondaryAction={pendingStatusAction?.notificationChoice ? () => handleConfirmStatusAction(false) : undefined}
         onConfirm={() => handleConfirmStatusAction(true)}
-      />
+      >
+        {pendingStatusAction?.status === 'cancelled' ? (
+          <label className="block text-sm font-black text-[#101828]">
+            Reason for cancellation (optional)
+            <textarea
+              className={`${compactInputClass} mt-2 min-h-24`}
+              maxLength={500}
+              value={pendingStatusAction.cancellationReason || ''}
+              onChange={(event) => setPendingStatusAction((current) => ({ ...current, cancellationReason: event.target.value }))}
+            />
+            <span className="mt-1 block text-xs font-semibold text-[#4b5f55]">Visible to parents who can see this fixture.</span>
+          </label>
+        ) : null}
+      </ConfirmModal>
 
       <StartMatchConfirmModal
         isBusy={Boolean(activeMatchId)}

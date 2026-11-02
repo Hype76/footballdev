@@ -86,6 +86,7 @@ export function normalizeCalendarEvent(row, options = {}) {
     parentVisible: row.parent_visible === true || row.parentVisible === true,
     parentAudience: normalizeParentAudience(row.parent_audience ?? row.parentAudience),
     cancelledAt: row.cancelled_at ?? row.cancelledAt ?? '',
+    cancellationReason: normalizeText(row.cancellation_reason ?? row.cancellationReason),
     createdBy: row.created_by ?? row.createdBy ?? '',
     createdByName: normalizeText(row.created_by_name ?? row.createdByName),
     createdByEmail: normalizeText(row.created_by_email ?? row.createdByEmail),
@@ -261,7 +262,7 @@ export async function getCalendarEvents({ user, clubWideOnly = false } = {}) {
       .from('calendar_events')
       .select('*')
       .eq('club_id', user.clubId)
-      .is('cancelled_at', null)
+      .or('cancelled_at.is.null,cancellation_reason.not.is.null')
       .order('starts_at', { ascending: true })
 
     if (clubWideOnly) {
@@ -307,7 +308,11 @@ export async function getParentPortalSharedCalendarEvents({ parentLinkId } = {})
     throw error
   }
 
-  return (data ?? []).map(normalizeCalendarEvent)
+  const { data: cancellations, error: cancellationError } = await supabase.rpc('get_parent_portal_cancelled_shared_calendar_events', {
+    parent_link_id_value: normalizedParentLinkId,
+  })
+  if (cancellationError) throw cancellationError
+  return [...(data ?? []), ...(cancellations ?? [])].map(normalizeCalendarEvent)
 }
 
 export async function createCalendarEvent({ user, event }) {
@@ -680,6 +685,50 @@ export async function deleteCalendarEventOccurrence({ user, eventId, occurrenceD
   })
 
   return normalizeCalendarEvent(updated)
+}
+
+export async function cancelCalendarEvent({ user, eventId, reason = '' }) {
+  await blockDemoMutation(user)
+  assertCalendarAccess(user)
+
+  const { data: existingEvent, error: existingEventError } = await supabase
+    .from('calendar_events')
+    .select('id, team_id, recurrence_frequency, parent_visible')
+    .eq('id', eventId)
+    .eq('club_id', user.clubId)
+    .single()
+
+  if (existingEventError) throw existingEventError
+  await assertCalendarTeamAccess({ user, teamId: existingEvent.team_id })
+  await assertCalendarFeatureAccess({ user, payload: existingEvent })
+
+  const now = new Date().toISOString()
+  const { data, error } = await supabase
+    .from('calendar_events')
+    .update({
+      cancelled_at: now,
+      cancellation_reason: normalizeText(reason),
+      updated_by: getEntryUserId(user),
+      ...getEntryIdentity(user, 'updated_by'),
+      updated_at: now,
+    })
+    .eq('id', eventId)
+    .eq('club_id', user.clubId)
+    .is('cancelled_at', null)
+    .select('*')
+    .single()
+
+  if (error) throw error
+  clearViewCaches()
+  invalidateMemoryCacheByPrefix(`calendar-events:${user.clubId}:`)
+  await createAuditLog({
+    user,
+    action: 'calendar_event_cancelled',
+    entityType: 'calendar_event',
+    entityId: eventId,
+    metadata: { title: data.title, startsAt: data.starts_at },
+  })
+  return normalizeCalendarEvent(data)
 }
 
 export async function deleteCalendarEvent({ user, eventId }) {

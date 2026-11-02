@@ -107,7 +107,7 @@ async function loadSource(sourceType, sourceId, clubId, { required = true } = {}
   if (sourceType === 'calendar') {
     const source = await maybeSingle(
       supabaseAdmin.from('calendar_events')
-        .select('id, club_id, team_id, event_type, title, starts_at, ends_at, location, notes, parent_visible, parent_audience, recurrence_frequency, recurrence_until, cancelled_at, updated_at')
+        .select('id, club_id, team_id, event_type, title, starts_at, ends_at, location, notes, parent_visible, parent_audience, recurrence_frequency, recurrence_until, cancelled_at, cancellation_reason, updated_at')
         .eq('id', sourceId).eq('club_id', clubId),
       required ? 'Calendar event could not be found.' : '',
     )
@@ -142,7 +142,7 @@ async function loadSource(sourceType, sourceId, clubId, { required = true } = {}
   if (sourceType === 'match-day') {
     const source = await maybeSingle(
       supabaseAdmin.from('match_days')
-        .select('id, club_id, team_id, notification_team_name, opponent, match_date, kickoff_time, kickoff_time_tbc, venue_name, notes, parent_visible, parent_audience, request_scorer, request_linesman, request_referee, status, deleted_at, updated_at')
+        .select('id, club_id, team_id, notification_team_name, opponent, match_date, kickoff_time, kickoff_time_tbc, venue_name, notes, parent_visible, parent_audience, request_scorer, request_linesman, request_referee, status, deleted_at, cancellation_reason, updated_at')
         .eq('id', sourceId).eq('club_id', clubId),
       required ? 'Match Day fixture could not be found.' : '',
     )
@@ -155,7 +155,7 @@ async function loadSource(sourceType, sourceId, clubId, { required = true } = {}
   if (sourceType === 'session') {
     const source = await maybeSingle(
       supabaseAdmin.from('assessment_sessions')
-        .select('id, club_id, team_id, team, opponent, session_type, session_date, start_time, end_time, location, notes, title, status, updated_at')
+        .select('id, club_id, team_id, team, opponent, session_type, session_date, start_time, end_time, location, notes, title, status, cancellation_reason, updated_at')
         .eq('id', sourceId).eq('club_id', clubId),
       required ? 'Session could not be found.' : '',
     )
@@ -507,6 +507,8 @@ async function deliverPreparation(preparation, currentSource) {
   const changeAction = resolveCalendarChangeAction(preparation.change_action,
     getSourcePresentation(preparation.source_type, preparation.source_snapshot, club.name), presentation)
   const copy = getChangeCopy(changeAction, presentation)
+  const cancellationReason = changeAction === 'cancelled' ? normalizeText(currentSource?.cancellation_reason) : ''
+  if (cancellationReason) copy.body += ` Reason: ${cancellationReason}`
   const editReview = ['cancelled', 'deleted'].includes(changeAction)
     ? null
     : getConfirmedEditReview(preparation.source_type, preparation.source_snapshot, source)
@@ -569,7 +571,7 @@ async function deliverPreparation(preparation, currentSource) {
       action: changeAction,
       clubLogoUrl: club.logo_url,
       clubName: club.name,
-      changes: editReview?.changes.map((change) => change.detail) || [],
+      changes: cancellationReason ? [`Reason: ${cancellationReason}`] : editReview?.changes.map((change) => change.detail) || [],
       endsAt: presentation.endsAt,
       eventTitle: presentation.title,
       eventType: presentation.eventType,

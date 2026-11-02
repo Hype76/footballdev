@@ -141,6 +141,8 @@ import {
   resolveTeamNotificationDisplayName,
 } from '../lib/team-notification-display.js'
 import { createScheduledEmail } from '../lib/domain/scheduled-emails.js'
+import { cancelCalendarEvent } from '../lib/domain/calendar-events.js'
+import { cancelAssessmentSession } from '../lib/domain/sessions.js'
 import {
   applyTrialPlayerSelection,
   applyWholeSquadSelection,
@@ -3195,14 +3197,16 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
   const resumeCalendarChange = (notifyEveryone) => {
     const prompt = calendarChangePrompt
     if (!prompt) return
-    calendarChangeDecisionRef.current = { key: prompt.key, notifyEveryone: !prompt.partialScope && notifyEveryone === true }
+    calendarChangeDecisionRef.current = { key: prompt.key, notifyEveryone: !prompt.partialScope && notifyEveryone === true, cancellationReason: prompt.cancellationReason || '' }
     setCalendarChangePrompt(null)
     if (prompt.operation === 'save') {
       void handleCalendarSave({ preventDefault() {} })
+    } else if (prompt.operation === 'cancel-event') {
+      void handleCalendarCancellation()
     } else if (prompt.operation === 'delete') {
       void handleCalendarDelete()
     } else if (prompt.operation === 'delete-session') {
-      setDeleteSessionTarget({ ...prompt.deleteTarget, notifyEveryone: notifyEveryone === true })
+      setDeleteSessionTarget({ ...prompt.deleteTarget, notifyEveryone: notifyEveryone === true, cancellationReason: prompt.cancellationReason || '' })
     }
   }
 
@@ -3881,6 +3885,51 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
     }
   }
 
+  const handleCalendarCancellation = async () => {
+    const event = calendarModal?.event
+    if (!event?.sourceId || !['calendar', 'session'].includes(event.sourceType)) return
+    const key = `cancel:${event.sourceType}:${event.sourceId}`
+    const decision = calendarChangeDecisionRef.current?.key === key ? calendarChangeDecisionRef.current : null
+    if (!decision) {
+      setCalendarChangePrompt({ action: 'cancelled', key, operation: 'cancel-event',
+        recurring: event.sourceType === 'calendar' && isRecurringCalendarEvent({ event, form: calendarForm }), title: event.title || 'Event' })
+      return
+    }
+    calendarChangeDecisionRef.current = null
+    setIsSaving(true)
+    setErrorMessage('')
+    let requestsClosed = false
+    try {
+      const preparation = decision.notifyEveryone ? await prepareCalendarChangeNotification({
+        changeAction: 'cancelled', requestToken: crypto.randomUUID(), sourceId: event.sourceId, sourceType: event.sourceType,
+      }) : null
+      if (event.sourceType === 'calendar') {
+        if (event.data?.eventType === 'training') {
+          await cancelPendingTrainingAvailabilityRequests({ user, calendarEventId: event.sourceId })
+          requestsClosed = true
+        }
+        const saved = await cancelCalendarEvent({ user, eventId: event.sourceId, reason: decision.cancellationReason })
+        const next = [saved, ...calendarItems.filter((item) => item.id !== saved.id)]
+        setCalendarItems(next)
+        writeCalendarAwareCache({ calendarItems: next })
+      } else {
+        const saved = await cancelAssessmentSession({ user, sessionId: event.sourceId, cancellationReason: decision.cancellationReason })
+        const next = sessions.filter((item) => item.id !== saved.id)
+        setSessions(next)
+        writeCalendarAwareCache({ sessions: next })
+      }
+      await finishCalendarChangeNotification(preparation?.preparationId, 'cancellation')
+      setCalendarModal(null)
+      showToast({ title: 'Event cancelled', message: 'The cancellation has been saved.' })
+    } catch (error) {
+      const message = requestsClosed ? 'Training availability requests were closed, but cancellation could not be confirmed. Refresh the calendar before trying again.' : error.message || 'The event could not be cancelled.'
+      setErrorMessage(message)
+      showToast({ title: 'Cancellation needs attention', message, tone: 'error' })
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
   const handleCalendarDelete = async () => {
     const activeEvent = calendarModal?.event || null
     const requiresRepeatDeleteScope = isRecurringCalendarEvent({ event: activeEvent, form: calendarForm })
@@ -3981,6 +4030,7 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
             assessmentCount,
             notificationPreparationId: changeNotificationPreparation?.preparationId || '',
             notifyEveryone: decision.notifyEveryone,
+            cancellationReason: decision.cancellationReason,
             playerCount: 0,
             source: 'calendar',
           })
@@ -4011,7 +4061,7 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
         const cancelledMatch = await updateMatchDay({
           user,
           matchId: activeEvent.sourceId,
-          updates: { status: 'cancelled' },
+          updates: { status: 'cancelled', cancellationReason: decision.cancellationReason },
         })
         const nextMatchDays = matchDays.filter((match) => match.id !== cancelledMatch.id)
         setMatchDays(nextMatchDays)
@@ -4167,6 +4217,7 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
       const deleteResult = await deleteAssessmentSession({
         user,
         sessionId: deleteSessionTarget.session.id,
+        cancellationReason: deleteSessionTarget.cancellationReason || '',
       })
       const nextSessions = sessions.filter((session) => session.id !== deleteSessionTarget.session.id)
       const nextCalendarInvites = calendarInvites.filter((invite) => invite.assessmentSessionId !== deleteSessionTarget.session.id)
@@ -4456,7 +4507,7 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
       message={calendarChangePrompt?.partialScope
         ? 'The selected date or future dates will be removed from the calendar. Earlier events and saved responses remain. This action does not send a parent notification.'
         : calendarChangePrompt?.action === 'cancelled'
-        ? 'Cancel this fixture? This keeps existing history and removes it from the active calendar. Choose whether everyone involved should receive an app notification and email.'
+        ? calendarChangePrompt?.recurring ? 'This cancels the whole repeating series. Choose whether everyone involved should receive an app notification and email.' : calendarChangePrompt?.operation === 'cancel-event' ? 'Cancel this event? Choose whether everyone involved should receive an app notification and email.' : 'Cancel this fixture? This keeps existing history and removes it from the active calendar. Choose whether everyone involved should receive an app notification and email.'
         : calendarChangePrompt?.action === 'deleted'
           ? `Delete ${calendarChangePrompt?.title || 'this Calendar item'}? If this is a repeat series, the entire series will be deleted. This cannot be undone. Choose whether everyone involved should receive an app notification and email.`
           : calendarChangePrompt?.operation === 'save'
@@ -4481,6 +4532,15 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
       onSecondaryAction={calendarChangePrompt?.partialScope ? undefined : () => resumeCalendarChange(false)}
       onConfirm={() => resumeCalendarChange(true)}
     >
+      {calendarChangePrompt?.action === 'cancelled' ? (
+        <label className="block text-sm font-black text-[#101828]">
+          Reason for cancellation (optional)
+          <textarea className={`${fieldClass} mt-2 min-h-24`} maxLength={500}
+            value={calendarChangePrompt.cancellationReason || ''}
+            onChange={(event) => setCalendarChangePrompt((current) => ({ ...current, cancellationReason: event.target.value }))} />
+          <span className="mt-1 block text-xs font-semibold text-[#4b5f55]">Visible to parents who can see this event.</span>
+        </label>
+      ) : null}
       {calendarChangePrompt?.operation === 'save' && calendarChangePrompt.review.changes.length ? (
         <div className="space-y-3 text-sm font-semibold text-[var(--text-muted)]">
           <p><strong>Recipients:</strong> {calendarChangePrompt.audience}. {calendarChangePrompt.recipientCount === null ? 'Checking contacts...' : `${calendarChangePrompt.recipientCount} parent contact${calendarChangePrompt.recipientCount === 1 ? '' : 's'} in scope.`}</p>
@@ -4557,6 +4617,7 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
           onCancel={handleCalendarModalClose}
           onChange={handleCalendarFormChange}
           onDelete={handleCalendarDelete}
+          onCancelEvent={handleCalendarCancellation}
           onRemoveDevelopmentCalendarEntry={handleHideDevelopmentCalendarEntry}
           onEdit={handleCalendarEdit}
           onOpenWorkflow={() => {
@@ -4925,6 +4986,7 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
         onCancel={handleCalendarModalClose}
         onChange={handleCalendarFormChange}
         onDelete={handleCalendarDelete}
+        onCancelEvent={handleCalendarCancellation}
         onRemoveDevelopmentCalendarEntry={handleHideDevelopmentCalendarEntry}
         onEdit={handleCalendarEdit}
         onOpenWorkflow={() => {
@@ -5932,6 +5994,7 @@ function CalendarEventModal({
   onCancel,
   onChange,
   onDelete,
+  onCancelEvent,
   onRemoveDevelopmentCalendarEntry,
   onEdit,
   onAcceptOnBehalf,
@@ -6354,6 +6417,7 @@ function CalendarEventModal({
             <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">
               {selectedSummary || event?.description || 'Calendar activity'}
             </p>
+            {event?.data?.cancelledAt ? <p className="mt-3 text-sm font-black text-red-700">Cancelled{event.data.cancellationReason ? `: ${event.data.cancellationReason}` : ''}</p> : null}
             {form.notes ? <p className="mt-3 text-sm font-semibold leading-6 text-[#4b5f55]">{form.notes}</p> : null}
             {isMatchFixture ? (
               <div className="mt-4 grid gap-3 rounded-lg border border-[#d7e5dc] bg-white p-3 sm:grid-cols-2">
@@ -7173,6 +7237,9 @@ function CalendarEventModal({
               <div className="flex flex-wrap items-center justify-end gap-3">
                 <button type="button" onClick={handleModalCancel} disabled={isBusy} className={secondaryButtonClass}>Cancel</button>
                 <button type="submit" disabled={isBusy} className={primaryButtonClass}>{isBusy ? 'Saving...' : isAssessmentReminder ? 'Save new date' : 'Save changes'}</button>
+                {canDeleteEvent && ['calendar', 'session'].includes(event.sourceType) ? (
+                  <button type="button" onClick={onCancelEvent} disabled={isBusy} className={secondaryButtonClass}>Cancel event</button>
+                ) : null}
                 {canDeleteEvent ? (
                   <button
                     type="button"
@@ -7232,6 +7299,9 @@ function CalendarEventModal({
                   <button type="button" onClick={onRemoveDevelopmentCalendarEntry} disabled={isBusy} className={secondaryButtonClass}>
                     Remove from calendar
                   </button>
+                ) : null}
+                {canDeleteEvent && ['calendar', 'session'].includes(event.sourceType) ? (
+                  <button type="button" onClick={onCancelEvent} disabled={isBusy} className={secondaryButtonClass}>Cancel event</button>
                 ) : null}
                 {canDeleteEvent ? (
                   <button
@@ -7346,6 +7416,9 @@ function CalendarEventModal({
                   >
                     Remove from calendar
                   </button>
+                ) : null}
+                {canDeleteEvent && ['calendar', 'session'].includes(event.sourceType) ? (
+                  <button type="button" role="menuitem" onClick={() => { setIsMobileActionMenuOpen(false); onCancelEvent() }} disabled={isBusy} className={compactSecondaryButtonClass}>Cancel event</button>
                 ) : null}
                 {canDeleteEvent ? (
                   <button

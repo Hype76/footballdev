@@ -313,6 +313,7 @@ export function normalizeCoachCalendarEvent(row, sourceType = 'calendar_event') 
     calendarDate: sourceCalendarDate || dateParts?.date || normalize(startsAt).slice(0, 10),
     calendarTime: sourceCalendarTime || dateParts?.time || '',
     cancelledAt: normalize(row.cancelled_at ?? row.cancelledAt) || (status === 'cancelled' ? normalize(row.updated_at ?? row.updatedAt) : ''),
+    cancellationReason: normalize(row.cancellation_reason ?? row.cancellationReason),
     canEdit: source === 'calendar_event' && row.canEdit !== false,
     dateTimeIssue,
     endsAt,
@@ -481,7 +482,7 @@ export function getCoachCalendarMutationPolicy({ context, event = null } = {}) {
   const inherited = Boolean(event?.isInheritedClubEvent)
   return Object.freeze({
     canCreate: canMutate && Boolean(context?.teamId || context?.role === 'admin'),
-    canEdit: canMutate && (!inherited || context?.role === 'admin') && event?.sourceType !== 'match_day' && event?.sourceType !== 'assessment_session',
+    canEdit: canMutate && !['cancelled', 'deleted'].includes(event?.status) && (!inherited || context?.role === 'admin') && event?.sourceType !== 'match_day' && event?.sourceType !== 'assessment_session',
     communicationsMode: 'disabled_test_sink',
     onlineRequired: true,
   })
