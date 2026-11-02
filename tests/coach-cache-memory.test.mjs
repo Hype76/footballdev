@@ -45,10 +45,10 @@ const screen = ast.program.body.find(node => node.type === 'ExportNamedDeclarati
 const callback = screen.body.body.find(node => node.type === 'VariableDeclaration' && node.declarations[0].id.name === 'load').declarations[0].init.arguments[0]
 
 function loadHarness({ saveError, savePending, loadError, cachedValue, cachePending, memoryValue, memoryFresh = false, domain = 'invites', offline = false, matchSnapshot, availabilitySnapshot, initialData = null } = {}) {
-  const state = { data: initialData, error: '', notice: '', loading: true, refreshing: false, stale: false, invitesRefreshing: false, saves: 0, reads: 0, timeoutMs: null, scopeCurrent: true }
+  const state = { data: initialData, error: '', notice: '', offlineWarning: { scope: '', message: '' }, loading: true, refreshing: false, stale: false, invitesRefreshing: false, saves: 0, reads: 0, timeoutMs: null, scopeCurrent: true }
   const next = { invites: [{ playerId: 'synthetic-player', status: 'maybe' }] }
   const environment = {
-    restoreCoachAvailabilitySnapshot, captureLoadScope: () => () => state.scopeCurrent, attendanceLoadGeneration: { current: 0 },
+    restoreCoachAvailabilitySnapshot, captureLoadScope: () => () => state.scopeCurrent, attendanceLoadGeneration: { current: 0 }, inviteSaveRef: { current: 0 },
     domain, dataScope: domain, deniedScopeRef: { current: '' }, context: { id: 'team:test' }, user: { id: 'coach', isOfflineProfile: offline },
     LOADERS: { [domain]: async (_user, options) => { state.reads += 1; state.publishMatch = options?.onMatchReady; if (matchSnapshot) options?.onMatchReady?.(matchSnapshot); if (availabilitySnapshot) options?.onAvailabilityReady?.(availabilitySnapshot); if (loadError) throw loadError; return next } },
     TITLES: { [domain]: domain }, dataRef: { get current() { return state.data } }, offlinePolicy: { cache: true },
@@ -58,6 +58,8 @@ function loadHarness({ saveError, savePending, loadError, cachedValue, cachePend
     readCoachOfflineResources: async () => { if (cachePending) await cachePending; return { resources: { [`phase31e:${domain}`]: cachedValue } } },
     hasUsableCoachPhase31ECache: (_domain, value) => Boolean(value),
     saveCoachOfflineResources: async () => { state.saves += 1; if (savePending) await savePending; if (saveError) throw saveError },
+    createCoachOfflineResourceSaver: (profile, context) => resources => environment.saveCoachOfflineResources(profile.id, context, resources),
+    setOfflineWarning: value => { state.offlineWarning = value },
     getCoachFriendlyError: error => error.message,
     ...Object.fromEntries(['Data', 'Error', 'Notice', 'Loading', 'Refreshing', 'Stale', 'InvitesRefreshing'].map(name => [`set${name}`, value => { state[name.charAt(0).toLowerCase() + name.slice(1)] = typeof value === 'function' ? value(state[name.charAt(0).toLowerCase() + name.slice(1)]) : value }])),
   }
@@ -76,7 +78,7 @@ test('a failed optional save never hides successfully loaded Coach invites', asy
     assert.equal(state.invitesRefreshing, false)
     assert.equal(state.timeoutMs, 30000)
     assert.equal(state.reads, 1)
-    assert.match(state.notice, /could not be saved/)
+    assert.match(state.offlineWarning.message, /Offline copy unavailable/)
   }
 })
 

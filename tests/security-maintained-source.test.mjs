@@ -118,7 +118,7 @@ test('changed advisory, upstream patch, published version or registry integrity 
     ['https://registry.npmjs.org/glob/latest', value => { value.version = '14.0.4' }],
     ['https://registry.npmjs.org/glob/latest', value => { value.dist.integrity = 'substituted' }],
     ['https://registry.npmjs.org/glob/latest', value => { value.gitHead = '0'.repeat(40) }],
-    ['https://registry.npmjs.org/minimatch/latest', value => { value.version = '11.0.4' }],
+    ['https://registry.npmjs.org/minimatch/latest', value => { value.version = '99.0.0' }],
     ['https://registry.npmjs.org/minimatch/latest', value => { value.dist.integrity = 'substituted' }],
     ['https://registry.npmjs.org/minimatch/latest', value => { value.gitHead = '0'.repeat(40) }],
   ]) {

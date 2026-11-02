@@ -8,7 +8,7 @@
     "proposalSha256": "95f1b5c782335dea22aee6223bbf1426cfe5f2e281dc30e5076f4c7ad0177a91",
     "calendarQualificationExpiry": "2026-10-19T22:59:59Z"
   },
-  "scope": "Three exact source-fixed braces3.0.3 copies, three exact locally corrected deepmerge4.3.1 copies and two unchanged official node-forge1.4.2 copies. Complete package trees, registry integrity, locks and native inputs remain verified. No generic advisory exceptions. Eight exact glob7.2.3 compatibility copies retain callback consumers with official minimatch11.0.3; six official minimatch/glob package trees remain byte-identical to registry artifacts. No new advisory acceptance.",
+  "scope": "Three exact source-fixed braces3.0.3 copies, three exact locally corrected deepmerge4.3.1 copies and two unchanged official node-forge1.4.2 copies. Complete package trees, registry integrity, locks and native inputs remain verified. No generic advisory exceptions. Eight exact glob7.2.3 compatibility copies retain callback consumers with official minimatch11.0.4; six official minimatch/glob package trees remain byte-identical to registry artifacts. No new advisory acceptance.",
   "controls": [
     "Independent external receipt SHA256 binds exact clean HEAD, record, policy, implementation, native and release preparation identities.",
     "Every release checks full installed package trees, all sixteen source/security copies and six unchanged official tooling copies, exact registry preimages/postimages, locks and native inputs. Official-maintained copies must remain byte-identical to the reviewed registry tree and receive no local source writes.",
@@ -222,9 +222,9 @@
       },
       "minimatch": {
         "name": "minimatch",
-        "version": "11.0.3",
-        "registryIntegrity": "sha512-iny/40PEGkNJQ5/Pv6z3nm6FbRAby32GeZRjCUJk2WnNDbgPSTcdI+DDvLqsgBdD4cD5sMtMheqPPnehCCa8Nw==",
-        "gitHead": "b0c2aa83161cb6aaa19fa2e612f0b64edffd18ee"
+        "version": "11.0.4",
+        "registryIntegrity": "sha512-/UJ1dEoVQTjPNDh6SGlUo+ueLMmoHTas4q+8yaAR/5t6nLAIiBDJtoYUh20IYleix7ehiQkgczb84PE3uzHkxg==",
+        "gitHead": "f24eba95d759c794f9f2529a650b6f9418544228"
       }
     },
     "advisoryAcceptanceAllowed": false,
