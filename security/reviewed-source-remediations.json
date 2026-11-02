@@ -559,7 +559,7 @@
   "implementationHashes": {
     "scripts/security-supply-chain-gate.mjs": "dcf722bc6cbf2015da4250ea60cbb81e34d3c5c64ec7bb6059671cbae5ab4207",
     "scripts/security-apply-reviewed-backports.mjs": "d1f039f35d9c8fddbb1b5694b89d2edd9d9adfd486dc75bd09f26194b7daa941",
-    "scripts/security-verify-reviewed-backports.mjs": "a114bfa1032a284643319ea987e2b98613d4966a4cc811f9a0159e64226df91f",
+    "scripts/security-verify-reviewed-backports.mjs": "d029ee8f6cc61609e174fa64b12978979c3d05256867910c5fa5eec72f0d8b22",
     "security/patches/braces-3.0.3.patch": "e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699",
     "security/patches/node-forge-1.4.0.patch": "2de065ac998bf58917a14d0935112d97ec2957ac41b5f06958d500934f188ed4",
     "security/patches/reviewed-source-manifest.json": "facb364bbac44a8276d082068e8ed8415ca89777d24f4c7a05ff370f71e5a54d",
@@ -1544,7 +1544,7 @@
       "src/components/platform/PlatformPartnersSection.jsx": "174c5c4a4a73703e4ff4f5a1789c2cfa18da7c2b3a652f02eb84b704325bce6e",
       "src/components/platform/partners.css": "740c5cd90ae9455a7b6d03ed04be7afb6b42bc7ca55ad810bad32c2adccb4373",
       "src/components/pwa/InstallAppButton.jsx": "064c15a547cc985df972b736005dc15e53c105227813764e792da7643e8353d2",
-      "src/components/teams/TeamBrandingOffer.jsx": "632b84fc43848952cd9ba5543efd537f12a56d3bf5e32af335116b5e581c6e80",
+      "src/components/teams/TeamBrandingOffer.jsx": "ed974c7223e311b7c9a77d042534fa9835b5467fa84137985dbe81627f179f50",
       "src/components/teams/TeamLeagueLinkSettings.jsx": "6503e07cdc7a5cb00d81d973df86a43cac1680d5eaa4d661e116a91040e30493",
       "src/components/teams/TeamStaffAllocationsSection.jsx": "cb23589486b18d3beece3e4ff0fe664e85c960eebec47834cbf3879c460d055e",
       "src/components/user-settings/DisplaySettingsSection.jsx": "e749ead78d7bf9e8991fa7acd84c7e49cda49ba4e3f6820375030b0c45626fc6",
@@ -2053,7 +2053,7 @@
       "tests/mobile-direct-role-selection.test.mjs": "da7e19a40322ea88be5ebaa05caa4550faa86bf1936c44a1b78fc12e2a765d19",
       "apps/coach-mobile/src/coachFormationEntryCore.js": "527d47ce4a02d39feec117cfc387be03641ea4de1917f76b42359f79565455a8",
       "tests/coach-formation-pitch-first-overhaul.test.mjs": "573028e637dc82077905ebd239fbfe22a967cb65c7ab85d9fa43085920fe7a66",
-      "tests/team-branding-colour-visibility-browser.mjs": "5e21f70f629bab946483d3e728e6d029cc4b98a8bf563b8aaaa224e235bac92e"
+      "tests/team-branding-colour-visibility-browser.mjs": "ae67a08530ef2ed70b01c7bd91e4a5c47d3a4512dd35e7fdd440919c4d36092c"
     },
     "externalTrustInputs": [
       "FOOTBALL_REVIEW_RECEIPT_BASE64",
@@ -3474,7 +3474,7 @@
       "nodeEngine": "20 || >=22"
     }
   },
-  "releasePreparationSha256": "c3b56275fb8c7a53510b270c58814d5c93980256e73b8268a8f323d43d87aacf",
+  "releasePreparationSha256": "6c7953ead2e9a9b9b7b97a1638dc3af005c0bb372290a6cdf183c82ce8bc1c5b",
   "rootOnlyProposalSha256": "45c3b7352c7328c84982e114b7e87e09cf79514d02d102297ae75ec0925812eb",
   "remediationMode": "maintained-source-fixes",
   "officialCompatibilityDependencies": [

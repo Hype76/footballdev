@@ -43,6 +43,16 @@ try {
     }
     await page.close()
   }
+  const unclaimed = await browser.newPage()
+  await unclaimed.setContent('<div id="root"></div>')
+  await unclaimed.evaluate(() => {
+    window.fixture = { display: null, calls: [] }
+    window.fetch = async (_, options) => { const body = JSON.parse(options.body); window.fixture.calls.push(body); return { ok: true, json: async () => ({ enabled: true, teamId: 'team', clubId: 'club', state: 'unclaimed', claimAllowed: true, termsVersion: 'v1', logoAllowed: false, coloursAllowed: false }) } }
+  })
+  await unclaimed.addScriptTag({ content: bundled.outputFiles[0].text })
+  await unclaimed.getByRole('checkbox').check()
+  assert.equal(await unclaimed.getByRole('button', { name: /Claim this team/ }).isEnabled(), true)
+  await unclaimed.close()
   const page = await browser.newPage()
   await page.setContent('<div id="root"></div>')
   await page.evaluate(() => {

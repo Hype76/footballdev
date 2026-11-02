@@ -29,7 +29,10 @@ export function TeamBrandingOffer({ teamId, teamName, isPlatformAdmin = false })
   }
   async function canUseTeamColours(value) {
     const { data, error } = await supabase.rpc('get_team_branding_display', { team_value: teamId, club_value: value.clubId })
-    const display = !error && getScopedTeamBranding({ teamId, clubId: value.clubId, teamBrandingDisplay: data })
+    if (error) throw new Error('Team branding could not be verified. Try again.')
+    // An authorised null result means the team has not claimed or saved branding.
+    if (data === null) return true
+    const display = getScopedTeamBranding({ teamId, clubId: value.clubId, teamBrandingDisplay: data })
     if (!display) throw new Error('Team branding could not be verified. Try again.')
     return display.source !== 'paid_club'
   }
