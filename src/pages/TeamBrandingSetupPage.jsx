@@ -13,6 +13,7 @@ const inputClass = 'min-h-11 w-full border-b border-[#ccd8d0] bg-white py-2 text
 export function TeamBrandingSetupPage() {
   const { search } = useLocation()
   const { teamId, fromCoach } = readBrandingSetupSelection(search)
+  const uploadOnly = fromCoach && new URLSearchParams(search).get('uploadOnly') === '1'
   const { isLoading, isProfileLoading, session, user, signInWithPassword, signOut } = useAuth()
   const [state, setState] = useState(null)
   const [display, setDisplay] = useState(null)
@@ -20,6 +21,8 @@ export function TeamBrandingSetupPage() {
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
   const [accepted, setAccepted] = useState(false)
+  const [accent, setAccent] = useState('#047857')
+  const [colourChanged, setColourChanged] = useState(false)
   const [file, setFile] = useState(null)
   const [previewUrl, setPreviewUrl] = useState('')
   const fileInput = useRef(null)
@@ -55,12 +58,13 @@ export function TeamBrandingSetupPage() {
     const scope = `${actorId}:${teamId}`
     if (selectionScope.current !== scope) {
       selectionScope.current = scope
-      setState(null); setDisplay(null); setMessage(''); setAccepted(false); setFile(null)
+      setState(null); setDisplay(null); setMessage(''); setAccepted(false); setFile(null); setColourChanged(false)
     }
     setError('')
     if (actorId && hasProfile && teamId) readCurrent(controller.signal).then(({ management, resolved }) => {
       if (current !== generation.current || controller.signal.aborted) return
       setState(management); setDisplay(resolved)
+      setAccent(currentAccent => colourChanged ? currentAccent : /^#[0-9a-f]{6}$/i.test(management.accent || '') ? management.accent : '#047857')
     }).catch(failure => { if (!controller.signal.aborted && current === generation.current) setError(failure.message) })
     return () => { controller.abort(); generation.current += 1 }
     // Each account/team change discards pending reads and selected artwork.
@@ -97,7 +101,7 @@ export function TeamBrandingSetupPage() {
         }
         extra = { termsVersion: fresh.management.termsVersion }
       } else {
-        extra = {}
+        extra = fresh.management.coloursAllowed && colourChanged ? { accent } : {}
         if (file) {
           if (!fresh.management.logoAllowed) throw new Error('Badge access is no longer available.')
           if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type) || file.size > 2 * 1024 * 1024) {
@@ -113,9 +117,9 @@ export function TeamBrandingSetupPage() {
       await requestTeamBrandingSetup({ client: supabase, teamId, action, extra, expectedActorId: actorId })
       const updated = await readCurrent()
       if (current !== generation.current) return
-      setState(updated.management); setDisplay(updated.resolved); setFile(null); setAccepted(false)
+      setState(updated.management); setDisplay(updated.resolved); setFile(null); setAccepted(false); setColourChanged(false)
       if (fileInput.current) fileInput.current.value = ''
-      setMessage(action === 'claim' ? 'Your place is reserved. Add your badge below.' : 'Team branding saved. Return to Coach to refresh it.')
+      setMessage(action === 'claim' ? 'Your place is reserved. Add your badge and colour below.' : 'Team branding saved. Return to Coach to refresh it.')
     } catch (failure) { if (current === generation.current) setError(failure.message || 'Your saved artwork was kept. Try again.') }
     finally { inFlight.current = false; setBusy(false) }
   }
@@ -123,7 +127,7 @@ export function TeamBrandingSetupPage() {
   const signedIn = Boolean(actorId)
   const paidClub = display?.source === 'paid_club'
   return <main className="mx-auto min-h-screen max-w-lg bg-white px-5 py-6 text-[#142a1d]">
-    <h1 className="text-2xl font-bold">{'Upload your team badge'}</h1>
+    <h1 className="text-2xl font-bold">{uploadOnly ? 'Upload your team badge' : 'Your team badge and colour'}</h1>
     <p className="py-3 text-base">Use your club badge for this team. This does not change your Club's shared branding.</p>
     {!teamId ? <p role="alert">Open this page from your selected team in Coach.</p> : !signedIn ? <>
       <p className="py-3">Sign in with your Football Player account. Your browser session is separate from the Coach app.</p>
@@ -142,7 +146,7 @@ export function TeamBrandingSetupPage() {
           <label className="flex min-h-12 items-center gap-3 py-2"><input type="checkbox" checked={accepted} onChange={event => setAccepted(event.target.checked)} disabled={busy} />I accept the offer terms ({state.termsVersion}).</label>
           <button className={actionClass} disabled={!accepted || busy} onClick={() => act('claim')}>Claim this team's place</button>
         </>}
-        {state.logoAllowed && <div className="divide-y divide-[#ccd8d0]">
+        {(state.logoAllowed || state.coloursAllowed) && <div className="divide-y divide-[#ccd8d0]">
           {state.logoAllowed && <div className="py-3">
             <label className="block pb-2" htmlFor="team-badge-file">Club badge for this team</label>
             {(previewUrl || state.logoUrl) && <img src={previewUrl || state.logoUrl} alt={previewUrl ? 'Selected team badge preview' : 'Saved team badge'} className="my-3 h-24 w-24 object-contain" />}
@@ -151,7 +155,8 @@ export function TeamBrandingSetupPage() {
             {file && <span role="status" className="block py-2 font-bold">Selected: {file.name}</span>}
             <p className="pt-2 text-sm">PNG, JPG or WebP, up to 2 MB and 2048 by 2048 pixels. Choose from photos or files.</p>
           </div>}
-          <div className="py-3"><button type="button" className={buttonClass} disabled={busy || !file} onClick={() => act('save')}>{busy ? 'Saving team branding...' : 'Save team branding'}</button></div>
+          {!uploadOnly && state.coloursAllowed && <label className="flex min-h-12 items-center justify-between py-3">Team colour<input aria-label="Team colour" type="color" className="h-12 w-16" value={accent} onChange={event => { setAccent(event.target.value); setColourChanged(true) }} disabled={busy} /></label>}
+          <div className="py-3"><button type="button" className={buttonClass} disabled={busy || (!colourChanged && !file)} onClick={() => act('save')}>{busy ? 'Saving team branding...' : 'Save team branding'}</button></div>
         </div>}
       </>}
     </> : null}
