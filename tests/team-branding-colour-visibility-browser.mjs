@@ -43,6 +43,19 @@ try {
     }
     await page.close()
   }
+  for (const offerState of ['unclaimed', 'provisional', 'failed']) {
+    const paid = await browser.newPage()
+    await paid.setContent('<div id="root"></div>')
+    await paid.evaluate(({ offerState }) => {
+      window.fixture = { display: { teamId:'team', clubId:'club', source:'team', logoAllowed:true, coloursAllowed:true, accent:'#123456' }, calls: [] }
+      window.fetch = async () => ({ ok:true, json:async () => ({ enabled:true, teamId:'team', clubId:'club', state:offerState, paidTeam:true, claimAllowed:false, logoAllowed:true, coloursAllowed:true, accent:'#123456' }) })
+    }, { offerState })
+    await paid.addScriptTag({ content: bundled.outputFiles[0].text })
+    await paid.getByText('Team branding is included in your plan.').waitFor()
+    assert.equal(await paid.getByLabel('Team colour').count(),1)
+    assert.equal(await paid.getByText(/New promotional places|Qualify by|qualification window/).count(),0)
+    await paid.close()
+  }
   const unclaimed = await browser.newPage()
   await unclaimed.setContent('<div id="root"></div>')
   await unclaimed.evaluate(() => {
