@@ -6,7 +6,7 @@ import { build } from 'esbuild'
 import { chromium } from 'playwright'
 
 if (!process.env.FORMATION_ASYNC_SCENARIO) {
-  for (const scenario of ['race', 'scope', 'cache', 'cache-missing', 'stable', 'loading-back', 'back', 'back-offline', 'retry', 'retry-no-storage', 'readonly', 'panels', 'multiple', 'queue-resume', 'conflict', 'ack-refresh', 'queue-switch', 'new-board-isolation']) {
+  for (const scenario of ['race', 'scope', 'cache', 'cache-missing', 'restored-authority', 'restored-revoked', 'restored-denied', 'stable', 'loading-back', 'back', 'back-offline', 'retry', 'retry-no-storage', 'readonly', 'panels', 'multiple', 'queue-resume', 'conflict', 'ack-refresh', 'queue-switch', 'new-board-isolation']) {
     const result = spawnSync(process.execPath, [fileURLToPath(import.meta.url)], {
       env: { ...process.env, FORMATION_ASYNC_SCENARIO: scenario },
       encoding: 'utf8',
@@ -123,7 +123,8 @@ const dataMock = `
 
   export const getCoachFormationBoards = async () => {
     const state = globalThis.__formationTest
-    if (state.mode === 'race' || state.mode === 'scope' || state.mode === 'cache' || state.mode === 'cache-missing' || state.mode === 'loading-back') {
+    if (state.mode === 'restored-denied') throw Object.assign(new Error('permission denied'), { status: 403 })
+    if (state.mode === 'race' || state.mode === 'scope' || state.mode === 'cache' || state.mode === 'cache-missing' || state.mode === 'restored-authority' || state.mode === 'restored-revoked' || state.mode === 'loading-back') {
       const call = ++state.boardCalls
       return new Promise(resolve => { state.boardResolvers[call] = resolve })
     }
@@ -186,10 +187,12 @@ const offlineMock = `
     if (window.__formationTest.mode === 'new-board-isolation') {
       const otherMatchBoard = { id: 'other-match-board', title: 'Other match board', linkedMatchDayId: 'match-b', createdByProfileId: 'coach-1', currentVersionId: 'other-match-v1', currentVersionNumber: 1, currentVersion: { id: 'other-match-v1', versionNumber: 1, gameFormat: '11v11', formationPresetKey: '11v11-4-4-2', placements: [], bench: [] } }
       stored = { resources: { formation: { board: otherMatchBoard, boards: [otherMatchBoard], draft: { gameFormat: '11v11', presetKey: '11v11-4-4-2', placements: [], bench: [] }, localDrafts: {}, matchDayId: 'match-b', pendingSave: null, pendingSaves: {}, presets: [{ key: '11v11-4-4-2', gameFormat: '11v11', displayName: '4-4-2', slots: cachedSlots }] } } }
-    } else if (window.__formationTest.mode === 'cache' || window.__formationTest.mode === 'cache-missing') {
+    } else if (['cache', 'cache-missing', 'restored-authority', 'restored-revoked', 'restored-denied'].includes(window.__formationTest.mode)) {
       const draft = { gameFormat: '11v11', presetKey: '11v11-4-4-2', placements: [{ playerId: 'cached-player', displayName: 'Cached Player', shirtNumber: 9, slotId: 'goalkeeper', positionGroup: 'goalkeeper', x: 0.5, y: 0.88 }], bench: [] }
       const board = { id: 'cached-board', title: 'Cached Board', linkedMatchDayId: 'match-a', createdByProfileId: 'coach-1', currentVersionId: 'cached-v1', currentVersionNumber: 1, currentVersion: { id: 'cached-v1', versionNumber: 1, gameFormat: '11v11', formationPresetKey: '11v11-4-4-2', placements: draft.placements, bench: [] } }
-      stored = { resources: { formation: { board, boards: [board], draft, localDrafts: {}, matchDayId: 'match-a', pendingSave: null, presets: [{ key: '11v11-4-4-2', gameFormat: '11v11', displayName: '4-4-2', slots: cachedSlots }] } } }
+      const restored = window.__formationTest.mode.startsWith('restored-')
+      if (restored) { board.canEdit = false; board.isLocked = true }
+      stored = { resources: { formation: { board, boards: [board], draft, localDrafts: restored ? { 'board:cached-board': { board, draft, title: 'Draft lineup', matchDayId: 'match-a', savedAt: '2026-11-02' } } : {}, matchDayId: 'match-a', pendingSave: null, presets: [{ key: '11v11-4-4-2', gameFormat: '11v11', displayName: '4-4-2', slots: cachedSlots }] } } }
     } else stored = { resources: { formation: { pendingSave: null, localDrafts: {} } } }
     return stored
   }
@@ -316,6 +319,7 @@ try {
     assert.equal(await readPlanTitle(), 'Cached Board')
     await page.getByText('Cached Player', { exact: true }).waitFor()
     assert.equal(await page.getByText('Loading Formation Board...', { exact: true }).count(), 0)
+    await page.getByText('Refreshing Formation Board', { exact: true }).waitFor()
     assert.equal(await page.getByRole('button', { name: 'Formation', exact: true }).isEnabled(), false)
     await page.evaluate((missing) => window.__formationTest.boardResolvers[1](missing ? [] : [{
       id: 'cached-board', title: 'Live Board', linkedMatchDayId: 'match-a', createdByProfileId: 'coach-1',
@@ -333,6 +337,7 @@ try {
       console.log('PASS: a missing live board stays blocked until the coach starts a safe replacement')
     } else {
       await page.waitForFunction(() => document.querySelector('[aria-label="Formation"]')?.getAttribute('aria-disabled') !== 'true')
+      assert.equal(await page.getByText('Refreshing Formation Board', { exact: true }).count(), 0)
       await page.getByRole('button', { name: /^(?:Formation Board options|Saved lineups \(\d+\))$/ }).click()
       assert.equal(await page.getByLabel('Formation plan title', { exact: true }).inputValue(), 'Live Board')
       await page.getByRole('button', { name: 'Close options', exact: true }).click()
@@ -393,6 +398,29 @@ try {
     }
     assert.equal(await page.evaluate(() => window.__formationTest.saveCalls), 0)
     console.log('PASS: Players, Formation, Save and empty positions repeatedly open and close without writes')
+  } else if (process.env.FORMATION_ASYNC_SCENARIO === 'restored-denied') {
+    await page.getByText('Board unavailable', { exact: true }).waitFor()
+    assert.equal(await readPlanTitle(), 'Draft lineup')
+    assert.equal(await page.getByRole('button', { name: 'Formation', exact: true }).isEnabled(), false)
+    assert.equal(await page.getByRole('button', { name: 'Try again', exact: true }).count(), 1)
+    console.log('PASS: denied refresh keeps a restored board blocked and offers a retry')
+  } else if (['restored-authority', 'restored-revoked'].includes(process.env.FORMATION_ASYNC_SCENARIO)) {
+    await page.getByText('Refreshing Formation Board', { exact: true }).waitFor()
+    await page.evaluate((revoked) => window.__formationTest.boardResolvers[1](revoked ? [] : [{
+      id: 'cached-board', title: 'Live Board', linkedMatchDayId: 'match-a', createdByProfileId: 'coach-1',
+      isLocked: false, canEdit: true, currentVersionId: 'cached-v2', currentVersionNumber: 2,
+      currentVersion: { id: 'cached-v2', versionNumber: 2, gameFormat: '11v11', formationPresetKey: '11v11-4-4-2', placements: [], bench: [] },
+    }]), process.env.FORMATION_ASYNC_SCENARIO === 'restored-revoked')
+    if (process.env.FORMATION_ASYNC_SCENARIO === 'restored-revoked') {
+      await page.getByText('Board unavailable', { exact: true }).waitFor()
+      assert.equal(await page.getByRole('button', { name: 'Formation', exact: true }).isEnabled(), false)
+    } else {
+      await page.waitForFunction(() => document.querySelector('[aria-label="Formation"]')?.getAttribute('aria-disabled') !== 'true')
+      await page.getByText('Cached Player', { exact: true }).waitFor()
+      await page.getByRole('button', { name: /^(?:Formation Board options|Saved lineups \(\d+\))$/ }).click()
+      assert.equal(await page.getByLabel('Formation plan title', { exact: true }).inputValue(), 'Draft lineup')
+    }
+    console.log('PASS: restored draft respects current board authority and remains protected')
   } else if (process.env.FORMATION_ASYNC_SCENARIO === 'readonly') {
     await page.getByText('Viewing only', { exact: true }).waitFor()
     assert.equal(await page.getByRole('img', { name: 'Add Player at Goalkeeper', exact: true }).count(), 1)

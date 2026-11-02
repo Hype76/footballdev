@@ -157,7 +157,7 @@ export function CoachFormationScreen({ context, onBack, onMarkerGestureEnd, onMa
         </Pressable>)}
         {!matches.length ? <Text style={styles.body}>No upcoming matches. Open an existing fixture from Match Day to view its saved lineups.</Text> : null}
       </ScrollView> : null}
-      {boardRendered && selectedMatch ? <CoachFormationBoard key={selectedMatch.id} context={context} match={selectedMatch} matches={matches} onBack={clearSelectedMatch} onMarkerGestureEnd={onMarkerGestureEnd} onMarkerGestureStart={onMarkerGestureStart} palette={palette} players={players} registerBackHandler={registerBackHandler} stale={stale} user={user} /> : null}
+      {boardRendered && selectedMatch ? <CoachFormationBoard key={selectedMatch.id} context={context} match={selectedMatch} matches={matches} onBack={clearSelectedMatch} onMarkerGestureEnd={onMarkerGestureEnd} onMarkerGestureStart={onMarkerGestureStart} palette={palette} players={players} refreshingTeam={loading} registerBackHandler={registerBackHandler} stale={stale} user={user} /> : null}
     </View>
   )
 }
