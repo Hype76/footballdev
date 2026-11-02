@@ -104,8 +104,8 @@ export function assertNativeInputsUnchanged(directory, repoRoot, items) {
     } else {
       assert.equal(item.type, 'file')
       assert.ok(stat.isFile() && !stat.isSymbolicLink(), 'Native input file changed')
-      assert.equal(stat.size, item.bytes, 'Native input size changed')
-      assert.equal(fileDigest(file), item.sha256, 'Native input content changed')
+      assert.equal(stat.size, item.bytes, `Native input size changed: ${item.path}`)
+      assert.equal(fileDigest(file), item.sha256, `Native input content changed: ${item.path}`)
     }
   }
 }
