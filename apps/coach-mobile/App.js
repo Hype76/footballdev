@@ -1997,9 +1997,9 @@ function AppContent() {
 function RecoveryNoticeBoundary({ children }) {
   const [warning, setWarning] = useState('')
   useEffect(() => {
-    const unsubscribe = coachRecoveryNotice.subscribe(setWarning)
+    const removeListener = coachRecoveryNotice.listen(setWarning)
     void coachRecoveryNotice.load().catch(() => {})
-    return unsubscribe
+    return removeListener
   }, [])
   return <View style={{ flex: 1 }}>{warning ? <SafeAreaView edges={['top']} style={{ backgroundColor: '#fff4cc' }}><Text accessibilityRole="alert" style={{ padding: 12, color: '#182623' }}>{warning}</Text></SafeAreaView> : null}{children}</View>
 }

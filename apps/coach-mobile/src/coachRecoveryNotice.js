@@ -19,7 +19,7 @@ export function createCoachRecoveryNotice(storage, key) {
       publish(value)
       void storage.setItem(key, '1').catch(() => {})
     },
-    subscribe(listener) {
+    listen(listener) {
       listeners.add(listener)
       if (message) listener(message)
       return () => listeners.delete(listener)
