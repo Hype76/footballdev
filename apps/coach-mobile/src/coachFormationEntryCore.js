@@ -11,6 +11,17 @@ export function canEditCoachFormationBoard(user = {}) {
   )
 }
 
+// Keep the draft's original version for conflict detection, but use current
+// server authority rather than a permission or lock flag saved on the phone.
+export function reconcileCoachFormationDraftAuthority(baseBoard, currentBoard) {
+  if (!baseBoard || !currentBoard || normalize(baseBoard.id) !== normalize(currentBoard.id)) return baseBoard
+  return {
+    ...baseBoard,
+    isLocked: currentBoard.isLocked === true,
+    ...(typeof currentBoard.canEdit === 'boolean' ? { canEdit: currentBoard.canEdit } : {}),
+  }
+}
+
 const FORMATION_AUTHORITY_FIELDS = Object.freeze([
   'id',
   'authorityId',

@@ -7,7 +7,15 @@ import {
   createMobileFormationDraft,
   setMobileFormationSquad,
 } from '../apps/mobile-core/src/coachFormationBoardCore.js'
-import { canEditCoachFormationBoard, getCoachFormationAuthorityScope, getCoachFormationMarkerVisualPosition, getCoachFormationRouteScope } from '../apps/coach-mobile/src/coachFormationEntryCore.js'
+import { canEditCoachFormationBoard, getCoachFormationAuthorityScope, getCoachFormationMarkerVisualPosition, getCoachFormationRouteScope, reconcileCoachFormationDraftAuthority } from '../apps/coach-mobile/src/coachFormationEntryCore.js'
+
+test('restored formation drafts use current authority while retaining their original version', () => {
+  const draft = { id: 'board-1', isLocked: true, canEdit: false, currentVersionNumber: 4, title: 'Saved draft' }
+  const current = { id: 'board-1', isLocked: false, canEdit: true, currentVersionNumber: 5, title: 'Server version' }
+  assert.deepEqual(reconcileCoachFormationDraftAuthority(draft, current), { ...draft, isLocked: false, canEdit: true })
+  assert.deepEqual(reconcileCoachFormationDraftAuthority(draft, { ...current, canEdit: false }), { ...draft, isLocked: false, canEdit: false })
+  assert.equal(reconcileCoachFormationDraftAuthority(draft, { ...current, id: 'other' }), draft)
+})
 
 const players = Array.from({ length: 13 }, (_, index) => ({
   id: `player-${index + 1}`,

@@ -41,7 +41,7 @@ import { readCoachOfflineResources, saveCoachFormationLocalDraft, saveCoachOffli
 import { findFormationLocalDraft, formationContentKey, formationDraftKey, formationMatchesBoard, getActiveFormationPublication, getFormationSaveLabel } from '../../mobile-core/src/coachFormationDraftCore'
 import { getCoachFriendlyError } from './coachFriendlyErrors'
 import { isRetryableFormationSaveError } from './coachFormationSaveQueueCore'
-import { canEditCoachFormationBoard, getCoachFormationMarkerVisualPosition, getCoachFormationRouteScope } from './coachFormationEntryCore'
+import { canEditCoachFormationBoard, getCoachFormationMarkerVisualPosition, getCoachFormationRouteScope, reconcileCoachFormationDraftAuthority } from './coachFormationEntryCore'
 import { createFormationMarkerTapRecognizer } from './formationMarkerTapCore'
 import { getMobileIconName } from '../../mobile-core/src/mobileIconSystem'
 
@@ -306,7 +306,7 @@ function ScrollSafePressable({ onPress, ...props }) {
 }
 
 
-export function CoachFormationBoard({ context, initialBoardId = '', match = null, matches = [], onBack, onMarkerGestureEnd, onMarkerGestureStart, palette, players, registerBackHandler, stale = false, user }) {
+export function CoachFormationBoard({ context, initialBoardId = '', match = null, matches = [], onBack, onMarkerGestureEnd, onMarkerGestureStart, palette, players, refreshingTeam = false, registerBackHandler, stale = false, user }) {
   const inWorkspace = useContext(CoachFormationWorkspaceContext)
   const fullScreen = Boolean(inWorkspace)
   const styles = useMemo(() => createStyles(palette, fullScreen), [palette, fullScreen])
@@ -394,7 +394,7 @@ export function CoachFormationBoard({ context, initialBoardId = '', match = null
     const localEntry = findFormationLocalDraft(saved?.resources?.formation, '', nextBoard.id)
     const local = nextBoard?.isLocked ? null : localEntry?.[1]
     const nextDraft = local?.draft || createMobileFormationDraft({ board: nextBoard })
-    const baseBoard = local?.board || nextBoard
+    const baseBoard = reconcileCoachFormationDraftAuthority(local?.board || nextBoard, nextBoard)
     const nextPublications = await resolvePublications(nextBoard, currentUser)
     if (request !== loadSequence.current) return
     setBoard(baseBoard)
@@ -504,7 +504,7 @@ export function CoachFormationBoard({ context, initialBoardId = '', match = null
       )) || null : null
       // Keep the restored base version so a concurrent coach edit still conflicts.
       const canonicalRestoredBoard = restored?.board?.id ? nextBoards.find(candidate => candidate.id === restored.board.id) : null
-      let nextBoard = recoveredBoard || (canonicalRestoredBoard?.isLocked ? canonicalRestoredBoard : restored ? restored.board || null : linkedBoard)
+      let nextBoard = recoveredBoard || (canonicalRestoredBoard?.isLocked ? canonicalRestoredBoard : restored ? reconcileCoachFormationDraftAuthority(restored.board || null, canonicalRestoredBoard) : linkedBoard)
       const upgradedLockedBoard = Boolean(nextBoard?.isLocked && canonicalRestoredBoard && !canonicalRestoredBoard.isLocked)
       if (upgradedLockedBoard) nextBoard = canonicalRestoredBoard
       if (initialBoardId && !restored && !pendingSave) nextBoard = linkedBoard
@@ -526,6 +526,7 @@ export function CoachFormationBoard({ context, initialBoardId = '', match = null
       setQueuedSaveAcknowledged(Boolean(unresolvedPendingSave?.acknowledged))
       const editorChangedDuringRefresh = showedCachedBoard && editorRevision.current !== refreshRevision
       const cachedBoardUnavailable = (showedCachedBoard && cachedBoardId && !restored && !refreshedCachedBoard)
+        || Boolean(restored?.board?.id && !canonicalRestoredBoard)
         || (initialBoardId && !linkedBoard)
       setDraftScope(routeScope)
       setBoards(nextBoards)
@@ -558,10 +559,13 @@ export function CoachFormationBoard({ context, initialBoardId = '', match = null
     } catch (loadError) {
       if (!isCurrent()) return
       if (restored?.draft || (cacheMatchesRoute && savedFormation?.draft)) {
+        if (loadError?.code === '42501' || loadError?.status === 403 || loadError?.statusCode === 403 || /permission denied|row.level security|not authori[sz]ed/i.test(String(loadError?.message || ''))) setServerBoardUnavailable(true)
         if (pendingSave) setNotice('Your unsent Formation Board is saved on this device. Connect when you are ready to finish saving it.')
         setQueuedRetryPending(Boolean(pendingSave))
         setQueuedSaveAcknowledged(Boolean(pendingSave?.acknowledged))
         setRefreshPending(false)
+        setErrorRetry('load')
+        setError(getCoachFriendlyError(loadError, 'The Formation Board could not be refreshed. Try again when connected.'))
       } else {
         setErrorRetry('load')
         setError(getCoachFriendlyError(loadError, 'The Formation Board could not be loaded.'))
@@ -1047,7 +1051,9 @@ export function CoachFormationBoard({ context, initialBoardId = '', match = null
       </View>
 
       <ScrollView style={fullScreen ? styles.canvasAlert : null}>
-      {!hasEditAuthority ? <View style={styles.warning}><Text style={styles.label}>Viewing only</Text><Text style={styles.body}>{stale ? 'Refresh the Team data before editing, saving or sharing this Formation Board.' : 'Coach or manager plan access is required to edit, save or share this Formation Board.'}</Text></View> : null}
+      {refreshPending || (stale && refreshingTeam) ? <View accessibilityLiveRegion="polite" style={styles.warning}><Text style={styles.label}>Refreshing Formation Board</Text><Text style={styles.body}>Your saved board is shown while the latest information loads. Editing and saving are temporarily unavailable.</Text></View> : null}
+      {!hasEditAuthority && !(stale && refreshingTeam) ? <View style={styles.warning}><Text style={styles.label}>Viewing only</Text><Text style={styles.body}>{stale ? 'Refresh the Team data before editing, saving or sharing this Formation Board.' : 'Coach or manager plan access is required to edit, save or share this Formation Board.'}</Text></View> : null}
+      {hasEditAuthority && !refreshPending && board?.isLocked ? <View style={styles.warning}><Text style={styles.label}>Saved snapshot</Text><Text style={styles.body}>This saved board is a snapshot. Open Options and choose New board to create another lineup.</Text></View> : null}
       {localState === 'failed' ? <Text accessibilityRole="alert" style={styles.body}>Changes could not be protected on this device. Keep this screen open and save to the match when connected.</Text> : null}
       {serverBoardUnavailable ? <View style={styles.warning}><Text style={styles.heading}>Board unavailable</Text><Text style={styles.body}>The saved board is no longer available to this account. Cached content cannot be edited or sent.</Text></View> : null}
       {error ? <View style={styles.warning}><Text style={styles.body}>{error}</Text><Action disabled={busy || (!canEdit && errorRetry === 'save')} label={errorRetry === 'conflict' ? 'Reload latest version' : errorRetry === 'save' ? 'Retry save' : errorRetry === 'back' ? 'Retry Back' : 'Try again'} onPress={errorRetry === 'conflict' ? reloadLatestBoard : errorRetry === 'save' ? save : errorRetry === 'back' ? handleBack : load} secondary styles={styles} /></View> : null}
