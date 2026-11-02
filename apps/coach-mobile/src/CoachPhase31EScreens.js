@@ -268,7 +268,7 @@ export function CoachPhase31EScreen({ chatNotificationTarget, domain, context, o
     const current = () => scopeCurrent() && generation === attendanceLoadGeneration.current
     const loader = LOADERS[domain]
     if (!loader) return
-    const saveInvitesCache = domain === 'invites' ? createCoachOfflineResourceSaver(user, context) : null
+    const saveInvitesCache = domain === 'invites' ? createCoachOfflineResourceSaver(user, context, { requireExistingDocument: true }) : null
     const saveInviteSnapshot = (value) => {
       const saveId = ++inviteSaveRef.current
       const saveCurrent = () => scopeCurrent() && saveId === inviteSaveRef.current
@@ -1208,7 +1208,7 @@ async function readSavedMatchInvites(user, context) {
 }
 
 function createMatchInviteSaver(user, context, fixtureId) {
-  const save = createCoachOfflineResourceSaver(user, context)
+  const save = createCoachOfflineResourceSaver(user, context, { requireExistingDocument: true })
   return snapshot => save({ 'phase31e:invites:fixture': {
     fixtureId, rows: snapshot.rows, checkedAt: snapshot.checkedAt,
   } })

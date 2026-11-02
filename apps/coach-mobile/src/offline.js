@@ -203,7 +203,7 @@ export async function readCoachHomeOfflineView(userId, context) {
   }
 }
 
-export function createCoachOfflineResourceSaver(profile, context) {
+export function createCoachOfflineResourceSaver(profile, context, { requireExistingDocument = false } = {}) {
   // The caller captures this while starting a live read, before awaiting it.
   // Only a server-loaded profile can repair a missing profile cache.
   const liveProfile = profile?.isOfflineProfile ? null : sanitizeCoachProfile(profile)
@@ -215,7 +215,7 @@ export function createCoachOfflineResourceSaver(profile, context) {
   return async (resources) => {
     if (scopeError) throw scopeError
     guard()
-    return saveCoachOfflineResourcesWithProfile(userId, capturedContext, resources, liveProfile)
+    return saveCoachOfflineResourcesWithProfile(userId, capturedContext, resources, liveProfile, { requireExistingDocument })
   }
 }
 
@@ -235,8 +235,9 @@ export async function saveCoachFormationLocalDraft(userId, context, key, entry) 
   })
 }
 
-async function saveCoachOfflineResourcesWithProfile(userId, contextId, resources, liveProfile = null) {
+async function saveCoachOfflineResourcesWithProfile(userId, contextId, resources, liveProfile = null, { requireExistingDocument = false } = {}) {
   const next = await store.update(userId, (current) => {
+    if (requireExistingDocument && (!current || normalize(current.userScope) !== normalize(userId))) throw new Error('offline_profile_scope_mismatch')
     if (!current?.profile) {
       if (!liveProfile || normalize(liveProfile.id) !== normalize(userId)) throw new Error('offline_profile_scope_mismatch')
       const previous = current || createCoachOfflineDocument({ userScope: userId })

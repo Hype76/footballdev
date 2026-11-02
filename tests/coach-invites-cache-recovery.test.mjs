@@ -93,6 +93,15 @@ test('actual write failure retains live data, protected drafts and a visible inl
   assert.doesNotMatch(jsx, /<MobileFailureNotice[^>]*message=\{offlineWarning/)
 })
 
+test('Invites shows a warning and does not create a document when storage returns null', async () => {
+  const h = harness()
+  await h.load(); await h.settle()
+  assert.equal(h.state.data, snapshot)
+  assert.ok(h.state.offlineWarning.message)
+  assert.equal(h.document(), null)
+  assert.equal(h.writes(), 0)
+})
+
 test('a stored authority mismatch cannot be repaired or overwritten by a live Invites read', async () => {
   let original = cache.createCoachOfflineDocument({ userScope: user.id })
   original = cache.setCoachOfflineProfile(original, { ...user, coachContexts: [{ ...context, authorityId: 'other' }] })
@@ -121,7 +130,7 @@ test('a switched account cannot publish or save a delayed Invites load', async (
 test('an older failed save cannot restore a warning after a later save succeeds', async () => {
   let rejectFirst, call = 0
   const first = new Promise((_resolve, reject) => { rejectFirst = reject })
-  const h = harness({ wrapSaver: save => value => ++call === 1 ? first : save(value) })
+  const h = harness({ initialDocument: cache.createCoachOfflineDocument({ userScope: user.id }), wrapSaver: save => value => ++call === 1 ? first : save(value) })
   await h.load(); await h.settle()
   assert.equal(h.document().profile.value.id, user.id)
   assert.equal(h.state.offlineWarning.message, '')
@@ -182,7 +191,7 @@ test('offline warnings expose only a coarse reference, never private error detai
     [new Error('offline_context_scope_mismatch private player'), 'ACCESS'],
     [new Error('private player confidential@example.test'), 'DEVICE'],
   ]) {
-    const h = harness({ diskError: error })
+    const h = harness({ initialDocument: cache.createCoachOfflineDocument({ userScope: user.id }), diskError: error })
     await h.load(); await h.settle()
     assert.match(h.state.offlineWarning.message, new RegExp(`Reference: ${reference}\\.`))
     assert.doesNotMatch(h.state.offlineWarning.message, /private player|confidential@example\.test|offline_/i)

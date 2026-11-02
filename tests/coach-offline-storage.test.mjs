@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { build } from 'esbuild'
-import { mkdir, writeFile } from 'node:fs/promises'
+import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { resolveCoachStaffContext } from '../apps/mobile-core/src/coachContextCore.js'
@@ -12,7 +12,9 @@ const mocks = {
   'expo-crypto': `import {randomBytes as random,randomUUID as uuid} from 'node:crypto';export const getRandomBytesAsync=async n=>new Uint8Array(random(n));export const randomUUID=uuid;`,
   config: `export const getMobileRuntimeConfig=()=>({isUsable:true,isProduction:false,supabaseUrl:'https://ndohkecigwlwayghsopw.supabase.co'})`,
 }
-const bundle = await build({entryPoints:['apps/coach-mobile/src/offline.js'],bundle:true,write:false,format:'esm',platform:'node',nodePaths:[path.resolve('apps/coach-mobile/node_modules')],plugins:[{name:'synthetic-native-adapters',setup(b){b.onResolve({filter:/.*/},args=>{const key=args.path.endsWith('/config')?'config':args.path;return mocks[key]?{path:key,namespace:'mock'}:undefined});b.onLoad({filter:/.*/,namespace:'mock'},args=>({contents:mocks[args.path],loader:'js'}))}}]})
+const offlineEntry = path.resolve('apps/coach-mobile/src/offline.js')
+const instrumentedOffline = `${await readFile(offlineEntry, 'utf8')}\nexport const testEncryptedStore = store\n`
+const bundle = await build({entryPoints:[offlineEntry],bundle:true,write:false,format:'esm',platform:'node',nodePaths:[path.resolve('apps/coach-mobile/node_modules')],plugins:[{name:'synthetic-native-adapters',setup(b){b.onResolve({filter:/.*/},args=>{const key=args.path.endsWith('/config')?'config':args.path;return mocks[key]?{path:key,namespace:'mock'}:undefined});b.onLoad({filter:/offline\.js$/},args=>args.path === offlineEntry ? {contents:instrumentedOffline,loader:'js',resolveDir:path.dirname(offlineEntry)} : undefined);b.onLoad({filter:/.*/,namespace:'mock'},args=>({contents:mocks[args.path],loader:'js'}))}}]})
 await mkdir('output/feedback-tools',{recursive:true})
 const file=path.resolve('output/feedback-tools/offline-storage-under-test.mjs')
 await writeFile(file,bundle.outputFiles[0].text)
@@ -89,6 +91,41 @@ const sessionResources = {
   sessions: Array.from({ length: 3 }, (_, id) => ({ id: `session-${id}`, title: 'Passing practice', notes: 'Caf\u00e9 \ud83c\udfc6' })),
   sessionPlayers: Array.from({ length: 23 }, (_, id) => ({ id: `player-${id}`, notes: 'Synthetic detail '.repeat(50) })),
   trainingEvents: [], trainingLocations: ['Training ground'],
+}
+const requireExistingDocument = { requireExistingDocument: true }
+
+test('Invites repairs a decrypted document without a profile and retains pending work', async () => {
+  await freshRecoveryAccount()
+  await storage.coachOfflineProfileStore.write(liveProfile)
+  await storage.updateCoachMatchDayOutbox(liveProfile.id, recoveryContext, 'match', () => ({
+    baseMatch: { id: 'match', clubId: recoveryContext.clubId, teamId: recoveryContext.teamId },
+    pending: [{ id: 'pending-goal', operation: 'goal' }], verifiedAt: new Date().toISOString(),
+  }))
+  await storage.saveLocalCoachDevelopmentDraft(liveProfile.id, recoveryContext, { playerId: 'player', formId: 'form', values: { score: 4 }, notes: 'Pending draft' })
+  const journal = await storage.readCoachMatchDayOutbox(liveProfile.id, recoveryContext, 'match')
+  const drafts = await storage.readCoachDevelopmentDrafts(liveProfile.id, recoveryContext)
+  await storage.testEncryptedStore.update(liveProfile.id, document => ({ ...document, profile: null }))
+  await storage.createCoachOfflineResourceSaver(liveProfile, recoveryContext, requireExistingDocument)({ 'phase31e:invites': { match: [{ id: 'invite' }] } })
+  assert.deepEqual(await storage.readCoachMatchDayOutbox(liveProfile.id, recoveryContext, 'match'), journal)
+  assert.deepEqual(await storage.readCoachDevelopmentDrafts(liveProfile.id, recoveryContext), drafts)
+  assert.equal((await storage.readCoachOfflineResources(liveProfile.id, recoveryContext)).resources['phase31e:invites'].match[0].id, 'invite')
+})
+
+for (const damage of ['empty', 'missing-key', 'corrupt-generation']) {
+  test(`Invites cannot initialise a fresh document after ${damage}`, async () => {
+    await freshRecoveryAccount()
+    if (damage !== 'empty') {
+      await storage.coachOfflineProfileStore.write(liveProfile)
+      if (damage === 'missing-key') globalThis.offlineKeys.clear()
+      else for (const key of globalThis.offlineCiphertext.keys()) {
+        if (key.includes('.g.')) globalThis.offlineCiphertext.set(key, '{damaged')
+      }
+    }
+    const save = storage.createCoachOfflineResourceSaver(liveProfile, recoveryContext, requireExistingDocument)
+    await assert.rejects(save({ 'phase31e:invites': { match: [{ id: 'invite' }] } }), /offline_profile_scope_mismatch/)
+    assert.equal((await storage.inspectCoachOfflineState(liveProfile.id)).hasDocument, false)
+    assert.equal([...globalThis.offlineCiphertext.keys()].some(key => key.includes('.g.')), false)
+  })
 }
 
 async function freshRecoveryAccount() {
