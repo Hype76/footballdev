@@ -7,7 +7,7 @@ const web = await readFile(new URL('../src/lib/domain/match-day.js', import.meta
 const mobile = await readFile(new URL('../apps/mobile-core/src/coachMatchDayData.js', import.meta.url), 'utf8')
 
 test('cancellation reason is optional and is passed through both coach clients', () => {
-  assert.match(migration, /cancellation_reason text not null default ''/)
+  assert.match(migration, /alter table public\.match_days add column if not exists cancellation_reason text;/)
   assert.match(migration, /cancellation_reason = left\(trim\(coalesce\(p_reason, ''\)\), 1000\)/)
   assert.match(web, /payload\.cancellation_reason = payload\.status === 'cancelled'/)
   assert.match(mobile, /p_reason: normalize\(cancellationReason\)/)
@@ -15,7 +15,7 @@ test('cancellation reason is optional and is passed through both coach clients',
 
 test('cancelled fixtures use the active authenticated parent relationship and audience gates', () => {
   assert.match(migration, /link\.auth_user_id = \(select auth\.uid\(\)\) and link\.status = 'active'/)
-  assert.match(migration, /fixture\.status = 'cancelled' and fixture\.deleted_at is null/)
+  assert.match(migration, /fixture\.status = 'cancelled' and fixture\.cancellation_reason is not null/)
   assert.match(migration, /fixture\.parent_visible is true and fixture\.parent_audience <> 'none'/)
   assert.match(migration, /fixture\.team_id = link\.team_id/)
   assert.match(migration, /invite\.player_id = link\.player_id/)

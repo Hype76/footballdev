@@ -190,7 +190,7 @@ function normalizeMatchEvent(match, invitation) {
     calendarTime: time,
     childName: invitation?.childName || '',
     cancellationReason: normalizeText(match.cancellationReason),
-    showCancelled: match.status === 'cancelled',
+    showCancelled: match.showCancelled === true,
     endsAt: invitation?.eventEnd || '',
     eventType: 'match_day',
     homeAway: match.homeAway ?? match.home_away,

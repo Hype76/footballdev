@@ -36,7 +36,7 @@ revoke all on function public.get_parent_portal_invited_sessions(uuid) from publ
 grant execute on function public.get_parent_portal_invited_sessions(uuid) to authenticated;
 
 -- section: match
-alter table public.match_days add column if not exists cancellation_reason text not null default '';
+alter table public.match_days add column if not exists cancellation_reason text;
 
 create function public.cancel_match_day_fixture_for_team(p_match_day_id uuid, p_team_id uuid, p_reason text)
 returns jsonb
@@ -122,7 +122,8 @@ as $$
   left join public.teams team on team.id = fixture.team_id
   where link.id = parent_link_id_value and link.auth_user_id = (select auth.uid()) and link.status = 'active'
     and public.current_user_can_access_parent_link(link.id, link.player_id)
-    and fixture.status = 'cancelled' and fixture.deleted_at is null and fixture.previous_hidden_at is null
+    and fixture.status = 'cancelled' and fixture.cancellation_reason is not null
+    and fixture.deleted_at is null and fixture.previous_hidden_at is null
     and fixture.parent_visible is true and fixture.parent_audience <> 'none'
     and (fixture.match_date is null or fixture.match_date >= (timezone('Europe/London', now())::date - 365))
     and (

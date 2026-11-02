@@ -1,6 +1,13 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { applyParentEventCancellations, groupParentInvitationsByEvent, normalizeParentInvitation } from '../src/lib/domain/parent-invitations.js'
+import { normalizeMatchDay } from '../src/lib/domain/match-day.js'
+
+test('web fixture normalization distinguishes legacy cancellations from a blank new reason', () => {
+  assert.equal(normalizeMatchDay({ status: 'cancelled', cancellation_reason: null }).showCancelled, false)
+  assert.equal(normalizeMatchDay({ status: 'cancelled', cancellation_reason: '' }).showCancelled, true)
+  assert.equal(normalizeMatchDay({ status: 'cancelled', cancellation_reason: 'Rain' }).showCancelled, true)
+})
 
 test('authorized calendar and session cancellations disable responses and carry their reasons', () => {
   const rows = [

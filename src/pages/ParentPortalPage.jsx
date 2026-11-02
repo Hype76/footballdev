@@ -2511,6 +2511,7 @@ function buildParentCalendarEvents({ childName = '', invitationEvents = [], matc
     .filter((event) => event.date)
 
   const matchEvents = matches
+    .filter((match) => match.status !== 'cancelled' || match.showCancelled === true)
     .map((match) => {
       const invitationGroup = invitationGroupsByEventId.get(String(match.id))
       const kickoffTimeTbc = isFixtureKickoffTimeTbc(match.kickoffTimeTbc)

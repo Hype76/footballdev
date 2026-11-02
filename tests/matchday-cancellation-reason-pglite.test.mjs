@@ -54,6 +54,9 @@ test('fixture cancellation checks team management, saves an optional trimmed rea
 
 test('cancelled fixture visibility checks active identity, audience, team and involvement', async (t) => {
   const db = await setup(t)
+  await db.query("update public.match_days set status = 'cancelled'")
+  assert.equal((await visible(db)).length, 0, 'legacy cancellation without a reason marker remains hidden')
+  await db.query("update public.match_days set status = 'scheduled'")
   await db.query('select public.cancel_match_day_fixture_for_team($1, $2, $3)', [ids.match, ids.team, null])
   assert.equal((await visible(db))[0].cancellation_reason, '')
   for (const [key, denied, allowed] of [['test.user_status', 'suspended', 'active'], ['test.player_status', 'archived', 'active'], ['test.plan_enabled', 'false', 'true']]) {

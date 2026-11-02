@@ -114,6 +114,7 @@ export function normalizeMatchDay(row) {
     scorerRequestMessage: normalizeText(row.scorer_request_message ?? row.scorerRequestMessage),
     squadDecisionState: normalizeText(row.squad_decision_state ?? row.squadDecisionState) || 'undecided',
     cancellationReason: normalizeText(row.cancellation_reason ?? row.cancellationReason),
+    showCancelled: row.showCancelled ?? (row.cancellation_reason != null || row.cancellationReason != null),
     status: normalizeText(row.status) || 'scheduled',
     teamId: row.team_id ?? row.teamId ?? '',
     teamName: normalizeText(team?.name ?? row.team_name ?? row.teamName) || 'Our team',

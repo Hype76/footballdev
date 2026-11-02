@@ -16,8 +16,17 @@ test('session cancellation reason is normalized', () => {
 })
 
 test('cancelled fixtures stay visible to parents without an actionable response', () => {
-  const events = buildParentCalendarEvents({ matches: [{ id: 'm', teamName: 'Team', opponent: 'Visitors', matchDate: '2026-11-03', status: 'cancelled', cancellationReason: 'Pitch closed' }], invitations: [{ eventId: 'm', invitationType: 'match_attendance', isPending: true }] })
+  const events = buildParentCalendarEvents({ matches: [{ id: 'm', teamName: 'Team', opponent: 'Visitors', matchDate: '2026-11-03', status: 'cancelled', showCancelled: true, cancellationReason: 'Pitch closed' }], invitations: [{ eventId: 'm', invitationType: 'match_attendance', isPending: true }] })
   assert.equal(events.length, 1)
   assert.equal(events[0].cancellationReason, 'Pitch closed')
   assert.equal(events[0].requiresResponse, false)
+})
+
+test('a newly cancelled fixture with no reason is visible while legacy cancellation stays hidden', () => {
+  const events = buildParentCalendarEvents({ matches: [
+    { id: 'legacy', matchDate: '2026-11-03', status: 'cancelled', cancellationReason: '', showCancelled: false },
+    { id: 'new', matchDate: '2026-11-04', status: 'cancelled', cancellationReason: '', showCancelled: true },
+  ] })
+  assert.deepEqual(events.map(event => event.sourceId), ['new'])
+  assert.equal(events[0].cancellationReason, '')
 })
