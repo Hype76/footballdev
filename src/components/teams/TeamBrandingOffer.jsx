@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase-client.js'
 import { formatUkDate } from '../../lib/date-format.js'
+import { getScopedTeamBranding } from '../../lib/team-branding-display.js'
 
 const actionClass = 'min-h-11 px-3 py-2 text-sm font-bold underline underline-offset-4 disabled:opacity-50'
 export function TeamBrandingOffer({ teamId, teamName, isPlatformAdmin = false }) {
   const [state, setState] = useState(null)
+  const [teamColoursAvailable, setTeamColoursAvailable] = useState(false)
   const [accepted, setAccepted] = useState(false)
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState('')
@@ -25,9 +27,14 @@ export function TeamBrandingOffer({ teamId, teamName, isPlatformAdmin = false })
   }
   useEffect(() => {
     const controller = new AbortController()
-    setState(null); setAccepted(false); setMessage(''); setFile(null); setReason('')
-    if (teamId) request('read', {}, controller.signal).then(value => {
-      if (!controller.signal.aborted) { setState(value); setAccent(value.accent?.startsWith('#') ? value.accent : '#047857') }
+    setState(null); setTeamColoursAvailable(false); setAccepted(false); setMessage(''); setFile(null); setReason('')
+    if (teamId) request('read', {}, controller.signal).then(async value => {
+      const { data, error } = await supabase.rpc('get_team_branding_display', { team_value: teamId, club_value: value.clubId })
+      const display = !error && getScopedTeamBranding({ teamId, clubId: value.clubId, teamBrandingDisplay: data })
+      if (!controller.signal.aborted) {
+        setState(value); setTeamColoursAvailable(Boolean(display && display.source !== 'paid_club'))
+        setAccent(value.accent?.startsWith('#') ? value.accent : '#047857')
+      }
     }).catch(() => { /* Dormant/uninstalled or unavailable offers stay hidden. */ })
     return () => controller.abort()
     // Each selection creates a fresh scoped request and discards the previous response.
@@ -37,7 +44,7 @@ export function TeamBrandingOffer({ teamId, teamName, isPlatformAdmin = false })
     setBusy(true); setMessage('')
     try {
       if (action === 'claim' && state.claimAllowed !== true) throw new Error('New promotional places are available to Matchday teams only.')
-      const extra = action === 'claim' ? { termsVersion: state.termsVersion } : action === 'extend' ? { reason } : state.coloursAllowed ? { accent } : {}
+      const extra = action === 'claim' ? { termsVersion: state.termsVersion } : action === 'extend' ? { reason } : state.coloursAllowed && teamColoursAvailable ? { accent } : {}
       if (action === 'save' && file) {
         if (file.size > 5 * 1024 * 1024) throw new Error('Choose a logo smaller than 5 MB.')
         const dataUrl = await new Promise((resolve, reject) => {
@@ -59,10 +66,10 @@ export function TeamBrandingOffer({ teamId, teamName, isPlatformAdmin = false })
       <label className="flex min-h-11 items-center gap-3 py-2 text-sm"><input type="checkbox" checked={accepted} onChange={event => setAccepted(event.target.checked)} />I accept these offer terms ({state.termsVersion}).</label>
       <button className={actionClass} disabled={!accepted || busy} onClick={() => act('claim')}>Claim this team’s place</button>
     </>}
-    {(state.logoAllowed || state.coloursAllowed) && <div className="divide-y divide-[#d7e5dc]">
+    {(state.logoAllowed || (state.coloursAllowed && teamColoursAvailable)) && <div className="divide-y divide-[#d7e5dc]">
       {state.logoAllowed && <label className="flex min-h-11 flex-wrap items-center justify-between gap-2 py-2 text-sm">Team logo<input type="file" accept="image/png,image/jpeg,image/webp" disabled={busy} onChange={event => setFile(event.target.files?.[0] || null)} /></label>}
-      {state.coloursAllowed && <label className="flex min-h-11 items-center justify-between py-2 text-sm">Team colour<input aria-label="Team colour" type="color" value={accent} disabled={busy} onChange={event => setAccent(event.target.value)} className="h-11 w-16" /></label>}
-      <button className={actionClass} disabled={busy || (!state.coloursAllowed && !file)} onClick={() => act('save')}>Save branding</button>
+      {state.coloursAllowed && teamColoursAvailable && <label className="flex min-h-11 items-center justify-between py-2 text-sm">Team colour<input aria-label="Team colour" type="color" value={accent} disabled={busy} onChange={event => setAccent(event.target.value)} className="h-11 w-16" /></label>}
+      <button className={actionClass} disabled={busy || (!(state.coloursAllowed && teamColoursAvailable) && !file)} onClick={() => act('save')}>Save branding</button>
     </div>}
     {isPlatformAdmin && state.state === 'provisional' && !state.extensionUsed && <details className="border-t border-[#d7e5dc] py-2">
       <summary className="min-h-11 cursor-pointer py-2 text-sm font-bold">Extend by one calendar month</summary>
