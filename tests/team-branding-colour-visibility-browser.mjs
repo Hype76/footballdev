@@ -43,6 +43,24 @@ try {
     }
     await page.close()
   }
+  const page = await browser.newPage()
+  await page.setContent('<div id="root"></div>')
+  await page.evaluate(() => {
+    window.fixture = { rpcError: { message: 'offline' }, display: { teamId: 'team', clubId: 'club', source: 'team', logoAllowed: true, coloursAllowed: true, accent: '#123456' }, calls: [] }
+    window.fetch = async (_, options) => { const body = JSON.parse(options.body); window.fixture.calls.push(body); return { ok: true, json: async () => ({ enabled: true, teamId: 'team', clubId: 'club', state: 'permanent', logoAllowed: true, coloursAllowed: true, accent: '#123456' }) } }
+  })
+  await page.addScriptTag({ content: bundled.outputFiles[0].text })
+  await page.getByRole('alert').filter({ hasText: 'could not be verified' }).waitFor()
+  await page.evaluate(() => { window.fixture.rpcError = null })
+  await page.getByRole('button', { name: 'Retry branding check' }).click()
+  await page.getByLabel('Team colour').waitFor()
+  await page.getByLabel('Team colour').fill('#abcdef')
+  await page.evaluate(() => { window.fixture.display.source = 'paid_club' })
+  await page.getByRole('button', { name: 'Save branding' }).click()
+  await page.getByText('Your colour is now managed by your Club.').waitFor()
+  assert.equal(await page.getByLabel('Team colour').count(), 0)
+  assert.equal(await page.evaluate(() => window.fixture.calls.some(x => x.action === 'save')), false)
+  await page.close()
   console.log('Team branding browser checks passed for club, team and promotional display sources.')
 } finally { await browser.close() }
 

@@ -7,6 +7,8 @@ const actionClass = 'min-h-11 px-3 py-2 text-sm font-bold underline underline-of
 export function TeamBrandingOffer({ teamId, teamName, isPlatformAdmin = false }) {
   const [state, setState] = useState(null)
   const [teamColoursAvailable, setTeamColoursAvailable] = useState(false)
+  const [brandingCheckFailed, setBrandingCheckFailed] = useState(false)
+  const [retry, setRetry] = useState(0)
   const [accepted, setAccepted] = useState(false)
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState('')
@@ -25,25 +27,36 @@ export function TeamBrandingOffer({ teamId, teamName, isPlatformAdmin = false })
     if (!result.ok) throw new Error(value.message || 'Team branding could not be updated.')
     return value
   }
+  async function canUseTeamColours(value) {
+    const { data, error } = await supabase.rpc('get_team_branding_display', { team_value: teamId, club_value: value.clubId })
+    const display = !error && getScopedTeamBranding({ teamId, clubId: value.clubId, teamBrandingDisplay: data })
+    if (!display) throw new Error('Team branding could not be verified. Try again.')
+    return display.source !== 'paid_club'
+  }
   useEffect(() => {
     const controller = new AbortController()
-    setState(null); setTeamColoursAvailable(false); setAccepted(false); setMessage(''); setFile(null); setReason('')
+    setState(null); setTeamColoursAvailable(false); setBrandingCheckFailed(false); setAccepted(false); setMessage(''); setFile(null); setReason('')
     if (teamId) request('read', {}, controller.signal).then(async value => {
-      const { data, error } = await supabase.rpc('get_team_branding_display', { team_value: teamId, club_value: value.clubId })
-      const display = !error && getScopedTeamBranding({ teamId, clubId: value.clubId, teamBrandingDisplay: data })
+      if (!controller.signal.aborted) setState(value)
+      if (!value.enabled) return
+      const available = await canUseTeamColours(value)
       if (!controller.signal.aborted) {
-        setState(value); setTeamColoursAvailable(Boolean(display && display.source !== 'paid_club'))
+        setTeamColoursAvailable(available)
         setAccent(value.accent?.startsWith('#') ? value.accent : '#047857')
       }
-    }).catch(() => { /* Dormant/uninstalled or unavailable offers stay hidden. */ })
+    }).catch(() => { if (!controller.signal.aborted) { setBrandingCheckFailed(true); setMessage('Team branding could not be verified. Try again.') } })
     return () => controller.abort()
     // Each selection creates a fresh scoped request and discards the previous response.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [teamId])
+  }, [teamId, retry])
   async function act(action) {
     setBusy(true); setMessage('')
     try {
       if (action === 'claim' && state.claimAllowed !== true) throw new Error('New promotional places are available to Matchday teams only.')
+      if (action === 'save' && teamColoursAvailable) {
+        const available = await canUseTeamColours(state)
+        if (!available) { setTeamColoursAvailable(false); throw new Error('Your colour is now managed by your Club.') }
+      }
       const extra = action === 'claim' ? { termsVersion: state.termsVersion } : action === 'extend' ? { reason } : state.coloursAllowed && teamColoursAvailable ? { accent } : {}
       if (action === 'save' && file) {
         if (file.size > 5 * 1024 * 1024) throw new Error('Choose a logo smaller than 5 MB.')
@@ -56,7 +69,8 @@ export function TeamBrandingOffer({ teamId, teamName, isPlatformAdmin = false })
     } catch (error) { setMessage(error.message || 'Team branding could not be updated.') }
     finally { setBusy(false) }
   }
-  if (!state?.enabled) return null
+  if (!state?.enabled && !brandingCheckFailed) return null
+  if (brandingCheckFailed) return <section aria-label="Team branding promotion" className="border-t border-[#d7e5dc] py-3"><p role="alert">{message}</p><button className={actionClass} onClick={() => setRetry(value => value + 1)}>Retry branding check</button></section>
   return <section aria-label="Team branding promotion" className="border-t border-[#d7e5dc] py-3">
     <h2 className="text-base font-bold">Branding for {teamName || 'this team'}</h2>
     <p className="py-2 text-sm">{state.state === 'grandfathered' || state.state === 'permanent' ? 'Permanent promotional branding' : state.state === 'failed' ? 'The qualification window has ended. Saved artwork is retained.' : state.state === 'provisional' ? `Qualify by ${formatUkDate(state.deadlineAt)}: ${state.playersWithAcceptedParent}/7 players with accepted Parent links and ${state.completedMatches}/10 completed matches.` : 'First 250 teams: claim team logo and colours.'}</p>
