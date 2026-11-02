@@ -807,7 +807,7 @@ export async function handler(event) {
 
       const { data: links, error: linksError } = await adminSupabase.from('parent_player_links')
         .select('id, auth_user_id, email, players!inner(id, player_name, team_id, club_id, status)')
-        .eq('club_id', match.club_id).eq('team_id', match.team_id).eq('status', 'active')
+        .eq('club_id', match.club_id).eq('team_id', match.team_id).eq('link_type', 'parent').eq('status', 'active')
         .eq('players.club_id', match.club_id).eq('players.team_id', match.team_id).eq('players.status', 'active')
         .not('auth_user_id', 'is', null)
       if (linksError) throw linksError
@@ -881,7 +881,7 @@ export async function handler(event) {
     if (directParentLinkId) {
       const { data: directLink, error: directLinkError } = await adminSupabase.from('parent_player_links')
         .select('id, club_id, team_id, player_id, email, auth_user_id, status, players!inner(id, player_name, team_id, club_id, status)')
-        .eq('id', directParentLinkId).eq('club_id', match.club_id).eq('team_id', match.team_id).eq('status', 'active')
+        .eq('id', directParentLinkId).eq('club_id', match.club_id).eq('team_id', match.team_id).eq('link_type', 'parent').eq('status', 'active')
         .eq('players.club_id', match.club_id).eq('players.team_id', match.team_id).eq('players.status', 'active').maybeSingle()
       if (directLinkError) throw directLinkError
       if (!directLink?.auth_user_id || !normalizeText(directLink.email)) throw Object.assign(new Error('Choose an active linked parent for this team.'), { statusCode: 403 })

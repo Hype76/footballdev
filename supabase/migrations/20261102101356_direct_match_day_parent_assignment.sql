@@ -34,7 +34,7 @@ begin
       and player.club_id = match_row.club_id and player.status = 'active'
       and player.team_id = match_row.team_id
     where link.id = parent_link_id_value and link.club_id = match_row.club_id and link.team_id = match_row.team_id
-      and link.status = 'active' and link.auth_user_id is not null
+      and link.link_type = 'parent' and link.status = 'active' and link.auth_user_id is not null
       and nullif(trim(link.email), '') is not null
       and exists (select 1 from auth.users account where account.id = link.auth_user_id)
       and not exists (select 1 from public.users account where account.id = link.auth_user_id

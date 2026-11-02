@@ -559,7 +559,7 @@
   "implementationHashes": {
     "scripts/security-supply-chain-gate.mjs": "dcf722bc6cbf2015da4250ea60cbb81e34d3c5c64ec7bb6059671cbae5ab4207",
     "scripts/security-apply-reviewed-backports.mjs": "d1f039f35d9c8fddbb1b5694b89d2edd9d9adfd486dc75bd09f26194b7daa941",
-    "scripts/security-verify-reviewed-backports.mjs": "e41692933acd2a48242e3997ac6fb129d621b962f5057f776cc95636fc91a3af",
+    "scripts/security-verify-reviewed-backports.mjs": "3922a541a246184d83f6e5db719cff41ba39fcd4402b06a2d95b43a8fe4974fb",
     "security/patches/braces-3.0.3.patch": "e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699",
     "security/patches/node-forge-1.4.0.patch": "2de065ac998bf58917a14d0935112d97ec2957ac41b5f06958d500934f188ed4",
     "security/patches/reviewed-source-manifest.json": "facb364bbac44a8276d082068e8ed8415ca89777d24f4c7a05ff370f71e5a54d",
@@ -1346,7 +1346,7 @@
       "apps/coach-mobile/src/CoachDevelopmentTemplateBuilder.js": "976c1e91e9b86eff4621bac8e58e06022e83c8c50f08b21dc389dec9b79dbdb9",
       "apps/coach-mobile/src/CoachFixtureForm.js": "e420432a18ab03a2b67c3d8b2b23d9f0716e70c135e638c72f1bc911d9525f2c",
       "apps/coach-mobile/src/CoachKeyboardFocusContext.js": "2e24114b3755cd8b56ab5099019c0663ad6d24418a66e0a48fa06ca07e22d015",
-      "apps/coach-mobile/src/CoachMatchDayScreen.js": "147c624cefe9b3023d397928e622be9d5d9beb99781160eeb1ebdb1e5da5ef18",
+      "apps/coach-mobile/src/CoachMatchDayScreen.js": "83f4c88c439f6d1c41f9fdb8267cc11904c3972349bbd1a155147cb9e831bbe0",
       "apps/coach-mobile/src/CoachMatchInviteTable.js": "70d854eb08b25770af0717fd38efb67c10a25a1bdf27583fb03017e0e0c0d57e",
       "apps/coach-mobile/src/CoachNativeTeamBrandingEditor.js": "bd7b007e1ddbd407f187bb417b53bc31916b9ab490e465e18af0ae5d0354a4cd",
       "apps/coach-mobile/src/CoachOperationalScreens.js": "4de73a745f8b6b2aece68a3c1dcc69b0ed2b3cb45ac096c576679af1e3842bce",
@@ -1391,8 +1391,8 @@
       "apps/mobile-core/src/coachDevelopmentTemplateCore.js": "7ead6e3472e0d634948e775aafa08a97d90d55e38254a01ed33bc503c26e7de9",
       "apps/mobile-core/src/coachFixtureCore.js": "99837cb43b33250a0d151379a3c6bc5b1736ff26c80153b4321511ce0cbb501d",
       "apps/mobile-core/src/coachFixtureEditCore.js": "3b1579aa6e053155725dca8755e43894f0d0068110ea6b35d0f23fae5e6a7b62",
-      "apps/mobile-core/src/coachMatchDayCore.js": "b51d0884dd4e675865590db7fe0274639315c0c77ec30bfe27bc37bf2197bd45",
-      "apps/mobile-core/src/coachMatchDayData.js": "7eefe54892d3830f7cfd9d448ffb150309dcd96f49ed71ccc063a91a002eaa60",
+      "apps/mobile-core/src/coachMatchDayCore.js": "d73ba84214b8d1adfba989adf683088554f12dcf90c8c7ea6d997d632c5eb879",
+      "apps/mobile-core/src/coachMatchDayData.js": "a3f02c61efa1d7debfb014b229d2f0a2a1bf46bf8c4ebcf76453306373efcf4a",
       "apps/mobile-core/src/coachOfflineCore.js": "0726d23f218e743a6c5c718947a479eddfb8d6d184d60f27fb480582029117d9",
       "apps/mobile-core/src/coachPhase31ECore.js": "f5fbec67959acb9b08ef74fa52929d9a36cb172c2a7559f45b828e076f61fb79",
       "apps/mobile-core/src/coachPhase31EData.js": "4c75e65f19e7f17765bc0fdf3eb077399ee267f85e44b98b3050fb9f24aeadb7",
@@ -2043,7 +2043,14 @@
       "tests/parent-web-cancellation-reason.test.mjs": "471b5741af0c923d1ed93b904efdf2a41e65f5e5937257bc02f76afc58ecd47e",
       "tests/session-cancellation-reason.test.mjs": "4ae3dbb9f689437ea280fcb289fa1e61854dd2a88ebec266cde90bc183434c3b",
       "tests/session-cancellation-rls.test.mjs": "9f3a7a297e9afb291bd81d5607cb347c890f30671f9946d784a3be6591297235",
-      "tests/training-change-recipients.test.mjs": "03cab26f91c7ae45ab7ec971a58e3ee3bbbe92245b481ec61088f51e116f558f"
+      "tests/training-change-recipients.test.mjs": "03cab26f91c7ae45ab7ec971a58e3ee3bbbe92245b481ec61088f51e116f558f",
+      "netlify/functions/select-match-day-volunteer.js": "221581cb29cedf7898a7a7bbc437b3f472e7d62ea426157cd68ffd02586db1fa",
+      "supabase/migrations/20261102101356_direct_match_day_parent_assignment.sql": "deb39c873240be6fdfc7b0daff3d22d2636116dc0539501c37aeef0e0d4e5226",
+      "tests/direct-match-day-handler.fixture.mjs": "d14989d7f0acea252a25cc78edba9c68131e453daa745e6996ef8c03fe3d165f",
+      "tests/direct-match-day-handler.test.mjs": "1e4b28a0b3e9d83ba5f5377269c8dbebfc1aab3a91ba76957954076a3488afb0",
+      "tests/direct-match-day-parent-assignment.test.mjs": "c8a8fefb07b4358f6c70a3443930837aa00f31662cc1114368ad54f3180aab69",
+      "tests/direct-match-day-role-alert.test.mjs": "f6818144e92f19a69a0c2e16ae9c95b3c39904690ee5d750be4bfcb5ff2ff606",
+      "tests/mobile-direct-role-selection.test.mjs": "da7e19a40322ea88be5ebaa05caa4550faa86bf1936c44a1b78fc12e2a765d19"
     },
     "externalTrustInputs": [
       "FOOTBALL_REVIEW_RECEIPT_BASE64",
@@ -3464,7 +3471,7 @@
       "nodeEngine": "20 || >=22"
     }
   },
-  "releasePreparationSha256": "ba4eb789469ef07d8592284971e660b0110bc9b962b01a5beb1136d6a0f7d146",
+  "releasePreparationSha256": "bf55a8e0e9bb99fa1f217bcc21e967688f44c62b05e258d6e5e99117c7b1680f",
   "rootOnlyProposalSha256": "45c3b7352c7328c84982e114b7e87e09cf79514d02d102297ae75ec0925812eb",
   "remediationMode": "maintained-source-fixes",
   "officialCompatibilityDependencies": [
