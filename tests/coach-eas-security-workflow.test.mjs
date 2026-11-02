@@ -6,7 +6,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { gzipSync } from 'node:zlib'
 import test from 'node:test'
-import { assertAndroidSigningFiles, assertEasIdentity, assertGeneratedPaths, assertNativeInputsUnchanged, assertPristineInputs, findArtifacts, nativeInventory, readTrustedReview } from '../scripts/security-eas-coach-test.mjs'
+import { assertAndroidSigningFiles, assertEasIdentity, assertFrameworkInventory, assertGeneratedPaths, assertNativeInputsUnchanged, assertNoIosArchiveOverrides, assertPristineInputs, assertReviewedFile, findArtifacts, nativeInventory, prepareIosReleaseFrameworks, readTrustedReview } from '../scripts/security-eas-coach-test.mjs'
 
 const require = createRequire(import.meta.url)
 const yaml = require('js-yaml')
@@ -54,6 +54,57 @@ test('Android signing files are accepted only after injection and only as regula
   } finally { rmSync(fixture, { recursive: true, force: true }) }
 })
 
+test('reviewed iOS archives and extracted framework trees reject tampering', () => {
+  const fixture = mkdtempSync(path.join(os.tmpdir(), 'coach-framework-'))
+  try {
+    const archive = path.join(fixture, 'archive.tar.gz')
+    writeFileSync(archive, 'synthetic archive')
+    const digest = createHash('sha256').update('synthetic archive').digest('hex')
+    assert.doesNotThrow(() => assertReviewedFile(archive, fixture, 17, digest))
+    assert.throws(() => assertReviewedFile(archive, fixture, 16, digest))
+    assert.throws(() => assertReviewedFile(archive, fixture, 17, '0'.repeat(64)))
+    const framework = path.join(fixture, 'framework')
+    mkdirSync(framework)
+    writeFileSync(path.join(framework, 'file'), 'reviewed')
+    const items = nativeInventory(framework, fixture, 'framework')
+    const expected = createHash('sha256').update(JSON.stringify(items)).digest('hex')
+    assert.doesNotThrow(() => assertFrameworkInventory(framework, fixture, 'framework', expected))
+    writeFileSync(path.join(framework, 'file'), 'altered!')
+    assert.throws(() => assertFrameworkInventory(framework, fixture, 'framework', expected))
+    writeFileSync(path.join(framework, 'extra'), 'unexpected')
+    assert.throws(() => assertFrameworkInventory(framework, fixture, 'framework', expected))
+  } finally { rmSync(fixture, { recursive: true, force: true }) }
+})
+
+test('iOS preparation rejects overrides, missing markers and incomplete extraction', () => {
+  for (const name of ['ENTERPRISE_REPOSITORY', 'RCT_TESTONLY_RNCORE_TARBALL_PATH', 'RCT_TESTONLY_RNCORE_VERSION', 'RCT_USE_LOCAL_RN_DEP', 'RCT_DEPS_VERSION']) assert.throws(() => assertNoIosArchiveOverrides({ [name]: 'unexpected' }))
+  const fixture = mkdtempSync(path.join(os.tmpdir(), 'coach-prepare-'))
+  try {
+    const pods = path.join(fixture, 'apps/coach-mobile/ios/Pods')
+    const rn = path.join(fixture, 'apps/coach-mobile/node_modules/react-native')
+    for (const dir of [pods, path.join(rn, 'scripts'), path.join(rn, 'third-party-podspecs')]) mkdirSync(dir, { recursive: true })
+    writeFileSync(path.join(rn, 'package.json'), '{"version":"0.81.5"}')
+    const archives = ['a.tar.gz', 'b.tar.gz'].map(name => {
+      writeFileSync(path.join(pods, name), name)
+      return [name, name.length, createHash('sha256').update(name).digest('hex')]
+    })
+    const script = (folder, output, marker) => `const fs=require('fs'); fs.mkdirSync(${JSON.stringify(folder)},{recursive:true}); fs.writeFileSync(${JSON.stringify(output)},'reviewed'); fs.writeFileSync(${JSON.stringify(marker)},'Release');`
+    const coreFile = 'React-Core-prebuilt/React.xcframework/file'
+    const depsFile = 'ReactNativeDependencies/framework/file'
+    writeFileSync(path.join(rn, 'scripts/replace-rncore-version.js'), script('React-Core-prebuilt/React.xcframework', coreFile, 'React-Core-prebuilt/.last_build_configuration'))
+    writeFileSync(path.join(rn, 'third-party-podspecs/replace_dependencies_version.js'), script('ReactNativeDependencies/framework', depsFile, 'ReactNativeDependencies/.last_build_configuration'))
+    const digest = createHash('sha256').update('reviewed').digest('hex')
+    const inventoryHash = name => createHash('sha256').update(JSON.stringify([{ path: name, type: 'file', bytes: 8, sha256: digest }])).digest('hex')
+    const expected = { archives, coreInventory: inventoryHash('React.xcframework/file'), depsInventory: inventoryHash('file') }
+    assert.doesNotThrow(() => prepareIosReleaseFrameworks(fixture, { ...process.env, EAS_BUILD_PLATFORM: 'ios' }, expected))
+    assert.throws(() => prepareIosReleaseFrameworks(fixture, { ...process.env, EAS_BUILD_PLATFORM: 'ios' }, expected), /prior framework/)
+    rmSync(path.join(pods, 'React-Core-prebuilt'), { recursive: true })
+    rmSync(path.join(pods, 'ReactNativeDependencies'), { recursive: true })
+    writeFileSync(path.join(rn, 'scripts/replace-rncore-version.js'), 'process.exit(0)')
+    assert.throws(() => prepareIosReleaseFrameworks(fixture, { ...process.env, EAS_BUILD_PLATFORM: 'ios' }, expected))
+  } finally { rmSync(fixture, { recursive: true, force: true }) }
+})
+
 test('pre-existing native inputs are rejected and native files and artifacts have exact identities', () => {
   const fixture = mkdtempSync(path.join(os.tmpdir(), 'coach-eas-security-'))
   try {
@@ -93,4 +144,9 @@ for (const platform of ['android', 'ios']) test(`${platform} custom build verifi
   assert.ok(commands.slice(setup + 1, prebuild).some(value => value.includes('security-eas-coach-test.mjs verify')))
   assert.ok(commands.slice(prebuild + 1, nativeBuild).filter(value => value.includes('security-eas-coach-test.mjs verify')).length >= (platform === 'ios' ? 2 : 1))
   assert.ok(commands.slice(prebuild + 1, nativeBuild).some(value => value.includes('security-eas-coach-test.mjs capture')))
+  if (platform === 'ios') {
+    const preparation = commands.indexOf('node ../../scripts/security-eas-coach-test.mjs prepare-ios')
+    const capture = commands.indexOf('node ../../scripts/security-eas-coach-test.mjs capture')
+    assert.ok(preparation >= 0 && capture > preparation && nativeBuild > capture)
+  }
 })

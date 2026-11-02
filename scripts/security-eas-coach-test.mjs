@@ -86,6 +86,48 @@ export function nativeInventory(directory, repoRoot, prefix = '') {
   })
 }
 
+export function assertReviewedFile(file, repoRoot, size, sha256) {
+  const stat = fs.lstatSync(file)
+  assert.ok(stat.isFile() && !stat.isSymbolicLink(), 'Reviewed archive must be a regular file')
+  const relative = path.relative(repoRoot, fs.realpathSync(file))
+  assert.ok(relative && !relative.startsWith('..' + path.sep) && !path.isAbsolute(relative), 'Reviewed archive escapes workspace')
+  assert.equal(stat.size, size, 'Reviewed archive size changed')
+  assert.equal(fileDigest(file), sha256, 'Reviewed archive content changed')
+}
+
+export function assertFrameworkInventory(directory, repoRoot, prefix, expectedSha256) {
+  const items = nativeInventory(directory, repoRoot, prefix).sort((a, b) => a.path < b.path ? -1 : a.path > b.path ? 1 : 0)
+  assert.ok(items.length > 0 && items.every(item => item.type === 'file'), 'Unexpected framework inventory')
+  assert.equal(hash(Buffer.from(JSON.stringify(items))), expectedSha256, 'Release framework inventory changed')
+}
+
+export function assertNoIosArchiveOverrides(env) {
+  for (const name of ['ENTERPRISE_REPOSITORY', 'RCT_TESTONLY_RNCORE_TARBALL_PATH', 'RCT_TESTONLY_RNCORE_VERSION', 'RCT_USE_LOCAL_RN_DEP', 'RCT_DEPS_VERSION']) assert.ok(!env[name], 'Unreviewed React Native archive override')
+}
+
+export function prepareIosReleaseFrameworks(repoRoot, env, fixture) {
+  assert.equal(env.EAS_BUILD_PLATFORM, 'ios')
+  assertNoIosArchiveOverrides(env)
+  const pods = path.join(repoRoot, 'apps/coach-mobile/ios/Pods')
+  const rn = path.join(repoRoot, 'apps/coach-mobile/node_modules/react-native')
+  assert.equal(JSON.parse(fs.readFileSync(path.join(rn, 'package.json'))).version, '0.81.5')
+  // These exact Maven Central 0.81.5 release archives were independently
+  // inspected for unsafe paths, duplicate names and escaping hard links.
+  const archives = fixture?.archives || [
+    ['ReactNativeCore-artifacts/reactnative-core-0.81.5-release.tar.gz', 27595635, 'd60f971fd81c64086e5ea0ed7100b1e72ce4cbea733bf4a40dcafc2086548446'],
+    ['ReactNativeDependencies-artifacts/reactnative-dependencies-0.81.5-release.tar.gz', 10474526, '702dfc90aed09da439b37c6f15266643259c198fed5c0052e23439680e362b5d'],
+  ]
+  for (const [name, size, digest] of archives) assertReviewedFile(path.join(pods, name), repoRoot, size, digest)
+  for (const marker of ['React-Core-prebuilt/.last_build_configuration', 'ReactNativeDependencies/.last_build_configuration']) assert.ok(!fs.existsSync(path.join(pods, marker)), 'Unexpected prior framework configuration')
+  for (const script of ['scripts/replace-rncore-version.js', 'third-party-podspecs/replace_dependencies_version.js']) {
+    execFileSync(process.execPath, [path.join(rn, script), '-c', 'Release', '-r', '0.81.5', '-p', pods], { cwd: pods, stdio: 'inherit', env })
+  }
+  for (const [name, size, digest] of archives) assertReviewedFile(path.join(pods, name), repoRoot, size, digest)
+  for (const marker of ['React-Core-prebuilt/.last_build_configuration', 'ReactNativeDependencies/.last_build_configuration']) assert.equal(fs.readFileSync(path.join(pods, marker), 'utf8'), 'Release', 'Framework release marker missing')
+  assertFrameworkInventory(path.join(pods, 'React-Core-prebuilt/React.xcframework'), repoRoot, 'React.xcframework', fixture?.coreInventory || '360aaf50a7ef7caa3e9b3df0bb49ccf7352d3708c29a7902fbddf94fc4348e6f')
+  assertFrameworkInventory(path.join(pods, 'ReactNativeDependencies/framework'), repoRoot, '', fixture?.depsInventory || '2d76f99cf3953b9bf46e399ff572fe7793e2d6453232093e794e89b228f96824')
+}
+
 export function findArtifacts(directory, extension) {
   if (!fs.existsSync(directory)) return []
   return fs.readdirSync(directory).sort().flatMap(name => {
@@ -123,6 +165,7 @@ export function assertNativeInputsUnchanged(directory, repoRoot, items) {
 
 export function runEasSecurityGate(mode, env = process.env) {
   assertEasIdentity(env)
+  if (env.EAS_BUILD_PLATFORM === 'ios') assertNoIosArchiveOverrides(env)
   const bytes = readTrustedReview(env)
   const { record } = loadRecord(root)
   assert.equal(git('rev-parse', 'HEAD'), env.EAS_BUILD_GIT_COMMIT_HASH, 'EAS checkout differs from the submitted commit')
@@ -138,7 +181,7 @@ export function runEasSecurityGate(mode, env = process.env) {
     assert.equal(git('ls-files', '--others', '--ignored', '--exclude-standard', '-z'), '', 'Ignored files present in the source archive')
     return { head: source.head }
   }
-  assert.ok(['provision', 'verify', 'capture', 'finalize'].includes(mode), 'Unknown EAS security gate mode')
+  assert.ok(['provision', 'verify', 'prepare-ios', 'capture', 'finalize'].includes(mode), 'Unknown EAS security gate mode')
   const source = { head: env.EAS_BUILD_GIT_COMMIT_HASH }
   const review = verifyReviewBytes(root, record, source, bytes, env.FP_COACH_QA_REVIEW_SHA256)
   if (mode === 'provision') {
@@ -157,6 +200,7 @@ export function runEasSecurityGate(mode, env = process.env) {
   const evidenceDir = path.join(root, '.security-artifacts')
   const nativeEvidence = path.join(evidenceDir, 'eas-coach-native-inputs.json')
   const nativeManifest = path.join(evidenceDir, 'eas-coach-native-inputs-private.json')
+  if (mode === 'prepare-ios') prepareIosReleaseFrameworks(root, env)
   if (mode === 'capture') {
     const app = JSON.parse(fs.readFileSync(path.join(root, 'apps/coach-mobile/package.json')))
     const eas = JSON.parse(fs.readFileSync(path.join(root, 'apps/coach-mobile/eas.json')))
