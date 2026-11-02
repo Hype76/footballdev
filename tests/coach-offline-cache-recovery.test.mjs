@@ -20,7 +20,7 @@ const cachedEntry = (item, savedAt) => ({
   clubId: item.clubId,
   contextId: item.id,
   resourceMetadata: { calendar: { checkedAt: savedAt, savedAt, fingerprint: `calendar:${item.id}` } },
-  resources: { calendar: { payload: 'x'.repeat(760_000) } },
+  resources: { calendar: { payload: 'x'.repeat(7_600_000) } },
   role: item.role,
   savedAt,
   teamId: item.teamId,
@@ -53,7 +53,7 @@ test('a full bounded Sessions batch fits after stale cache recovery without drop
     contexts: { [stale.id]: cachedEntry(stale, '2026-09-01T10:00:00Z') },
     profile: { retrievedAt: '2026-09-03T10:00:00Z', value: profile([stale, target]) },
   }
-  document.contexts[stale.id].resources.calendar.payload = 'x'.repeat(1_200_000)
+  document.contexts[stale.id].resources.calendar.payload = 'x'.repeat(14_500_000)
   const sessions = Array.from({ length: 180 }, (_, index) => ({ id: `session-${index}`, notes: 'Session plan and coaching note. '.repeat(45), title: `Session ${index}` }))
   const sessionPlayers = Array.from({ length: 300 }, (_, index) => ({ id: `player-${index}`, notes: 'Player session observation. '.repeat(35), playerName: `Player ${index}` }))
   const trainingEvents = Array.from({ length: 180 }, (_, index) => ({ id: `event-${index}`, notes: 'Training event note. '.repeat(35), title: `Training ${index}` }))
@@ -83,7 +83,7 @@ test('an unchanged requested resource retries cache recovery after other offline
     },
     profile: { retrievedAt: '2026-09-03T10:00:00Z', value: profile([stale, target]) },
   }
-  document.contexts[stale.id].resources.calendar.payload = 'x'.repeat(1_600_000)
+  document.contexts[stale.id].resources.calendar.payload = 'x'.repeat(16_000_000)
   const saved = setCoachOfflineResources(document, target, { sessions }, '2026-09-03T10:00:01Z')
   assert.deepEqual(saved.contexts[target.id].resources.sessions, sessions)
   assert.equal(saved.contexts[stale.id].resources.calendar, undefined)
@@ -92,7 +92,7 @@ test('an unchanged requested resource retries cache recovery after other offline
 test('cache recovery keeps pending Formation saves, Match Day outbox work, and Development drafts', () => {
   const target = context('protected-target')
   const stale = context('stale')
-  const formation = { board: { id: 'board' }, pendingSave: { id: 'formation-save', placements: [{ id: 'player' }] }, payload: 'f'.repeat(760_000) }
+  const formation = { board: { id: 'board' }, pendingSave: { id: 'formation-save', placements: [{ id: 'player' }] }, payload: 'f'.repeat(7_600_000) }
   const document = {
     ...createCoachOfflineDocument({ userScope }),
     contexts: {
@@ -117,7 +117,7 @@ test('cache recovery keeps pending Formation saves, Match Day outbox work, and D
 test('cache recovery preserves a local Formation draft even before a save is pending', () => {
   const target = context('formation-draft')
   const stale = context('formation-stale')
-  const formation = { draft: { bench: ['player-1'], placements: [{ playerId: 'player-2', slotId: 'slot-1' }] }, payload: 'f'.repeat(760_000) }
+  const formation = { draft: { bench: ['player-1'], placements: [{ playerId: 'player-2', slotId: 'slot-1' }] }, payload: 'f'.repeat(7_600_000) }
   const document = {
     ...createCoachOfflineDocument({ userScope }),
     contexts: {
@@ -143,13 +143,13 @@ test('cache writes fail atomically when requested or protected data cannot fit',
       [target.id]: {
         ...cachedEntry(target, '2026-09-01T10:00:00Z'),
         resourceMetadata: { formation: { savedAt: '2026-09-01T10:00:00Z', fingerprint: 'formation:pending' } },
-        resources: { formation: { pendingSave: { id: 'unsynced' }, payload: 'f'.repeat(900_000) } },
+        resources: { formation: { pendingSave: { id: 'unsynced' }, payload: 'f'.repeat(9_000_000) } },
       },
     },
     profile: { retrievedAt: '2026-09-02T10:00:00Z', value: profile([target]) },
   }
   const before = structuredClone(document)
-  assert.throws(() => setCoachOfflineResources(document, target, { sessions: Array.from({ length: 180 }, (_, index) => ({ id: index, notes: 's'.repeat(5_000) })) }), /offline_cache_payload_too_large/)
+  assert.throws(() => setCoachOfflineResources(document, target, { sessions: Array.from({ length: 180 }, (_, index) => ({ id: index, notes: 's'.repeat(50_000) })) }), /offline_cache_payload_too_large/)
   assert.deepEqual(document, before)
 })
 
@@ -159,7 +159,7 @@ test('profile saves recover reconstructible resources before enforcing the cache
     ...createCoachOfflineDocument({ userScope }),
     contexts: { [target.id]: cachedEntry(target, '2026-09-01T10:00:00Z') },
   }
-  document.contexts[target.id].resources.calendar.payload = 'x'.repeat(1_600_000)
+  document.contexts[target.id].resources.calendar.payload = 'x'.repeat(16_000_000)
   const saved = setCoachOfflineProfile(document, profile([target]), '2026-09-03T10:00:00Z')
   assert.equal(saved.contexts[target.id].resources.calendar, undefined)
   assert.equal(saved.profile.value.id, userScope)

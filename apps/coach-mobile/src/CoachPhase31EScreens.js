@@ -280,7 +280,10 @@ export function CoachPhase31EScreen({ chatNotificationTarget, domain, context, o
           : /payload_too_large/.test(reason) ? 'CACHE'
             : /quota|disk.*full|database.*full|not enough.*storage/.test(reason) ? 'SPACE'
               : /crypto|key_store|key_readback|securestore|secure.store/.test(reason) ? 'SECURE' : 'DEVICE'
-        if (saveCurrent()) setOfflineWarning({ scope: dataScope, message: `Offline copy unavailable. Stay online and retry. Reference: ${reference}.` })
+        const message = /recovery_required/.test(reason)
+          ? 'Saved offline work needs recovery. Keep app data and contact support. Reference: RECOVERY.'
+          : `Offline copy unavailable. Stay online and retry. Reference: ${reference}.`
+        if (saveCurrent()) setOfflineWarning({ scope: dataScope, message })
       })
     }
     const memoryKey = `coach:phase31e:${domain}`

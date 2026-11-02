@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises'
 import test from 'node:test'
 import vm from 'node:vm'
 import { getCoachFriendlyError } from '../apps/coach-mobile/src/coachFriendlyErrors.js'
-import { getCoachOfflineSaveWarning } from '../apps/coach-mobile/src/coachOfflineErrors.js'
+import { getCoachOfflineRecoveryMessage, getCoachOfflineSaveWarning } from '../apps/coach-mobile/src/coachOfflineErrors.js'
 import { normalizeCoachSession } from '../apps/mobile-core/src/coachSessionsCore.js'
 
 const source = await readFile(new URL('../apps/coach-mobile/src/CoachOperationalScreens.js', import.meta.url), 'utf8')
@@ -231,4 +231,19 @@ test('cache budget failure does not claim the phone storage is full', () => {
   const text = getCoachOfflineSaveWarning(new Error('offline_cache_payload_too_large'))
   assert.match(text, /app cache limit/)
   assert.doesNotMatch(text, /storage is full|Reference: SPACE/)
+})
+
+
+test('storage recovery tells the coach to retain app data and contact support', () => {
+  const text = getCoachOfflineSaveWarning(new Error('offline_storage_recovery_required'))
+  assert.match(text, /Keep app data and contact support/)
+  assert.match(text, /Reference: RECOVERY/)
+})
+
+
+test('startup recovery message identifies protected storage failures without treating network errors as recovery', () => {
+  assert.match(getCoachOfflineRecoveryMessage(new Error('offline_legacy_recovery_required')), /Keep app data and contact support/)
+  assert.match(getCoachOfflineRecoveryMessage({ status: 'corrupt' }), /Reference: RECOVERY/)
+  assert.match(getCoachOfflineRecoveryMessage(new Error('offline_storage_file_unavailable')), /Reference: RECOVERY/)
+  assert.equal(getCoachOfflineRecoveryMessage(new Error('network unavailable')), '')
 })

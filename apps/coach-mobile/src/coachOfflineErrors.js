@@ -1,7 +1,16 @@
+export function getCoachOfflineRecoveryMessage(value) {
+  const reason = `${value?.code || ''} ${value?.message || ''} ${value?.status || ''}`.toLowerCase()
+  return /recovery_required|offline_storage_file_unavailable|\bcorrupt\b/.test(reason)
+    ? 'Saved offline work needs recovery. Keep app data and contact support. Reference: RECOVERY.'
+    : ''
+}
+
 export function getCoachOfflineSaveWarning(error) {
   const reason = `${error?.code || ''} ${error?.message || ''}`.toLowerCase()
   let detail = 'Try saving again. If it still fails, contact support. Reference: SAVE.'
-  if (/scope|boundary|profile|context/.test(reason)) {
+  if (/recovery_required/.test(reason)) {
+    detail = 'Saved offline work needs recovery. Keep app data and contact support. Reference: RECOVERY.'
+  } else if (/scope|boundary|profile|context/.test(reason)) {
     detail = 'Refresh your workspace and try again. Reference: ACCESS.'
   } else if (/payload_too_large/.test(reason)) {
     detail = 'This offline copy exceeds the app cache limit. Keep using Sessions online and contact support if retrying does not help. Reference: CACHE.'

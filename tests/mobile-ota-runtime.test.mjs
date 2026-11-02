@@ -9,16 +9,17 @@ const require = createRequire(import.meta.url)
 const file = 'apps/mobile-core/appConfig.cjs'
 const source = readFileSync(file, 'utf8')
 const baseline = execFileSync('git', ['show', `origin/main:${file}`], { encoding: 'utf8' })
-function config(text, env = {}) {
+function config(text, env = {}, version = '1.1.0') {
   const context = { require, module: { exports: {} }, process: { env, cwd: () => process.cwd() } }
   vm.runInNewContext(text, context)
-  return JSON.parse(JSON.stringify(context.module.exports.createMobileExpoConfig({ appRole: 'coach', name: 'Coach', version: '1.1.0' })))
+  return JSON.parse(JSON.stringify(context.module.exports.createMobileExpoConfig({ appRole: 'coach', name: 'Coach', version })))
 }
 
 test('native build defaults remain identical and OTA runtime requires explicit production confirmation', () => {
   assert.deepEqual(config(source), config(baseline))
   const approved = { MOBILE_OTA_RUNTIME_VERSION: '1.1.1', MOBILE_OTA_UPDATE_CONFIRMED: 'true', EXPO_PUBLIC_BUILD_PROFILE: 'store-live' }
   assert.equal(config(source, approved).expo.runtimeVersion, '1.1.1')
+  assert.deepEqual(config(source, approved, '1.1.2').expo.runtimeVersion, { policy: 'appVersion' })
   for (const env of [
     { ...approved, MOBILE_OTA_UPDATE_CONFIRMED: '' },
     { ...approved, EXPO_PUBLIC_BUILD_PROFILE: 'internal' },

@@ -1,4 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage'
+import { requireOptionalNativeModule } from 'expo'
+import { createCoachFileStorage } from '../../mobile-core/src/coachFileStorage'
+import { createCoachVersionedOfflineStore } from '../../mobile-core/src/coachVersionedOfflineStore'
 import { xchacha20poly1305 } from '@noble/ciphers/chacha.js'
 import { bytesToUtf8, utf8ToBytes } from '@noble/ciphers/utils.js'
 import * as Crypto from 'expo-crypto'
@@ -19,9 +22,15 @@ import { getCoachCacheByteLength, COACH_PHASE_31F_MAX_CACHE_BYTES } from '../../
 import { developmentDraftKey, editLocalDevelopmentDraft } from '../../mobile-core/src/developmentOfflineCore'
 import { formationDraftKey, updateFormationLocalDraft } from '../../mobile-core/src/coachFormationDraftCore'
 import { getScopedTeamBranding } from '../../../src/lib/team-branding-display.js'
+import { createCoachRecoveryNotice } from './coachRecoveryNotice'
 
 const config = getMobileRuntimeConfig('coach')
 const projectRef = config.isUsable ? new URL(config.supabaseUrl).hostname.split('.')[0] : ''
+export const coachRecoveryNotice = createCoachRecoveryNotice(AsyncStorage, `fp.coach.recovery.${config.isProduction ? 'live' : 'test'}.${projectRef}`)
+
+async function reportRecoveryFailure(operation) {
+  try { return await operation() } catch (error) { coachRecoveryNotice.report(error); throw error }
+}
 
 const cryptoProvider = {
   async open({ aad, ciphertext, key, nonce }) {
@@ -47,27 +56,48 @@ function unavailableStore() {
   }
 }
 
-function createStore(environment, ref) {
+const coachStorage = createCoachFileStorage({ fileSystem: requireOptionalNativeModule('ExponentFileSystem'), legacyStorage: AsyncStorage })
+
+function createLegacyStore(environment, ref) {
   return createEncryptedOfflineStore({
-    appRole: 'coach',
-    cryptoProvider,
-    environment,
+    appRole: 'coach', cryptoProvider, environment, projectRef: ref,
     keyStore: SecureStore,
-    keyStoreOptions: {
-      keychainAccessible: SecureStore.AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY,
-      requireAuthentication: false,
-    },
-    projectRef: ref,
-    storage: AsyncStorage,
+    keyStoreOptions: { keychainAccessible: SecureStore.AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY, requireAuthentication: false },
+    storage: AsyncStorage, preserveOnFailure: true,
+  })
+}
+
+function createStore(environment, ref) {
+  const legacyStore = createLegacyStore(environment, ref)
+  return createCoachVersionedOfflineStore({
+    legacyStore, markerStorage: AsyncStorage,
+    markerPrefix: `fp.mobile.offline.v1.coach.${environment}.${ref}.coach2.migration`,
+    fingerprint: value => Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, value),
+    createScopedStore: key => createEncryptedOfflineStore({
+      appRole: 'coach', cryptoProvider, environment, projectRef: ref,
+      keyStore: SecureStore,
+      keyStoreOptions: { keychainAccessible: SecureStore.AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY, requireAuthentication: false },
+      namespaceSuffix: `coach2.${key}`, preserveOnFailure: true,
+      operationTimeoutMs: 60_000, storage: coachStorage,
+    }),
   })
 }
 
 const expectedRef = config.isProduction ? APPROVED_MOBILE_PRODUCTION.supabaseRef : APPROVED_MOBILE_TEST.supabaseRef
-const store = config.isUsable && projectRef === expectedRef
+const underlyingStore = config.isUsable && projectRef === expectedRef
   ? createStore(config.isProduction ? 'live' : 'test', projectRef)
   : unavailableStore()
+const store = { ...underlyingStore }
+for (const method of ['clear', 'inspect', 'read', 'readSnapshot', 'update', 'write']) {
+  if (typeof underlyingStore[method] !== 'function') continue
+  store[method] = (...args) => reportRecoveryFailure(async () => {
+    const result = await underlyingStore[method](...args)
+    coachRecoveryNotice.report(result)
+    return result
+  })
+}
 const incompatibleTestStore = config.isProduction
-  ? createStore('test', APPROVED_MOBILE_TEST.supabaseRef)
+  ? createLegacyStore('test', APPROVED_MOBILE_TEST.supabaseRef)
   : null
 
 function normalize(value) {
@@ -157,18 +187,18 @@ function sanitizeCoachProfile(profile) {
 
 export const coachOfflineProfileStore = {
   async clear() {
-    await store.clear()
+    await reportRecoveryFailure(() => store.clear())
   },
   async read(userScope) {
     store.activate(userScope)
-    return getCoachOfflineProfile((await store.read(userScope)).document, userScope)
+    return reportRecoveryFailure(async () => getCoachOfflineProfile((await store.read(userScope)).document, userScope))
   },
   async write(profile) {
     const sanitized = sanitizeCoachProfile(profile)
     if (!sanitized.id) throw new Error('offline_profile_scope_mismatch')
-    const next = await store.update(sanitized.id, (current) => setCoachOfflineProfile(
+    const next = await reportRecoveryFailure(() => store.update(sanitized.id, (current) => setCoachOfflineProfile(
       current || createCoachOfflineDocument({ userScope: sanitized.id }), sanitized,
-    ))
+    )))
     return getCoachOfflineProfile(next, sanitized.id)
   },
 }
@@ -180,11 +210,13 @@ export async function quarantineIncompatibleCoachOfflineState() {
 }
 
 export async function clearCoachOfflineState() {
-  await store.clear()
+  await reportRecoveryFailure(() => store.clear())
 }
 
 export async function inspectCoachOfflineState(userId) {
-  return store.inspect(userId)
+  const result = await reportRecoveryFailure(() => store.inspect(userId))
+  coachRecoveryNotice.report(result)
+  return result
 }
 
 export async function readCoachOfflineResources(userId, contextId) {

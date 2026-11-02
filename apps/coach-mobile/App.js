@@ -112,7 +112,7 @@ import { CoachPhase31EScreen } from './src/CoachPhase31EScreens'
 import { CoachQuickActions } from './src/CoachQuickActions'
 import { getCoachFriendlyError } from './src/coachFriendlyErrors'
 import { getCoachQuickActions } from './src/coachQuickActionsCore'
-import { coachOfflineProfileStore, countPendingCoachMatchDayActions, inspectCoachOfflineState, readCoachHomeOfflineView, saveCoachOfflineResources } from './src/offline'
+import { coachOfflineProfileStore, coachRecoveryNotice, countPendingCoachMatchDayActions, inspectCoachOfflineState, readCoachHomeOfflineView, saveCoachOfflineResources } from './src/offline'
 import { useCoachMatchDayBackgroundSync } from './src/useCoachMatchDayBackgroundSync'
 import { useCoachDevelopmentSync } from './src/useCoachDevelopmentSync'
 import { CoachOfflineReadiness } from './src/CoachOfflineReadiness'
@@ -1033,6 +1033,10 @@ function CoachHome() {
       setNotice('Theme preference could not be saved on this device.')
     }
   }, [])
+
+  useEffect(() => {
+    if (user?.id) void inspectCoachOfflineState(user.id).catch(() => {})
+  }, [user?.id])
 
   if (isProfileLoading && !user?.id) return <LoadingScreen message="Resolving Coach access..." />
   if (!user) {
@@ -1990,6 +1994,16 @@ function AppContent() {
   return <CoachHome />
 }
 
+function RecoveryNoticeBoundary({ children }) {
+  const [warning, setWarning] = useState('')
+  useEffect(() => {
+    const unsubscribe = coachRecoveryNotice.subscribe(setWarning)
+    void coachRecoveryNotice.load().catch(() => {})
+    return unsubscribe
+  }, [])
+  return <View style={{ flex: 1 }}>{warning ? <SafeAreaView edges={['top']} style={{ backgroundColor: '#fff4cc' }}><Text accessibilityRole="alert" style={{ padding: 12, color: '#182623' }}>{warning}</Text></SafeAreaView> : null}{children}</View>
+}
+
 async function clearCoachBeforeSignOut() {
   await clearCoachAllLocalState('', { preserveTheme: true })
 }
@@ -2008,7 +2022,7 @@ export default function App() {
           prepareStartup={prepareCoachMobileStartup}
           preserveNativePushOnSignOut
         >
-          <AppContent />
+          <RecoveryNoticeBoundary><AppContent /></RecoveryNoticeBoundary>
           <MobileUpdateNotice update={mobileUpdate} />
         </AuthProvider>
       </CoachRootErrorBoundary>

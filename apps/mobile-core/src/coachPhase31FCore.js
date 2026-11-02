@@ -1,7 +1,7 @@
 import { compactCoachAvailabilitySnapshot, compactCoachFixtureAvailabilitySnapshot } from './coachAvailabilityCache.js'
 
 export const COACH_PHASE_31F_CACHE_SCHEMA_VERSION = 3
-export const COACH_PHASE_31F_MAX_CACHE_BYTES = 1_500_000
+export const COACH_PHASE_31F_MAX_CACHE_BYTES = 15_000_000
 
 const normalize = (value) => String(value ?? '').trim()
 const normalizeLower = (value) => normalize(value).toLowerCase()

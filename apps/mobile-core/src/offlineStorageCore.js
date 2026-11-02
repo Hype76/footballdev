@@ -149,8 +149,11 @@ export function createEncryptedOfflineStore({
   projectRef,
   storage,
   operationTimeoutMs = 8000,
+  namespaceSuffix = '',
+  preserveOnFailure = false,
 }) {
-  const namespace = deriveOfflineStorageNamespace({ appRole, environment, projectRef })
+  if (namespaceSuffix && (appRole !== 'coach' || !/^coach2\.[A-Za-z0-9_-]{1,180}$/.test(namespaceSuffix))) throw offlineError('offline_storage_namespace_invalid')
+  const namespace = deriveOfflineStorageNamespace({ appRole, environment, projectRef }) + (namespaceSuffix ? `.${namespaceSuffix}` : '')
   const aad = `${namespace}.authenticated-envelope`
   const keyName = `${namespace}.key`
   const pointerName = `${namespace}.active`
@@ -256,26 +259,27 @@ export function createEncryptedOfflineStore({
     if (!scope) return { document: null, status: 'missing' }
     const pointer = parsePointer(await transaction.wait('pointer_read', () => storage.getItem(pointerName)))
     if (!pointer.valid) {
-      await clearCiphertext(transaction)
+      if (!preserveOnFailure) await clearCiphertext(transaction)
       return { document: null, status: 'corrupt' }
     }
     if (!pointer.active) return { document: null, status: 'missing' }
     const key = await readKey(transaction)
     if (!key) {
-      await clearCiphertext(transaction)
+      if (!preserveOnFailure) await clearCiphertext(transaction)
       return { document: null, status: 'corrupt' }
     }
 
     const active = await readGeneration(pointer.active, key, scope, transaction)
     if (active.valid) return active
     if (active.status === 'scope_mismatch') {
-      await clearCiphertext(transaction)
+      if (!preserveOnFailure) await clearCiphertext(transaction)
       return active
     }
 
     if (pointer.previous) {
       const previous = await readGeneration(pointer.previous, key, scope, transaction)
       if (previous.valid) {
+        if (preserveOnFailure) return { document: null, status: 'recovery_required' }
         await transaction.wait('pointer_write', () => storage.setItem(pointerName, JSON.stringify({
           active: pointer.previous,
           previous: '',
@@ -286,7 +290,7 @@ export function createEncryptedOfflineStore({
       }
     }
 
-    await clearCiphertext(transaction)
+    if (!preserveOnFailure) await clearCiphertext(transaction)
     return { document: null, status: 'corrupt' }
   }
 
@@ -317,6 +321,10 @@ export function createEncryptedOfflineStore({
     }
     if (!validateDocument(document, scope)) throw offlineError('offline_document_invalid')
 
+    if (preserveOnFailure) {
+      const existing = await readInternal(scope, transaction)
+      if (!['ready', 'missing'].includes(existing.status)) throw offlineError('offline_storage_recovery_required')
+    }
     const pointer = parsePointer(await transaction.wait('pointer_read', () => storage.getItem(pointerName)))
     if (!pointer.valid) throw offlineError('offline_storage_corrupt')
     const target = pointer.active === 'a' ? 'b' : 'a'
@@ -366,6 +374,14 @@ export function createEncryptedOfflineStore({
   }
 
   return {
+    // Stop all captured and queued operations without deleting recoverable data.
+    invalidate() {
+      const state = scopeState()
+      state.epoch += 1
+      state.blocked = true
+      snapshot = null
+      verifiedGenerations.clear()
+    },
     // Capture before a live request so its delayed response cannot recreate
     // storage after sign-out, account replacement or an explicit local clear.
     captureScopeGuard(userScope) {
@@ -390,7 +406,9 @@ export function createEncryptedOfflineStore({
       return transact('update', async transaction => {
         transaction.guard = () => checkScope(userScope, epoch)
         transaction.check()
-        const current = (await readInternal(userScope, transaction)).document
+        const stored = await readInternal(userScope, transaction)
+        if (preserveOnFailure && !['ready', 'missing'].includes(stored.status)) throw offlineError('offline_storage_recovery_required')
+        const current = stored.document
         const next = await transaction.wait('preparing', () => updater(current))
         checkScope(userScope, epoch)
         if (!next || next === current) return current
@@ -408,6 +426,18 @@ export function createEncryptedOfflineStore({
         await clearCiphertext(transaction)
         await transaction.wait('key_remove', () => keyStore.deleteItemAsync(keyName, keyStoreOptions), true)
       }, true)
+    },
+
+    // Metadata-only probe for an interrupted first migration. It never repairs or deletes data.
+    async inspectArtifacts(userScope) {
+      const epoch = scopeState().epoch
+      return transact('inspect', async transaction => {
+        transaction.guard = () => checkScope(userScope, epoch)
+        const pointer = await transaction.wait('pointer_read', () => storage.getItem(pointerName))
+        const first = await transaction.wait('generation_read', () => storage.getItem(generationName('a')))
+        const second = await transaction.wait('generation_read', () => storage.getItem(generationName('b')))
+        return { hasPointer: Boolean(pointer), hasGeneration: Boolean(first || second) }
+      })
     },
 
     async inspect(userScope) {

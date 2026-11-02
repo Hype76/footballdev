@@ -15,7 +15,7 @@ function declaration(name) {
   assert.ok(node, `Missing actual ${name} implementation`)
   return source.slice(node.start, node.end)
 }
-const warning = source.match(/message: `(Offline copy unavailable\.[^`]+)`/)?.[1]
+const warning = source.match(/`(Offline copy unavailable\.[^`]+)`/)?.[1]
 assert.ok(warning, 'Missing actual offline warning')
 const entry = `
 import React from 'react';

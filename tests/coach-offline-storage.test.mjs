@@ -7,18 +7,30 @@ import { pathToFileURL } from 'node:url'
 import { resolveCoachStaffContext } from '../apps/mobile-core/src/coachContextCore.js'
 import { resolveCoachBranding } from '../apps/coach-mobile/src/coachThemeCore.js'
 const mocks = {
-  '@react-native-async-storage/async-storage': `globalThis.offlineCiphertext=new Map();export default {getItem:async k=>globalThis.offlineCiphertext.get(k)||null,setItem:async(k,v)=>{if(globalThis.offlineNativeFailure==='data-write')throw new Error('Device storage unavailable');globalThis.offlineCiphertext.set(k,v)},removeItem:async k=>{globalThis.offlineCiphertext.delete(k)}}`,
+  'expo': `const key=p=>'file:'+p.split('/').pop().replace(/\.json(?=\.pending$|$)/,'');export const requireOptionalNativeModule=()=>({documentDirectory:'file:///documents/',getInfoAsync:async p=>({exists:globalThis.offlineCiphertext.has(key(p))}),makeDirectoryAsync:async()=>{},readAsStringAsync:async p=>globalThis.offlineCiphertext.get(key(p)),writeAsStringAsync:async(p,v)=>{if(globalThis.offlineNativeFailure==='data-write')throw Error('Device storage unavailable');globalThis.offlineCiphertext.set(key(p),v)},deleteAsync:async p=>{globalThis.offlineCiphertext.delete(key(p))},moveAsync:async({from,to})=>{const v=globalThis.offlineCiphertext.get(key(from));globalThis.offlineCiphertext.delete(key(from));globalThis.offlineCiphertext.set(key(to),v)}})`,
+  '@react-native-async-storage/async-storage': `globalThis.offlineCiphertext=new Map();export default {getAllKeys:async()=>[...globalThis.offlineCiphertext.keys()],getItem:async k=>globalThis.offlineCiphertext.get(k)||null,setItem:async(k,v)=>{if(globalThis.offlineNativeFailure==='data-write')throw new Error('Device storage unavailable');globalThis.offlineCiphertext.set(k,v)},removeItem:async k=>{globalThis.offlineCiphertext.delete(k)}}`,
   'expo-secure-store': `globalThis.offlineKeys=new Map();const keys=globalThis.offlineKeys;export const AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY='device';export const getItemAsync=async k=>keys.get(k)||null;export const setItemAsync=async(k,v)=>{if(globalThis.offlineNativeFailure==='key-write')throw new Error('SecureStore unavailable');keys.set(k,v)};export const deleteItemAsync=async k=>{keys.delete(k)};`,
-  'expo-crypto': `import {randomBytes as random,randomUUID as uuid} from 'node:crypto';export const getRandomBytesAsync=async n=>new Uint8Array(random(n));export const randomUUID=uuid;`,
+  'expo-crypto': `import {randomBytes as random,randomUUID as uuid,createHash} from 'node:crypto';export const CryptoDigestAlgorithm={SHA256:'SHA-256'};export const digestStringAsync=async(_,v)=>createHash('sha256').update(v).digest('hex');export const getRandomBytesAsync=async n=>new Uint8Array(random(n));export const randomUUID=uuid;`,
   config: `export const getMobileRuntimeConfig=()=>({isUsable:true,isProduction:false,supabaseUrl:'https://ndohkecigwlwayghsopw.supabase.co'})`,
 }
 const offlineEntry = path.resolve('apps/coach-mobile/src/offline.js')
-const instrumentedOffline = `${await readFile(offlineEntry, 'utf8')}\nexport const testEncryptedStore = store\n`
+const instrumentedOffline = `${(await readFile(offlineEntry, 'utf8')).replace('const legacyStore = createLegacyStore(environment, ref)', 'const legacyStore = createLegacyStore(environment, ref); globalThis.testLegacyStore = legacyStore')}\nexport const testEncryptedStore = store\n`
 const bundle = await build({entryPoints:[offlineEntry],bundle:true,write:false,format:'esm',platform:'node',nodePaths:[path.resolve('apps/coach-mobile/node_modules')],plugins:[{name:'synthetic-native-adapters',setup(b){b.onResolve({filter:/.*/},args=>{const key=args.path.endsWith('/config')?'config':args.path;return mocks[key]?{path:key,namespace:'mock'}:undefined});b.onLoad({filter:/offline\.js$/},args=>args.path === offlineEntry ? {contents:instrumentedOffline,loader:'js',resolveDir:path.dirname(offlineEntry)} : undefined);b.onLoad({filter:/.*/,namespace:'mock'},args=>({contents:mocks[args.path],loader:'js'}))}}]})
 await mkdir('output/feedback-tools',{recursive:true})
 const file=path.resolve('output/feedback-tools/offline-storage-under-test.mjs')
 await writeFile(file,bundle.outputFiles[0].text)
 const storage=await import(pathToFileURL(file))
+
+test('new runtime migrates an encrypted legacy profile and pending work without deleting the old copy', async () => {
+  await storage.clearCoachOfflineState()
+  globalThis.testLegacyStore.activate('migration-coach')
+  await globalThis.testLegacyStore.write('migration-coach', { cacheSchemaVersion: 3, contexts: {}, profile: { value: { id: 'migration-coach', coachContexts: [] } }, matchDayOutboxes: { team: { match: { pending: [{ id: 'unsent' }] } } } })
+  const oldKeys = [...globalThis.offlineCiphertext.keys()].filter(key => key.includes('.g.'))
+  assert.equal((await storage.coachOfflineProfileStore.read('migration-coach')).id, 'migration-coach')
+  assert.equal((await storage.testEncryptedStore.read('migration-coach')).document.matchDayOutboxes.team.match.pending[0].id, 'unsent')
+  for (const key of oldKeys) assert.ok(globalThis.offlineCiphertext.has(key))
+  await storage.clearCoachOfflineState()
+})
 
 test('saved Coach profiles retain authorised team branding for the header across refresh and restart', async () => {
   await storage.clearCoachOfflineState()
@@ -122,15 +134,20 @@ for (const damage of ['empty', 'missing-key', 'corrupt-generation']) {
       }
     }
     const save = storage.createCoachOfflineResourceSaver(liveProfile, recoveryContext, requireExistingDocument)
-    await assert.rejects(save({ 'phase31e:invites': { match: [{ id: 'invite' }] } }), /offline_profile_scope_mismatch/)
+    await assert.rejects(save({ 'phase31e:invites': { match: [{ id: 'invite' }] } }), /offline_profile_scope_mismatch|offline_storage_recovery_required/)
     assert.equal((await storage.inspectCoachOfflineState(liveProfile.id)).hasDocument, false)
-    assert.equal([...globalThis.offlineCiphertext.keys()].some(key => key.includes('.g.')), false)
+    assert.equal([...globalThis.offlineCiphertext.keys()].some(key => key.includes('.g.')), damage !== 'empty')
   })
 }
 
 async function freshRecoveryAccount() {
   globalThis.offlineNativeFailure = null
-  await storage.clearCoachOfflineState()
+  try { await storage.clearCoachOfflineState() } catch (error) {
+    if (!/recovery_required/.test(error.message)) throw error
+    // Synthetic fixture cleanup only. Real recoverable phone data is not cleared.
+    globalThis.offlineCiphertext.clear(); globalThis.offlineKeys.clear()
+    await storage.clearCoachOfflineState()
+  }
   await storage.coachOfflineProfileStore.read(liveProfile.id)
 }
 
@@ -184,7 +201,7 @@ for (const failure of ['key-write', 'data-write']) {
 }
 
 for (const damage of ['missing-generation', 'corrupt-generation', 'missing-key']) {
-  test(`Sessions repairs the profile after ${damage} invalidates its offline copy`, async () => {
+  test(`Sessions preserves storage for recovery after ${damage}`, async () => {
     await freshRecoveryAccount()
     await storage.coachOfflineProfileStore.write(liveProfile)
     await storage.saveCoachOfflineResources(liveProfile.id, recoveryContext, sessionResources)
@@ -195,9 +212,12 @@ for (const damage of ['missing-generation', 'corrupt-generation', 'missing-key']
       if (damage === 'missing-generation') globalThis.offlineCiphertext.delete(key)
       else globalThis.offlineCiphertext.set(key, '{damaged')
     }
-    await assert.rejects(storage.saveCoachOfflineResources(liveProfile.id, recoveryContext, sessionResources), /offline_profile_scope_mismatch/)
-    await save(sessionResources)
-    assert.deepEqual((await storage.readCoachOfflineResources(liveProfile.id, recoveryContext)).resources, sessionResources)
+    const savedEntries = () => [...globalThis.offlineCiphertext.entries()].filter(([key]) => !key.startsWith('fp.coach.recovery.'))
+    const before = savedEntries()
+    await assert.rejects(storage.saveCoachOfflineResources(liveProfile.id, recoveryContext, sessionResources), /offline_storage_recovery_required/)
+    await assert.rejects(save(sessionResources), /offline_storage_recovery_required/)
+    assert.deepEqual(savedEntries(), before)
+    assert.ok([...globalThis.offlineCiphertext.keys()].some(key => key.startsWith('fp.coach.recovery.')))
   })
 }
 
@@ -234,14 +254,14 @@ test('a delayed Sessions response cannot revive cleared storage or another login
     await storage.clearCoachOfflineState()
     if (nextAccount) await storage.coachOfflineProfileStore.read(nextAccount)
     await assert.rejects(save(sessionResources), /offline_scope_invalidated/)
-    assert.equal(globalThis.offlineCiphertext.size, 0)
+    assert.equal([...globalThis.offlineCiphertext.keys()].some(key => key.includes('.g.')), false)
   }
 })
 
 test('encrypted Sessions cache recovers space without losing unsynced work', async () => {
   await freshRecoveryAccount()
   await storage.coachOfflineProfileStore.write(liveProfile)
-  await storage.saveCoachOfflineResources(liveProfile.id, recoveryContext, { chat: { messages: [{ body: 'Old server message '.repeat(55_000) }] } })
+  await storage.saveCoachOfflineResources(liveProfile.id, recoveryContext, { chat: { messages: [{ body: 'Old server message '.repeat(755_000) }] } })
   await storage.updateCoachMatchDayOutbox(liveProfile.id, recoveryContext, 'match', () => ({ baseMatch: { id: 'match', clubId: recoveryContext.clubId, teamId: recoveryContext.teamId }, pending: [{ id: 'pending-goal', operation: 'goal' }], verifiedAt: new Date().toISOString() }))
   await storage.saveLocalCoachDevelopmentDraft(liveProfile.id, recoveryContext, { playerId: 'player', formId: 'form', values: { score: 4 }, notes: 'Unsynced recovery work' })
   const journal = await storage.readCoachMatchDayOutbox(liveProfile.id, recoveryContext, 'match')
