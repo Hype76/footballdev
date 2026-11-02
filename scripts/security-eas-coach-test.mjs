@@ -95,14 +95,19 @@ export function assertReviewedFile(file, repoRoot, size, sha256) {
   assert.equal(fileDigest(file), sha256, 'Reviewed archive content changed')
 }
 
-export function assertFrameworkInventory(directory, repoRoot, prefix, expectedSha256) {
+export function assertFrameworkInventory(directory, repoRoot, prefix, expectedSha256, allowLinks = false) {
   const items = nativeInventory(directory, repoRoot, prefix).sort((a, b) => a.path < b.path ? -1 : a.path > b.path ? 1 : 0)
-  assert.ok(items.length > 0 && items.every(item => item.type === 'file'), 'Unexpected framework inventory')
+  assert.ok(items.length > 0 && items.every(item => item.type === 'file' || (allowLinks && item.type === 'link')), 'Unexpected framework inventory')
+  if (allowLinks) for (const item of items.filter(entry => entry.type === 'link')) {
+    const target = fs.realpathSync(path.join(directory, item.path))
+    const relative = path.relative(directory, target)
+    assert.ok(relative && !relative.startsWith('..' + path.sep) && !path.isAbsolute(relative), 'Framework link escapes its directory')
+  }
   assert.equal(hash(Buffer.from(JSON.stringify(items))), expectedSha256, 'Release framework inventory changed')
 }
 
 export function assertNoIosArchiveOverrides(env) {
-  for (const name of ['ENTERPRISE_REPOSITORY', 'RCT_TESTONLY_RNCORE_TARBALL_PATH', 'RCT_TESTONLY_RNCORE_VERSION', 'RCT_USE_LOCAL_RN_DEP', 'RCT_DEPS_VERSION']) assert.ok(!env[name], 'Unreviewed React Native archive override')
+  for (const name of ['ENTERPRISE_REPOSITORY', 'RCT_TESTONLY_RNCORE_TARBALL_PATH', 'RCT_TESTONLY_RNCORE_VERSION', 'RCT_USE_LOCAL_RN_DEP', 'RCT_DEPS_VERSION', 'HERMES_ENGINE_TARBALL_PATH', 'REACT_NATIVE_OVERRIDE_HERMES_DIR', 'HERMES_COMMIT', 'HERMES_OVERRIDE_HERMESC_PATH', 'RCT_BUILD_HERMES_FROM_SOURCE']) assert.ok(!Object.hasOwn(env, name), 'Unreviewed React Native archive override')
 }
 
 export function prepareIosReleaseFrameworks(repoRoot, env, fixture) {
@@ -116,16 +121,18 @@ export function prepareIosReleaseFrameworks(repoRoot, env, fixture) {
   const archives = fixture?.archives || [
     ['ReactNativeCore-artifacts/reactnative-core-0.81.5-release.tar.gz', 27595635, 'd60f971fd81c64086e5ea0ed7100b1e72ce4cbea733bf4a40dcafc2086548446'],
     ['ReactNativeDependencies-artifacts/reactnative-dependencies-0.81.5-release.tar.gz', 10474526, '702dfc90aed09da439b37c6f15266643259c198fed5c0052e23439680e362b5d'],
+    ['hermes-engine-artifacts/hermes-ios-0.81.5-release.tar.gz', 21342402, '4300c010d756c1d939e8bd8402fc28b70cad070c744ca2ed9059961fe067b512'],
   ]
   for (const [name, size, digest] of archives) assertReviewedFile(path.join(pods, name), repoRoot, size, digest)
-  for (const marker of ['React-Core-prebuilt/.last_build_configuration', 'ReactNativeDependencies/.last_build_configuration']) assert.ok(!fs.existsSync(path.join(pods, marker)), 'Unexpected prior framework configuration')
-  for (const script of ['scripts/replace-rncore-version.js', 'third-party-podspecs/replace_dependencies_version.js']) {
+  for (const marker of ['React-Core-prebuilt/.last_build_configuration', 'ReactNativeDependencies/.last_build_configuration', '.last_build_configuration']) assert.ok(!fs.existsSync(path.join(pods, marker)), 'Unexpected prior framework configuration')
+  for (const script of ['scripts/replace-rncore-version.js', 'third-party-podspecs/replace_dependencies_version.js', 'sdks/hermes-engine/utils/replace_hermes_version.js']) {
     execFileSync(process.execPath, [path.join(rn, script), '-c', 'Release', '-r', '0.81.5', '-p', pods], { cwd: pods, stdio: 'inherit', env })
   }
   for (const [name, size, digest] of archives) assertReviewedFile(path.join(pods, name), repoRoot, size, digest)
-  for (const marker of ['React-Core-prebuilt/.last_build_configuration', 'ReactNativeDependencies/.last_build_configuration']) assert.equal(fs.readFileSync(path.join(pods, marker), 'utf8'), 'Release', 'Framework release marker missing')
+  for (const marker of ['React-Core-prebuilt/.last_build_configuration', 'ReactNativeDependencies/.last_build_configuration', '.last_build_configuration']) assert.equal(fs.readFileSync(path.join(pods, marker), 'utf8'), 'Release', 'Framework release marker missing')
   assertFrameworkInventory(path.join(pods, 'React-Core-prebuilt/React.xcframework'), repoRoot, 'React.xcframework', fixture?.coreInventory || '360aaf50a7ef7caa3e9b3df0bb49ccf7352d3708c29a7902fbddf94fc4348e6f')
   assertFrameworkInventory(path.join(pods, 'ReactNativeDependencies/framework'), repoRoot, '', fixture?.depsInventory || '2d76f99cf3953b9bf46e399ff572fe7793e2d6453232093e794e89b228f96824')
+  assertFrameworkInventory(path.join(pods, 'hermes-engine'), repoRoot, '', fixture?.hermesInventory || '7508fdb9f2e47f20c691477e1e88c40ee50e949359124c9beca660421214e63f', true)
 }
 
 export function findArtifacts(directory, extension) {

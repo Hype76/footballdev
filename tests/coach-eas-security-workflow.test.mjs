@@ -77,14 +77,14 @@ test('reviewed iOS archives and extracted framework trees reject tampering', () 
 })
 
 test('iOS preparation rejects overrides, missing markers and incomplete extraction', () => {
-  for (const name of ['ENTERPRISE_REPOSITORY', 'RCT_TESTONLY_RNCORE_TARBALL_PATH', 'RCT_TESTONLY_RNCORE_VERSION', 'RCT_USE_LOCAL_RN_DEP', 'RCT_DEPS_VERSION']) assert.throws(() => assertNoIosArchiveOverrides({ [name]: 'unexpected' }))
+  for (const name of ['ENTERPRISE_REPOSITORY', 'RCT_TESTONLY_RNCORE_TARBALL_PATH', 'RCT_TESTONLY_RNCORE_VERSION', 'RCT_USE_LOCAL_RN_DEP', 'RCT_DEPS_VERSION', 'HERMES_ENGINE_TARBALL_PATH', 'REACT_NATIVE_OVERRIDE_HERMES_DIR', 'HERMES_COMMIT', 'HERMES_OVERRIDE_HERMESC_PATH', 'RCT_BUILD_HERMES_FROM_SOURCE']) assert.throws(() => assertNoIosArchiveOverrides({ [name]: 'unexpected' }))
   const fixture = mkdtempSync(path.join(os.tmpdir(), 'coach-prepare-'))
   try {
     const pods = path.join(fixture, 'apps/coach-mobile/ios/Pods')
     const rn = path.join(fixture, 'apps/coach-mobile/node_modules/react-native')
-    for (const dir of [pods, path.join(rn, 'scripts'), path.join(rn, 'third-party-podspecs')]) mkdirSync(dir, { recursive: true })
+    for (const dir of [pods, path.join(rn, 'scripts'), path.join(rn, 'third-party-podspecs'), path.join(rn, 'sdks/hermes-engine/utils')]) mkdirSync(dir, { recursive: true })
     writeFileSync(path.join(rn, 'package.json'), '{"version":"0.81.5"}')
-    const archives = ['a.tar.gz', 'b.tar.gz'].map(name => {
+    const archives = ['a.tar.gz', 'b.tar.gz', 'c.tar.gz'].map(name => {
       writeFileSync(path.join(pods, name), name)
       return [name, name.length, createHash('sha256').update(name).digest('hex')]
     })
@@ -93,13 +93,16 @@ test('iOS preparation rejects overrides, missing markers and incomplete extracti
     const depsFile = 'ReactNativeDependencies/framework/file'
     writeFileSync(path.join(rn, 'scripts/replace-rncore-version.js'), script('React-Core-prebuilt/React.xcframework', coreFile, 'React-Core-prebuilt/.last_build_configuration'))
     writeFileSync(path.join(rn, 'third-party-podspecs/replace_dependencies_version.js'), script('ReactNativeDependencies/framework', depsFile, 'ReactNativeDependencies/.last_build_configuration'))
+    writeFileSync(path.join(rn, 'sdks/hermes-engine/utils/replace_hermes_version.js'), script('hermes-engine', 'hermes-engine/file', '.last_build_configuration'))
     const digest = createHash('sha256').update('reviewed').digest('hex')
     const inventoryHash = name => createHash('sha256').update(JSON.stringify([{ path: name, type: 'file', bytes: 8, sha256: digest }])).digest('hex')
-    const expected = { archives, coreInventory: inventoryHash('React.xcframework/file'), depsInventory: inventoryHash('file') }
+    const expected = { archives, coreInventory: inventoryHash('React.xcframework/file'), depsInventory: inventoryHash('file'), hermesInventory: inventoryHash('file') }
     assert.doesNotThrow(() => prepareIosReleaseFrameworks(fixture, { ...process.env, EAS_BUILD_PLATFORM: 'ios' }, expected))
     assert.throws(() => prepareIosReleaseFrameworks(fixture, { ...process.env, EAS_BUILD_PLATFORM: 'ios' }, expected), /prior framework/)
     rmSync(path.join(pods, 'React-Core-prebuilt'), { recursive: true })
     rmSync(path.join(pods, 'ReactNativeDependencies'), { recursive: true })
+    rmSync(path.join(pods, 'hermes-engine'), { recursive: true })
+    rmSync(path.join(pods, '.last_build_configuration'))
     writeFileSync(path.join(rn, 'scripts/replace-rncore-version.js'), 'process.exit(0)')
     assert.throws(() => prepareIosReleaseFrameworks(fixture, { ...process.env, EAS_BUILD_PLATFORM: 'ios' }, expected))
   } finally { rmSync(fixture, { recursive: true, force: true }) }
