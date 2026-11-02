@@ -100,6 +100,12 @@ export function isCoachMatchDayVolunteerSelectionApplied(match, request, role, s
   return Boolean(assignment && normalize(assignment.parentLinkId) === normalize(request?.parentLinkId))
 }
 
+export function getCoachOtherEligibleParents(parents = [], volunteers = [], assignment = null) {
+  const excluded = new Set(volunteers.map((item) => normalize(item.parentLinkId)).filter(Boolean))
+  if (assignment?.parentLinkId) excluded.add(normalize(assignment.parentLinkId))
+  return parents.filter((parent) => normalize(parent.parentLinkId) && !excluded.has(normalize(parent.parentLinkId)))
+}
+
 export function getCoachVolunteerPersonLabel(request = {}, fallback = 'Parent or guardian') {
   return normalize(request.recipientName ?? request.recipient_name)
     || normalize(request.recipientEmail ?? request.recipient_email)
