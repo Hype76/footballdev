@@ -14,6 +14,9 @@ import { assertWorkspaceBillingAction } from './lib/_billing-access.js'
 import { handler as sendMatchDayPushHandler } from './send-match-day-push.js'
 import { enrichVolunteerEligibilityRecipients } from './lib/_volunteer-recipient-labels.js'
 import { assertCoachConfirmedVolunteerSelection } from './lib/_coach-confirmed-volunteer.js'
+import { filterParentLinksForAppNotifications } from './lib/_parent-communication-preferences.js'
+import { writeParentNotificationInbox } from './lib/_parent-notification-inbox.js'
+import { sendExpoPushMessages } from './lib/_expo-push.js'
 
 const ROLE_CONFIG = {
   scorer: {
@@ -714,6 +717,26 @@ async function createMatchDayEventLogEntry(adminSupabase, {
   }
 }
 
+export async function sendRoleAssignmentAlert(client, { match, parentLink, role }, sendPush = sendExpoPushMessages) {
+  const links = await filterParentLinksForAppNotifications(client, [parentLink])
+  if (!links.length) return { inbox: false, mobileSent: 0 }
+  const matchName = getMatchDayDisplayName(match)
+  const title = matchName
+  const body = `You have been assigned as ${role} for ${matchName}.`
+  const data = { app: 'parent', route: 'matchday', matchDayId: match.id, teamId: match.team_id || '', type: `${role}_selected` }
+  const inbox = await writeParentNotificationInbox({ client, title, body, clubId: match.club_id, teamId: match.team_id, parentLinks: links, intentType: 'matchday_update', data })
+  const { data: devices, error } = await client.from('parent_mobile_push_installations')
+    .select('expo_push_token').eq('auth_user_id', parentLink.auth_user_id).eq('status', 'active').eq('enabled', true).neq('detail_level', 'off')
+  if (error) throw error
+  const push = await sendPush((devices || []).filter((device) => device.expo_push_token).map((device) => ({
+    to: device.expo_push_token, title, body, sound: 'default', data: { ...data, parentLinkId: parentLink.id },
+  })))
+  if (push.invalidTokens?.length) await client.from('parent_mobile_push_installations')
+    .update({ enabled: false, expo_push_token: null, status: 'revoked', updated_at: new Date().toISOString() }).in('expo_push_token', push.invalidTokens)
+  if (push.failed) throw new Error('Some app alerts could not be sent.')
+  return { inbox: inbox.available > 0, mobileSent: Number(push.sent || 0) }
+}
+
 export async function handler(event) {
   if (!['GET', 'POST'].includes(event.httpMethod)) {
     return json(405, { success: false, message: 'Method not allowed.' })
@@ -729,14 +752,15 @@ export async function handler(event) {
     const matchDayId = event.httpMethod === 'GET'
       ? normalizeText(event.queryStringParameters?.matchDayId)
       : normalizeText(body.matchDayId)
-    const requestId = normalizeText(body.requestId)
+    let requestId = normalizeText(body.requestId)
+    const directParentLinkId = normalizeText(body.directParentLinkId)
     const requestedParentLinkId = normalizeText(body.parentLinkId)
     const role = normalizeText(body.role).toLowerCase()
     const selected = body.selected !== false
     const confirmedByCoach = selected && body.confirmedByCoach === true
     const roleConfig = ROLE_CONFIG[role]
 
-    if (!matchDayId || (event.httpMethod === 'POST' && selected && !requestId)
+    if (!matchDayId || (event.httpMethod === 'POST' && selected && !requestId && !directParentLinkId)
       || (event.httpMethod === 'POST' && confirmedByCoach && !requestedParentLinkId)
       || (event.httpMethod === 'POST' && !selected && !requestedParentLinkId)) {
       throw Object.assign(new Error('Choose a volunteer response first.'), { statusCode: 400 })
@@ -762,6 +786,10 @@ export async function handler(event) {
       throw Object.assign(new Error('Fixture was not found.'), { statusCode: 404 })
     }
 
+    const { data: canManage, error: authorityError } = await supabase.rpc('can_manage_match_day', { target_team_id: match.team_id })
+    if (authorityError) throw authorityError
+    if (!canManage) throw Object.assign(new Error('You do not have access to manage this fixture.'), { statusCode: 403 })
+
     if (event.httpMethod === 'GET') {
       const { data: eligibility, error: eligibilityError } = await adminSupabase.rpc(
         'get_match_day_scorer_eligibility',
@@ -777,12 +805,29 @@ export async function handler(event) {
         match,
       })
 
-      return json(200, { success: true, eligibility: enrichedEligibility })
+      const { data: links, error: linksError } = await adminSupabase.from('parent_player_links')
+        .select('id, auth_user_id, email, players!inner(id, player_name, team_id, club_id, status)')
+        .eq('club_id', match.club_id).eq('team_id', match.team_id).eq('status', 'active')
+        .eq('players.club_id', match.club_id).eq('players.team_id', match.team_id).eq('players.status', 'active')
+        .not('auth_user_id', 'is', null)
+      if (linksError) throw linksError
+      const authIds = [...new Set((links || []).map((link) => link.auth_user_id).filter(Boolean))]
+      const { data: parents, error: parentsError } = authIds.length
+        ? await adminSupabase.from('users').select('id, display_name, name, status, role, club_id').in('id', authIds)
+        : { data: [] }
+      if (parentsError) throw parentsError
+      const suspendedIds = new Set((parents || []).filter((parent) => parent.status === 'suspended' && (parent.role === 'parent_portal' || parent.club_id === match.club_id)).map((parent) => parent.id))
+      const parentNames = new Map((parents || []).map((parent) => [parent.id, normalizeText(parent.display_name || parent.name)]))
+      const eligibleParents = (links || []).filter((link) => normalizeText(link.email) && !suspendedIds.has(link.auth_user_id)).map((link) => {
+        const player = Array.isArray(link.players) ? link.players[0] : link.players
+        return { parentLinkId: link.id, authUserId: link.auth_user_id, parentName: parentNames.get(link.auth_user_id) || link.email, playerName: player?.player_name || '', email: link.email }
+      })
+      return json(200, { success: true, eligibility: enrichedEligibility, eligibleParents })
     }
 
     await assertWorkspaceBillingAction({ clubId: profile.club_id, profile })
 
-    const previousAssignment = await getCurrentAssignment(adminSupabase, match.id, role)
+    let previousAssignment = await getCurrentAssignment(adminSupabase, match.id, role)
     const previousParentLink = Array.isArray(previousAssignment?.parent_player_links)
       ? previousAssignment.parent_player_links[0]
       : previousAssignment?.parent_player_links
@@ -796,9 +841,12 @@ export async function handler(event) {
       }
     }
 
+    if (directParentLinkId && (!selected || requestId || confirmedByCoach)) {
+      throw Object.assign(new Error('Choose one assignment method.'), { statusCode: 400 })
+    }
     let request = null
     let requestError = null
-    if (selected) {
+    if (selected && !directParentLinkId) {
       const requestResult = await adminSupabase
         .from('match_day_availability_requests')
         .select('id, match_day_id, club_id, team_id, player_id, player_name, recipient_email, recipient_name, parent_link_id, status, volunteer_scorer_response, volunteer_linesman_response, volunteer_referee_response')
@@ -808,7 +856,7 @@ export async function handler(event) {
         .maybeSingle()
       request = requestResult.data
       requestError = requestResult.error
-    } else {
+    } else if (!selected) {
       request = {
         id: requestId,
         match_day_id: match.id,
@@ -826,10 +874,20 @@ export async function handler(event) {
       throw requestError
     }
 
-    if (selected && !request?.id) {
+    if (selected && !directParentLinkId && !request?.id) {
       throw Object.assign(new Error('Volunteer response was not found.'), { statusCode: 404 })
     }
 
+    if (directParentLinkId) {
+      const { data: directLink, error: directLinkError } = await adminSupabase.from('parent_player_links')
+        .select('id, club_id, team_id, player_id, email, auth_user_id, status, players!inner(id, player_name, team_id, club_id, status)')
+        .eq('id', directParentLinkId).eq('club_id', match.club_id).eq('team_id', match.team_id).eq('status', 'active')
+        .eq('players.club_id', match.club_id).eq('players.team_id', match.team_id).eq('players.status', 'active').maybeSingle()
+      if (directLinkError) throw directLinkError
+      if (!directLink?.auth_user_id || !normalizeText(directLink.email)) throw Object.assign(new Error('Choose an active linked parent for this team.'), { statusCode: 403 })
+      const player = Array.isArray(directLink.players) ? directLink.players[0] : directLink.players
+      request = { match_day_id: match.id, club_id: match.club_id, team_id: match.team_id, player_id: directLink.player_id, player_name: player?.player_name || '', recipient_email: directLink.email, recipient_name: directLink.email, parent_link_id: directLink.id }
+    }
     if (confirmedByCoach) request = { ...request, parent_link_id: requestedParentLinkId }
 
     if (match.team_id && request.team_id && String(request.team_id) !== String(match.team_id)) {
@@ -846,7 +904,7 @@ export async function handler(event) {
       response: request[roleConfig.responseField],
     })
 
-    if (selected && !confirmedByCoach && String(request[roleConfig.responseField] || '').toLowerCase() !== 'yes') {
+    if (selected && !directParentLinkId && !confirmedByCoach && String(request[roleConfig.responseField] || '').toLowerCase() !== 'yes') {
       throw Object.assign(new Error('Only parents who replied Yes can be selected for this role.'), { statusCode: 400 })
     }
 
@@ -858,11 +916,11 @@ export async function handler(event) {
           club_id: previousAssignment.club_id,
           team_id: previousAssignment.team_id,
         }
-      : role === 'scorer' && !confirmedByCoach
+      : role === 'scorer' && !confirmedByCoach && !directParentLinkId
         ? await resolveEligibleScorerParentLink(adminSupabase, { match, request })
         : await resolveParentLink(adminSupabase, { match, request })
-    const previousParentLinkId = previousAssignment?.parent_link_id || ''
-    const isSameSelection = String(previousParentLinkId || '') === String(parentLink.id)
+    let previousParentLinkId = previousAssignment?.parent_link_id || ''
+    let isSameSelection = String(previousParentLinkId || '') === String(parentLink.id)
     const queuedNotifications = []
     let scorerAlert = null
     let notificationWarning = ''
@@ -897,7 +955,19 @@ export async function handler(event) {
         }
       }
     } else {
-      if (role === 'scorer') {
+      if (directParentLinkId) {
+        const { data: directRequestId, error: directError } = await adminSupabase.rpc('assign_match_day_parent_directly', {
+          match_day_id_value: match.id, parent_link_id_value: parentLink.id, role_value: role,
+          assigned_by_value: profile.id, assigned_by_name_value: normalizeText(profile.display_name || profile.name || profile.email),
+        })
+        if (directError) throw directError
+        requestId = directRequestId?.requestId
+        request.id = requestId
+        previousAssignment = directRequestId?.previousAssignment || null
+        previousParentLinkId = previousAssignment?.parent_link_id || ''
+        isSameSelection = String(previousParentLinkId) === String(parentLink.id)
+        savedAssignment = normalizeRoleAssignmentResponse(await getCurrentAssignment(adminSupabase, match.id, role))
+      } else if (role === 'scorer') {
         const { error: syncError } = await adminSupabase.rpc('sync_match_day_scorer_assignment', {
           match_day_id_value: match.id,
           parent_link_id_value: parentLink.id,
@@ -988,6 +1058,15 @@ export async function handler(event) {
         notificationWarning = notificationWarning
           ? `${notificationWarning} The app alert could not be sent.`
           : 'Volunteer selection was saved, but the app alert could not be sent.'
+      }
+    }
+
+    if (selected && role !== 'scorer' && !isSameSelection) {
+      try {
+        await sendRoleAssignmentAlert(adminSupabase, { match, parentLink, role })
+      } catch (pushError) {
+        console.error('Match Day role alert failed', pushError)
+        notificationWarning = notificationWarning ? `${notificationWarning} The app alert could not be sent.` : 'Volunteer selection was saved, but the app alert could not be sent.'
       }
     }
 

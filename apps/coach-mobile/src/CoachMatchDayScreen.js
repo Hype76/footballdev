@@ -29,6 +29,7 @@ import {
   getCoachMatchDayActions,
   getCoachVolunteerAssignmentLabel,
   getCoachVolunteerPersonLabel,
+  getCoachOtherEligibleParents,
   getCoachMatchDayPresentation,
   getCoachMatchDaySelectedPlayers,
   getCoachMatchDayUndoModel,
@@ -322,12 +323,31 @@ function FixtureHero({ match, now, styles }) {
   </View>
 }
 
-function VolunteerPanel({ actions, busy, match, onSelect, styles }) {
+function VolunteerPanel({ actions, busy, match, onSelect, onDirectSelect, styles }) {
+  const [openRole, setOpenRole] = useState('')
   const assignmentByRole = new Map((match.roleAssignments || []).map((item) => [item.role, item]))
   return <View style={styles.stack}>
-    <View style={styles.warning}><Text style={styles.cardTitle}>{config.isProduction ? 'Volunteer roles' : 'Communications disabled'}</Text><Text style={styles.body}>{config.isProduction ? 'Choose a scorer, linesman or referee from the people who offered to help. The person you select may receive a notification.' : 'This test app does not send scorer requests, availability reminders, email, or push notifications. It can only select from existing responses.'}</Text></View>
+    <Text style={styles.cardTitle}>Volunteer roles</Text>
+    <Text style={styles.body}>{config.isProduction ? 'Choose someone who offered to help, or select another eligible parent. Selecting another parent assigns them immediately without asking them to accept. Email and app alerts follow their notification settings.' : 'This test app does not send scorer requests, availability reminders, email, or push notifications.'}</Text>
     {match.volunteerEligibilityError ? <Text style={styles.dangerText}>{match.volunteerEligibilityError}</Text> : null}
-    {['scorer', 'linesman', 'referee'].map((role) => { const assignment = assignmentByRole.get(role); const assignmentRequest = (match.availabilityRequests || []).find((request) => request.parentLinkId === assignment?.parentLinkId); const removalTarget = assignment ? { ...(assignmentRequest || {}), parentLinkId: assignment.parentLinkId, requestId: assignmentRequest?.requestId || '' } : null; return <View key={role} style={styles.card}><Text style={styles.cardTitle}>{role.charAt(0).toUpperCase() + role.slice(1)}</Text><Text style={styles.body}>{getCoachVolunteerAssignmentLabel(assignment, match.availabilityRequests)}</Text>{removalTarget ? <Button disabled={busy || !actions.canSelectVolunteers} label="Remove assignment" onPress={() => onSelect(removalTarget, role, false)} secondary styles={styles} /> : null}{(match.availabilityRequests || []).filter((request) => role !== 'scorer' || request.scorerEligible).filter((request) => request[`volunteer${role.charAt(0).toUpperCase() + role.slice(1)}Response`] === 'yes').map((request) => <Button disabled={busy || !actions.canSelectVolunteers} key={`${role}-${request.id}`} label={`${assignment ? 'Change to' : 'Select'} ${getCoachVolunteerPersonLabel(request)}`} onPress={() => onSelect(request, role, true)} secondary styles={styles} />)}</View> })}
+    {['scorer', 'linesman', 'referee'].map((role) => {
+      const assignment = assignmentByRole.get(role)
+      const requests = match.availabilityRequests || []
+      const assignmentRequest = requests.find((request) => request.parentLinkId === assignment?.parentLinkId)
+      const removalTarget = assignment ? { ...(assignmentRequest || {}), parentLinkId: assignment.parentLinkId, requestId: assignmentRequest?.requestId || '' } : null
+      const volunteers = requests.filter((request) => role !== 'scorer' || request.scorerEligible).filter((request) => request[`volunteer${role.charAt(0).toUpperCase() + role.slice(1)}Response`] === 'yes')
+      const otherParents = getCoachOtherEligibleParents(match.eligibleParents, volunteers, assignment)
+      return <View key={role} style={styles.card}>
+        <Text style={styles.cardTitle}>{role.charAt(0).toUpperCase() + role.slice(1)}</Text>
+        <Text style={styles.body}>{getCoachVolunteerAssignmentLabel(assignment, requests)}</Text>
+        {removalTarget ? <Button disabled={busy || !actions.canSelectVolunteers} label="Remove assignment" onPress={() => onSelect(removalTarget, role, false)} secondary styles={styles} /> : null}
+        {volunteers.map((request) => <Button disabled={busy || !actions.canSelectVolunteers} key={`${role}-${request.id}`} label={`${assignment ? 'Change to' : 'Select'} ${getCoachVolunteerPersonLabel(request)}`} onPress={() => onSelect(request, role, true)} secondary styles={styles} />)}
+        <Pressable accessibilityRole="button" accessibilityState={{ expanded: openRole === role, disabled: busy || !actions.canSelectVolunteers }} disabled={busy || !actions.canSelectVolunteers} onPress={() => setOpenRole(openRole === role ? '' : role)} style={[styles.row, { minHeight: 44 }]}>
+          <Text style={styles.fieldLabel}>Choose another parent</Text><MaterialIcons name={openRole === role ? 'expand-less' : 'expand-more'} size={24} color={styles.body.color} />
+        </Pressable>
+        {openRole === role ? otherParents.length ? otherParents.map((parent) => <Button compact disabled={busy || !actions.canSelectVolunteers} key={parent.parentLinkId} label={`${getCoachVolunteerPersonLabel(parent)}${parent.playerName ? ` (${parent.playerName})` : ''}`} onPress={() => onDirectSelect({ ...parent, directParentLinkId: parent.parentLinkId }, role)} secondary styles={styles} />) : <Text style={styles.body}>No other eligible parents available.</Text> : null}
+      </View>
+    })}
   </View>
 }
 
@@ -913,7 +933,7 @@ function CoachMatchDayScoped({ context, matchDayTarget, onMatchDayTargetHandled,
       // A confirmed server change remains confirmed if its offline cache fails.
       // Storage failures must not start uncertain-server reconciliation.
       void cache(nextMatches, detail, players).catch(() => {
-        setNotice('The match is saved online. Phone storage is unavailable; reconnect before making offline changes.')
+        setNotice((current) => [current, 'The match is saved online. Phone storage is unavailable; reconnect before making offline changes.'].filter(Boolean).join(' '))
       })
       return detail
     } catch (operationError) {
@@ -1123,7 +1143,7 @@ function CoachMatchDayScoped({ context, matchDayTarget, onMatchDayTargetHandled,
           )}
         </CoachFormationWorkspace>
       ) : null}
-      {panel === 'volunteers' ? <View style={styles.stack}><CoachGuestScorer key={match.id} match={match} buttonComponent={Button} styles={styles} disabled={stale || busy || reconciling} /><VolunteerPanel actions={actions} busy={busy} match={match} onSelect={(request, role, selected) => setPending({ label: `${selected ? 'Assign' : 'Remove'} ${role}`, run: () => replace(() => selectCoachMatchDayVolunteer(user, match, request, role, selected), (detail) => isCoachMatchDayVolunteerSelectionApplied(detail, request, role, selected)) })} styles={styles} /></View> : null}
+      {panel === 'volunteers' ? <View style={styles.stack}><CoachGuestScorer key={match.id} match={match} buttonComponent={Button} styles={styles} disabled={stale || busy || reconciling} /><VolunteerPanel actions={actions} busy={busy || stale || reconciling} match={match} onDirectSelect={(parent, role) => { replace(() => selectCoachMatchDayVolunteer(user, match, parent, role, true), (detail) => isCoachMatchDayVolunteerSelectionApplied(detail, parent, role, true)).then((detail) => { if (detail.volunteerSelectionWarning) setNotice((current) => [current, detail.volunteerSelectionWarning].filter(Boolean).join(' ')) }).catch(() => {}) }} onSelect={(request, role, selected) => setPending({ label: `${selected ? 'Assign' : 'Remove'} ${role}`, run: () => replace(() => selectCoachMatchDayVolunteer(user, match, request, role, selected), (detail) => isCoachMatchDayVolunteerSelectionApplied(detail, request, role, selected)) })} styles={styles} /></View> : null}
       {panel === 'live' ? <LivePanel actions={actions} busy={busy} canReviewConclude={pendingCount === 0 && !reconciling} eventForm={eventForm} match={match} onEventForm={setEventForm} onExit={() => setPanel('overview')} onPrepare={setPending} onReviewConclude={() => { setPanel('report'); onRequestScrollTop?.() }} onScore={(kind) => kind === 'event' ? submitEvent() : capture('score', { homeScore: Number(scoreDraft.home), awayScore: Number(scoreDraft.away) })} onTimer={runTimer} players={players} scoreDraft={scoreDraft} setScoreDraft={setScoreDraft} styles={styles} /> : null}
       {panel === 'timeline' ? <TimelinePanel busy={busy || reconciling || stale || pendingCount > 0} match={match} players={players} onCorrectGoal={(event, goal, reason) => replace(() => correctCoachMatchDayGoal(user, match, event, goal, reason), (detail) => isCoachMatchDayGoalCorrectionApplied(detail, event.id, goal, reason))} onPrepare={setPending} onUndo={(event, input) => replace(() => voidCoachMatchDayEvent(user, match, event, input), (detail) => isCoachMatchDayEventVoided(detail, event.id))} styles={styles} /> : null}
       {panel === 'shootout' ? <ShootoutPanel busy={busy || reconciling || stale || pendingCount > 0} match={match} onKick={(kick) => { const priorKickIds = (match.shootoutEvents || []).map((item) => item.id); return replace(() => recordCoachMatchDayShootoutKick(user, match, kick), (detail) => isCoachMatchDayShootoutKickApplied(detail, priorKickIds, kick)) }} onPrepare={setPending} onVoid={(id) => replace(() => voidCoachMatchDayShootoutKick(user, match, id), (detail) => isCoachMatchDayShootoutKickVoided(detail, id))} styles={styles} /> : null}

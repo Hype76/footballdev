@@ -91,6 +91,7 @@ export function normalizeCoachMatchDay(row = {}) {
     phaseStartedAt: row.phase_started_at ?? row.phaseStartedAt ?? '', timerStartedAt: row.timer_started_at ?? row.timerStartedAt ?? '', timerPausedAt: row.timer_paused_at ?? row.timerPausedAt ?? '', timerElapsedSeconds: integer(row.timer_elapsed_seconds ?? row.timerElapsedSeconds), timerStatus: normalize(row.timer_status ?? row.timerStatus) || 'not_started', fullTimeResumeStatus: normalize(row.full_time_resume_status ?? row.fullTimeResumeStatus), concludedAt: row.concluded_at ?? row.concludedAt ?? '', concludedBy: row.concluded_by ?? row.concludedBy ?? '',
     presentationPriority: Number(row.presentation_priority ?? row.presentationPriority ?? 99), scheduledKickoffAt: row.scheduled_kickoff_at ?? row.scheduledKickoffAt ?? '', isBeforeKickoff: row.is_before_kickoff === true || row.isBeforeKickoff === true, isToday: row.is_today === true || row.isToday === true, hasPresentationState, serverLocalDate: row.server_local_date ?? row.serverLocalDate ?? '', serverLocalTime: row.server_local_time ?? row.serverLocalTime ?? '',
     playerAvailability: (row.match_day_player_availability ?? row.playerAvailability ?? []).map(normalizeAvailability), squadDecisions: (row.match_day_player_squad_decisions ?? row.squadDecisions ?? []).map(normalizeSquadDecision), availabilityRequests: (row.match_day_availability_requests ?? row.availabilityRequests ?? []).map(normalizeRequest), roleAssignments: (row.match_day_role_assignments ?? row.roleAssignments ?? []).map(normalizeRoleAssignment),
+    eligibleParents: (row.eligibleParents ?? []).map((parent) => ({ parentLinkId: parent.parentLinkId ?? '', authUserId: parent.authUserId ?? '', recipientName: normalize(parent.parentName ?? parent.recipientName), recipientEmail: normalize(parent.email ?? parent.recipientEmail), playerName: normalize(parent.playerName) })),
     squadNotificationContacts: (row.squad_notification_contacts ?? row.squadNotificationContacts ?? []).map((contact) => ({ playerId: contact.player_id ?? contact.playerId, canNotify: contact.can_notify === true || contact.canNotify === true, hasContact: contact.has_contact === true || contact.hasContact === true, appRecipientCount: integer(contact.app_recipient_count ?? contact.appRecipientCount), emailRecipientCount: integer(contact.email_recipient_count ?? contact.emailRecipientCount) })),
     ...(Array.isArray(row.eventParticipants) ? { eventParticipants: row.eventParticipants } : {}),
     ...(Array.isArray(row.substitutionParticipants) ? { substitutionParticipants: row.substitutionParticipants } : {}),
@@ -399,7 +400,7 @@ export async function getCoachMatchDayDetail(user, matchDayId, { includeVoluntee
       const response = await fetchJsonWithTimeout(url, { headers: { Authorization: `Bearer ${accessToken}` } })
       if (!response.ok || response.result?.success !== true) throw new Error(response.result?.message || 'Volunteer eligibility could not be loaded.')
       const byRequest = new Map((response.result.eligibility || []).map((item) => [String(item.request_id || ''), item]))
-      result = { ...result, match_day_availability_requests: (result.match_day_availability_requests || []).map((item) => ({ ...item, scorer_eligible: byRequest.get(String(item.id))?.eligible === true, scorer_eligibility_reason: byRequest.get(String(item.id))?.reason || '', parent_link_id: byRequest.get(String(item.id))?.parent_link_id || item.parent_link_id, auth_user_id: byRequest.get(String(item.id))?.auth_user_id || item.auth_user_id, recipient_email: byRequest.get(String(item.id))?.recipient_email || item.recipient_email, recipient_name: byRequest.get(String(item.id))?.recipient_name || item.recipient_name })) }
+      result = { ...result, eligibleParents: response.result.eligibleParents || [], match_day_availability_requests: (result.match_day_availability_requests || []).map((item) => ({ ...item, scorer_eligible: byRequest.get(String(item.id))?.eligible === true, scorer_eligibility_reason: byRequest.get(String(item.id))?.reason || '', parent_link_id: byRequest.get(String(item.id))?.parent_link_id || item.parent_link_id, auth_user_id: byRequest.get(String(item.id))?.auth_user_id || item.auth_user_id, recipient_email: byRequest.get(String(item.id))?.recipient_email || item.recipient_email, recipient_name: byRequest.get(String(item.id))?.recipient_name || item.recipient_name })) }
     } catch (eligibilityError) {
       result = { ...result, volunteerEligibilityError: normalize(eligibilityError?.message) || 'Volunteer eligibility could not be loaded.' }
     }
@@ -606,12 +607,13 @@ export async function saveCoachMatchDayFinalReport(user, match, staffNotes) {
 export async function selectCoachMatchDayVolunteer(user, match, request, role, selected = true) {
   await prepareMutation(user, match)
   if (!['scorer', 'linesman', 'referee'].includes(role)) throw new Error('Choose a valid volunteer role.')
-  if (selected !== false && !request?.requestId) throw new Error('Choose a volunteer response first.')
+  if (selected !== false && !request?.requestId && !request?.directParentLinkId) throw new Error('Choose a parent or volunteer response first.')
   if (selected === false && !request?.parentLinkId) throw new Error('Choose the current volunteer assignment first.')
   const config = getMobileRuntimeConfig('coach')
   const accessToken = await getAccessToken()
   if (!config.apiBaseUrl || !accessToken) throw new Error('Login is required.')
-  const response = await fetchJsonWithTimeout(joinApiPath(config.apiBaseUrl, '.netlify/functions/select-match-day-volunteer'), { method: 'POST', headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ matchDayId: match.id, parentLinkId: request.parentLinkId, requestId: request.requestId || '', role, selected: selected !== false }) })
+  const response = await fetchJsonWithTimeout(joinApiPath(config.apiBaseUrl, '.netlify/functions/select-match-day-volunteer'), { method: 'POST', headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' }, body: JSON.stringify(request.directParentLinkId ? { matchDayId: match.id, directParentLinkId: request.directParentLinkId, role, selected: true } : { matchDayId: match.id, parentLinkId: request.parentLinkId, requestId: request.requestId || '', role, selected: selected !== false }) })
   if (!response.ok || response.result?.success === false) throw new Error(response.result?.message || 'Volunteer selection could not be updated.')
-  return getCoachMatchDayDetail(user, match.id)
+  const detail = await getCoachMatchDayDetail(user, match.id)
+  return { ...detail, volunteerSelectionWarning: normalize(response.result?.warning) }
 }
