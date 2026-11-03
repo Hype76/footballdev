@@ -10,8 +10,8 @@ const app = await readFile(new URL('../apps/parent-mobile/App.js', import.meta.u
 const data = await readFile(new URL('../apps/parent-mobile/src/parentPortalData.js', import.meta.url), 'utf8')
 
 test('new native release connects the revocable accepted-event feed to Apple Calendar', () => {
-  assert.equal(config.version, '1.1.0')
-  assert.equal(packageJson.version, '1.1.0')
+  assert.equal(config.version, '1.1.2')
+  assert.equal(packageJson.version, '1.1.2')
   assert.equal(packageJson.dependencies['expo-calendar'], undefined)
   assert.doesNotMatch(JSON.stringify(config), /expo-calendar|READ_CALENDAR|WRITE_CALENDAR/)
   assert.doesNotMatch(app, /parentDeviceCalendar|Sync accepted events to this phone/)
