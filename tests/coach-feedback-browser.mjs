@@ -17,6 +17,7 @@ import {MobileFailureNotice} from './apps/mobile-core/src/MobileFailureNotice.js
 import{View,Text,Pressable,StyleSheet}from'react-native';import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import{getMobileIconName}from'./apps/mobile-core/src/mobileIconSystem.js';
 import{getCoachMatchDayPresentation,filterCoachMatchDays,buildCoachFinalMatchReport}from'./apps/mobile-core/src/coachMatchDayCore.js';
+import{MatchTeamsLine}from'./apps/mobile-core/src/MatchTeamsLine.js';
 import{getMatchDayLifecycleState}from'./src/lib/matchday-lifecycle.js';
 import{formatUkDate}from'./src/lib/date-format.js';
 import{createCoachTheme}from'./apps/coach-mobile/src/coachThemeCore.js';
@@ -38,7 +39,7 @@ try{
   await mkdir('output/playwright/coach-feedback',{recursive:true})
   for(const mode of ['light','dark']){
     await page.evaluate(mode=>{window.mode(mode);window.setMatchStatus('scheduled')},mode)
-    await page.getByText('Our team v Visitors',{exact:true}).first().waitFor()
+    await page.getByLabel('Our team versus Visitors').first().waitFor()
     assert.equal(await page.getByText(/^0 - 0/).count(),0)
     assert.equal(await page.getByText('Score',{exact:true}).count(),0)
     assert.equal(await page.getByText('Match timer',{exact:true}).count(),0)
