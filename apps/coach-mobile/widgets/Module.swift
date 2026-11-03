@@ -17,7 +17,8 @@ public class ReactNativeWidgetExtensionModule: Module {
       guard ActivityAuthorizationInfo().areActivitiesEnabled else { throw NSError(domain: "LiveMatch", code: 2) }
       guard let state = Self.parse(input) else { throw NSError(domain: "LiveMatch", code: 3) }
       let badgeData = await Self.badgeData(input["badgeUrl"] as? String)
-      let attributes = MatchActivityAttributes(activityKey: key, badgeData: badgeData)
+      let attributes = MatchActivityAttributes(activityKey: key, badgeData: badgeData,
+        clubIsHome: input["clubIsHome"] as? Bool ?? true)
       let content = ActivityContent(state: state, staleDate: Date().addingTimeInterval(4 * 60 * 60))
       let activity = try Activity.request(attributes: attributes, content: content, pushType: .token)
       return activity.id
@@ -78,6 +79,10 @@ public class ReactNativeWidgetExtensionModule: Module {
       homeScore: homeScore, awayScore: awayScore, phase: phase, running: running,
       elapsedSeconds: elapsedSeconds, sampledAtMs: sampledAtMs,
       homeShootoutScore: input["homeShootoutScore"] as? Int,
-      awayShootoutScore: input["awayShootoutScore"] as? Int)
+      awayShootoutScore: input["awayShootoutScore"] as? Int,
+      homeYellowCards: input["homeYellowCards"] as? Int,
+      homeRedCards: input["homeRedCards"] as? Int,
+      awayYellowCards: input["awayYellowCards"] as? Int,
+      awayRedCards: input["awayRedCards"] as? Int)
   }
 }

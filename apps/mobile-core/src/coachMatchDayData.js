@@ -209,7 +209,7 @@ export async function createCoachMatchDayFixture(user, form, { calendarOnly = fa
     .single()
   if (error) throw error
   const match = normalizeCoachMatchDay({ ...data, clubName: user.clubName })
-  await Promise.all([
+  const auditResults = await Promise.allSettled([
     recordCoachOperationalAudit({
       action: 'match_day_created',
       entityId: match.id,
@@ -230,6 +230,8 @@ export async function createCoachMatchDayFixture(user, form, { calendarOnly = fa
       team_id: teamId,
     }).then(({ error: eventLogError }) => { if (eventLogError) console.warn(eventLogError) }),
   ])
+  const auditWarning = auditResults.some(result => result.status === 'rejected')
+    ? 'Fixture created, but its activity record could not be confirmed.' : ''
   let calendarScopeResult = null
   let calendarScopeWarning = ''
   if (normalizedCalendarTarget === 'squad') {
@@ -255,7 +257,7 @@ export async function createCoachMatchDayFixture(user, form, { calendarOnly = fa
       invitationWarning = normalize(invitationError?.message) || 'The fixture was saved, but Parent invitations remain unsent.'
     }
   }
-  return Object.freeze({ calendarScopeResult, calendarScopeWarning, calendarTarget: normalizedCalendarTarget, invitationResult, invitationWarning, match })
+  return Object.freeze({ auditWarning, calendarScopeResult, calendarScopeWarning, calendarTarget: normalizedCalendarTarget, invitationResult, invitationWarning, match })
 }
 
 export async function getCoachMatchLocations(user, matches = []) {

@@ -12,7 +12,9 @@ const provider = { teamId: 'ABCDEFGHIJ', keyId: '1234567890', privateKey, produc
 
 function clientFor(followers, fixture = match) {
   return {
-    from() { return { select() { return { eq() { return { async maybeSingle() { return { data: fixture, error: null } } } } } } } },
+    from(table) { return { select() { return { eq() { return table === 'match_day_events'
+      ? Promise.resolve({ data: [], error: null })
+      : { async maybeSingle() { return { data: fixture, error: null } } } } } } } },
     async rpc() { return { data: followers, error: null } },
   }
 }
@@ -43,4 +45,31 @@ test('Android refresh sends only a scoped match identifier and stop flag', async
   assert.deepEqual(result, { delivered: 1, failed: 0 })
   assert.equal(sent[0][1], matchId)
   assert.equal(sent[0][2], false)
+  assert.equal(sent[0][3], false)
+})
+
+test('full time keeps a final Android score but revoked access clears it', async () => {
+  const sent = []
+  await deliverLiveMatchChange(matchId, {
+    client: clientFor([
+      { app_role: 'coach', platform: 'android', access_allowed: true },
+      { app_role: 'parent', platform: 'android', access_allowed: false },
+    ], { ...match, status: 'full_time', timer_status: 'full_time', current_match_phase: 'full_time', concluded_at: '2026-11-03T08:40:00Z' }),
+    now: () => Date.parse('2026-11-03T08:40:00Z'),
+    sendAndroid: async (...args) => { sent.push(args); return true },
+  })
+  assert.deepEqual(sent.map(args => args.slice(2)), [[true, true], [true, false]])
+})
+
+test('a quiet match remains current while its clock runs locally', async () => {
+  const requests = []
+  await deliverLiveMatchChange(matchId, {
+    client: clientFor([{ app_role: 'coach', platform: 'ios', activity_token: 'ab'.repeat(32), access_allowed: true }]),
+    provider, now: () => Date.parse('2026-11-03T08:40:00Z'),
+    send: async request => { requests.push(request); return { accepted: true } },
+  })
+  const payload = JSON.parse(requests[0].body).aps
+  assert.equal(payload['stale-date'] - payload.timestamp, 4 * 60 * 60)
+  assert.equal(payload['content-state'].running, true)
+  assert.equal(payload['content-state'].homeScore, 2)
 })

@@ -43,6 +43,8 @@ test('fixture setup still applies saved defaults before the Coach starts editing
   assert.equal(initialized.venueName, 'Home Ground')
   assert.equal(initialized.venueAddress, '1 Football Road')
   assert.equal(initialized.notificationTeamName, 'U14 JPL')
+  assert.equal(initialized.parentVisible, true)
+  assert.equal(initialized.parentAudience, 'involved_players')
 })
 
 test('Coach Match Day returns to visible content after creating or cancelling a long fixture form', async () => {

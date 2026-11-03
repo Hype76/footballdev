@@ -17,6 +17,10 @@ TaskManager.defineTask(taskName, async ({ data, error }) => {
   const saved = await readLiveMatchFollow(payload.app, payload.matchDayId)
   if (!saved || saved.rollbackPending || saved.followId !== payload.followId) return
   if (payload.stop === true) {
+    if (payload.finished === true) {
+      await refreshLiveMatchNotification(payload.app, payload.matchDayId)
+      return
+    }
     try { await stopLiveMatchFollow(payload.app, payload.matchDayId) }
     finally { await hideLiveMatchNotification(payload.matchDayId) }
     return

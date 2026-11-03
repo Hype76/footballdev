@@ -14,9 +14,14 @@ struct MatchActivityAttributes: ActivityAttributes {
     let sampledAtMs: Double
     let homeShootoutScore: Int?
     let awayShootoutScore: Int?
+    let homeYellowCards: Int?
+    let homeRedCards: Int?
+    let awayYellowCards: Int?
+    let awayRedCards: Int?
   }
 
   // An opaque activity identifier does not expose a child or account identity.
   let activityKey: String
   let badgeData: Data?
+  let clubIsHome: Bool
 }

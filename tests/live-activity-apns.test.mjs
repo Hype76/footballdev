@@ -60,4 +60,7 @@ test('request uses the correct activity topic and excludes unrelated private fie
   assert.throws(() => createLiveActivityApnsRequest({ ...args, bundleId: 'unrelated.app' }), /destination_invalid/)
   assert.throws(() => createLiveActivityApnsRequest({ ...args, staleDate: 999 }), /payload_invalid/)
   assert.throws(() => createLiveActivityApnsRequest({ ...args, contentState: { ...state, homeName: { private: 'data' } } }), /payload_invalid/)
+  const withCards = createLiveActivityApnsRequest({ ...args, contentState: { ...state, homeYellowCards: 2, awayRedCards: 1 } })
+  assert.equal(JSON.parse(withCards.body).aps['content-state'].homeYellowCards, 2)
+  assert.throws(() => createLiveActivityApnsRequest({ ...args, contentState: { ...state, homeYellowCards: -1 } }), /payload_invalid/)
 })

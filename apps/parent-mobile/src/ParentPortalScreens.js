@@ -1,5 +1,6 @@
 import { MobileSwitch as Switch } from '../../mobile-core/src/MobileSwitch.js'
 import { LiveMatchFollowAction } from '../../mobile-core/src/LiveMatchFollowAction'
+import { MatchTeamsLine } from '../../mobile-core/src/MatchTeamsLine'
 import { createPdfVisitTracker } from '../../mobile-core/src/pdfVisit.js'
 import { getParentDevelopmentProgression } from '../../mobile-core/src/parentDevelopmentProgression.js'
 import { ParentDevelopmentProgressionChart } from './ParentDevelopmentProgressionChart.js'
@@ -32,7 +33,7 @@ import {
   formatParentProductDateTime,
   formatParentProductTime,
 } from '../../mobile-core/src/parentDateTimeCore'
-import { DEFAULT_PARENT_MOBILE_THEME } from '../../mobile-core/src/parentThemeCore'
+import { DEFAULT_PARENT_MOBILE_THEME, resolveParentMobileBranding } from '../../mobile-core/src/parentThemeCore'
 import { getCoachMatchDayPresentation } from '../../mobile-core/src/coachMatchDayCore'
 import { createMatchDayGoalCorrectionDraft, getMatchDaySubstitutionPlayers } from '../../mobile-core/src/matchDayParticipantRoster.js'
 import { canCorrectMatchDayScore, canRecordParentScorerEvent, getMatchDayLifecycleState, getParentScorerTimerActions } from '../../../src/lib/matchday-lifecycle.js'
@@ -329,9 +330,15 @@ function InvitationResponseControl({ activeActionId, colors, invitation, isOffli
   const options = getInvitationResponseOptions(invitation)
   const lockReason = getParentInvitationLockReason(invitation)
   const error = local?.error || invitation.attendancePendingError
+  const responseValue = normalizeText(local?.response || invitation.responseState).toLowerCase()
+  const accepted = ['accepted', 'available', 'attending', 'yes'].includes(responseValue)
+  const declined = ['declined', 'no', 'not_attending', 'unavailable'].includes(responseValue)
+  const choiceStatus = isVolunteer
+    ? accepted ? `${label} accepted` : declined ? `${label} declined` : ''
+    : accepted ? 'Attending' : declined ? 'Not attending' : responseValue === 'maybe' ? 'Maybe' : ''
   const status = error || (local?.pending || invitation.attendancePendingStatus === 'persisting' ? 'Saving'
-    : invitation.attendancePending ? 'Saved on phone, waiting to sync'
-      : local?.saved || invitation.attendanceSaved ? 'Saved' : '')
+    : invitation.attendancePending ? `${choiceStatus || 'Response'} saved on phone, waiting to sync`
+      : local?.saved || invitation.attendanceSaved ? (isVolunteer ? choiceStatus : `${choiceStatus || 'Response'} confirmed`) : '')
   const respond = async (value) => {
     if (busy || isLocked || offlineBlocked || !actionable || inFlight.current?.scope === scope) return
     const current = captureView()
@@ -341,7 +348,7 @@ function InvitationResponseControl({ activeActionId, colors, invitation, isOffli
     try {
       const receipt = await onRespond(invitation, value, { inlineFeedback: true })
       if (!current()) return
-      setSubmission({ scope, pending: false, saved: Boolean(receipt?.saved), error: receipt?.error || '' })
+      setSubmission({ scope, response: value, pending: false, saved: Boolean(receipt?.saved), error: receipt?.error || '' })
     } catch (failure) {
       if (current()) setSubmission({ scope, pending: false, error: failure?.message || 'Your response could not be saved. Try again.' })
     } finally {
@@ -699,7 +706,7 @@ function MatchCard({ colors, invitations, link, match, onOpen, styles }) {
       {!match.isFanView && !isCompleted ? <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}><MatchStatusBadge compact colors={colors} status={getParentMatchAvailability(match, invitation, link)} prefix="Availability" styles={styles} /><MatchStatusBadge compact colors={colors} status={getParentMatchSquadStatus(match)} prefix="Match squad" styles={styles} /></View> : null}
       <Pressable accessibilityHint="Opens Match Day" accessibilityRole="button" onPress={() => onOpen(match)} style={styles.compactRow}>
         <ParentIcon color={colors.text} iconKey="football" size={34} />
-        <View style={styles.compactCopy}><View style={styles.row}>{match.status !== 'scheduled' || match.isFanView ? <Text style={styles.pill}>{getParentMatchStatusLabel(match)}</Text> : null}<Text style={[styles.meta, styles.fixtureDate]}>{formatDate(match.matchDate)}</Text></View><Text style={styles.cardTitle}>{getMatchDayDisplayName(match)}</Text><Text style={styles.meta}>{match.kickoffTimeTbc ? 'Time TBC' : formatParentProductTime(match.kickoffTime)} | {getMatchDayShirtChoiceLabel(match.shirtChoice)}</Text></View>
+        <View style={styles.compactCopy}><View style={styles.row}>{match.status !== 'scheduled' || match.isFanView ? <Text style={styles.pill}>{getParentMatchStatusLabel(match)}</Text> : null}<Text style={[styles.meta, styles.fixtureDate]}>{formatDate(match.matchDate)}</Text></View><MatchTeamsLine match={match} clubLogoUrl={resolveParentMobileBranding(link).clubLogoUrl} compact textStyle={styles.cardTitle} /><Text style={styles.meta}>{match.kickoffTimeTbc ? 'Time TBC' : formatParentProductTime(match.kickoffTime)} | {getMatchDayShirtChoiceLabel(match.shirtChoice)}</Text></View>
         {scoreVisible(match) ? <Text style={styles.score}>{match.homeScore} - {match.awayScore}</Text> : <ParentIcon color={colors.accentText} iconKey="action.open" size={22} />}
       </Pressable>
       {match.arrivalTime ? <Text style={styles.meta}>Arrive {formatParentProductTime(match.arrivalTime)}</Text> : null}
@@ -1230,7 +1237,7 @@ export function MatchdayScreen({ activeActionId, clubKits, formationViewportHeig
         {selectedMatch.isScorer ? <MatchdayAction accessibilityLabel="Back to Matchday" label="Back" iconKey="action.back" onPress={onBack} colors={colors} styles={styles} back /> : null}
         <View style={[styles.gameDayHero, selectedMatchIsLive && styles.gameDayHeroLive]}>
           {['cancelled', 'postponed'].includes(selectedMatch.status) ? <Text style={styles.pill}>{getParentMatchStatusLabel(selectedMatch)}</Text> : null}
-          <Text accessibilityRole="header" style={styles.header}>{presentation?.displayName || getMatchDayDisplayName(selectedMatch)}</Text>
+          <MatchTeamsLine match={selectedMatch} clubLogoUrl={resolveParentMobileBranding(link).clubLogoUrl} textStyle={styles.header} />
           <View accessibilityLabel="Match information" style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 6 }}>
             <MatchTypeIcon compact fixtureType={selectedMatch.fixtureType} textStyle={styles.body} />
             <HomeAwayIcon compact homeAway={selectedMatch.homeAway} textStyle={styles.body} />

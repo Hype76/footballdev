@@ -27,6 +27,7 @@ import {useAttendanceUiGuard} from './apps/mobile-core/src/useAttendanceOutbox.j
 import {useMobileActivity} from './apps/mobile-core/src/MobileActivityContext.js';
 import {MobileFailureNotice} from './apps/mobile-core/src/MobileFailureNotice.js';
 import {MobileLoadingStatus} from './apps/mobile-core/src/MobileHeaderActivity.js';
+import {MatchTeamsLine} from './apps/mobile-core/src/MatchTeamsLine.js';
 
 import {FormationPitchLines,FormationPlayerArtwork,FormationSubArtwork,formationVisualStyles} from './apps/mobile-core/src/FormationBoardVisuals.js';
 import {getFormationMarkerVisualPosition} from './apps/mobile-core/src/formationVisualCore.js';
@@ -38,7 +39,7 @@ import ParentIcon from './apps/parent-mobile/src/ParentIcon.js';
 import {MatchTypeIcon} from './apps/parent-mobile/src/MatchTypeIcon.js';
 import {HomeAwayIcon} from './apps/parent-mobile/src/HomeAwayIcon.js';
 import {PitchTypeIcon} from './apps/parent-mobile/src/PitchTypeIcon.js';
-import {createParentMobileTheme,DEFAULT_PARENT_MOBILE_THEME} from './apps/mobile-core/src/parentThemeCore.js';
+import {createParentMobileTheme,DEFAULT_PARENT_MOBILE_THEME,resolveParentMobileBranding} from './apps/mobile-core/src/parentThemeCore.js';
 import {getParentMatchGroups,getParentMatchStatusLabel,getParentScorerInterestInvitation,getParentMatchDirectionsUrl} from './apps/parent-mobile/src/parentExperience.js';
 import {getParentMatchTimeline,getParentScorerMatches,getParentScorerActionLabel} from './apps/parent-mobile/src/parentScorerCore.js';
 import {canChangeParentMatchAvailability,getParentMatchAttendanceInvitation,getParentMatchAvailability,getParentMatchSquadStatus} from './apps/parent-mobile/src/parentMatchAvailability.js';
@@ -335,7 +336,7 @@ try {
     assert.deepEqual(await pending.boundingBox(),position,'Pending feedback keeps the tapped choice in place')
     assert.equal(await page.getByText('Saved',{exact:true}).count(),0,'No server save is claimed while pending')
     await page.evaluate(()=>window.pending[0]())
-    await page.getByText('Saved',{exact:true}).waitFor()
+    await page.getByText('Attending confirmed',{exact:true}).waitFor()
     await page.waitForFunction(()=>window.current.activeActionId==='')
     assert.ok(await page.getByRole('heading',{name:'Respond to request',exact:true}).count())
     assert.equal(await page.evaluate(()=>window.backCalls),0,'Confirmed reply leaves the request open')
@@ -363,13 +364,13 @@ try {
   await page.getByRole('radio',{name:'Scorer, Yes',exact:true}).click()
   await page.getByRole('radio',{name:'Scorer, Yes, saving',exact:true}).waitFor()
   await page.evaluate(()=>{window.pending[0]();window.defer=false})
-  await page.getByText('Saved',{exact:true}).waitFor()
+  await page.getByText('Scorer accepted',{exact:true}).waitFor()
   assert.equal(await page.getByRole('radio',{name:'Scorer, Yes',exact:true}).isChecked(),true)
   await page.evaluate(()=>{window.target('invitation');window.invitation({responseState:'awaiting_response',attendancePreparation:{route:'parent_match'},eventDate:'2099-01-23',eventStart:'2099-01-23T14:00:00Z'});window.offline(true);window.defer=true;window.pending=[]})
   await page.getByRole('radio',{name:'Attendance, Attending',exact:true}).click()
   await page.getByRole('radio',{name:'Attendance, Attending, saving',exact:true}).waitFor()
   await page.evaluate(()=>window.pending[0]())
-  await page.getByText('Saved on phone, waiting to sync',{exact:true}).waitFor()
+  await page.getByText('Attending saved on phone, waiting to sync',{exact:true}).waitFor()
   assert.equal(await page.getByRole('heading',{name:'Respond to request',exact:true}).count(),1)
   assert.equal(await page.evaluate(()=>window.backCalls),0,'Durable local acceptance keeps the request open too')
   assert.equal(await page.getByText('Saved',{exact:true}).count(),0,'Offline acceptance does not claim server confirmation')

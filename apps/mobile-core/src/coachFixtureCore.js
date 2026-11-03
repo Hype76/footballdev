@@ -46,7 +46,7 @@ export function getCoachMatchLocationOptions(matches = []) {
     .map((location) => Object.freeze({ ...location, id: `${location.name}|${location.address}`, label: location.address ? `${location.name} | ${location.address}` : location.name }))
 }
 
-export function createCoachFixtureForm({ defaultArrivalPreset = '30', defaultArrivalTime = '', defaultDuration = 90, defaultLocation = null, defaultMatchDate = '', defaultMotmPollExpiryDuration = DEFAULT_EXPIRY_DURATION, match = null, notificationTeamName = '' } = {}) {
+export function createCoachFixtureForm({ defaultArrivalPreset = '30', defaultArrivalTime = '', defaultDuration = 90, defaultLocation = null, defaultMatchDate = '', defaultMotmPollExpiryDuration = DEFAULT_EXPIRY_DURATION, defaultPlayerIds = [], match = null, notificationTeamName = '' } = {}) {
   const duration = assertValidMatchDurationMinutes(defaultDuration)
   const kickoffTime = normalizeFixtureTime(match?.kickoffTime) || '10:00'
   const arrivalPreset = match?.id
@@ -78,15 +78,15 @@ export function createCoachFixtureForm({ defaultArrivalPreset = '30', defaultArr
     notificationTeamName: normalize(match?.notificationTeamName || notificationTeamName),
     rememberNotificationTeamName: true,
     opponent: normalize(match?.opponent),
-    parentAudience: 'none',
-    parentVisible: false,
+    parentAudience: match?.id ? normalize(match.parentAudience) || 'none' : 'involved_players',
+    parentVisible: match?.id ? match.parentVisible === true : true,
     requestLinesman: match?.requestLinesman === true,
     requestReferee: match?.requestReferee === true,
     requestScorer: match?.requestScorer === true,
     saveDurationAsDefault: false,
     saveArrivalAsDefault: false,
     saveMotmExpiryAsDefault: false,
-    selectedPlayerIds: [],
+    selectedPlayerIds: match?.id ? [] : [...defaultPlayerIds],
     venueAddress: normalize(match?.venueAddress || defaultLocation?.address),
     venueName: normalize(match?.venueName || defaultLocation?.name),
   }

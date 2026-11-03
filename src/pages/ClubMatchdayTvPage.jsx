@@ -30,8 +30,8 @@ function WeatherIcon({ condition }) {
   </svg>
 }
 
-function TeamBadge({ src }) {
-  return <img className="club-tv-team-badge" src={src || fpLogo} alt="" onError={(event) => { event.currentTarget.onerror = null; event.currentTarget.src = fpLogo }} />
+function TeamBadge({ src, muted = false }) {
+  return <img className={`club-tv-team-badge${muted || !src ? ' club-tv-team-badge-fallback' : ''}`} src={src || fpLogo} alt="" onError={(event) => { event.currentTarget.onerror = null; event.currentTarget.src = fpLogo; event.currentTarget.classList.add('club-tv-team-badge-fallback') }} />
 }
 
 function GroundWeather({ clubId, postcode }) {
@@ -76,9 +76,9 @@ function MatchRow({ match, now, showDate, clubLogo }) {
   const homeSide = sides.clubHome ? 'club' : 'opponent', awaySide = sides.clubHome ? 'opponent' : 'club'
   return <article className={`club-tv-match club-tv-${status.kind}`}>
     <div className="club-tv-match-meta">{showDate ? <span className="club-tv-fixture-date">{fixtureDayLabel(match.matchDate)}</span> : null}<strong>{status.label}</strong><span>{match.venue || (match.homeAway === 'away' ? 'Away' : 'Home')}</span></div>
-    <div className={`club-tv-team club-tv-home ${sides.clubHome ? 'club-tv-own' : ''}`}><div className="club-tv-team-heading"><TeamBadge src={sides.clubHome ? clubLogo : ''} /><strong>{sides.home}</strong></div><EventLine events={match.events} side={homeSide} /></div>
+    <div className={`club-tv-team club-tv-home ${sides.clubHome ? 'club-tv-own' : ''}`}><div className="club-tv-team-heading"><TeamBadge src={sides.clubHome ? clubLogo : ''} muted={!sides.clubHome} /><strong>{sides.home}</strong></div><EventLine events={match.events} side={homeSide} /></div>
     <div className="club-tv-score"><strong>{status.kind === 'upcoming' ? 'v' : `${match.homeScore} : ${match.awayScore}`}</strong>{(match.status === 'penalties' || match.homeShootoutScore || match.awayShootoutScore) ? <small>PENS {match.homeShootoutScore} : {match.awayShootoutScore}</small> : null}</div>
-    <div className={`club-tv-team ${!sides.clubHome ? 'club-tv-own' : ''}`}><div className="club-tv-team-heading"><TeamBadge src={!sides.clubHome ? clubLogo : ''} /><strong>{sides.away}</strong></div><EventLine events={match.events} side={awaySide} /></div>
+    <div className={`club-tv-team ${!sides.clubHome ? 'club-tv-own' : ''}`}><div className="club-tv-team-heading"><TeamBadge src={!sides.clubHome ? clubLogo : ''} muted={sides.clubHome} /><strong>{sides.away}</strong></div><EventLine events={match.events} side={awaySide} /></div>
   </article>
 }
 

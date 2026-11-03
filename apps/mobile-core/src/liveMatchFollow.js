@@ -23,11 +23,16 @@ async function confirmedMatch(role, matchId, parentLinkId) {
     if (error) throw error
     const row = data?.find(item => item.id === matchId)
     if (!row) throw new Error('Match access is no longer available.')
-    return row
+    const { data: events, error: eventsError } = await supabase.rpc('get_parent_live_match_cards', {
+      match_id_value: matchId, parent_link_id_value: parentLinkId,
+    })
+    return eventsError ? row : { ...row, match_day_events: events }
   }
   const { data, error } = await supabase.from('match_days').select('*, teams:team_id(name)').eq('id', matchId).maybeSingle()
   if (error || !data) throw error || new Error('Match access is no longer available.')
-  return { ...data, teamName: data.teams?.name }
+  const { data: events, error: eventsError } = await supabase.from('match_day_events')
+    .select('event_type,team_side,event_status').eq('match_day_id', matchId)
+  return { ...data, teamName: data.teams?.name, ...(eventsError ? {} : { match_day_events: events }) }
 }
 
 async function matchBadgeUrl(match) {
@@ -147,7 +152,11 @@ export async function refreshLiveMatchNotification(role, matchId) {
   try {
     const match = await confirmedMatch(role, matchId, saved.parentLinkId)
     const state = createLiveMatchState(match, Date.now())
-    if (state.end) await stopLiveMatchFollow(role, matchId)
+    if (state.end) {
+      await stopLiveMatchFollow(role, matchId)
+      if (match.status === 'full_time') await showLiveMatchNotification(matchId, { ...state,
+        badgeUrl: match.team_id && match.club_id ? await matchBadgeUrl(match) : '', appRole: role, ended: true })
+    }
     else await showLiveMatchNotification(matchId, { ...state, badgeUrl: match.team_id && match.club_id ? await matchBadgeUrl(match) : '', appRole: role })
   } catch {
     await hideLiveMatchNotification(matchId)

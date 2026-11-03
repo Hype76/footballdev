@@ -18,6 +18,17 @@ export function createLiveMatchState(match, sampledAtMs) {
   const lifecycle = getMatchDayLifecycleState(match)
   const phase = String(match.currentMatchPhase ?? match.current_match_phase ?? '')
   const isShootout = phase === 'penalties' || status === 'penalties'
+  const events = match.match_day_events ?? match.events
+  const cards = Array.isArray(events) && events.every(event => event.event_status !== undefined || event.eventStatus !== undefined)
+    ? { homeYellowCards: 0, homeRedCards: 0, awayYellowCards: 0, awayRedCards: 0 } : null
+  if (cards) for (const event of events) {
+    const type = String(event.event_type ?? event.eventType ?? '').trim()
+    const side = String(event.team_side ?? event.teamSide ?? '').trim()
+    const eventStatus = String(event.event_status ?? event.eventStatus ?? 'active').trim()
+    if (!['yellow_card', 'red_card'].includes(type) || !['club', 'opponent'].includes(side) || !['active', 'corrected'].includes(eventStatus)) continue
+    const home = (String(match.homeAway ?? match.home_away ?? '').trim().toLowerCase() !== 'away') === (side === 'club')
+    cards[`${home ? 'home' : 'away'}${type === 'yellow_card' ? 'Yellow' : 'Red'}Cards`] += 1
+  }
   const score = value => {
     const n = Number(value)
     if (!Number.isSafeInteger(n) || n < 0) throw new Error('live_match_score_invalid')
@@ -25,6 +36,8 @@ export function createLiveMatchState(match, sampledAtMs) {
   }
   return {
     end: lifecycle === 'concluded',
+    clubIsHome: String(match.homeAway ?? match.home_away ?? '').trim().toLowerCase() !== 'away',
+    ...(cards || {}),
     homeName: parts.firstTeam.slice(0, 60),
     awayName: parts.secondTeam.slice(0, 60),
     homeScore: score(parts.firstScore),

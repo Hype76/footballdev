@@ -63,6 +63,14 @@ test('Calendar date seeds a new fixture without changing an existing fixture or 
   assert.equal(initializeCoachFixtureForm(edited, { defaultMatchDate: '2099-10-15' }), edited)
 })
 
+test('new fixtures share with selected parents by default and edits retain the saved setting', () => {
+  const created = createCoachFixtureForm({ defaultPlayerIds: ['one', 'two'] })
+  assert.equal(created.parentVisible, true)
+  assert.equal(created.parentAudience, 'involved_players')
+  assert.deepEqual(created.selectedPlayerIds, ['one', 'two'])
+  assert.equal(createCoachFixtureForm({ match: { id: 'existing', parentVisible: false, parentAudience: 'none' } }).parentVisible, false)
+})
+
 test('a stale Matchday Calendar form cannot create a generic event, before any write', async () => {
   const source = await readFile(new URL('../apps/mobile-core/src/coachCalendarData.js', import.meta.url), 'utf8')
   const body = source.match(/export async function saveCoachCalendarEvent\([^]*?\n\}/)[0].replace(/^export /, '')

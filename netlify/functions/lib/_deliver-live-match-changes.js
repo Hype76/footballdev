@@ -3,12 +3,12 @@ import { createLiveActivityApnsRequest, createLiveActivityProviderToken, sendLiv
 
 const BUNDLE = { coach: 'com.footballplayer.coach', parent: 'com.footballplayer.parents' }
 
-async function sendAndroidRefresh(follower, matchDayId, stop) {
+async function sendAndroidRefresh(follower, matchDayId, stop, finished) {
   const response = await fetch('https://exp.host/--/api/v2/push/send', {
     method: 'POST', signal: AbortSignal.timeout(10000),
     headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
     body: JSON.stringify({ to: follower.activity_token, priority: 'high', ttl: 120,
-      data: { app: follower.app_role, type: 'live_match_refresh', matchDayId, followId: follower.follow_id, stop } }),
+      data: { app: follower.app_role, type: 'live_match_refresh', matchDayId, followId: follower.follow_id, stop, finished } }),
   })
   const result = await response.json().catch(() => ({}))
   return response.ok && result.data?.status === 'ok'
@@ -24,11 +24,15 @@ export async function deliverLiveMatchChange(matchDayId, { client, send = sendLi
   const { data: followers, error: followError } = await client.rpc('get_live_match_follows_for_delivery', { match_day_id_value: matchDayId })
   if (followError) throw followError
   if (!followers?.length) return { delivered: 0, failed: 0 }
+  const { data: events, error: eventsError } = await client.from('match_day_events')
+    .select('event_type,team_side,event_status').eq('match_day_id', matchDayId)
+  if (eventsError) throw eventsError
   const appleFollowers = followers.filter(follower => follower.platform === 'ios')
   const sampledAtMs = now()
-  const state = createLiveMatchState({ ...match, teamName: match.teams?.name || match.notification_team_name }, sampledAtMs)
+  const confirmedMatch = { ...match, match_day_events: events, teamName: match.teams?.name || match.notification_team_name }
+  const state = createLiveMatchState(confirmedMatch, sampledAtMs)
   const end = state.end || match.deleted_at != null || match.previous_hidden_at != null
-  const effectiveState = state.end ? createLiveMatchState({ ...match, concluded_at: null, deleted_at: null, status: 'full_time', timer_status: 'full_time', current_match_phase: 'full_time', teamName: match.teams?.name || match.notification_team_name }, sampledAtMs) : state
+  const effectiveState = state.end ? createLiveMatchState({ ...confirmedMatch, concluded_at: null, deleted_at: null, status: 'full_time', timer_status: 'full_time', current_match_phase: 'full_time' }, sampledAtMs) : state
   const timestamp = Math.floor(sampledAtMs / 1000)
   let providerToken = ''
   try {
@@ -36,7 +40,8 @@ export async function deliverLiveMatchChange(matchDayId, { client, send = sendLi
   } catch { /* Android followers can still receive an update. */ }
   const results = await Promise.all(followers.map(async follower => {
     if (follower.platform === 'android') {
-      try { return await sendAndroid(follower, matchDayId, end || follower.access_allowed !== true) }
+      try { return await sendAndroid(follower, matchDayId, end || follower.access_allowed !== true,
+        state.end && match.status === 'full_time' && follower.access_allowed === true) }
       catch { return false }
     }
     if (follower.platform !== 'ios') return false
@@ -49,7 +54,7 @@ export async function deliverLiveMatchChange(matchDayId, { client, send = sendLi
       const request = createLiveActivityApnsRequest({
         bundleId: BUNDLE[follower.app_role], activityToken: follower.activity_token,
         providerToken, contentState, timestamp,
-        staleDate: timestamp + 240, end: end || follower.access_allowed !== true,
+        staleDate: timestamp + 4 * 60 * 60, end: end || follower.access_allowed !== true,
       })
       const result = await send(request, { production: provider.production === true })
       return result.accepted === true

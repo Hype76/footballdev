@@ -53,3 +53,16 @@ test('the payload does not include player, parent or unsent command data', () =>
   assert.equal('journal' in state, false)
   assert.throws(() => createLiveMatchState(fixture, NaN), /live_match_snapshot_invalid/)
 })
+
+test('card totals follow home and away sides without depending on goals', () => {
+  const state = createLiveMatchState({ ...fixture, homeScore: 0, awayScore: 0, match_day_events: [
+    { event_type: 'yellow_card', team_side: 'club', event_status: 'active' },
+    { event_type: 'red_card', team_side: 'opponent', event_status: 'active' },
+    { event_type: 'yellow_card', team_side: 'opponent', event_status: 'voided' },
+  ] }, now)
+  assert.equal(state.clubIsHome, false)
+  assert.equal(state.homeRedCards, 1)
+  assert.equal(state.awayYellowCards, 1)
+  assert.equal(state.homeYellowCards, 0)
+  assert.equal(state.running, true)
+})

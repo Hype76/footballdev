@@ -33,7 +33,7 @@ test('mobile match creation starts with deliberate volunteer and poll choices', 
 
 test('mobile match creation validates the canonical fixture contract', () => {
   const fixture = validateCoachFixtureForm({
-    ...createCoachFixtureForm(),
+    ...createCoachFixtureForm({ defaultPlayerIds: ['player-1'] }),
     fixtureType: 'league',
     matchDate: '17-08-2099',
     opponent: 'Visitors FC',
@@ -53,7 +53,7 @@ test('mobile match creation validates the canonical fixture contract', () => {
   assert.equal(fixture.motmNotifyResultsOnClose, false)
 
   const resultDeliveryFixture = validateCoachFixtureForm({
-    ...createCoachFixtureForm(),
+    ...createCoachFixtureForm({ defaultPlayerIds: ['player-1'] }),
     enableMotmPoll: true,
     fixtureType: 'friendly',
     matchDate: '17-08-2099',
@@ -148,6 +148,6 @@ test('release identity authorises both internal app candidates', async () => {
   assert.match(buildGuard, /authorisedParentProductionReferences[\s\S]*FP-MOBILE-COACH-FIXTURE-CREATE-CRASH-63/)
   assert.match(buildGuard, /authorisedCoachProductionReferences[\s\S]*FP-MOBILE-COACH-FIXTURE-CREATE-CRASH-63/)
   assert.match(submitGuard, /promotionReference === 'FP-MOBILE-COACH-FIXTURE-CREATE-CRASH-63'/)
-  assert.ok(Number(JSON.parse(coachPackage).version.split('.')[2]) >= 20)
-  assert.ok(Number(JSON.parse(parentPackage).version.split('.')[2]) >= 17)
+  assert.equal(JSON.parse(coachPackage).version, '1.1.2')
+  assert.equal(JSON.parse(parentPackage).version, '1.1.2')
 })

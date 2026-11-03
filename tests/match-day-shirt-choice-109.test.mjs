@@ -28,6 +28,7 @@ test('shirt choice has a safe legacy default and strict new fixture validation',
     ...form,
     fixtureType: 'friendly',
     opponent: 'Rovers',
+    parentVisible: false,
     selectedPlayerIds: [],
   }).shirtChoice, 'home')
 })

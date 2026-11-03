@@ -30,7 +30,7 @@ test('Coach fixture edits preserve Car pool when its optional saved default is u
   assert.match(coachData, /export function buildCoachFixtureUpdatePayload/)
   assert.match(coachData, /if \(typeof form\.carpoolEnabled === 'boolean'\) fixtureUpdate\.carpoolEnabled = fixture\.carpoolEnabled/)
   assert.match(coachForm, /\.\.\.\(carpoolReady \? \{ carpoolEnabled \} : \{\}\)/)
-  assert.match(coachForm, /if \(carpoolSaving\) return/)
+  assert.match(coachForm, /if \(busy \|\| carpoolSaving\) return/)
   assert.doesNotMatch(coachForm, /if \(!carpoolReady \|\| carpoolSaving\) return/)
   assert.match(coachForm, /disabled=\{busy \|\| carpoolSaving\}/)
 })
@@ -62,6 +62,7 @@ test('Coach fixture defaults include a reusable arrival choice and TBC Kits', ()
   const form = createCoachFixtureForm({
     defaultArrivalPreset: '45',
     defaultDuration: 80,
+    defaultPlayerIds: ['player-1'],
   })
   assert.equal(form.arrivalPreset, '45')
   assert.equal(form.arrivalTime, '09:15')

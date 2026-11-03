@@ -1,4 +1,5 @@
 import { MobileSwitch as Switch } from '../../mobile-core/src/MobileSwitch.js'
+import * as Notifications from 'expo-notifications'
 import { useContext, useEffect, useRef, useState } from 'react'
 import { Alert, Keyboard, Pressable, StyleSheet, Text, TextInput, View } from 'react-native'
 import {
@@ -122,6 +123,7 @@ export function CoachFixtureForm({ defaultMatchDate = '', match = null, matches,
           defaultDuration: preferences.duration,
           defaultLocation: savedLocation,
           defaultMotmPollExpiryDuration: preferences.motmPollExpiryDuration,
+          defaultPlayerIds: players.map((player) => player.id),
           match,
           notificationTeamName,
         }))
@@ -138,17 +140,18 @@ export function CoachFixtureForm({ defaultMatchDate = '', match = null, matches,
           defaultDuration: preferences.duration,
           defaultLocation: savedLocation,
           defaultMotmPollExpiryDuration: preferences.motmPollExpiryDuration,
+          defaultPlayerIds: players.map((player) => player.id),
           match,
           notificationTeamName: deriveTeamNotificationDisplayName(user.activeTeamName || ''),
         }))
       })
     return () => { active = false }
-  }, [defaultMatchDate, match, matches, user, user.activeTeamId, user.id])
+  }, [defaultMatchDate, match, matches, players, user, user.activeTeamId, user.id])
 
   if (!form) return <View style={styles.card}><Text style={styles.body}>Preparing fixture setup...</Text></View>
 
   const save = async ({ calendarTarget = '' } = {}) => {
-    if (carpoolSaving) return
+    if (busy || carpoolSaving) return
     Keyboard.dismiss()
     setError('')
     if (!isEditing && !String(form.venueName || '').trim()) {
@@ -157,6 +160,13 @@ export function CoachFixtureForm({ defaultMatchDate = '', match = null, matches,
       return
     }
     setBusy(true)
+    const startedAt = Date.now()
+    let creationPending = !isEditing
+    let slowNotified = false
+    const notify = (title, body) => Notifications.scheduleNotificationAsync({ content: { title, body }, trigger: null }).catch(() => {})
+    const slowNotice = !isEditing ? setTimeout(() => {
+      if (creationPending) { slowNotified = true; void notify('Match setup is taking longer', 'The fixture is still being checked. Please do not press Create again.') }
+    }, 10000) : null
     const squadCalendarPlayerIds = players
       .filter((player) => String(player.section || '').trim().toLowerCase() === 'squad')
       .map((player) => player.id)
@@ -174,21 +184,37 @@ export function CoachFixtureForm({ defaultMatchDate = '', match = null, matches,
       const result = isEditing
         ? await updateCoachMatchDayFixture(user, match, submittedForm)
         : await createCoachMatchDayFixture(user, submittedForm, { calendarTarget })
-      const currentPreferences = await readCoachFixturePreferences(user.id, user.activeTeamId)
-      await writeCoachFixturePreferences(user.id, user.activeTeamId, {
-        arrivalPreset: submittedForm.saveArrivalAsDefault ? submittedForm.arrivalPreset : currentPreferences.arrivalPreset,
-        arrivalTime: submittedForm.saveArrivalAsDefault && submittedForm.arrivalPreset === 'custom' ? submittedForm.arrivalTime : currentPreferences.arrivalTime,
-        duration: submittedForm.saveDurationAsDefault ? submittedForm.matchDurationMinutes : currentPreferences.duration,
-        location: submittedForm.venueName ? { address: submittedForm.venueAddress, name: submittedForm.venueName } : null,
-        motmPollExpiryDuration: submittedForm.saveMotmExpiryAsDefault
-          ? submittedForm.motmPollExpiryDuration
-          : currentPreferences.motmPollExpiryDuration,
-      })
+      creationPending = false
+      if (slowNotice) clearTimeout(slowNotice)
+      let preferencesWarning = ''
+      try {
+        const currentPreferences = await readCoachFixturePreferences(user.id, user.activeTeamId)
+        await writeCoachFixturePreferences(user.id, user.activeTeamId, {
+          arrivalPreset: submittedForm.saveArrivalAsDefault ? submittedForm.arrivalPreset : currentPreferences.arrivalPreset,
+          arrivalTime: submittedForm.saveArrivalAsDefault && submittedForm.arrivalPreset === 'custom' ? submittedForm.arrivalTime : currentPreferences.arrivalTime,
+          duration: submittedForm.saveDurationAsDefault ? submittedForm.matchDurationMinutes : currentPreferences.duration,
+          location: submittedForm.venueName ? { address: submittedForm.venueAddress, name: submittedForm.venueName } : null,
+          motmPollExpiryDuration: submittedForm.saveMotmExpiryAsDefault
+            ? submittedForm.motmPollExpiryDuration
+            : currentPreferences.motmPollExpiryDuration,
+        })
+      } catch {
+        preferencesWarning = 'Fixture saved, but this device could not remember its setup defaults.'
+      }
       if (isEditing) onUpdated?.(result)
-      else onCreated(result)
+      else onCreated({ ...result, preferencesWarning })
     } catch (saveError) {
-      setError(getCoachFriendlyError(saveError, 'The fixture could not be created.'))
+      creationPending = false
+      if (slowNotice) clearTimeout(slowNotice)
+      const friendly = getCoachFriendlyError(saveError, 'The fixture could not be created.')
+      const message = !isEditing && friendly.startsWith('We could not connect')
+        ? 'Could not confirm fixture creation. Check Match Day before trying again.' : friendly
+      const remaining = !isEditing ? Math.max(0, 10000 - (Date.now() - startedAt)) : 0
+      if (remaining) await new Promise(resolve => setTimeout(resolve, remaining))
+      if (!isEditing && !slowNotified) void notify('Match setup needs attention', message)
+      setError(message)
     } finally {
+      if (slowNotice) clearTimeout(slowNotice)
       setBusy(false)
     }
   }

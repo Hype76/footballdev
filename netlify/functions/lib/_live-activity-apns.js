@@ -30,14 +30,15 @@ export function createLiveActivityApnsRequest({ bundleId, activityToken, provide
   if (!Number.isInteger(timestamp) || timestamp <= 0 || !Number.isInteger(staleDate) || staleDate <= timestamp || !contentState || typeof contentState !== 'object' || Array.isArray(contentState)) {
     throw new Error('live_activity_payload_invalid')
   }
-  const keys = ['homeName', 'awayName', 'homeScore', 'awayScore', 'phase', 'running', 'elapsedSeconds', 'sampledAtMs', 'homeShootoutScore', 'awayShootoutScore']
+  const keys = ['homeName', 'awayName', 'homeScore', 'awayScore', 'phase', 'running', 'elapsedSeconds', 'sampledAtMs', 'homeShootoutScore', 'awayShootoutScore', 'homeYellowCards', 'homeRedCards', 'awayYellowCards', 'awayRedCards']
   const safeState = Object.fromEntries(keys.filter(key => Object.hasOwn(contentState, key)).map(key => [key, contentState[key]]))
   const score = value => Number.isSafeInteger(value) && value >= 0
   if (![safeState.homeName, safeState.awayName, safeState.phase].every(value => typeof value === 'string' && value.length <= 60)
     || !score(safeState.homeScore) || !score(safeState.awayScore) || typeof safeState.running !== 'boolean'
     || !(safeState.elapsedSeconds === null || score(safeState.elapsedSeconds)) || !score(safeState.sampledAtMs)
     || (safeState.homeShootoutScore !== undefined && !score(safeState.homeShootoutScore))
-    || (safeState.awayShootoutScore !== undefined && !score(safeState.awayShootoutScore))) {
+    || (safeState.awayShootoutScore !== undefined && !score(safeState.awayShootoutScore))
+    || ['homeYellowCards', 'homeRedCards', 'awayYellowCards', 'awayRedCards'].some(key => safeState[key] !== undefined && !score(safeState[key]))) {
     throw new Error('live_activity_payload_invalid')
   }
   const body = JSON.stringify({ aps: { timestamp, event: end ? 'end' : 'update', 'content-state': safeState, 'stale-date': staleDate } })

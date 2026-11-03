@@ -1,5 +1,7 @@
 import { MobileSwitch as Switch } from '../../mobile-core/src/MobileSwitch.js'
 import { LiveMatchFollowAction } from '../../mobile-core/src/LiveMatchFollowAction'
+import { MatchTeamsLine } from '../../mobile-core/src/MatchTeamsLine'
+import { getScopedTeamBranding } from '../../../src/lib/team-branding-display.js'
 import { CoachSavedFormationBoards } from './CoachSavedFormationBoards'
 import { getMatchDayLifecycleState } from '../../../src/lib/matchday-lifecycle.js'
 import { formatUkDate } from '../../../src/lib/date-format.js'
@@ -253,12 +255,12 @@ function MatchDayActionSheet({ busy, capturedClock, children, onClose, styles, t
   </Modal>
 }
 
-function MatchList({ filter, matches, onOpen, selectedId, setFilter, styles }) {
+function MatchList({ clubLogoUrl, filter, matches, onOpen, selectedId, setFilter, styles }) {
   const visible = filterCoachMatchDays(matches, filter)
   return <View style={styles.stack}>
     <Chips onChange={setFilter} options={[{ iconKey: getMatchDayFilterIconKey('current'), label: 'Today and live', value: 'current' }, { iconKey: getMatchDayFilterIconKey('upcoming'), label: 'Upcoming', value: 'upcoming' }, { iconKey: getMatchDayFilterIconKey('previous'), label: 'Previous', value: 'previous' }, { iconKey: getMatchDayFilterIconKey('all'), label: 'All', value: 'all' }]} styles={styles} value={filter} />
     {visible.length === 0 ? <View style={styles.emptyState}><MaterialIcons name="sports-soccer" size={40} style={styles.secondaryText} /><Text style={styles.cardTitle}>No fixtures match this view.</Text><Text style={styles.meta}>Select a filter above to view fixtures.</Text></View> : null}
-    {visible.map((match) => { const view = getCoachMatchDayPresentation(match); return <Pressable accessibilityRole="button" key={match.id} onPress={() => onOpen(match)} style={[styles.card, selectedId === match.id && styles.cardSelected]}><Text style={styles.cardTitle}>{view.displayName}</Text><Text style={styles.meta}>{formatUkDate(match.matchDate, 'Date TBC')} | {match.kickoffTimeTbc ? 'Kick-off TBC' : match.kickoffTime?.slice(0, 5) || 'Time TBC'}{normalize(match.status) && normalize(match.status) !== 'scheduled' ? ` | ${label(match.status)}` : ''}</Text>{getMatchDayLifecycleState(match) !== 'not_started' ? <Text style={styles.body}>{view.displayScore} | {view.phaseLabel}</Text> : null}</Pressable> })}
+    {visible.map((match) => { const view = getCoachMatchDayPresentation(match); return <Pressable accessibilityRole="button" key={match.id} onPress={() => onOpen(match)} style={[styles.card, selectedId === match.id && styles.cardSelected]}><MatchTeamsLine match={match} clubLogoUrl={clubLogoUrl} compact textStyle={styles.cardTitle} /><Text style={styles.meta}>{formatUkDate(match.matchDate, 'Date TBC')} | {match.kickoffTimeTbc ? 'Kick-off TBC' : match.kickoffTime?.slice(0, 5) || 'Time TBC'}{normalize(match.status) && normalize(match.status) !== 'scheduled' ? ` | ${label(match.status)}` : ''}</Text>{getMatchDayLifecycleState(match) !== 'not_started' ? <Text style={styles.body}>{view.displayScore} | {view.phaseLabel}</Text> : null}</Pressable> })}
   </View>
 }
 
@@ -299,7 +301,7 @@ function FixtureDetailRow({ icon, children, styles }) {
   return <View style={styles.detailRow}><MaterialIcons name={icon} size={23} color={StyleSheet.flatten(styles.secondaryText).color} /><Text style={styles.detailText}>{children}</Text></View>
 }
 
-function FixtureHero({ match, now, styles }) {
+function FixtureHero({ clubLogoUrl, match, now, styles }) {
   const [currentNow, setCurrentNow] = useState(() => Date.now())
   useEffect(() => {
     if (Number.isFinite(now) || !isLiveMatch(match)) return undefined
@@ -310,7 +312,7 @@ function FixtureHero({ match, now, styles }) {
   const live = isLiveMatch(match)
   return <View style={[styles.fixtureHero, live && styles.fixtureHeroLive]}>
     {live || (normalize(match.status) && normalize(match.status) !== 'scheduled') ? <Text style={styles.liveSync}>{live ? 'Live sync on' : label(match.status)}</Text> : null}
-    <Text accessibilityRole="header" style={styles.fixtureTitle}>{view.displayName}</Text>
+    <MatchTeamsLine match={match} clubLogoUrl={clubLogoUrl} textStyle={styles.fixtureTitle} />
     <FixtureDetailRow icon="calendar-month" styles={styles}>{formatFixtureDate(match.matchDate)} | {match.kickoffTimeTbc ? 'Kick-off TBC' : match.kickoffTime?.slice(0, 5) || 'Time TBC'}</FixtureDetailRow>
     <FixtureDetailRow icon="place" styles={styles}>{match.venueAddress || match.venueName || 'Venue TBC'}</FixtureDetailRow>
     {getMatchDayLifecycleState(match) !== 'not_started' ? <View style={styles.card}>
@@ -1012,7 +1014,7 @@ function CoachMatchDayScoped({ context, matchDayTarget, onMatchDayTargetHandled,
     onRequestScrollTop?.()
     setNotice(result.calendarScopeWarning
       ? `The fixture was added to Coach calendars, but squad calendars could not be updated: ${result.calendarScopeWarning}`
-      : result.invitationWarning
+      : result.invitationWarning || result.preferencesWarning || result.auditWarning
         || (result.calendarTarget === 'coach'
           ? 'Fixture added to Coach calendars. No squad requests or notifications were sent.'
           : result.calendarTarget === 'squad'
@@ -1118,8 +1120,8 @@ function CoachMatchDayScoped({ context, matchDayTarget, onMatchDayTargetHandled,
     </View> : null}
     {panel === 'saved-actions' && pendingCount === 0 ? <Text style={styles.body}>All recorded actions have synced.</Text> : null}
     {selectedMatchIsLive && serverMatch && !fixtureFormOpen ? <LiveMatchFollowAction role="coach" matchId={serverMatch.id} textStyle={styles.body} /> : null}
-    {!fixtureFormOpen && !match ? <MatchList filter={visibleFilter} matches={matches} onOpen={open} selectedId={match?.id} setFilter={(nextFilter) => { setFilter(nextFilter); setFilterChosen(true) }} styles={styles} /> : null}
-    {match && !fixtureFormOpen ? <>{!focusedLiveMode ? <><View style={styles.row}><Button compact iconKey="action.back" label="Back to fixtures" onPress={closeFixture} secondary styles={styles} />{canEditCoachFixture({ context, fixture: serverMatch, stale: stale || user.isOfflineProfile || reconciling }) ? <Button compact iconKey="action.edit" label="Edit fixture" onPress={() => { setFixtureFormMatch(serverMatch); setFixtureFormOpen(true); setError(''); setNotice(''); onRequestScrollTop?.() }} secondary styles={styles} /> : null}</View><FixtureHero match={match} styles={styles} /><FixtureNavigation key={match.id} panel={panel} onChange={(nextPanel) => { if (nextPanel === 'formation') { formationReturnPanelRef.current = panel; setFormationBoardId('') } setPanel(nextPanel) }} styles={styles} /></> : null}
+    {!fixtureFormOpen && !match ? <MatchList clubLogoUrl={getScopedTeamBranding(context)?.logoUrl || ''} filter={visibleFilter} matches={matches} onOpen={open} selectedId={match?.id} setFilter={(nextFilter) => { setFilter(nextFilter); setFilterChosen(true) }} styles={styles} /> : null}
+    {match && !fixtureFormOpen ? <>{!focusedLiveMode ? <><View style={styles.row}><Button compact iconKey="action.back" label="Back to fixtures" onPress={closeFixture} secondary styles={styles} />{canEditCoachFixture({ context, fixture: serverMatch, stale: stale || user.isOfflineProfile || reconciling }) ? <Button compact iconKey="action.edit" label="Edit fixture" onPress={() => { setFixtureFormMatch(serverMatch); setFixtureFormOpen(true); setError(''); setNotice(''); onRequestScrollTop?.() }} secondary styles={styles} /> : null}</View><FixtureHero clubLogoUrl={getScopedTeamBranding(context)?.logoUrl || ''} match={match} styles={styles} /><FixtureNavigation key={match.id} panel={panel} onChange={(nextPanel) => { if (nextPanel === 'formation') { formationReturnPanelRef.current = panel; setFormationBoardId('') } setPanel(nextPanel) }} styles={styles} /></> : null}
       {pendingCount === 0 && reportMatch.status === 'full_time' && !reportMatch.concludedAt && panel === 'overview' ? <View style={styles.stack}><Text style={styles.cardTitle}>Ready for coach review</Text><Text style={styles.body}>Full time has been recorded. Review the result and conclude this match.</Text><Button disabled={busy || reconciling} label="Review and conclude" onPress={() => { setPanel('report'); onRequestScrollTop?.() }} styles={styles} /></View> : null}
       {panel === 'overview' ? <View style={styles.stack}><View style={styles.card}><Text style={styles.cardTitle}>Fixture details</Text><CoachSavedFormationBoards key={`${user.id}:${context.id}:${match.id}`} context={context} match={match} onEdit={(boardId) => { formationReturnPanelRef.current = 'overview'; setFormationBoardId(boardId); setPanel('formation') }} palette={palette} user={user} /><FixtureDetailRow icon="calendar-month" styles={styles}>{formatFixtureDate(match.matchDate)}</FixtureDetailRow><FixtureDetailRow icon="schedule" styles={styles}>Kick-off: {match.kickoffTimeTbc ? 'TBC' : match.kickoffTime?.slice(0, 5) || 'TBC'}{!match.kickoffTimeTbc && match.arrivalTime ? ` (Arrival ${match.arrivalTime.slice(0, 5)})` : ''}</FixtureDetailRow><FixtureDetailRow icon="place" styles={styles}>{match.venueAddress || match.venueName || 'Venue TBC'}</FixtureDetailRow><ClubKitDisplay clubId={context.clubId || user.clubId} teamId={context.teamId || user.activeTeamId} shirtChoice={match.shirtChoice} textStyle={styles.body} />{match.notes ? <><Text style={styles.fieldLabel}>Match notes</Text><Text style={styles.body}>{match.notes}</Text></> : null}<Text style={styles.meta}>Clock {match.clockMode}, {match.matchDurationMinutes} minutes | Rule {label(match.conclusionRule, 'normal time')}</Text></View>{actions.timerActions.some((item) => item.action === 'start') ? <View style={styles.card}><Text style={styles.cardTitle}>Ready for kick-off?</Text><Text style={styles.body}>Start the match clock and open the live controller.</Text><Button disabled={busy || reconciling} label="Start match" onPress={() => setPending({ kind: 'start-match', label: 'Start match', run: async () => { const detail = await runTimer('start'); setPanel('live'); return detail } })} styles={styles} /></View> : actions.startBlockedReason ? <View style={styles.warning}><Text style={styles.cardTitle}>Not available to start today</Text><Text style={styles.body}>This fixture is scheduled for {formatFixtureDate(match.matchDate)}. It can only be started on that date. If the match has moved, edit the fixture date first.</Text></View> : <Button label="Open Game Mode" onPress={() => setPanel('live')} styles={styles} />}</View> : null}
       <View style={panel === 'squad' ? undefined : { display: 'none' }}><CoachSquadPanel key={`${user.id}:${user.activeTeamId}:${match.id}`} templateStore={templateStore} actions={actions} busy={busy || reconciling} match={match} palette={palette} onPendingChange={setPendingSquadCount}
