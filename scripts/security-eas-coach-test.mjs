@@ -16,7 +16,8 @@ export function assertGeneratedPaths(paths, platform, allowSigningFiles = false)
   const prefix = `apps/coach-mobile/${platform}/`
   for (const name of paths) {
     const signingFile = allowSigningFiles && platform === 'android' && (name === 'credentials.json' || /^keystore-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(name))
-    assert.ok(signingFile || (name.startsWith(prefix) && !name.includes('\\') && !name.split('/').includes('..')), `Unexpected generated path: ${name}`)
+    const generatedModuleBuild = platform === 'android' && name.startsWith('apps/mobile-core/modules/live-match/android/build/')
+    assert.ok(signingFile || ((name.startsWith(prefix) || generatedModuleBuild) && !name.includes('\\') && !name.split('/').includes('..')), `Unexpected generated path: ${name}`)
   }
 }
 

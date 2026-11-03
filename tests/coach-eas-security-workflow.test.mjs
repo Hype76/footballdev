@@ -31,7 +31,9 @@ test('trusted receipt is bounded, canonical and checked against the independent 
 
 test('only generated files for the current Coach platform are accepted', () => {
   assert.doesNotThrow(() => assertGeneratedPaths(['apps/coach-mobile/android/app/build.gradle'], 'android'))
-  for (const path of ['apps/coach-mobile/ios/Podfile', 'apps/parent-mobile/android/app/build.gradle', 'apps/coach-mobile/android/../../secrets', 'apps/coach-mobile/android/..\\secrets']) assert.throws(() => assertGeneratedPaths([path], 'android'))
+  assert.doesNotThrow(() => assertGeneratedPaths(['apps/mobile-core/modules/live-match/android/build/.transforms/result.bin'], 'android'))
+  for (const path of ['apps/coach-mobile/ios/Podfile', 'apps/parent-mobile/android/app/build.gradle', 'apps/mobile-core/modules/live-match/android/src/main/AndroidManifest.xml', 'apps/mobile-core/modules/live-match/android/build/../../secrets', 'apps/mobile-core/modules/live-match/android/build/..\\secrets', 'apps/coach-mobile/android/../../secrets', 'apps/coach-mobile/android/..\\secrets']) assert.throws(() => assertGeneratedPaths([path], 'android'))
+  assert.throws(() => assertGeneratedPaths(['apps/mobile-core/modules/live-match/android/build/result.bin'], 'ios'))
 })
 
 test('Android signing files are accepted only after injection and only as regular files', () => {
