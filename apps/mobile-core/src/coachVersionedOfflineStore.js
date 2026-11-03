@@ -73,7 +73,9 @@ export function createCoachVersionedOfflineStore({ legacyStore, markerStorage, m
       active = scope; epoch++; pending = null
       const guard = guardFor(scope)
       activationReady = Promise.all([cleanup, activationChain]).then(async () => {
-        guard(); await markerStorage.setItem(activeKey, scope); guard()
+        guard()
+        const savedScope = await markerStorage.getItem(activeKey); guard()
+        if (savedScope !== scope) { await markerStorage.setItem(activeKey, scope); guard() }
         legacyStore.activate(scope); storeFor(scope).activate(scope)
       })
       activationChain = activationReady.catch(() => {})

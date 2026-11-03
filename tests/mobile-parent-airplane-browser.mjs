@@ -9,6 +9,7 @@ const mocks = {
   MobilePasswordRecovery: 'export const MobilePasswordRecovery=()=>null',
   biometrics: 'export const getBiometricEnabled=async()=>true; export const setBiometricEnabled=async()=>{}; export const authenticateWithBiometrics=async()=>{}',
   config: `export const getMobileRuntimeConfig=()=>({isUsable:true,isProduction:false,supabaseUrl:'https://ndohkecigwlwayghsopw.supabase.co'})`,
+  liveMatchFollow: 'export const revokeLiveMatchFollowsBeforeSignOut=async()=>{}',
   notifications: 'export const revokeNativePushDevice=async()=>{}',
   parentPortalData: 'export const applyParentScorerCommand=async()=>{throw Error("offline sync unavailable")}',
   profile: `export async function fetchMobileProfile(user) { window.profileCalls++; if(window.networkDown) throw new TypeError('Network request failed'); return {...window.profile,id:user.id} }`,
@@ -24,7 +25,8 @@ const mocks = {
     export async function getItemAsync(key){return window.keys[key]??null}
     export async function setItemAsync(key,value){if(window.failWrites) throw Error('synthetic key write unavailable');window.keys[key]=value}
     export async function deleteItemAsync(key){delete window.keys[key]}`,
-  'expo-crypto': `let seed=0;export async function getRandomBytesAsync(length){if(window.failWrites) throw Error('random unavailable during read');return Uint8Array.from({length},(_,i)=>(++seed+i)%256)};export const randomUUID=()=> 'synthetic-command'`,
+  'expo-modules-core': 'export const requireOptionalNativeModule=()=>null',
+  'expo-crypto': `let seed=0;export async function getRandomBytesAsync(length){if(window.failWrites) throw Error('random unavailable during read');return Uint8Array.from({length},(_,i)=>(++seed+i)%256)};export const randomUUID=()=> 'synthetic-command';export const CryptoDigestAlgorithm={SHA256:'SHA256'};export const digestStringAsync=async(_,value)=>value.length.toString(16).padStart(64,'0')`,
 }
 const result = await build({
   stdin: { contents: `import React from 'react'; import {createRoot} from 'react-dom/client';

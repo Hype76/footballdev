@@ -11,6 +11,7 @@ const mocks = {
   './MobilePasswordRecovery': 'export const MobilePasswordRecovery=()=>null',
   './biometrics': 'export const getBiometricEnabled=async()=>{window.biometricCalls=(window.biometricCalls||0)+1;return Boolean(window.biometricEnabled)}; export const setBiometricEnabled=async()=>{}; export const authenticateWithBiometrics=async()=>{}',
   './config': 'export const getMobileRuntimeConfig=()=>({isUsable:true})',
+  './liveMatchFollow': 'export const revokeLiveMatchFollowsBeforeSignOut=async()=>{}',
   './notifications': 'export const revokeNativePushDevice=async()=>{}',
   './profile': `export async function fetchMobileProfile(user) { window.profileCalls++; if(window.insideAuthCallback) throw Error('profile called inside auth lock'); if(window.profileError) throw Object.assign(Error(window.profileError),{code:window.profileCode,status:window.profileStatus}); if(window.deferProfile) return new Promise(resolve=>{window.resolveProfile=()=>resolve({id:user.id,role:'coach'})}); if(window.hangProfile) return new Promise(()=>{}); return {id:user.id, role:'parent_portal'} }`,
   './supabase': `export const supabase={auth:window.mockAuth}; export const clearMobileSessionStorage=async()=>{window.sessionClearCalls=(window.sessionClearCalls||0)+1}; export const getAccessToken=async()=>''; export const isSupabaseConfigured=true; export const mobileConfigError=''; export const mobileSessionStorageError=''; export const readSavedMobileSession=async()=>{if(window.savedSessionError) throw Error(window.savedSessionError); return window.savedSession||null}`,

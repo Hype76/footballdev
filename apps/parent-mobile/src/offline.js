@@ -142,7 +142,7 @@ function updateParentDocument(user, updater) {
 
 export const parentOfflineProfileStore = {
   // Android may take longer to decrypt a populated cache after a cold start.
-  readTimeoutMs: 6000,
+  readTimeoutMs: 12000,
   async clear() {
     await store.clear()
   },
