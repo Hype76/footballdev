@@ -13,15 +13,18 @@ const entry = `
   const user={id:'staff',activeTeamId:'team'};
   window.saved=null;
   window.focusRequests=0;
-  function App(){const [version,setVersion]=React.useState(0);const [match,setMatch]=React.useState(null);
+  function App(){const [version,setVersion]=React.useState(0);const [match,setMatch]=React.useState(null);const [players,setPlayers]=React.useState([]);
+    window.loadPlayers=()=>setPlayers([{id:'player-1',playerName:'Sample Player',section:'squad'}]);
+    window.addPlayer=()=>setPlayers(current=>[...current,{id:'player-2',playerName:'Second Player',section:'squad'}]);
     window.reopen=()=>{setMatch({...window.saved,kickoffTime:'10:45:00',arrivalTime:'10:00:00'});setVersion(value=>value+1)};
     window.newFixture=()=>{setMatch(null);setVersion(value=>value+1)};
-    return <CoachFixtureForm key={version} match={match} matches={[]} players={[]} styles={styles} user={user}
+    return <CoachFixtureForm key={version} match={match} matches={[]} players={players} styles={styles} user={user}
       onCreated={result=>{window.saved=result}} onUpdated={result=>{window.saved=result}} onCancel={()=>{}}/>;
   }
   createRoot(document.getElementById('root')).render(<CoachKeyboardFocusContext.Provider value={()=>{window.focusRequests++}}><App/></CoachKeyboardFocusContext.Provider>);
 `
 const mocks = [
+  [/^expo-notifications$/, `export const scheduleNotificationAsync=async()=>null;`],
   [/coachCarpoolData$/, `let enabled=true; export const getCoachCarpoolDefault=async()=>enabled; export const setCoachCarpoolDefault=async(user,value)=>{enabled=value;return value};`],
   [/coachCalendarData(?:\.js)?$/, `export const prepareCoachMatchCancellationNotification=async()=>({preparationId:'prepared'});export const commitCoachCalendarChangeNotification=async()=>({recipientCount:0});`],
   [/coachMatchDayData(?:\.js)?$/, `
@@ -29,7 +32,7 @@ const mocks = [
     export const getCoachMatchLocations=async()=>[];
     export const archiveCoachMatchLocation=async()=>{};
     export const createCoachMatchDayFixture=async(user,form)=>({id:'fixture',...validateCoachFixtureForm(form)});
-    export const updateCoachMatchDayFixture=async(user,match,form)=>({id:match.id,...validateCoachFixtureForm(form)});
+    export const updateCoachMatchDayFixture=async(user,match,form)=>({id:match.id,...validateCoachFixtureForm({...form,parentVisible:false,selectedPlayerIds:[]})});
     export const cancelCoachMatchDayFixture=async(user,match)=>({...match,status:'cancelled'});
   `],
   [/coachFixturePreferences$/, `export const readCoachFixturePreferences=async()=>({duration:90});export const writeCoachFixturePreferences=async()=>{};`],
@@ -54,6 +57,9 @@ try {
   await page.setContent('<html><head><meta name="viewport" content="width=device-width,initial-scale=1"></head><body><div id="root"></div></body></html>')
   await page.addScriptTag({content:bundle.outputFiles[0].text})
   await page.getByLabel('Your Team notification name',{exact:true}).waitFor()
+  assert.equal(await page.getByRole('switch',{name:'Share with parents'}).isChecked(),true)
+  await page.evaluate(()=>window.loadPlayers())
+  await page.getByRole('button',{name:'Remove Sample Player'}).waitFor()
   assert.equal(await page.getByLabel('Your Team notification name',{exact:true}).inputValue(), 'Tigers')
   const typeField = async (label, text) => {
     const field = page.getByLabel(label,{exact:true})
@@ -78,11 +84,16 @@ try {
   await typeField('Match notes','Bring both kits')
   await page.getByRole('button',{name:'3G',exact:true}).click()
   await page.getByRole('button',{name:'Create fixture and request availability',exact:true}).click()
-  await page.waitForFunction(()=>window.saved?.pitchType==='3g')
+  await page.waitForFunction(()=>window.saved?.pitchType==='3g').catch(async error=>{throw new Error(`${error.message}; page errors: ${errors.join(' | ')}; screen: ${(await page.locator('body').innerText()).slice(-1500)}`)})
+  assert.deepEqual(await page.evaluate(()=>window.saved.selectedPlayerIds),['player-1'])
   assert.equal(await page.evaluate(()=>window.saved.notificationTeamName), 'Tigers')
   assert.equal(await page.evaluate(()=>window.saved.opponent),'FP TEST Visitors United')
   assert.equal(await page.evaluate(()=>window.saved.venueAddress),'FP TEST Road')
   assert.equal(await page.evaluate(()=>window.saved.notes),'Bring both kits')
+  await page.evaluate(()=>window.newFixture())
+  await page.getByRole('button',{name:'Clear',exact:true}).click()
+  await page.evaluate(()=>window.addPlayer())
+  await page.getByRole('button',{name:'Add Second Player'}).waitFor()
   await page.evaluate(()=>window.reopen())
   await page.getByText('Edit fixture',{exact:true}).waitFor()
   assert.equal(await page.getByLabel('Your Team notification name',{exact:true}).inputValue(), 'Tigers')
@@ -98,7 +109,7 @@ try {
   assert.equal(await page.getByLabel('Kick-off time',{exact:true}).inputValue(),'10:45')
   await page.evaluate(()=>{window.saved=null})
   await page.getByRole('button',{name:'Save fixture changes',exact:true}).click()
-  await page.waitForFunction(()=>window.saved?.pitchType==='3g')
+  await page.waitForFunction(()=>window.saved?.pitchType==='3g').catch(async error=>{throw new Error(`${error.message}; page errors: ${errors.join(' | ')}; screen: ${(await page.locator('body').innerText()).slice(-1500)}`)})
   assert.equal(await page.evaluate(()=>window.saved.notificationTeamName), 'Tiger squad')
   assert.equal(await page.evaluate(()=>window.saved.opponent),'FP TEST Edited Visitors')
   await page.getByRole('button',{name:'4G',exact:true}).click()

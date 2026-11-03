@@ -7,6 +7,7 @@ import { isMatchDayParticipantRosterCurrent, mergeMatchDayParticipantEventIdenti
 import { validateFinalMatchReportNotes } from '../../../src/lib/matchday-final-report.js'
 import { validateMatchDayEventUndoInput } from '../../../src/lib/matchday-event-undo.js'
 import { validateCoachFixtureForm } from './coachFixtureCore.js'
+import { settleCoachFixtureAudit } from './coachFixtureAuditCore.js'
 import { getMobileRuntimeConfig } from './config'
 import { fetchJsonWithTimeout, joinApiPath } from './http'
 import { assertCoachOperationalMutation, assertCoachOperationalRead, recordCoachOperationalAudit } from './coachOperationalData'
@@ -209,7 +210,7 @@ export async function createCoachMatchDayFixture(user, form, { calendarOnly = fa
     .single()
   if (error) throw error
   const match = normalizeCoachMatchDay({ ...data, clubName: user.clubName })
-  const auditResults = await Promise.allSettled([
+  const auditWarning = await settleCoachFixtureAudit(
     recordCoachOperationalAudit({
       action: 'match_day_created',
       entityId: match.id,
@@ -228,10 +229,8 @@ export async function createCoachMatchDayFixture(user, form, { calendarOnly = fa
       metadata: { source: 'coach_mobile' },
       new_value: { fixtureType: fixture.fixtureType, matchDate: fixture.matchDate, opponent: fixture.opponent },
       team_id: teamId,
-    }).then(({ error: eventLogError }) => { if (eventLogError) console.warn(eventLogError) }),
-  ])
-  const auditWarning = auditResults.some(result => result.status === 'rejected')
-    ? 'Fixture created, but its activity record could not be confirmed.' : ''
+    }),
+  )
   let calendarScopeResult = null
   let calendarScopeWarning = ''
   if (normalizedCalendarTarget === 'squad') {

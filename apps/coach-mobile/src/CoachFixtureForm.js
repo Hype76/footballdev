@@ -61,6 +61,7 @@ export function CoachFixtureForm({ defaultMatchDate = '', match = null, matches,
   const [carpoolReady, setCarpoolReady] = useState(false)
   const [carpoolSaving, setCarpoolSaving] = useState(false)
   const [carpoolEnabled, setCarpoolEnabled] = useState(false)
+  const selectionTouched = useRef(false)
   const locationSectionY = useRef(0)
   const isEditing = Boolean(match?.id)
 
@@ -147,6 +148,12 @@ export function CoachFixtureForm({ defaultMatchDate = '', match = null, matches,
       })
     return () => { active = false }
   }, [defaultMatchDate, match, matches, players, user, user.activeTeamId, user.id])
+
+  useEffect(() => {
+    if (isEditing || selectionTouched.current || players.length === 0) return
+    setForm((current) => current?.parentVisible && current.selectedPlayerIds.length === 0
+      ? { ...current, selectedPlayerIds: players.map((player) => player.id) } : current)
+  }, [isEditing, players])
 
   if (!form) return <View style={styles.card}><Text style={styles.body}>Preparing fixture setup...</Text></View>
 
@@ -339,8 +346,8 @@ export function CoachFixtureForm({ defaultMatchDate = '', match = null, matches,
       {!isEditing ? <View style={styles.card}>
         <Text style={styles.cardTitle}>Players and Parents</Text>
         <Toggle label="Automatically select Players who respond Available" onValueChange={(value) => setForm({ ...form, autoSelectAvailablePlayers: value })} styles={styles} value={form.autoSelectAvailablePlayers} />
-        <Toggle label="Share with parents" onValueChange={(value) => setForm({ ...form, parentAudience: value ? 'involved_players' : 'none', parentVisible: value, selectedPlayerIds: value ? players.map((player) => player.id) : [] })} styles={styles} value={form.parentVisible} />
-        {form.parentVisible ? <><Text style={styles.fieldLabel}>Parent audience</Text><Chips onChange={(value) => setForm({ ...form, parentAudience: value })} options={[{ label: 'Selected Players', value: 'involved_players' }, { label: 'Team parents', value: 'all_team_parents' }]} styles={styles} value={form.parentAudience} /><View style={styles.row}><Button label="Select all" onPress={() => setForm({ ...form, selectedPlayerIds: players.map((player) => player.id) })} secondary styles={styles} /><Button label="Squad only" onPress={() => setForm({ ...form, selectedPlayerIds: players.filter((player) => String(player.section || '').trim().toLowerCase() === 'squad').map((player) => player.id) })} secondary styles={styles} /><Button label="Clear" onPress={() => setForm({ ...form, selectedPlayerIds: [] })} secondary styles={styles} /></View>{players.map((player) => { const selected = form.selectedPlayerIds.includes(player.id); return <Button key={player.id} label={`${selected ? 'Remove' : 'Add'} ${player.playerName}`} onPress={() => setForm({ ...form, selectedPlayerIds: selected ? form.selectedPlayerIds.filter((id) => id !== player.id) : [...form.selectedPlayerIds, player.id] })} secondary styles={styles} /> })}</> : null}
+        <Toggle label="Share with parents" onValueChange={(value) => { selectionTouched.current = true; setForm({ ...form, parentAudience: value ? 'involved_players' : 'none', parentVisible: value, selectedPlayerIds: value ? players.map((player) => player.id) : [] }) }} styles={styles} value={form.parentVisible} />
+        {form.parentVisible ? <><Text style={styles.fieldLabel}>Parent audience</Text><Chips onChange={(value) => { selectionTouched.current = true; setForm({ ...form, parentAudience: value }) }} options={[{ label: 'Selected Players', value: 'involved_players' }, { label: 'Team parents', value: 'all_team_parents' }]} styles={styles} value={form.parentAudience} /><View style={styles.row}><Button label="Select all" onPress={() => { selectionTouched.current = true; setForm({ ...form, selectedPlayerIds: players.map((player) => player.id) }) }} secondary styles={styles} /><Button label="Squad only" onPress={() => { selectionTouched.current = true; setForm({ ...form, selectedPlayerIds: players.filter((player) => String(player.section || '').trim().toLowerCase() === 'squad').map((player) => player.id) }) }} secondary styles={styles} /><Button label="Clear" onPress={() => { selectionTouched.current = true; setForm({ ...form, selectedPlayerIds: [] }) }} secondary styles={styles} /></View>{players.map((player) => { const selected = form.selectedPlayerIds.includes(player.id); return <Button key={player.id} label={`${selected ? 'Remove' : 'Add'} ${player.playerName}`} onPress={() => { selectionTouched.current = true; setForm({ ...form, selectedPlayerIds: selected ? form.selectedPlayerIds.filter((id) => id !== player.id) : [...form.selectedPlayerIds, player.id] }) }} secondary styles={styles} /> })}</> : null}
       </View> : null}
 
       {!isEditing ? <View style={styles.card}>
