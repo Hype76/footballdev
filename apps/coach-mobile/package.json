@@ -21,7 +21,8 @@
     "submit:android:store-live": "node ../scripts/mobile-submit-guard.mjs coach android store-live",
     "submit:ios:store-test": "node ../scripts/mobile-submit-guard.mjs coach ios",
     "submit:ios:store-live": "node ../scripts/mobile-submit-guard.mjs coach ios store-live",
-    "eas-build-pre-install": "node ../scripts/mobile-eas-toolchain.mjs"
+    "eas-build-pre-install": "node ../scripts/mobile-eas-toolchain.mjs",
+    "postinstall": "node ../scripts/mobile-apply-reviewed-glob-compat.mjs"
   },
   "dependencies": {
     "@expo/vector-icons": "15.1.1",
