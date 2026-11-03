@@ -4,6 +4,12 @@ import { Platform, Pressable, Text, View } from 'react-native'
 import { readLiveMatchFollow, startLiveMatchFollowOnce, stopLiveMatchFollow } from './liveMatchFollow'
 import { supabase } from './supabase'
 
+async function autoFollowPreferenceKey(role, matchId) {
+  const { data } = await supabase.auth.getUser()
+  if (!data?.user?.id) throw new Error('Sign in to follow this match.')
+  return `fp.live-match.auto.v1.${role}.${data.user.id}.${matchId}`
+}
+
 export function LiveMatchFollowAction({ role, matchId, parentLinkId = null, textStyle }) {
   const [following, setFollowing] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -12,12 +18,12 @@ export function LiveMatchFollowAction({ role, matchId, parentLinkId = null, text
     if (!matchId || Platform.OS === 'web') return undefined
     let active = true
     setFollowing(false)
-    const preferenceKey = `fp.live-match.auto.v1.${role}.${matchId}`
     void (async () => {
       try {
         const saved = await readLiveMatchFollow(role, matchId)
         if (!active) return
         if (saved) { setFollowing(true); return }
+        const preferenceKey = await autoFollowPreferenceKey(role, matchId)
         if (await AsyncStorage.getItem(preferenceKey) === 'off' || !active) return
         setBusy(true)
         const started = await startLiveMatchFollowOnce(role, matchId, parentLinkId)
@@ -43,13 +49,14 @@ export function LiveMatchFollowAction({ role, matchId, parentLinkId = null, text
       onPress={async () => {
         setBusy(true); setError('')
         try {
+          const preferenceKey = await autoFollowPreferenceKey(role, matchId)
           if (following) {
             await stopLiveMatchFollow(role, matchId)
-            await AsyncStorage.setItem(`fp.live-match.auto.v1.${role}.${matchId}`, 'off')
+            await AsyncStorage.setItem(preferenceKey, 'off')
             setFollowing(false)
           } else {
             await startLiveMatchFollowOnce(role, matchId, parentLinkId)
-            await AsyncStorage.removeItem(`fp.live-match.auto.v1.${role}.${matchId}`)
+            await AsyncStorage.removeItem(preferenceKey)
             setFollowing(true)
           }
         } catch (caught) { setError(caught?.message || 'Could not update live match following.') }

@@ -1,6 +1,36 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { reconcileSavedLiveMatchFollow, revokeSavedLiveMatchFollows } from '../apps/mobile-core/src/liveMatchSignOutCore.js'
+import { createLiveMatchStartBarrier, reconcileSavedLiveMatchFollow, revokeSavedLiveMatchFollows } from '../apps/mobile-core/src/liveMatchSignOutCore.js'
+
+test('sign-out waits for a registering follow and revokes its saved ID', async () => {
+  const barrier = createLiveMatchStartBarrier()
+  const saved = new Map()
+  let finishRegistration
+  const registration = new Promise(resolve => { finishRegistration = resolve })
+  const start = barrier.start('parent', 'match-1', async () => {
+    await registration
+    saved.set('match-1', { followId: 'new-follow' })
+  })
+  assert.equal(barrier.start('parent', 'match-1', () => { throw new Error('duplicate start') }), start)
+  const events = []
+  const signOut = (async () => {
+    await barrier.beforeSignOut('parent')
+    await revokeSavedLiveMatchFollows({
+      keys: [...saved.keys()], read: async key => saved.get(key),
+      revoke: async id => { events.push(`revoke:${id}`); return { error: null } },
+      finish: async () => { events.push('finish') },
+      remove: async keys => { keys.forEach(key => saved.delete(key)); events.push('remove') },
+    })
+  })()
+  await assert.rejects(barrier.start('parent', 'match-2', async () => {}), /Sign-out is in progress/)
+  assert.deepEqual(events, [])
+  finishRegistration()
+  await signOut
+  assert.deepEqual(events, ['revoke:new-follow', 'finish', 'remove'])
+  assert.equal(saved.size, 0)
+  barrier.allow('parent')
+  await barrier.start('parent', 'match-2', async () => {})
+})
 
 test('sign-out revokes every saved server follow before removing local matches', async () => {
   const events = []

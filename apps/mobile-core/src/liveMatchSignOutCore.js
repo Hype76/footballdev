@@ -17,3 +17,26 @@ export async function reconcileSavedLiveMatchFollow(saved, { check, clear }) {
   await clear(saved)
   return null
 }
+
+export function createLiveMatchStartBarrier() {
+  const pending = new Map()
+  const signingOut = new Set()
+  return {
+    start(role, matchId, start) {
+      if (signingOut.has(role)) return Promise.reject(new Error('Sign-out is in progress. Try again after signing in.'))
+      const key = `${role}:${matchId}`
+      if (pending.has(key)) return pending.get(key)
+      const attempt = Promise.resolve().then(start)
+      pending.set(key, attempt)
+      void attempt.finally(() => {
+        if (pending.get(key) === attempt) pending.delete(key)
+      }).catch(() => {})
+      return attempt
+    },
+    async beforeSignOut(role) {
+      signingOut.add(role)
+      await Promise.allSettled([...pending.entries()].filter(([key]) => key.startsWith(`${role}:`)).map(([, attempt]) => attempt))
+    },
+    allow(role) { signingOut.delete(role) },
+  }
+}

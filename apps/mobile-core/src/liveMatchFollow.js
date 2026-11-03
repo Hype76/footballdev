@@ -5,22 +5,15 @@ import { Platform } from 'react-native'
 import { showLiveMatchNotification, hideLiveMatchNotification } from '../modules/live-match/index.js'
 import { getMobileRuntimeConfig } from './config'
 import { createLiveMatchState } from './liveMatchState'
-import { reconcileSavedLiveMatchFollow, revokeSavedLiveMatchFollows } from './liveMatchSignOutCore'
+import { createLiveMatchStartBarrier, reconcileSavedLiveMatchFollow, revokeSavedLiveMatchFollows } from './liveMatchSignOutCore'
 import { supabase } from './supabase'
 
 const iosActivity = Platform.OS === 'ios' ? requireOptionalNativeModule('ReactNativeWidgetExtension') : null
 const keyFor = (role, userId, matchId) => `fp.live-match.v1.${role}.${userId}.${matchId}`
-const pendingStarts = new Map()
+const startBarrier = createLiveMatchStartBarrier()
 
 export function startLiveMatchFollowOnce(role, matchId, parentLinkId = null) {
-  const key = `${role}:${matchId}`
-  if (pendingStarts.has(key)) return pendingStarts.get(key)
-  const attempt = startLiveMatchFollow(role, matchId, parentLinkId)
-  pendingStarts.set(key, attempt)
-  void attempt.finally(() => {
-    if (pendingStarts.get(key) === attempt) pendingStarts.delete(key)
-  }).catch(() => {})
-  return attempt
+  return startBarrier.start(role, matchId, () => startLiveMatchFollow(role, matchId, parentLinkId))
 }
 
 async function confirmedMatch(role, matchId, parentLinkId) {
@@ -57,7 +50,7 @@ export async function readLiveMatchFollow(role, matchId) {
   })
 }
 
-export async function startLiveMatchFollow(role, matchId, parentLinkId = null) {
+async function startLiveMatchFollow(role, matchId, parentLinkId = null) {
   const config = getMobileRuntimeConfig(role)
   if (!config.isUsable || config.appRole !== role) throw new Error('Live match is unavailable in this build.')
   const { data: auth, error: authError } = await supabase.auth.getUser()
@@ -128,33 +121,43 @@ export async function refreshLiveMatchNotification(role, matchId) {
 }
 
 export async function revokeLiveMatchFollowsBeforeSignOut(role) {
-  const allKeys = (await AsyncStorage.getAllKeys()).filter(key => key.startsWith(`fp.live-match.v1.${role}.`))
-  if (!allKeys.length) return
-  const { data, error } = await supabase.auth.getUser()
-  if (error || !data?.user?.id) throw error || new Error('Sign in to stop live match updates.')
-  const prefix = `fp.live-match.v1.${role}.${data.user.id}.`
-  const keys = allKeys.filter(key => key.startsWith(prefix))
-  if (!keys.length) return
-  await revokeSavedLiveMatchFollows({
-    keys,
-    read: async key => {
-      const raw = await AsyncStorage.getItem(key)
-      try { return raw ? JSON.parse(raw) : null } catch { return null }
-    },
-    revoke: followId => supabase.rpc('stop_following_live_match', { follow_id_value: followId }),
-    finish: async entries => {
-      if (Platform.OS === 'ios') await iosActivity?.endAllMatchActivities()
-      if (Platform.OS === 'android') for (const key of entries) await hideLiveMatchNotification(key.slice(-36))
-    },
-    remove: entries => AsyncStorage.multiRemove(entries),
-  })
+  await startBarrier.beforeSignOut(role)
+  try {
+    const allKeys = (await AsyncStorage.getAllKeys()).filter(key => key.startsWith(`fp.live-match.v1.${role}.`))
+    if (!allKeys.length) return
+    const { data, error } = await supabase.auth.getUser()
+    if (error || !data?.user?.id) throw error || new Error('Sign in to stop live match updates.')
+    const prefix = `fp.live-match.v1.${role}.${data.user.id}.`
+    const keys = allKeys.filter(key => key.startsWith(prefix))
+    if (!keys.length) return
+    await revokeSavedLiveMatchFollows({
+      keys,
+      read: async key => {
+        const raw = await AsyncStorage.getItem(key)
+        try { return raw ? JSON.parse(raw) : null } catch { return null }
+      },
+      revoke: followId => supabase.rpc('stop_following_live_match', { follow_id_value: followId }),
+      finish: async entries => {
+        if (Platform.OS === 'ios') await iosActivity?.endAllMatchActivities()
+        if (Platform.OS === 'android') for (const key of entries) await hideLiveMatchNotification(key.slice(-36))
+      },
+      remove: entries => AsyncStorage.multiRemove(entries),
+    })
+  } catch (error) {
+    startBarrier.allow(role)
+    throw error
+  }
 }
 
 export async function clearLiveMatchOnSignOut(role) {
-  const prefix = `fp.live-match.v1.${role}.`
-  const keys = (await AsyncStorage.getAllKeys()).filter(key => key.startsWith(prefix))
-  if (Platform.OS === 'ios') await iosActivity?.endAllMatchActivities().catch(() => {})
-  if (Platform.OS === 'android') {
-    for (const key of keys) await hideLiveMatchNotification(key.slice(-36)).catch(() => {})
+  try {
+    const prefix = `fp.live-match.v1.${role}.`
+    const keys = (await AsyncStorage.getAllKeys()).filter(key => key.startsWith(prefix))
+    if (Platform.OS === 'ios') await iosActivity?.endAllMatchActivities().catch(() => {})
+    if (Platform.OS === 'android') {
+      for (const key of keys) await hideLiveMatchNotification(key.slice(-36)).catch(() => {})
+    }
+  } finally {
+    startBarrier.allow(role)
   }
 }
