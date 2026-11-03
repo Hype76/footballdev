@@ -3,6 +3,7 @@ import { AppState } from 'react-native'
 import { MobilePasswordRecovery } from './MobilePasswordRecovery'
 import { authenticateWithBiometrics, getBiometricEnabled, setBiometricEnabled } from './biometrics'
 import { getMobileRuntimeConfig } from './config'
+import { revokeLiveMatchFollowsBeforeSignOut } from './liveMatchFollow'
 import { revokeNativePushDevice } from './notifications'
 import { fetchMobileProfile } from './profile'
 import { mobileResourceCache } from './mobileResourceCache'
@@ -403,6 +404,7 @@ export function AuthProvider({
 
     try {
       await withStartupTimeout(async () => {
+        await revokeLiveMatchFollowsBeforeSignOut(appRole)
         await supabase.auth.signOut({ scope: 'local' }).catch(() => {})
         await clearMobileSessionStorage()
         if (offlineProfileStore?.clear) await offlineProfileStore.clear()
@@ -420,6 +422,7 @@ export function AuthProvider({
   }, [appRole, offlineProfileStore, onResetLocalData])
 
   const signOut = useCallback(async () => {
+    await revokeLiveMatchFollowsBeforeSignOut(appRole)
     profileGenerationRef.current += 1
     mobileResourceCache.clear()
     setIsLocked(false)

@@ -559,7 +559,7 @@
   "implementationHashes": {
     "scripts/security-supply-chain-gate.mjs": "dcf722bc6cbf2015da4250ea60cbb81e34d3c5c64ec7bb6059671cbae5ab4207",
     "scripts/security-apply-reviewed-backports.mjs": "d1f039f35d9c8fddbb1b5694b89d2edd9d9adfd486dc75bd09f26194b7daa941",
-    "scripts/security-verify-reviewed-backports.mjs": "8f532478e99fad96356e737cec732562dc5e19fa29cb80a290c5e035ab07d399",
+    "scripts/security-verify-reviewed-backports.mjs": "db35cb117ee0632fe807c0fa92cae62c049066f91819299fbf8badb9a4994296",
     "security/patches/braces-3.0.3.patch": "e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699",
     "security/patches/node-forge-1.4.0.patch": "2de065ac998bf58917a14d0935112d97ec2957ac41b5f06958d500934f188ed4",
     "security/patches/reviewed-source-manifest.json": "facb364bbac44a8276d082068e8ed8415ca89777d24f4c7a05ff370f71e5a54d",
@@ -1396,7 +1396,7 @@
       "apps/mobile-core/src/TeamLeagueLink.js": "c523b265bab777f0d46d7c67c1d8b5ef400864933f18ed815acc28b6562d4b13",
       "apps/mobile-core/src/attendanceCommandData.js": "69bcff81df8a89c6e74a97676493c83b2ccd169fa5318fe160077640a2fc8f47",
       "apps/mobile-core/src/attendanceOutboxCore.js": "379532c133f041b1598fde471042939199a738839815da41ef8af1c4e77fd55f",
-      "apps/mobile-core/src/auth.js": "2ff2d60fbe6f57541457b3fe3c9ea87715299bf2bc3e37373bbac84277bd0264",
+      "apps/mobile-core/src/auth.js": "92ffd02831840752c9a2a520da4623c3068621e8b72e62c50992d06403db8550",
       "apps/mobile-core/src/coachCalendarCore.js": "99eba49262a98e80f48ce215e510fcb61214612f84453211e83f1269b03dba96",
       "apps/mobile-core/src/coachCalendarData.js": "33d3122c78078a666fd9c0c182c9f5f36997fcd70f7746b4ff9195be20b0fc39",
       "apps/mobile-core/src/coachContextCore.js": "43e7186e4a7f5d4442ed00864a582a99bdc92bee5dcfadd15421765bb05455b3",
@@ -2101,7 +2101,7 @@
       "apps/mobile-core/native/live-match/ios/WidgetBundle.swift": "09154d9859bb1b9b59052db13816808a087f5ee1e06f072cd75827711a7eae12",
       "apps/mobile-core/src/LiveMatchFollowAction.js": "e3a5657197c3fde61da47e98924d8fa654386dede89a307d9504179a1097f1a1",
       "apps/mobile-core/src/liveMatchBackground.js": "8ca87b92873cbf6e8e7e6a61ecbe05418ba53615bf9f1730956c796fbfc6803e",
-      "apps/mobile-core/src/liveMatchFollow.js": "6be685bece342dca0e47806461f8539ba3792b35b475b1f1fed6becca7f1a0b2",
+      "apps/mobile-core/src/liveMatchFollow.js": "82483f8204d721c242739c3b3f5c6c81b3c49a9dc6c1b4f71956307aab017620",
       "apps/mobile-core/src/liveMatchState.js": "3a0f29e30bc48b4f053ce22c0e1e5d806b5453bf994d11d2015ac4eac1f25b13",
       "apps/mobile-core/src/parentOfflineCapacity.js": "c1f82dad908a69940bd5bddd434e5d398cda8d89191d71f63b47f16fabc64335",
       "apps/parent-mobile/widgets/Attributes.swift": "3c91a139904b0abece43d6af7e84f901b736b74a6cd311c70c959cc7e8cc0dff",
@@ -2113,12 +2113,14 @@
       "netlify/functions/lib/_deliver-live-match-changes.js": "492caa79bd809d9b77ac65a36131f00430eac35f1cbde3a4b404d14dd234b5d2",
       "netlify/functions/lib/_live-activity-apns.js": "a12b986db4ce8cd91aca5b9c527643280d573ee2292c28ec958c94a3fee5f1ee",
       "netlify/functions/process-live-match-changes.mjs": "4a2779dbfe28a38371ff11c6060eea2b32ebd281b3f81a77a60a370332acade1",
-      "supabase/migrations/20261103082500_live_match_follows.sql": "a800336b49988bf084b0395d2da53678432a7a99fc4be99ee369f55e0be75ae7",
+      "supabase/migrations/20261103082500_live_match_follows.sql": "f0717a1db316bc933fb512f36804c50a8ee44b0984a6d4a0be795fbafc3e9e18",
       "tests/live-activity-apns.test.mjs": "75ca9ea2e93b244fbaf331fed441f2ba4816f4b9634e81f12b3c1430d40a52c4",
       "tests/live-match-delivery.test.mjs": "47a84efbab49b18b6f2c775431e10226e2252a5317da6d25789886a3a69a81af",
-      "tests/live-match-migration-pglite.test.mjs": "871ac5a581ce2722cb2108cd5cd73f104359763ee59e3892c76f39f933948fee",
+      "tests/live-match-migration-pglite.test.mjs": "47082eb17a5b253fb7571642777acbcf61db2ccedbd74c37103ac21960a2c0d4",
       "tests/live-match-state.test.mjs": "5a9bfbc95f64c2ff430c21cec3a75c3d9550f71dfe83990d0df7a5aaea4fc5fe",
-      "tests/parent-offline-capacity.test.mjs": "79fd5f24b5b5ff4dbfc67c5410b856d72348e987ca01c7581122711ccd84f591"
+      "tests/parent-offline-capacity.test.mjs": "79fd5f24b5b5ff4dbfc67c5410b856d72348e987ca01c7581122711ccd84f591",
+      "apps/mobile-core/src/liveMatchSignOutCore.js": "7f3ac58f58b647f533526d2ceb30e1375d174e46dfdd2ed8d118058fe1f38201",
+      "tests/live-match-sign-out.test.mjs": "86bc8e220d5ca6423220a33cee4db254280150ba46e5993d5feca8d76860f8df"
     },
     "externalTrustInputs": [
       "FOOTBALL_REVIEW_RECEIPT_BASE64",
@@ -3539,7 +3541,7 @@
       "nodeEngine": "20 || >=22"
     }
   },
-  "releasePreparationSha256": "5078c46791d32c45810679903dceebbfdc5da6bb102c102095015656a78a102e",
+  "releasePreparationSha256": "2b2426898b9bc52938b324468f81ac3597fcdd8fcf6150f62f3c784d5bd10ec2",
   "rootOnlyProposalSha256": "45c3b7352c7328c84982e114b7e87e09cf79514d02d102297ae75ec0925812eb",
   "remediationMode": "maintained-source-fixes",
   "officialCompatibilityDependencies": [

@@ -124,7 +124,8 @@ begin
   end if;
   select * into match_row from public.match_days where id = match_day_id_value;
   if match_row.id is null then return; end if;
-  for follower in select * from private.live_match_follows where match_day_id = match_day_id_value loop
+  for follower in select * from private.live_match_follows
+    where match_day_id = match_day_id_value and updated_at > now() - interval '3 hours' loop
     perform set_config('request.jwt.claim.sub', follower.user_id::text, true);
     if follower.app_role = 'coach' then
       can_follow := coalesce(public.can_read_match_day(match_row.team_id), false)
@@ -190,12 +191,13 @@ returns integer language plpgsql security definer set search_path = '' as $$
 declare queued_count integer;
 begin
   if auth.role() <> 'service_role' then raise exception 'Service access is required.' using errcode = '42501'; end if;
+  delete from private.live_match_follows where updated_at <= now() - interval '3 hours';
   insert into private.live_match_changes(match_day_id)
   select match_row.id
   from public.match_days match_row
   where match_row.status in ('live', 'second_half', 'extra_time', 'penalties')
     and match_row.deleted_at is null and match_row.concluded_at is null
-    and exists (select 1 from private.live_match_follows f where f.match_day_id = match_row.id)
+    and exists (select 1 from private.live_match_follows f where f.match_day_id = match_row.id and f.updated_at > now() - interval '3 hours')
     and not exists (
       select 1 from private.live_match_changes c
       where c.match_day_id = match_row.id and c.changed_at > now() - interval '3 minutes'

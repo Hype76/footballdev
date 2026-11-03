@@ -5,6 +5,7 @@ import { Platform } from 'react-native'
 import { showLiveMatchNotification, hideLiveMatchNotification } from '../modules/live-match/index.js'
 import { getMobileRuntimeConfig } from './config'
 import { createLiveMatchState } from './liveMatchState'
+import { revokeSavedLiveMatchFollows } from './liveMatchSignOutCore'
 import { supabase } from './supabase'
 
 const iosActivity = Platform.OS === 'ios' ? requireOptionalNativeModule('ReactNativeWidgetExtension') : null
@@ -100,6 +101,29 @@ export async function refreshLiveMatchNotification(role, matchId) {
   }
 }
 
+export async function revokeLiveMatchFollowsBeforeSignOut(role) {
+  const allKeys = (await AsyncStorage.getAllKeys()).filter(key => key.startsWith(`fp.live-match.v1.${role}.`))
+  if (!allKeys.length) return
+  const { data, error } = await supabase.auth.getUser()
+  if (error || !data?.user?.id) throw error || new Error('Sign in to stop live match updates.')
+  const prefix = `fp.live-match.v1.${role}.${data.user.id}.`
+  const keys = allKeys.filter(key => key.startsWith(prefix))
+  if (!keys.length) return
+  await revokeSavedLiveMatchFollows({
+    keys,
+    read: async key => {
+      const raw = await AsyncStorage.getItem(key)
+      try { return raw ? JSON.parse(raw) : null } catch { return null }
+    },
+    revoke: followId => supabase.rpc('stop_following_live_match', { follow_id_value: followId }),
+    finish: async entries => {
+      if (Platform.OS === 'ios') await iosActivity?.endAllMatchActivities()
+      if (Platform.OS === 'android') for (const key of entries) await hideLiveMatchNotification(key.slice(-36))
+    },
+    remove: entries => AsyncStorage.multiRemove(entries),
+  })
+}
+
 export async function clearLiveMatchOnSignOut(role) {
   const prefix = `fp.live-match.v1.${role}.`
   const keys = (await AsyncStorage.getAllKeys()).filter(key => key.startsWith(prefix))
@@ -107,5 +131,4 @@ export async function clearLiveMatchOnSignOut(role) {
   if (Platform.OS === 'android') {
     for (const key of keys) await hideLiveMatchNotification(key.slice(-36)).catch(() => {})
   }
-  if (keys.length) await AsyncStorage.multiRemove(keys)
 }
