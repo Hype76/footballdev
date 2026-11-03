@@ -559,7 +559,7 @@
   "implementationHashes": {
     "scripts/security-supply-chain-gate.mjs": "dcf722bc6cbf2015da4250ea60cbb81e34d3c5c64ec7bb6059671cbae5ab4207",
     "scripts/security-apply-reviewed-backports.mjs": "d1f039f35d9c8fddbb1b5694b89d2edd9d9adfd486dc75bd09f26194b7daa941",
-    "scripts/security-verify-reviewed-backports.mjs": "18af57436dc188470580a8f69d142b6a42de36102b4e0d3538008e403f18980e",
+    "scripts/security-verify-reviewed-backports.mjs": "5917de67d2de893a75fccce8b01885b7eb98bb3fb2b6cc2e26ae5b1dd8292f05",
     "security/patches/braces-3.0.3.patch": "e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699",
     "security/patches/node-forge-1.4.0.patch": "2de065ac998bf58917a14d0935112d97ec2957ac41b5f06958d500934f188ed4",
     "security/patches/reviewed-source-manifest.json": "facb364bbac44a8276d082068e8ed8415ca89777d24f4c7a05ff370f71e5a54d",
@@ -1358,7 +1358,7 @@
       "apps/coach-mobile/src/CoachDevelopmentTemplateBuilder.js": "976c1e91e9b86eff4621bac8e58e06022e83c8c50f08b21dc389dec9b79dbdb9",
       "apps/coach-mobile/src/CoachFixtureForm.js": "3003d94a765ed1df8666d4b3675dbe2318f68a058c10e9edb8c4629905895381",
       "apps/coach-mobile/src/CoachKeyboardFocusContext.js": "2e24114b3755cd8b56ab5099019c0663ad6d24418a66e0a48fa06ca07e22d015",
-      "apps/coach-mobile/src/CoachMatchDayScreen.js": "b1e0eef8ef563643732aacecf38e2a66c6c875371d8101c35d87267048996eb9",
+      "apps/coach-mobile/src/CoachMatchDayScreen.js": "115aee0eb69a49854f3876495c2c53a62498dd8aeb099ad89ae1dbc0f16f39ee",
       "apps/coach-mobile/src/CoachMatchInviteTable.js": "70d854eb08b25770af0717fd38efb67c10a25a1bdf27583fb03017e0e0c0d57e",
       "apps/coach-mobile/src/CoachNativeTeamBrandingEditor.js": "bd7b007e1ddbd407f187bb417b53bc31916b9ab490e465e18af0ae5d0354a4cd",
       "apps/coach-mobile/src/CoachOperationalScreens.js": "4de73a745f8b6b2aece68a3c1dcc69b0ed2b3cb45ac096c576679af1e3842bce",
@@ -1675,7 +1675,7 @@
       "tests/coach-home-warning-recovery.test.mjs": "4f19deb7b64f3ca8c5164dbdd4a61ecf473d48f10114e190dc4ca72377903838",
       "tests/coach-invite-table-browser.mjs": "84d25d718f8e3ff33197486261129241d01eb54910b3c5b2b42a0d4c94293495",
       "tests/coach-keyboard-viewport.test.mjs": "782d2e0a74a4760d93b4cc4167d2bf44faeb80a909f9889e24b7aa36b771f671",
-      "tests/coach-matchday-offline-browser.mjs": "4c1405b82545e981aeaf52814476da04095be6869ccd030588039bd47f3791cb",
+      "tests/coach-matchday-offline-browser.mjs": "977524c546355e410bcaf155707bfcb82f42904f6f36236b3d596058a70e8b74",
       "tests/coach-mobile-parent-invite-email-80.test.mjs": "4dc2b311ae45aa1eb1a03cd5a40c135dde789590aabb7c2a94072f41c735f006",
       "tests/coach-more-menu-browser.mjs": "e6d4ea6c73762d2f72e83cc24e164ebc932baec812af56613a45a5ebb898be23",
       "tests/coach-offline-storage.test.mjs": "5eef91d8c4fa3a89ae3b446092f77c656e9452a86a364fb04c5c7f2cdfacb80a",
@@ -3556,7 +3556,7 @@
       "nodeEngine": "20 || >=22"
     }
   },
-  "releasePreparationSha256": "1f4800c0053cfa80ba5167c97ac34d5d291ffb47e0aa0e1a20bf06e66bae12e9",
+  "releasePreparationSha256": "43d9170bd21b897689a00fa1e91ac2170b2a026269e8eae8be896e00da418f9d",
   "rootOnlyProposalSha256": "45c3b7352c7328c84982e114b7e87e09cf79514d02d102297ae75ec0925812eb",
   "remediationMode": "maintained-source-fixes",
   "officialCompatibilityDependencies": [

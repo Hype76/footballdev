@@ -312,7 +312,7 @@ function FixtureHero({ clubLogoUrl, match, now, styles }) {
   const live = isLiveMatch(match)
   return <View style={[styles.fixtureHero, live && styles.fixtureHeroLive]}>
     {live || (normalize(match.status) && normalize(match.status) !== 'scheduled') ? <Text style={styles.liveSync}>{live ? 'Live sync on' : label(match.status)}</Text> : null}
-    <MatchTeamsLine match={match} clubLogoUrl={clubLogoUrl} textStyle={styles.fixtureTitle} />
+    <MatchTeamsLine match={match} clubLogoUrl={clubLogoUrl} header textStyle={styles.fixtureTitle} />
     <FixtureDetailRow icon="calendar-month" styles={styles}>{formatFixtureDate(match.matchDate)} | {match.kickoffTimeTbc ? 'Kick-off TBC' : match.kickoffTime?.slice(0, 5) || 'Time TBC'}</FixtureDetailRow>
     <FixtureDetailRow icon="place" styles={styles}>{match.venueAddress || match.venueName || 'Venue TBC'}</FixtureDetailRow>
     {getMatchDayLifecycleState(match) !== 'not_started' ? <View style={styles.card}>
