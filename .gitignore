@@ -43,6 +43,7 @@ outputs/
 apps/*/assets/assets for android/
 apps/*/assets/ios-screenshots/
 apps/*/android/
+apps/*/ios/
 apps/*/dist-android-check/
 apps/*/dist-ios-check/
 apps/*/credentials.json
