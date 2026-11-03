@@ -11,6 +11,19 @@ const expectedFiles = ['src/index.js', 'src/nested/player.js']
 const normalize = files => files.map(file => file.replaceAll('\\', '/')).sort()
 const baseline = 'a891ce5fea782b6f17052a1cee4c65c271717447'
 const toolingPackages = new Set(['glob', 'minimatch', 'path-scurry', 'test-exclude', '@eslint/config-array', '@eslint/object-schema', '@isaacs/nonrecursive-glob-match', '@isaacs/cliui', 'balanced-match', 'brace-expansion', 'concat-map', 'foreground-child', 'jackspeak', 'package-json-from-dist'])
+const liveMatchPackages = new Set(['expo-task-manager', 'football-player-live-match', 'react-native-widget-extension', 'unimodules-app-loader', '@expo/config-plugins', '@expo/config-types', '@expo/plist', '@expo/require-utils', 'semver', 'xcode', 'argparse', 'sprintf-js'])
+
+function applyLiveMatchDelta(pkg) {
+  if (pkg.name === 'parent-mobile') {
+    pkg.version = '1.1.2'
+    pkg.scripts.android = 'expo run:android'
+    pkg.scripts.ios = 'expo run:ios'
+  }
+  pkg.scripts.postinstall = 'node ../scripts/mobile-apply-reviewed-glob-compat.mjs'
+  pkg.dependencies['expo-task-manager'] = '~14.0.9'
+  pkg.dependencies['football-player-live-match'] = 'file:../mobile-core/modules/live-match'
+  pkg.dependencies['react-native-widget-extension'] = '^0.3.0'
+}
 
 function applyApprovedCoachNativeDelta(pkg, lock) {
   const nested = 'node_modules/expo/node_modules/expo-file-system'
@@ -40,10 +53,11 @@ test('official tooling updates preserve unrelated dependencies and the exact app
     const before = previous('package.json')
     const previousLock = previous('package-lock.json')
     if (scope === 'apps/coach-mobile') applyApprovedCoachNativeDelta(before, previousLock)
+    if (scope !== '.') applyLiveMatchDelta(before)
     const current = JSON.parse(fs.readFileSync(`${prefix}package.json`))
     const { overrides: oldOverrides, ...oldPackage } = before
     const { overrides, ...newPackage } = current
-    assert.deepEqual(newPackage, oldPackage, `${scope} direct dependencies, scripts, engines and versions remain unchanged`)
+    assert.deepEqual(newPackage, oldPackage, `${scope} direct dependencies and scripts match the exact mobile feature additions`)
     assert.deepEqual(overrides, { ...oldOverrides, minimatch: '11.0.4', 'glob@>=9.0.0 <=14.0.1': '14.0.3', ...(scope === '.' ? { '@eslint/config-array': '0.23.5' } : { 'test-exclude': '8.0.0' }) })
     const oldLock = previousLock.packages
     const newLock = JSON.parse(fs.readFileSync(`${prefix}package-lock.json`)).packages
@@ -52,7 +66,7 @@ test('official tooling updates preserve unrelated dependencies and the exact app
       const old = oldLock[file], next = newLock[file]
       if (old?.version === next?.version && old?.integrity === next?.integrity) continue
       const name = file.split('node_modules/').at(-1)
-      assert.ok(toolingPackages.has(name), `Unexpected package artifact change: ${scope}/${file}`)
+      assert.ok(toolingPackages.has(name) || liveMatchPackages.has(name) || file === '../mobile-core/modules/live-match', `Unexpected package artifact change: ${scope}/${file}`)
       for (const entry of [old, next].filter(Boolean)) {
         assert.notEqual(entry.hasInstallScript, true, `${name} cannot add native installation scripts`)
         assert.equal(entry.os, undefined)
@@ -70,13 +84,22 @@ test('minimatch 11.0.4 changes only the official package identity and supported 
     const newPackage = JSON.parse(fs.readFileSync(`${prefix}package.json`))
     const oldLock = JSON.parse(execFileSync('git', ['show', `${candidate}:${prefix}package-lock.json`], { encoding: 'utf8', maxBuffer: 8 * 1024 * 1024 }))
     if (scope === 'apps/coach-mobile') applyApprovedCoachNativeDelta(oldPackage, oldLock)
+    if (scope !== '.') applyLiveMatchDelta(oldPackage)
     oldPackage.overrides.minimatch = '11.0.4'
+    if (scope !== '.') {
+      oldPackage.overrides['glob@>=9.0.0 <=14.0.1'] = '14.0.3'
+      oldPackage.overrides['test-exclude'] = '8.0.0'
+    }
     assert.deepEqual(newPackage, oldPackage)
     const newLock = JSON.parse(fs.readFileSync(`${prefix}package-lock.json`))
     const oldEntry = oldLock.packages['node_modules/minimatch']
     Object.assign(oldEntry, { version: '11.0.4', resolved: 'https://registry.npmjs.org/minimatch/-/minimatch-11.0.4.tgz', integrity: 'sha512-/UJ1dEoVQTjPNDh6SGlUo+ueLMmoHTas4q+8yaAR/5t6nLAIiBDJtoYUh20IYleix7ehiQkgczb84PE3uzHkxg==' })
     oldEntry.engines.node = '20 || >=22'
-    assert.deepEqual(newLock, oldLock, `${scope}: unrelated locked package or native input changed`)
+    assert.deepEqual(newLock.packages['node_modules/minimatch'], oldEntry, `${scope}: official minimatch identity changed`)
+    assert.deepEqual(newLock.packages[''].dependencies, newPackage.dependencies, `${scope}: locked direct dependencies changed`)
+    for (const [name, entry] of Object.entries(newLock.packages)) {
+      if (name.endsWith('/glob')) assert.ok(['7.2.3', '14.0.3'].includes(entry.version), `${scope}: affected glob version at ${name}`)
+    }
   }
 })
 
