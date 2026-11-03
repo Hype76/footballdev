@@ -16,7 +16,7 @@ public class ReactNativeWidgetExtensionModule: Module {
       guard ActivityAuthorizationInfo().areActivitiesEnabled else { throw NSError(domain: "LiveMatch", code: 2) }
       guard let state = Self.parse(input) else { throw NSError(domain: "LiveMatch", code: 3) }
       let attributes = MatchActivityAttributes(activityKey: key)
-      let content = ActivityContent(state: state, staleDate: Date().addingTimeInterval(120))
+      let content = ActivityContent(state: state, staleDate: Date().addingTimeInterval(4 * 60 * 60))
       let activity = try Activity.request(attributes: attributes, content: content, pushType: .token)
       return activity.id
     }

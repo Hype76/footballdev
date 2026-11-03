@@ -17,6 +17,7 @@ const allowedBuilds = new Set([
 ])
 const productionBuilds = new Set(['internal-live:android', 'internal-live:ios', 'store-live:android', 'store-live:ios'])
 const authorisedParentProductionReferences = new Set([
+  'FP-MOBILE-500MB-LIVE-CLOCK-112-20261103',
   'FP-MOBILE-LIVE-MATCH-112-20261103',
   'FP-MOBILE-CALENDAR-BACKGROUND-ACTIONS-271026',
   'FP-MOBILE-PARENT-IOS-BLACK-SCREEN-AND-PLAY-CLOSED-TEST-28',
@@ -48,6 +49,7 @@ const authorisedParentProductionReferences = new Set([
   'FP-MOBILE-FEEDBACK-CALENDAR-STATS-132',
 ])
 const authorisedCoachProductionReferences = new Set([
+  'FP-MOBILE-500MB-LIVE-CLOCK-112-20261103',
   'FP-MOBILE-LIVE-MATCH-112-20261103',
   'FP-COACH-OFFLINE-15MB-20261102',
   'FP-MOBILE-CALENDAR-BACKGROUND-ACTIONS-271026',
@@ -97,7 +99,7 @@ const currentCoachStoreAndroid = appRole === 'coach'
 const currentFeedbackStoreAndroid = `${profile}:${platform}` === 'store-live:android'
   && promotionReference === 'FP-MOBILE-SIMON-FEEDBACK-55'
 const currentLiveMatchStoreAndroid = `${profile}:${platform}` === 'store-live:android'
-  && promotionReference === 'FP-MOBILE-LIVE-MATCH-112-20261103'
+  && ['FP-MOBILE-LIVE-MATCH-112-20261103', 'FP-MOBILE-500MB-LIVE-CLOCK-112-20261103'].includes(promotionReference)
 
 if (!app) {
   console.error('Unknown mobile app role. Expected coach or parent.')

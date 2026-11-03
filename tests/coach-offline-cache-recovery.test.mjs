@@ -7,9 +7,13 @@ import {
 } from '../apps/mobile-core/src/coachPhase31FCore.js'
 import {
   createCoachOfflineDocument,
-  setCoachOfflineProfile,
-  setCoachOfflineResources,
+  setCoachOfflineProfile as saveCoachOfflineProfile,
+  setCoachOfflineResources as saveCoachOfflineResources,
 } from '../apps/mobile-core/src/coachOfflineCore.js'
+
+const fixtureMaxBytes = 15_000_000
+const setCoachOfflineProfile = (document, value, now) => saveCoachOfflineProfile(document, value, now, fixtureMaxBytes)
+const setCoachOfflineResources = (document, context, resources, now) => saveCoachOfflineResources(document, context, resources, now, fixtureMaxBytes)
 
 const userScope = 'coach-cache-recovery'
 const context = (id) => ({ authorityId: `authority-${id}`, authoritySource: 'team_staff', clubId: `club-${id}`, id, role: 'coach', teamId: `team-${id}` })

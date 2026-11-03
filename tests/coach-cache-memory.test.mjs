@@ -5,7 +5,18 @@ import test from 'node:test'
 import { parse } from '@babel/parser'
 import { restoreCoachAvailabilitySnapshot } from '../apps/mobile-core/src/coachAvailabilityCache.js'
 import { getCoachCacheByteLength, COACH_PHASE_31F_MAX_CACHE_BYTES } from '../apps/mobile-core/src/coachPhase31FCore.js'
-import { createCoachOfflineDocument, setCoachOfflineProfile, setCoachOfflineResources } from '../apps/mobile-core/src/coachOfflineCore.js'
+import { createCoachOfflineDocument, recoverCoachOfflineCacheSpace, setCoachOfflineProfile, setCoachOfflineResources } from '../apps/mobile-core/src/coachOfflineCore.js'
+
+test('Coach keeps saved resources for 20 teams beyond the previous 15 MB limit', () => {
+  const document = createCoachOfflineDocument({ userScope: 'coach' })
+  document.contexts = Object.fromEntries(Array.from({ length: 20 }, (_, index) => [`team-${index}`, {
+    resources: { calendar: { payload: 'x'.repeat(800_000) } },
+    resourceMetadata: {},
+  }]))
+  assert.ok(getCoachCacheByteLength(document) > 15_000_000)
+  assert.equal(recoverCoachOfflineCacheSpace(document), document)
+  assert.equal(Object.keys(document.contexts).length, 20)
+})
 
 test('byte counting does not depend on allocating regexp replacement results', async () => {
   const source = await readFile(new URL('../apps/mobile-core/src/coachPhase31FCore.js', import.meta.url), 'utf8')
@@ -23,9 +34,10 @@ test('Coach cache byte count matches UTF-8 for JSON, Unicode and large documents
   for (const value of [null, undefined, false, 42, '', '\u0000\n"\\', 'Caf\u00e9 \u6f22\u5b57 \ud83c\udfc6', '\ud800x\udc00', { players: Array.from({ length: 300 }, (_, id) => ({ id, notes: '\u00e9\ud83c\udfc6'.repeat(600) })) }]) {
     assert.equal(getCoachCacheByteLength(value), Buffer.byteLength(JSON.stringify(value ?? null), 'utf8'))
   }
-  const value = 'a'.repeat(COACH_PHASE_31F_MAX_CACHE_BYTES - 2)
-  assert.equal(getCoachCacheByteLength(value), COACH_PHASE_31F_MAX_CACHE_BYTES)
-  assert.equal(getCoachCacheByteLength(value + 'a'), COACH_PHASE_31F_MAX_CACHE_BYTES + 1)
+  assert.equal(COACH_PHASE_31F_MAX_CACHE_BYTES, 500_000_000)
+  const value = 'a'.repeat(1_000_000)
+  assert.equal(getCoachCacheByteLength(value), 1_000_002)
+  assert.equal(getCoachCacheByteLength(value + 'a'), 1_000_003)
 })
 
 test('large cached data still obeys its size limit without losing existing document', () => {
@@ -34,7 +46,7 @@ test('large cached data still obeys its size limit without losing existing docum
   document = setCoachOfflineProfile(document, { id: 'coach', coachContexts: [context] })
   document = setCoachOfflineResources(document, context, { players: [{ id: 'player', notes: 'a'.repeat(900_000) }] })
   const original = JSON.stringify(document)
-  assert.throws(() => setCoachOfflineProfile(document, { id: 'coach', coachContexts: [context], notes: 'a'.repeat(COACH_PHASE_31F_MAX_CACHE_BYTES) }), /offline_cache_payload_too_large/)
+  assert.throws(() => setCoachOfflineProfile(document, { id: 'coach', coachContexts: [context], notes: 'a'.repeat(2_000_000) }, undefined, 1_500_000), /offline_cache_payload_too_large/)
   assert.equal(JSON.stringify(document), original)
 })
 

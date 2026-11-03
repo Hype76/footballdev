@@ -113,7 +113,7 @@ test('cache writes are bounded and identical payloads retain data while advancin
 
 test('oversized and corrupt cached data fail closed', () => {
   const document = createCoachOfflineDocument({ userScope: 'user-a' })
-  assert.throws(() => setCoachOfflineResources(document, contextA, { chat: { body: 'x'.repeat(COACH_PHASE_31F_MAX_CACHE_BYTES + 1) } }), /offline_cache_payload_too_large/)
+  assert.throws(() => setCoachOfflineResources(document, contextA, { chat: { body: 'x'.repeat(1_000_000) } }, undefined, 500_000), /offline_cache_payload_too_large/)
   assert.match(offlineCore, /xchacha20-poly1305/)
   assert.match(offlineCore, /scope_mismatch/)
   assert.match(offlineCore, /offline_storage_corrupt/)

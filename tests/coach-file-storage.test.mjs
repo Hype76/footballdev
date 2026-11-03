@@ -37,8 +37,8 @@ test('parent file storage isolates encrypted generations from Coach storage', as
   assert.equal(await f.adapter.getItem(parentKey), null)
 })
 
-test('file storage accepts an encrypted envelope beyond the requested 15 MB document limit', async () => {
-  const f = fixture(); assert.equal(COACH_PHASE_31F_MAX_CACHE_BYTES, 15_000_000)
+test('file storage accepts an encrypted envelope beyond the previous 15 MB document limit', async () => {
+  const f = fixture(); assert.equal(COACH_PHASE_31F_MAX_CACHE_BYTES, 500_000_000)
   const envelope = 'x'.repeat(20_000_000)
   await f.adapter.setItem(key, envelope); assert.equal((await f.adapter.getItem(key)).length, envelope.length)
 })

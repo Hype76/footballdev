@@ -145,6 +145,7 @@ test('actual phone reservation and canonical email handler accept assigned head7
   assert.match(sent[0].payload.html, /Accept your coach invitation/)
   assert.ok(sent[0].options.idempotencyKey)
   const invite = (await db.query('select * from club_user_invites')).rows[0]
+  assert.match(sent[0].payload.html, new RegExp(`https://footballplayer\\.online/staff-invite/${invite.invite_token}`))
   const envelope = { inviteId: invite.id, phoneTeamCommand: true, html: '<p>Invite</p>' }
   const retry = await canonicalSend(request(envelope))
   assert.equal(retry.statusCode, 200)

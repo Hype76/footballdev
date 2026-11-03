@@ -10,6 +10,18 @@ import { supabase } from './supabase'
 
 const iosActivity = Platform.OS === 'ios' ? requireOptionalNativeModule('ReactNativeWidgetExtension') : null
 const keyFor = (role, userId, matchId) => `fp.live-match.v1.${role}.${userId}.${matchId}`
+const pendingStarts = new Map()
+
+export function startLiveMatchFollowOnce(role, matchId, parentLinkId = null) {
+  const key = `${role}:${matchId}`
+  if (pendingStarts.has(key)) return pendingStarts.get(key)
+  const attempt = startLiveMatchFollow(role, matchId, parentLinkId)
+  pendingStarts.set(key, attempt)
+  void attempt.finally(() => {
+    if (pendingStarts.get(key) === attempt) pendingStarts.delete(key)
+  }).catch(() => {})
+  return attempt
+}
 
 async function confirmedMatch(role, matchId, parentLinkId) {
   if (role === 'parent') {
@@ -57,7 +69,7 @@ export async function startLiveMatchFollow(role, matchId, parentLinkId = null) {
   if (Platform.OS === 'ios') {
     if (!iosActivity?.activitiesEnabled()) throw new Error('Live Activities are off in iPhone settings.')
     activityId = iosActivity.startMatchActivity(matchId, state)
-    for (let attempt = 0; attempt < 20 && !token; attempt += 1) {
+    for (let attempt = 0; attempt < 120 && !token; attempt += 1) {
       token = iosActivity.getMatchActivityToken(activityId) || ''
       if (!token) await new Promise(resolve => setTimeout(resolve, 500))
     }

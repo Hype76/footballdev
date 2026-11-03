@@ -1,4 +1,4 @@
-export const PARENT_OFFLINE_MAX_BYTES = 15_000_000
+export const PARENT_OFFLINE_MAX_BYTES = 500_000_000
 
 export function assertParentOfflineCapacity(document, byteLength) {
   if (typeof byteLength !== 'function') throw new Error('offline_storage_size_unavailable')

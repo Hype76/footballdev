@@ -2457,7 +2457,7 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
 
         {renderedActiveTab === 'chat' ? (
           <View style={[styles.contentColumn, styles.chatRouteContent]}>
-            {!focusedChatRoom ? <SyncStatus attentionIndex={attentionIndex} cacheState={offlineCacheState} isOffline={isOffline} isSyncing={isSyncing} onNextAttention={() => setAttentionIndex((current) => (current + 1) % Math.max(syncSummary.needsAttention, 1))} onOpenAttention={handleOpenAttentionItem} summary={syncSummary} /> : null}
+            {!focusedChatRoom ? <SyncStatus isSyncing={isSyncing} onOpenAttention={handleOpenAttentionItem} summary={syncSummary} /> : null}
             {notice ? <Notice compact={notice.compact} message={notice.message} onDismiss={() => setNotice(null)} tone={notice.tone} /> : null}
             <ChatScreen
               activeActionId={activeActionId}
@@ -2496,11 +2496,7 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
         >
           <View ref={contentColumnRef} collapsable={false} style={styles.contentColumn}>
             <SyncStatus
-              attentionIndex={attentionIndex}
-              cacheState={offlineCacheState}
-              isOffline={isOffline}
               isSyncing={isSyncing}
-              onNextAttention={() => setAttentionIndex((current) => (current + 1) % Math.max(syncSummary.needsAttention, 1))}
               onOpenAttention={handleOpenAttentionItem}
               summary={syncSummary}
             />
@@ -3305,10 +3301,9 @@ function PollsScreen({ activeActionId, drafts, link, onDismiss, onDraftChange, o
   )
 }
 
-function SyncStatus({ cacheState, isOffline, isSyncing, onOpenAttention, summary }) {
+function SyncStatus({ isSyncing, onOpenAttention, summary }) {
   useMobileActivity(isSyncing)
   return <>
-    <MobileFailureNotice message={!isOffline && cacheState?.stale ? 'Some information could not be refreshed. Showing the latest available information.' : ''} />
     <MobileFailureNotice message={summary.needsAttention > 0 ? `${summary.needsAttention} saved ${summary.needsAttention === 1 ? 'action needs' : 'actions need'} attention. Your entries are retained on this phone.` : ''}
       scopeKey={summary.attentionItems?.map(item => item.id).join(':') || 'saved-actions'} actionLabel="Review" onRetry={onOpenAttention} />
   </>

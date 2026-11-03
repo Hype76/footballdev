@@ -9,6 +9,7 @@ const read=path=>fs.readFileSync(path instanceof URL?path:new URL(path,import.me
 const load=source=>import('data:text/javascript;base64,'+Buffer.from(source).toString('base64'))
 const phaseUrl=new URL('../apps/mobile-core/src/coachPhase31FCore.js',import.meta.url).href
 const phase=await import(phaseUrl)
+const fixtureMaxBytes=15_000_000
 const cache=await load(read('../apps/mobile-core/src/coachOfflineCore.js').replace("'./coachPhase31FCore.js'",JSON.stringify(phaseUrl)))
 const draftCore=await load(fs.readFileSync(new URL('apps/mobile-core/src/developmentOfflineCore.js',source),'utf8'))
 const status=await load(read('../apps/mobile-core/src/developmentSaveStatusCore.js'))
@@ -19,10 +20,10 @@ const key=draftCore.developmentDraftKey('player','form'),form={id:'form',version
 const initialDraft={id:'draft',playerId:'player',formId:'form',values:{rating:6},notes:'x'.repeat(1000),formFingerprint:draftCore.developmentFormFingerprint(form),revision:1,serverVersion:0,status:'pending',error:''}
 const clone=value=>structuredClone(value)
 function document(){return {userScope:'user',profile:{value:{id:'user',coachContexts:[context]}},contexts:{context:{resources:{calendar:{payload:''},'phase31e:development':{forms:[form]},players:[{id:'player'}],formation:{private:'keep'}},resourceMetadata:{calendar:{savedAt:'2026-09-01'}}}},developmentDrafts:{context:{authority,items:{[key]:clone(initialDraft)}}},matchDayOutboxes:{context:{fixture:{pending:[{id:'goal'}]}}},attendanceCommands:[{id:'attendance',status:'pending'}],formationDrafts:{context:{values:'private'}},outboxes:{context:[{id:'message'}]}}}
-function nearLimit(){const doc=document();doc.contexts.context.resources.calendar.payload='c'.repeat(phase.COACH_PHASE_31F_MAX_CACHE_BYTES-phase.getCoachCacheByteLength(doc)-300);return doc}
+function nearLimit(){const doc=document();doc.contexts.context.resources.calendar.payload='c'.repeat(fixtureMaxBytes-phase.getCoachCacheByteLength(doc)-300);return doc}
 function extracted(text,name){const ast=parse(text,{sourceType:'module',plugins:['jsx']});let found;const visit=node=>{if(!node||typeof node!=='object')return;if((node.type==='FunctionDeclaration'||node.type==='VariableDeclarator')&&node.id?.name===name)found=node.type==='FunctionDeclaration'?text.slice(node.start,node.end):`const ${name}=${text.slice(node.init.start,node.init.end)}`;Object.values(node).forEach(v=>Array.isArray(v)?v.forEach(visit):visit(v))};visit(ast);assert.ok(found,name);return found}
 const bind=(text,name,deps)=>new Function(...Object.keys(deps),`${extracted(text,name)};return ${name}`)(...Object.values(deps))
-function updater(initial,baseline=false){let doc=clone(initial),writes=0;const text=read(new URL(baseline?'tests/fixtures/v1-development/offline.fixture.txt':'apps/coach-mobile/src/offline.js',root));const deps={getCoachOfflineResources:cache.getCoachOfflineResources,setCoachOfflineResources:cache.setCoachOfflineResources,normalize:x=>String(x??'').trim(),store:{update:async(_user,change)=>{const next=change(clone(doc));doc=clone(next);writes++}},getCoachCacheByteLength:phase.getCoachCacheByteLength,COACH_PHASE_31F_MAX_CACHE_BYTES:phase.COACH_PHASE_31F_MAX_CACHE_BYTES,recoverCoachOfflineCacheSpace:cache.recoverCoachOfflineCacheSpace};deps.assertOutboxContext=bind(text,'assertOutboxContext',deps);deps.outboxAuthority=bind(text,'outboxAuthority',deps);return {update:bind(text,'updateCoachDevelopmentDraft',deps),read:()=>clone(doc),writes:()=>writes}}
+function updater(initial,baseline=false){let doc=clone(initial),writes=0;const text=read(new URL(baseline?'tests/fixtures/v1-development/offline.fixture.txt':'apps/coach-mobile/src/offline.js',root));const deps={getCoachOfflineResources:cache.getCoachOfflineResources,setCoachOfflineResources:(document,context,resources)=>cache.setCoachOfflineResources(document,context,resources,undefined,fixtureMaxBytes),normalize:x=>String(x??'').trim(),store:{update:async(_user,change)=>{const next=change(clone(doc));doc=clone(next);writes++}},getCoachCacheByteLength:phase.getCoachCacheByteLength,COACH_PHASE_31F_MAX_CACHE_BYTES:fixtureMaxBytes,recoverCoachOfflineCacheSpace:(document,options)=>cache.recoverCoachOfflineCacheSpace(document,{...options,maxBytes:fixtureMaxBytes})};deps.assertOutboxContext=bind(text,'assertOutboxContext',deps);deps.outboxAuthority=bind(text,'outboxAuthority',deps);return {update:bind(text,'updateCoachDevelopmentDraft',deps),read:()=>clone(doc),writes:()=>writes}}
 function syncEngine(storage,{baseline=false,save=async()=>({clientSaveVersion:1,lastSavedAt:'2026-10-05'}),current=()=>true,workspace=async()=>({players:[{id:'player'}],forms:[form]})}={}){let calls=0;const text=read(new URL(baseline?'tests/fixtures/v1-development/coachDevelopmentSync.fixture.txt':'apps/coach-mobile/src/coachDevelopmentSync.js',root)).replace(/^import .+\r?\n/gm,'').replace(/^export /gm,'');const deps={applyCoachContext:x=>x,getCoachDevelopmentWorkspace:workspace,saveCoachDevelopmentDraft:async(...args)=>{calls++;return save(...args)},...draftCore,developmentSyncFailure:status.developmentSyncFailure,withMobileAsyncTimeout:callback=>callback(),readCoachDevelopmentDrafts:async()=>storage.read().developmentDrafts.context.items,updateCoachDevelopmentDraft:storage.update};const run=new Function(...Object.keys(deps),text+';return syncCoachDevelopmentDrafts')(...Object.values(deps));return {run:()=>run(user,context,current),calls:()=>calls}}
 
 test('baseline reproduces durable draft plus misleading local-save error during sync preparation quota',async()=>{
@@ -42,7 +43,7 @@ test('recovery evicts rebuildable cache and saves/syncs without touching protect
  assert.ok(phase.getCoachCacheByteLength(after)<=phase.COACH_PHASE_31F_MAX_CACHE_BYTES)
 })
 test('unreclaimable quota failure preserves last durable data and never pretends latest edit was saved',async()=>{
- const doc=document();doc.formationDrafts.context.values='p'.repeat(phase.COACH_PHASE_31F_MAX_CACHE_BYTES);const storage=updater(doc),before=storage.read()
+ const doc=document();doc.formationDrafts.context.values='p'.repeat(fixtureMaxBytes);const storage=updater(doc),before=storage.read()
  await assert.rejects(storage.update('user',context,key,previous=>({...previous,values:{rating:7}})),error=>error.code==='offline_cache_payload_too_large')
  assert.deepEqual(storage.read(),before);assert.equal(storage.writes(),0)
  assert.match(status.developmentSaveStatus({ready:true,saving:0,draft:initialDraft,unsaved:true}),/not been saved/)
@@ -50,7 +51,7 @@ test('unreclaimable quota failure preserves last durable data and never pretends
 })
 test('pending workspaces in another context retain development/player cache while unrelated cache is reclaimed',()=>{
  const doc=nearLimit();doc.developmentDrafts.other={items:{saved:{status:'pending',values:{private:'keep'}}}};doc.contexts.other={resources:{players:[{id:'other'}],development:{forms:[{id:'other'}]}},resourceMetadata:{}}
- const next=cache.recoverCoachOfflineCacheSpace({...doc,extra:'x'.repeat(1000)})
+ const next=cache.recoverCoachOfflineCacheSpace({...doc,extra:'x'.repeat(1000)},{maxBytes:fixtureMaxBytes})
  assert.deepEqual(next.contexts.other,doc.contexts.other);assert.deepEqual(next.developmentDrafts,doc.developmentDrafts)
 })
 test('authority mismatch fails before cache recovery or persistence',async()=>{

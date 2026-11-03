@@ -1675,6 +1675,14 @@ export const router = createBrowserRouter([
     element: <NavigateToParentInvite />,
   },
   {
+    path: '/staff-invite',
+    element: (
+      <Suspense fallback={null}>
+        <StaffInvitePage />
+      </Suspense>
+    ),
+  },
+  {
     path: '/staff-invite/:token',
     element: (
       <Suspense fallback={null}>

@@ -34,8 +34,8 @@ function isProtectedCoachOfflineResource(resourceKey) {
   return normalize(resourceKey).replace(/^phase31e:/, '') === 'formation'
 }
 
-export function recoverCoachOfflineCacheSpace(document, { retainContextId = '', retainResourceKeys = [] } = {}) {
-  if (getCoachCacheByteLength(document) <= COACH_PHASE_31F_MAX_CACHE_BYTES) return document
+export function recoverCoachOfflineCacheSpace(document, { retainContextId = '', retainResourceKeys = [], maxBytes = COACH_PHASE_31F_MAX_CACHE_BYTES } = {}) {
+  if (getCoachCacheByteLength(document) <= maxBytes) return document
   const retainedKeys = new Set(retainResourceKeys.map(normalize))
   const contexts = Object.fromEntries(Object.entries(document.contexts || {}).map(([contextId, entry]) => [contextId, {
     ...entry,
@@ -56,7 +56,7 @@ export function recoverCoachOfflineCacheSpace(document, { retainContextId = '', 
   for (const candidate of candidates) {
     delete contexts[candidate.contextId].resources[candidate.resourceKey]
     delete contexts[candidate.contextId].resourceMetadata[candidate.resourceKey]
-    if (getCoachCacheByteLength(next) <= COACH_PHASE_31F_MAX_CACHE_BYTES) return next
+    if (getCoachCacheByteLength(next) <= maxBytes) return next
   }
   throw new Error('offline_cache_payload_too_large')
 }
@@ -81,7 +81,7 @@ export function getCoachOfflineProfile(document, userScope) {
   return profile
 }
 
-export function setCoachOfflineProfile(document, profile, now = new Date().toISOString()) {
+export function setCoachOfflineProfile(document, profile, now = new Date().toISOString(), maxBytes = COACH_PHASE_31F_MAX_CACHE_BYTES) {
   const userScope = normalize(document?.userScope)
   if (!userScope || normalize(profile?.id) !== userScope) throw new Error('offline_profile_scope_mismatch')
   const next = {
@@ -98,7 +98,7 @@ export function setCoachOfflineProfile(document, profile, now = new Date().toISO
     },
     updatedAt: now,
   }
-  return recoverCoachOfflineCacheSpace(next)
+  return recoverCoachOfflineCacheSpace(next, { maxBytes })
 }
 
 export function getCoachOfflineResources(document, contextId) {
@@ -127,7 +127,7 @@ export function getCoachOfflineResources(document, contextId) {
   }
 }
 
-export function setCoachOfflineResources(document, contextId, resources, now = new Date().toISOString()) {
+export function setCoachOfflineResources(document, contextId, resources, now = new Date().toISOString(), maxBytes = COACH_PHASE_31F_MAX_CACHE_BYTES) {
   const expected = normalizeContext(contextId)
   const key = expected.contextId
   if (!document?.userScope || !key) throw new Error('offline_context_scope_mismatch')
@@ -160,7 +160,7 @@ export function setCoachOfflineResources(document, contextId, resources, now = n
     nextMetadata[resourceKey] = { fingerprint, savedAt: now, checkedAt: now, sensitivity: policy.sensitivity }
   }
   const retainedResourceKeys = Object.keys(resources || {}).filter((resourceKey) => getCoachOfflineReadPolicy(resourceKey).cache)
-  if (!changed) return recoverCoachOfflineCacheSpace(document, { retainContextId: key, retainResourceKeys: retainedResourceKeys })
+  if (!changed) return recoverCoachOfflineCacheSpace(document, { retainContextId: key, retainResourceKeys: retainedResourceKeys, maxBytes })
   const next = {
     ...document,
     cacheSchemaVersion: COACH_PHASE_31F_CACHE_SCHEMA_VERSION,
@@ -183,5 +183,6 @@ export function setCoachOfflineResources(document, contextId, resources, now = n
   return recoverCoachOfflineCacheSpace(next, {
     retainContextId: key,
     retainResourceKeys: retainedResourceKeys,
+    maxBytes,
   })
 }

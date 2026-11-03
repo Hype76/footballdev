@@ -65,8 +65,8 @@ test('complete main and focused rosters retain the existing nested metadata boun
 test('oversized complete snapshots fail atomically without replacing the previous saved copy', () => {
   let document = setCoachOfflineResources(createCoachOfflineDocument({ userScope: 'coach' }), context, { 'phase31e:invites': videoPattern() })
   const before = JSON.stringify(document)
-  const oversized = { ...videoPattern(), match: [{ id: 'large', eventId: 'target', playerId: 'player', note: 'x'.repeat(COACH_PHASE_31F_MAX_CACHE_BYTES) }] }
-  assert.throws(() => setCoachOfflineResources(document, context, { 'phase31e:invites': oversized }), /offline_cache_payload_too_large/)
+  const oversized = { ...videoPattern(), match: [{ id: 'large', eventId: 'target', playerId: 'player', note: 'x'.repeat(1_000_000) }] }
+  assert.throws(() => setCoachOfflineResources(document, context, { 'phase31e:invites': oversized }, undefined, 500_000), /offline_cache_payload_too_large/)
   assert.equal(JSON.stringify(document), before)
   assert.equal(getCoachOfflineResources(document, { ...context, authorityId: 'replaced-authority' }), null)
 })

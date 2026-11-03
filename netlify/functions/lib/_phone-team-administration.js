@@ -73,7 +73,7 @@ export function createPhoneTeamAdministrationHandler({ client, getPlanProfile, g
         return response(200, { kind: 'user', message: 'Coach access updated.', teamId: body.teamId, clubId: policy.data.clubId })
       }
       if (!invitation.alreadySent) {
-        const link = `https://footballplayer.online/staff-invite?token=${encodeURIComponent(invitation.inviteToken)}`
+        const link = `https://footballplayer.online/staff-invite/${encodeURIComponent(invitation.inviteToken)}`
         const sent = await sendInvite({ ...event, body: JSON.stringify({ inviteId: invitation.inviteId, phoneTeamCommand: true,
           html: `<h2>Join ${escape(invitation.teamName)}</h2><p>You have been invited as ${escape(invitation.roleLabel)}.</p><p><a href="${escape(link)}">Accept your coach invitation</a></p><p>This invitation expires in seven days.</p>`,
         }) })
