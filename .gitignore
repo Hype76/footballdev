@@ -45,6 +45,8 @@ apps/*/assets/ios-screenshots/
 apps/*/android/
 apps/*/dist-android-check/
 apps/*/dist-ios-check/
+apps/*/credentials.json
+apps/*/credentials/
 .npm-*-cache/
 scripts/check-real-ui-login.mjs
 scripts/create-demo-superadmin.mjs
