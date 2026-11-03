@@ -56,6 +56,22 @@ test('notification failures preserve accurate production-facing categories', () 
   assert.equal(getParentFriendlyError({ code: 'PARENT_PUSH_API_NETWORK' }), 'No connection. Notification settings were not changed.')
 })
 
+test('missing session cannot be mistaken for a saved off preference', async () => {
+  const requestSource = notificationSource.slice(notificationSource.indexOf('async function request('), notificationSource.indexOf('export async function initializeParentNotifications'))
+  const request = new Function('getAccessToken', `${requestSource}; return request`)(async () => '')
+  let failure
+  try {
+    await request({ apiBaseUrl: 'https://example.test', method: 'GET', path: '/installation' })
+    assert.fail('Missing access token must fail before contacting the service')
+  } catch (error) {
+    failure = error
+  }
+  assert.equal(getParentPushSetupFailureCode(failure, 'api'), 'PARENT_PUSH_API_SIGNED_OUT')
+  const loadSource = notificationSource.slice(notificationSource.indexOf('export async function loadParentNotificationState'), notificationSource.indexOf('export async function enableParentNotifications')).replace('export async function', 'async function')
+  const load = new Function('initializeParentNotifications', 'getLocalDetailLevel', 'getInstallationId', 'getPermissionState', 'request', 'getInstallationPath', `${loadSource}; return loadParentNotificationState`)(async () => {}, async () => 'minimal', async () => 'id', async () => ({}), request, () => '/installation')
+  await assert.rejects(load({ apiBaseUrl: 'https://example.test' }), { code: 'PARENT_MOBILE_SIGN_IN_REQUIRED' })
+})
+
 test('mobile branding uses the same accent authority and contrast treatment as web', () => {
   for (const mode of ['light', 'dark']) {
     for (const accent of ['yellow', 'blue', 'green', 'red', 'purple', '#336699']) {

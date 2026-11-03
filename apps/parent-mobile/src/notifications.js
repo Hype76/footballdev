@@ -199,7 +199,9 @@ function isPermissionGranted(permission) {
 async function request({ apiBaseUrl, body, method, path, isCurrent = () => true }) {
   const accessToken = await getAccessToken()
   if (!isCurrent()) throw new Error('Notification setup is no longer current.')
-  if (!accessToken) throw new Error('Sign in before changing notifications.')
+  if (!accessToken) {
+    throw Object.assign(new Error('Sign in before changing notifications.'), { code: 'PARENT_MOBILE_SIGN_IN_REQUIRED', status: 401 })
+  }
   if (!apiBaseUrl) throw new Error('Notifications are not ready for this build.')
 
   const { ok, response, result } = await fetchJsonWithTimeout(joinApiPath(apiBaseUrl, path), {
@@ -253,18 +255,12 @@ export async function loadParentNotificationState({ apiBaseUrl }) {
     getInstallationId(apiBaseUrl),
     getPermissionState(),
   ])
-  let serverState = { detailLevel, enabled: false, registered: false }
-
-  try {
-    const result = await request({
-      apiBaseUrl,
-      method: 'GET',
-      path: `${getInstallationPath(apiBaseUrl)}?installationId=${encodeURIComponent(installationId)}`,
-    })
-    serverState = result.installation || serverState
-  } catch (error) {
-    if (!normalize(error.message).toLowerCase().includes('sign in')) throw error
-  }
+  const result = await request({
+    apiBaseUrl,
+    method: 'GET',
+    path: `${getInstallationPath(apiBaseUrl)}?installationId=${encodeURIComponent(installationId)}`,
+  })
+  const serverState = result.installation || { detailLevel, enabled: false, registered: false }
 
   return mergeParentNotificationPermission(serverState, permission, detailLevel)
 }
