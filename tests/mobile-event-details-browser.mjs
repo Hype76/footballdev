@@ -30,10 +30,11 @@ import {MatchTypeIcon} from './apps/parent-mobile/src/MatchTypeIcon.js';
 import {HomeAwayIcon} from './apps/parent-mobile/src/HomeAwayIcon.js';
 import ParentIcon from './apps/parent-mobile/src/ParentIcon.js';
 import {VenueMapPreview} from './apps/mobile-core/src/VenueMapPreview.js';
+import {MatchTeamsLine} from './apps/mobile-core/src/MatchTeamsLine.js';
 import {PinnedEventNotes} from './apps/mobile-core/src/PinnedEventNotes.js';
 import {canRemoveCoachCancelledFixture,canEditCoachFixture} from './apps/mobile-core/src/coachFixtureEditCore.js';
 import React,{useState,useMemo,useEffect,useCallback,useRef} from 'react';import{createRoot}from'react-dom/client';import{View,Text,StyleSheet,Pressable,TextInput,Switch,Platform}from'react-native';import MaterialIcons from'@expo/vector-icons/MaterialIcons';
-import{createCoachTheme}from'./apps/coach-mobile/src/coachThemeCore.js';import{createParentMobileTheme,DEFAULT_PARENT_MOBILE_THEME}from'./apps/mobile-core/src/parentThemeCore.js';
+import{createCoachTheme}from'./apps/coach-mobile/src/coachThemeCore.js';import{createParentMobileTheme,DEFAULT_PARENT_MOBILE_THEME,resolveParentMobileBranding}from'./apps/mobile-core/src/parentThemeCore.js';
 import{getPitchTypeLabel,normalizePitchType}from'./src/lib/pitch-type.js';import{getMatchDayShirtChoiceLabel,normalizeMatchDayShirtChoice}from'./src/lib/matchday-model.js';import{normalizePersonName}from'./src/lib/person-name.js';import{getMatchDayDisplayName}from'./src/lib/matchday-display.js';import{getParentMatchStatusLabel}from'./apps/parent-mobile/src/parentExperience.js';import{formatParentProductDateTime,formatParentProductTime}from'./apps/mobile-core/src/parentDateTimeCore.js';import{formatMatchAddedTimeClock}from'./src/lib/matchday-event-time.js';${calendarImport}
 import{getParentMatchAvailability,getParentMatchSquadStatus}from'./apps/parent-mobile/src/parentMatchAvailability.js';
 import{CAPABILITIES,getFeatureAccess}from'./src/lib/paywall-access.js';
@@ -150,6 +151,6 @@ try {
  await page.evaluate(()=>{window.pitch('3g');window.fixtureType('league');window.homeAway('away')})
  for(const mode of ['light','dark'])for(const width of [390,320]){await page.evaluate(mode=>window.mode(mode),mode);await page.setViewportSize({width,height:844});await page.getByText('3G',{exact:true}).waitFor();await assertRenderedTextContrast(page,'Parent surface '+mode+' '+width);assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));await page.screenshot({path:out+'/surface-'+mode+'-'+width+'.png',fullPage:true})}
  for(const type of ['league','cup','tournament','friendly']){await page.evaluate(v=>window.fixtureType(v),type);await page.getByTestId('match-type-'+type).waitFor();await page.getByTestId('match-type-'+type).screenshot({path:out+'/match-type-'+type+'.png'})}
-for(const mode of ['light','dark'])for(const venue of ['home','away']){await page.evaluate(v=>{window.mode(v.mode);window.homeAway(v.venue)},{mode,venue});await page.getByTestId('home-away-'+venue).waitFor();await page.getByText(venue==='away'?'Visitors v FP TEST Club':'FP TEST Club v Visitors',{exact:true}).waitFor();assert.equal(await page.evaluate(()=>window.normalized.teamName),'FP TEST');await page.screenshot({path:out+'/venue-'+venue+'-'+mode+'.png',fullPage:true})}
+for(const mode of ['light','dark'])for(const venue of ['home','away']){await page.evaluate(v=>{window.mode(v.mode);window.homeAway(v.venue)},{mode,venue});await page.getByTestId('home-away-'+venue).waitFor();await page.getByRole('heading',{name:venue==='away'?'Visitors v FP TEST Club':'FP TEST Club v Visitors',exact:true}).waitFor();assert.equal(await page.evaluate(()=>window.normalized.teamName),'FP TEST');await page.screenshot({path:out+'/venue-'+venue+'-'+mode+'.png',fullPage:true})}
  assert.deepEqual(errors,[]);console.log('PASS: recurring Calendar navigation; resource search/categories, exact occurrence attachments, preserved existing/concurrent links, save/load failure retry, cancellation and role/offline/source restrictions; Parent match normalization and surface display; light/dark 320/390px.')
 }finally{await browser.close()}
