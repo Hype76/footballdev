@@ -79,9 +79,9 @@ test('different committed corrections to the same goal retain separate notificat
 test('actual correction dispatch carries the corrected score and command identity through web, native, inbox and Fan delivery',async()=>{
   const source=await readFile(new URL('../netlify/functions/send-match-day-push.js',import.meta.url),'utf8')
   const declaration=parse(source,{sourceType:'module'}).program.body.map(node=>node.declaration||node).find(node=>node.type==='FunctionDeclaration'&&node.id?.name==='deliverMatchDayNotification')
-  const web=[],native=[],inbox=[],fans=[]
+  const web=[],native=[],inbox=[],fans=[],live=[]
   const query={select:()=>query,eq:()=>query,maybeSingle:async()=>({data:{id:'goal',event_type:'goal',team_side:'club'}})}
-  const dependencies={supabaseAdmin:{from:()=>query},configureWebPush:()=>true,getAppNotificationParentLinks:async()=>[{id:'parent',auth_user_id:'account'}],getSubscriptions:async()=>[{}],getMobileDevices:async()=>[{expo_push_token:'ExpoPushToken[fixture]',parent_link_id:'parent',detail_level:'detailed'}],sendToSubscription:async(_subscription,payload)=>{web.push(payload);return{sent:true}},buildParentMatchDayNotificationCopy,resolveMatchDayNotificationTeamName,normalizeText:value=>String(value||'').trim(),writeParentNotificationInbox:async payload=>{inbox.push(payload);return{available:1}},sendExpoPushMessages:async messages=>{native.push(...messages);return{sent:messages.length,failed:0}},revokeMobileDeviceTokens:async()=>{},sendFanMatchNotifications:async payload=>{fans.push(payload);return{fanSent:0,fanFailed:0}},buildMatchDayNativeMessage}
+  const dependencies={supabaseAdmin:{from:()=>query},configureWebPush:()=>true,getAppNotificationParentLinks:async()=>[{id:'parent',auth_user_id:'account'}],getSubscriptions:async()=>[{}],getMobileDevices:async()=>[{expo_push_token:'ExpoPushToken[fixture]',parent_link_id:'parent',detail_level:'detailed'}],sendToSubscription:async(_subscription,payload)=>{web.push(payload);return{sent:true}},buildParentMatchDayNotificationCopy,resolveMatchDayNotificationTeamName,normalizeText:value=>String(value||'').trim(),writeParentNotificationInbox:async payload=>{inbox.push(payload);return{available:1}},sendExpoPushMessages:async messages=>{native.push(...messages);return{sent:messages.length,failed:0}},revokeMobileDeviceTokens:async()=>{},sendFanMatchNotifications:async payload=>{fans.push(payload);return{fanSent:0,fanFailed:0}},deliverLiveMatchChange:async matchId=>{live.push(matchId)},buildMatchDayNativeMessage}
   const deliver=new Function(...Object.keys(dependencies),`${source.slice(declaration.start,declaration.end)};return deliverMatchDayNotification`)(...Object.values(dependencies))
   const match={id:'fixture',team_id:'team',club_id:'club',home_score:1,away_score:0,home_away:'home',opponent:'Visitors',teams:{name:'FP TEST'},clubs:{name:'FP TEST Club'}}
   for(const notificationId of ['correct','remove','correct'])await deliver({match,type:'score_correction',eventId:'goal',notificationId,targetParentLinkIds:['parent']})
@@ -94,6 +94,7 @@ test('actual correction dispatch carries the corrected score and command identit
   assert.equal(native[1].data.notificationId,'remove')
   assert.equal(inbox[0].data.notificationId,'correct')
   assert.equal(fans[1].notificationId,'remove')
+  assert.deepEqual(live,['fixture','fixture','fixture'])
 })
 
 test('delayed handover alerts finish quietly after a Coach resumes or concludes the match',async()=>{
