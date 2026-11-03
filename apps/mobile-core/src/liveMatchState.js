@@ -29,7 +29,7 @@ export function createLiveMatchState(match, sampledAtMs) {
     awayName: parts.secondTeam.slice(0, 60),
     homeScore: score(parts.firstScore),
     awayScore: score(parts.secondScore),
-    phase: getMatchDayPhaseLabel(match) || ({ live: 'First half', second_half: 'Second half', half_time: 'Half time', full_time: 'Full time', penalties: 'Penalty shootout' }[status] || 'Pre-match'),
+    phase: lifecycle === 'not_started' ? '' : getMatchDayPhaseLabel(match) || ({ live: 'First half', second_half: 'Second half', half_time: 'Half time', full_time: 'Full time', penalties: 'Penalty shootout' }[status] || ''),
     running: timer.isRunning && lifecycle === 'playing' && !isShootout,
     elapsedSeconds: timer.elapsedSeconds,
     sampledAtMs,

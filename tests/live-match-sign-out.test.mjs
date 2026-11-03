@@ -2,6 +2,21 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { createLiveMatchStartBarrier, reconcileSavedLiveMatchFollow, revokeSavedLiveMatchFollows } from '../apps/mobile-core/src/liveMatchSignOutCore.js'
+import { getScopedTeamBranding } from '../src/lib/team-branding-display.js'
+
+test('live match badge uses only the authorised team branding display', async () => {
+  const source = readFileSync(new URL('../apps/mobile-core/src/liveMatchFollow.js', import.meta.url), 'utf8')
+  const badgeSource = source.slice(source.indexOf('async function matchBadgeUrl('), source.indexOf('export async function readLiveMatchFollow('))
+  const match = { team_id: 'team-1', club_id: 'club-1' }
+  const display = { teamId: 'team-1', clubId: 'club-1', source: 'team', logoAllowed: true,
+    coloursAllowed: false, logoUrl: 'https://example.com/badge.png', accent: '', buttonStyle: 'solid' }
+  const badge = new Function('supabase', 'loadTeamBrandingDisplay', 'getScopedTeamBranding', `${badgeSource}; return matchBadgeUrl`)(
+    {}, async (_client, context) => ({ ...context, teamBrandingDisplay: display }), getScopedTeamBranding)
+  assert.equal(await badge(match), display.logoUrl)
+  const denied = new Function('supabase', 'loadTeamBrandingDisplay', 'getScopedTeamBranding', `${badgeSource}; return matchBadgeUrl`)(
+    {}, async (_client, context) => ({ ...context, teamBrandingDisplay: { ...display, teamId: 'other-team' } }), getScopedTeamBranding)
+  assert.equal(await denied(match), '')
+})
 
 test('sign-out waits for a registering follow and revokes its saved ID', async () => {
   const barrier = createLiveMatchStartBarrier()

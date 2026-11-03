@@ -30,6 +30,8 @@ class LiveMatchModule : Module() {
         sampledAtMs = System.currentTimeMillis(),
         homeShootoutScore = (value["homeShootoutScore"] as? Number)?.toInt(),
         awayShootoutScore = (value["awayShootoutScore"] as? Number)?.toInt(),
+        appRole = value["appRole"] as? String ?: "coach",
+        badgeUrl = value["badgeUrl"] as? String,
       )
       val manager = context.getSystemService(android.content.Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
       if (Build.VERSION.SDK_INT < 33 || context.checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) == android.content.pm.PackageManager.PERMISSION_GRANTED) {

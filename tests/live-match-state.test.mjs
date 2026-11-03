@@ -33,6 +33,15 @@ test('pauses, shootouts, conclusion and cancellation do not present a running ti
   assert.deepEqual(createLiveMatchState({ ...fixture, status: 'cancelled' }, now), { end: true })
 })
 
+test('scheduled match score has no pre-match label or clock', () => {
+  const state = createLiveMatchState({ ...fixture, status: 'scheduled', currentMatchPhase: 'pre_match', timerStatus: 'not_started', timerElapsedSeconds: 0 }, now)
+  assert.equal(state.phase, '')
+  assert.equal(state.elapsedSeconds, null)
+  assert.equal(state.running, false)
+  assert.equal(state.homeScore, 2)
+  assert.equal(state.awayScore, 3)
+})
+
 test('the payload does not include player, parent or unsent command data', () => {
   const state = createLiveMatchState({ ...fixture, players: [{ name: 'Private' }], journal: [{ pending: true }] }, now)
   assert.equal(JSON.stringify(state).includes('Private'), false)

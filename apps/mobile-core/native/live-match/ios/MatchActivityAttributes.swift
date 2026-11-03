@@ -18,4 +18,5 @@ struct MatchActivityAttributes: ActivityAttributes {
 
   // An opaque activity identifier does not expose a child or account identity.
   let activityKey: String
+  let badgeData: Data?
 }

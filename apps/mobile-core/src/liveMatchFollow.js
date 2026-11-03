@@ -7,6 +7,7 @@ import { getMobileRuntimeConfig } from './config'
 import { createLiveMatchState } from './liveMatchState'
 import { createLiveMatchStartBarrier, reconcileSavedLiveMatchFollow, revokeSavedLiveMatchFollows } from './liveMatchSignOutCore'
 import { supabase } from './supabase'
+import { loadTeamBrandingDisplay, getScopedTeamBranding } from '../../../src/lib/team-branding-display.js'
 
 const iosActivity = Platform.OS === 'ios' ? requireOptionalNativeModule('ReactNativeWidgetExtension') : null
 const keyFor = (role, userId, matchId) => `fp.live-match.v1.${role}.${userId}.${matchId}`
@@ -27,6 +28,14 @@ async function confirmedMatch(role, matchId, parentLinkId) {
   const { data, error } = await supabase.from('match_days').select('*, teams:team_id(name)').eq('id', matchId).maybeSingle()
   if (error || !data) throw error || new Error('Match access is no longer available.')
   return { ...data, teamName: data.teams?.name }
+}
+
+async function matchBadgeUrl(match) {
+  if (!match?.team_id || !match?.club_id) return ''
+  try {
+    const context = await loadTeamBrandingDisplay(supabase, { teamId: match.team_id, clubId: match.club_id })
+    return getScopedTeamBranding(context)?.logoUrl || ''
+  } catch { return '' }
 }
 
 export async function readLiveMatchFollow(role, matchId) {
@@ -65,10 +74,11 @@ async function startLiveMatchFollow(role, matchId, parentLinkId = null) {
     startBarrier.check(role, generation)
     const state = createLiveMatchState(match, Date.now())
     if (state.end) throw new Error('This match has ended.')
+    const displayState = { ...state, badgeUrl: match.team_id && match.club_id ? await matchBadgeUrl(match) : '', appRole: role }
     let token = ''
     if (Platform.OS === 'ios') {
       if (!iosActivity?.activitiesEnabled()) throw new Error('Live Activities are off in iPhone settings.')
-      activityId = iosActivity.startMatchActivity(matchId, state)
+      activityId = await iosActivity.startMatchActivity(matchId, displayState)
       for (let attempt = 0; attempt < 120 && !token; attempt += 1) {
         startBarrier.check(role, generation)
         token = iosActivity.getMatchActivityToken(activityId) || ''
@@ -92,7 +102,7 @@ async function startLiveMatchFollow(role, matchId, parentLinkId = null) {
     const saved = { followId, activityId, parentLinkId }
     await AsyncStorage.setItem(keyFor(role, userId, matchId), JSON.stringify(saved))
     startBarrier.check(role, generation)
-    if (Platform.OS === 'android') await showLiveMatchNotification(matchId, state)
+    if (Platform.OS === 'android') await showLiveMatchNotification(matchId, displayState)
     startBarrier.check(role, generation)
     return saved
   } catch (error) {
@@ -138,7 +148,7 @@ export async function refreshLiveMatchNotification(role, matchId) {
     const match = await confirmedMatch(role, matchId, saved.parentLinkId)
     const state = createLiveMatchState(match, Date.now())
     if (state.end) await stopLiveMatchFollow(role, matchId)
-    else await showLiveMatchNotification(matchId, state)
+    else await showLiveMatchNotification(matchId, { ...state, badgeUrl: match.team_id && match.club_id ? await matchBadgeUrl(match) : '', appRole: role })
   } catch {
     await hideLiveMatchNotification(matchId)
   }
