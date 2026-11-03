@@ -51,44 +51,54 @@ export async function readLiveMatchFollow(role, matchId) {
 }
 
 async function startLiveMatchFollow(role, matchId, parentLinkId = null) {
-  const config = getMobileRuntimeConfig(role)
-  if (!config.isUsable || config.appRole !== role) throw new Error('Live match is unavailable in this build.')
-  const { data: auth, error: authError } = await supabase.auth.getUser()
-  if (authError || !auth?.user?.id) throw new Error('Sign in to follow this match.')
-  const match = await confirmedMatch(role, matchId, parentLinkId)
-  const state = createLiveMatchState(match, Date.now())
-  if (state.end) throw new Error('This match has ended.')
-  let token = '', activityId = ''
-  if (Platform.OS === 'ios') {
-    if (!iosActivity?.activitiesEnabled()) throw new Error('Live Activities are off in iPhone settings.')
-    activityId = iosActivity.startMatchActivity(matchId, state)
-    for (let attempt = 0; attempt < 120 && !token; attempt += 1) {
-      token = iosActivity.getMatchActivityToken(activityId) || ''
-      if (!token) await new Promise(resolve => setTimeout(resolve, 500))
-    }
-    if (!token) { await iosActivity.endMatchActivity(activityId); throw new Error('The iPhone could not start this live match. Try again.') }
-  } else if (Platform.OS === 'android') {
-    const permission = await Notifications.getPermissionsAsync()
-    const granted = permission.granted || (await Notifications.requestPermissionsAsync()).granted
-    if (!granted) throw new Error('Enable notifications to follow the match.')
-    token = (await Notifications.getExpoPushTokenAsync({ projectId: config.easProjectId })).data
-  } else throw new Error('Live match is available on phones only.')
-  let registeredFollowId = ''
+  const generation = startBarrier.generation(role)
+  let registeredFollowId = '', activityId = '', userId = ''
   try {
+    startBarrier.check(role, generation)
+    const config = getMobileRuntimeConfig(role)
+    if (!config.isUsable || config.appRole !== role) throw new Error('Live match is unavailable in this build.')
+    const { data: auth, error: authError } = await supabase.auth.getUser()
+    if (authError || !auth?.user?.id) throw new Error('Sign in to follow this match.')
+    userId = auth.user.id
+    const match = await confirmedMatch(role, matchId, parentLinkId)
+    startBarrier.check(role, generation)
+    const state = createLiveMatchState(match, Date.now())
+    if (state.end) throw new Error('This match has ended.')
+    let token = ''
+    if (Platform.OS === 'ios') {
+      if (!iosActivity?.activitiesEnabled()) throw new Error('Live Activities are off in iPhone settings.')
+      activityId = iosActivity.startMatchActivity(matchId, state)
+      for (let attempt = 0; attempt < 120 && !token; attempt += 1) {
+        startBarrier.check(role, generation)
+        token = iosActivity.getMatchActivityToken(activityId) || ''
+        if (!token) await new Promise(resolve => setTimeout(resolve, 500))
+      }
+      if (!token) throw new Error('The iPhone could not start this live match. Try again.')
+    } else if (Platform.OS === 'android') {
+      const permission = await Notifications.getPermissionsAsync()
+      const granted = permission.granted || (await Notifications.requestPermissionsAsync()).granted
+      if (!granted) throw new Error('Enable notifications to follow the match.')
+      token = (await Notifications.getExpoPushTokenAsync({ projectId: config.easProjectId })).data
+    } else throw new Error('Live match is available on phones only.')
+    startBarrier.check(role, generation)
     const { data: followId, error } = await supabase.rpc('follow_live_match', {
       match_day_id_value: matchId, app_role_value: role, platform_value: Platform.OS,
       activity_token_value: token, parent_link_id_value: parentLinkId,
     })
     if (error || !followId) throw error || new Error('Could not follow this match.')
     registeredFollowId = followId
+    startBarrier.check(role, generation)
     const saved = { followId, activityId, parentLinkId }
-    await AsyncStorage.setItem(keyFor(role, auth.user.id, matchId), JSON.stringify(saved))
+    await AsyncStorage.setItem(keyFor(role, userId, matchId), JSON.stringify(saved))
+    startBarrier.check(role, generation)
     if (Platform.OS === 'android') await showLiveMatchNotification(matchId, state)
+    startBarrier.check(role, generation)
     return saved
   } catch (error) {
     if (registeredFollowId) await supabase.rpc('stop_following_live_match', { follow_id_value: registeredFollowId }).catch(() => {})
-    if (activityId) await iosActivity.endMatchActivity(activityId).catch(() => {})
-    await AsyncStorage.removeItem(keyFor(role, auth.user.id, matchId)).catch(() => {})
+    if (activityId) await iosActivity?.endMatchActivity(activityId).catch(() => {})
+    if (Platform.OS === 'android') await hideLiveMatchNotification(matchId).catch(() => {})
+    if (userId) await AsyncStorage.removeItem(keyFor(role, userId, matchId)).catch(() => {})
     throw error
   }
 }
@@ -150,6 +160,7 @@ export async function revokeLiveMatchFollowsBeforeSignOut(role) {
 }
 
 export async function clearLiveMatchOnSignOut(role) {
+  await startBarrier.beforeSignOut(role)
   try {
     const prefix = `fp.live-match.v1.${role}.`
     const keys = (await AsyncStorage.getAllKeys()).filter(key => key.startsWith(prefix))

@@ -21,7 +21,14 @@ export async function reconcileSavedLiveMatchFollow(saved, { check, clear }) {
 export function createLiveMatchStartBarrier() {
   const pending = new Map()
   const signingOut = new Set()
+  const generations = new Map()
   return {
+    generation(role) { return generations.get(role) || 0 },
+    check(role, generation) {
+      if (signingOut.has(role) || this.generation(role) !== generation) {
+        throw new Error('Live match following stopped because you signed out.')
+      }
+    },
     start(role, matchId, start) {
       if (signingOut.has(role)) return Promise.reject(new Error('Sign-out is in progress. Try again after signing in.'))
       const key = `${role}:${matchId}`
@@ -35,6 +42,7 @@ export function createLiveMatchStartBarrier() {
     },
     async beforeSignOut(role) {
       signingOut.add(role)
+      generations.set(role, this.generation(role) + 1)
       await Promise.allSettled([...pending.entries()].filter(([key]) => key.startsWith(`${role}:`)).map(([, attempt]) => attempt))
     },
     allow(role) { signingOut.delete(role) },
