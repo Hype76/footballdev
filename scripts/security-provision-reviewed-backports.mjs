@@ -37,6 +37,12 @@ export function assertInstallScope(root, scope) {
     for (const name of fs.readdirSync(dir)) {
       const file = path.join(dir, name), stat = fs.lstatSync(file)
       if (stat.isSymbolicLink()) {
+        if (name === 'football-player-live-match' && dir === modules) {
+          const expected = path.join(root, 'apps', 'mobile-core', 'modules', 'live-match')
+          assert.equal(fs.realpathSync(file).toLowerCase(), fs.realpathSync(expected).toLowerCase(), 'Local live match package link target changed')
+          assert.ok(!fs.existsSync(path.join(expected, 'node_modules')), 'Local live match package cannot hide dependencies')
+          continue
+        }
         // npm creates Unix executable links in .bin. They must stay inside this owned tree.
         assert.ok(path.relative(modules, file).split(path.sep).includes('.bin'), 'Package links forbidden before clean install')
         const relative = path.relative(modules, fs.realpathSync(file))

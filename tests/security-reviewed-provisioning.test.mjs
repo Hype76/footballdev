@@ -31,6 +31,34 @@ test('executable links must resolve within node_modules including the exact pare
     fs.rmdirSync(app); fs.rmdirSync(path.join(root, 'apps')); fs.rmdirSync(root)
   }
 })
+test('only the owned live match module may link outside mobile node_modules', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'football-local-module-'))
+  const app = path.join(root, 'apps', 'parent-mobile')
+  const modules = path.join(app, 'node_modules')
+  const owned = path.join(root, 'apps', 'mobile-core', 'modules', 'live-match')
+  const link = path.join(modules, 'football-player-live-match')
+  const outside = path.join(root, 'outside')
+  fs.mkdirSync(modules, { recursive: true })
+  fs.mkdirSync(owned, { recursive: true })
+  fs.mkdirSync(outside)
+  try {
+    fs.symlinkSync(owned, link, process.platform === 'win32' ? 'junction' : 'dir')
+    assert.doesNotThrow(() => assertInstallScope(root, 'apps/parent-mobile'))
+    fs.unlinkSync(link)
+    fs.symlinkSync(outside, link, process.platform === 'win32' ? 'junction' : 'dir')
+    assert.throws(() => assertInstallScope(root, 'apps/parent-mobile'), /Local live match package link target changed/)
+  } finally {
+    fs.unlinkSync(link)
+    fs.rmdirSync(outside)
+    fs.rmdirSync(owned)
+    fs.rmdirSync(path.dirname(owned))
+    fs.rmdirSync(path.dirname(path.dirname(owned)))
+    fs.rmdirSync(modules)
+    fs.rmdirSync(app)
+    fs.rmdirSync(path.join(root, 'apps'))
+    fs.rmdirSync(root)
+  }
+})
 test('wrong external receipt stops the real provisioner before artifact writes or npm execution', () => {
   const root = process.cwd(), artifacts = path.join(root, '.security-artifacts')
   const correctionCopies = ['node_modules/deepmerge', 'apps/parent-mobile/node_modules/deepmerge', 'apps/coach-mobile/node_modules/deepmerge']
