@@ -159,7 +159,10 @@ if (profile === 'store-live' || qaUpload) {
   submitArgs.push('--id', submissionBuildId)
   submitArgs.push('--non-interactive', '--no-wait')
 }
-execFileSync('npx', submitArgs, {
+const shellSubmitArgs = process.platform === 'win32'
+  ? submitArgs.map((arg) => arg === 'Internal Testers' ? '"Internal Testers"' : arg)
+  : submitArgs
+execFileSync('npx', shellSubmitArgs, {
   cwd: resolve(repoRoot, app.path),
   env: {
     ...process.env,

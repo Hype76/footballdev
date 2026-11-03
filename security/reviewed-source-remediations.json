@@ -559,7 +559,7 @@
   "implementationHashes": {
     "scripts/security-supply-chain-gate.mjs": "dcf722bc6cbf2015da4250ea60cbb81e34d3c5c64ec7bb6059671cbae5ab4207",
     "scripts/security-apply-reviewed-backports.mjs": "d1f039f35d9c8fddbb1b5694b89d2edd9d9adfd486dc75bd09f26194b7daa941",
-    "scripts/security-verify-reviewed-backports.mjs": "b8926d45a118765cce63ba307c82a77d03d6477acbbd3007eb8db5e96b6793b4",
+    "scripts/security-verify-reviewed-backports.mjs": "18af57436dc188470580a8f69d142b6a42de36102b4e0d3538008e403f18980e",
     "security/patches/braces-3.0.3.patch": "e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699",
     "security/patches/node-forge-1.4.0.patch": "2de065ac998bf58917a14d0935112d97ec2957ac41b5f06958d500934f188ed4",
     "security/patches/reviewed-source-manifest.json": "facb364bbac44a8276d082068e8ed8415ca89777d24f4c7a05ff370f71e5a54d",
@@ -1969,7 +1969,7 @@
       "apps/parent-mobile/src/backgroundInvitationActions.js": "61054ff2a595a776c414e29dbe5368d52e82b248691859770ab9d63ecc620e88",
       "apps/parent-mobile/src/notifications.js": "2156564ac140986bd192fee03e15ab01fcad958d2d2b52af659d3bde426de0b7",
       "apps/scripts/mobile-build-guard.mjs": "df4003af10b5864af340729af8e38ad73ec0a8fc4bf19a082b075899317f921a",
-      "apps/scripts/mobile-submit-guard.mjs": "1e7ef1ec5781a5ae09a0259fe7268e30517f9032395108459084b0177da0e6e0",
+      "apps/scripts/mobile-submit-guard.mjs": "d49f4eb123674bf0e64fce0e9937040231529700c5e620de6b48135e3ffd296a",
       "netlify/functions/coach-calendar-feed.js": "c4892389b1ec528dd184c332fe958aba171bdf26ddf48468f845b29f0e15ef6d",
       "netlify/functions/lib/_coach-calendar-authority.js": "83e7672eba964646a72418c5c1a3da544f7feb742a0ea2252b57a1cedbeb3db3",
       "supabase/migrations/20261027140215_coach_calendar_subscriptions.sql": "1f5639bba6c274334cdb20b92b2ac64c952771eafb0d94d67119d8d3a1737572",
@@ -3556,7 +3556,7 @@
       "nodeEngine": "20 || >=22"
     }
   },
-  "releasePreparationSha256": "dc51ccaf086f0f759e0ce9bf55400e471fd1c800e45b635cbada09df454323bc",
+  "releasePreparationSha256": "1f4800c0053cfa80ba5167c97ac34d5d291ffb47e0aa0e1a20bf06e66bae12e9",
   "rootOnlyProposalSha256": "45c3b7352c7328c84982e114b7e87e09cf79514d02d102297ae75ec0925812eb",
   "remediationMode": "maintained-source-fixes",
   "officialCompatibilityDependencies": [
