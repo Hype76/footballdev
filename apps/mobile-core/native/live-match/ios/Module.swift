@@ -18,7 +18,7 @@ public class ReactNativeWidgetExtensionModule: Module {
       guard let state = Self.parse(input) else { throw NSError(domain: "LiveMatch", code: 3) }
       let badgeData = await Self.badgeData(input["badgeUrl"] as? String)
       let attributes = MatchActivityAttributes(activityKey: key, badgeData: badgeData)
-      let content = ActivityContent(state: state, staleDate: Date().addingTimeInterval(120))
+      let content = ActivityContent(state: state, staleDate: Date().addingTimeInterval(4 * 60 * 60))
       let activity = try Activity.request(attributes: attributes, content: content, pushType: .token)
       return activity.id
     }

@@ -559,7 +559,7 @@
   "implementationHashes": {
     "scripts/security-supply-chain-gate.mjs": "dcf722bc6cbf2015da4250ea60cbb81e34d3c5c64ec7bb6059671cbae5ab4207",
     "scripts/security-apply-reviewed-backports.mjs": "d1f039f35d9c8fddbb1b5694b89d2edd9d9adfd486dc75bd09f26194b7daa941",
-    "scripts/security-verify-reviewed-backports.mjs": "716d2e8cdae6d4b4417b1e64c8d07275cbff75253c7479bc3de795947423b60c",
+    "scripts/security-verify-reviewed-backports.mjs": "8ce5118a25e925329dbd6a1ce8a03c7d0864f4a3898a8455b552c091ddccdc25",
     "security/patches/braces-3.0.3.patch": "e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699",
     "security/patches/node-forge-1.4.0.patch": "2de065ac998bf58917a14d0935112d97ec2957ac41b5f06958d500934f188ed4",
     "security/patches/reviewed-source-manifest.json": "facb364bbac44a8276d082068e8ed8415ca89777d24f4c7a05ff370f71e5a54d",
@@ -2087,7 +2087,7 @@
       "apps/coach-mobile/widgets/Attributes.swift": "90650e656b5cd71bdacbc1e48a59e65ac5ad80fc45bdae932f3391ab764ae646",
       "apps/coach-mobile/widgets/Info.plist": "c94feba7a879296701ae94a0b3c59247484a06767c70519ab6be795fbd93e427",
       "apps/coach-mobile/widgets/MatchLiveActivityWidget.swift": "e9d38c51944bfd64024daecc486a962cbdda5757bd2836140d37aff41546c283",
-      "apps/coach-mobile/widgets/Module.swift": "b71572c4e9d898a2b29b3738902b3eaf69d8cb5ae192f196ed5b6ab91cd4eede",
+      "apps/coach-mobile/widgets/Module.swift": "1a062ea61a25e66ee9ca755e48e9648fa99f0606a5244a229fca67acbb647d91",
       "apps/coach-mobile/widgets/WidgetBundle.swift": "09154d9859bb1b9b59052db13816808a087f5ee1e06f072cd75827711a7eae12",
       "apps/mobile-core/modules/live-match/android/build.gradle": "5b62b3c746bcb8d46255535746766a256839d89fc53e07f37586a8077ab87b3a",
       "apps/mobile-core/modules/live-match/android/src/main/java/online/footballplayer/livematch/LiveMatchModule.kt": "8fd91a19c0b96e16ffbb98d1ccc18546cc47ba495981948f97a07e8b61713747",
@@ -2097,7 +2097,7 @@
       "apps/mobile-core/modules/live-match/package.json": "223e6cd8d969cf722827c71f4ea222119baa23dbb432517e804db8dbdf8a4e83",
       "apps/mobile-core/native/live-match/ios/MatchActivityAttributes.swift": "90650e656b5cd71bdacbc1e48a59e65ac5ad80fc45bdae932f3391ab764ae646",
       "apps/mobile-core/native/live-match/ios/MatchLiveActivityWidget.swift": "e9d38c51944bfd64024daecc486a962cbdda5757bd2836140d37aff41546c283",
-      "apps/mobile-core/native/live-match/ios/Module.swift": "b71572c4e9d898a2b29b3738902b3eaf69d8cb5ae192f196ed5b6ab91cd4eede",
+      "apps/mobile-core/native/live-match/ios/Module.swift": "1a062ea61a25e66ee9ca755e48e9648fa99f0606a5244a229fca67acbb647d91",
       "apps/mobile-core/native/live-match/ios/WidgetBundle.swift": "09154d9859bb1b9b59052db13816808a087f5ee1e06f072cd75827711a7eae12",
       "apps/mobile-core/src/LiveMatchFollowAction.js": "cfce170ef9c3cf7fc1632e9665b9ef1354ba68566138633ceff3b739ba674c0c",
       "apps/mobile-core/src/liveMatchBackground.js": "660ea0380fe34b51cee7671fe6e4507fe6e3b054769695e9a6176c110440faed",
@@ -2107,7 +2107,7 @@
       "apps/parent-mobile/widgets/Attributes.swift": "90650e656b5cd71bdacbc1e48a59e65ac5ad80fc45bdae932f3391ab764ae646",
       "apps/parent-mobile/widgets/Info.plist": "c94feba7a879296701ae94a0b3c59247484a06767c70519ab6be795fbd93e427",
       "apps/parent-mobile/widgets/MatchLiveActivityWidget.swift": "4ac3758f97e67f8bc480bf26db08c7d6bf4bf81a31d2fcec698985ccb10845b8",
-      "apps/parent-mobile/widgets/Module.swift": "b71572c4e9d898a2b29b3738902b3eaf69d8cb5ae192f196ed5b6ab91cd4eede",
+      "apps/parent-mobile/widgets/Module.swift": "1a062ea61a25e66ee9ca755e48e9648fa99f0606a5244a229fca67acbb647d91",
       "apps/parent-mobile/widgets/WidgetBundle.swift": "09154d9859bb1b9b59052db13816808a087f5ee1e06f072cd75827711a7eae12",
       "apps/scripts/mobile-apply-reviewed-glob-compat.mjs": "33eb0b1242f875f4da32aa9fb1c3079e9775dfacdb382c82cc38b6ed1743783b",
       "netlify/functions/lib/_deliver-live-match-changes.js": "492caa79bd809d9b77ac65a36131f00430eac35f1cbde3a4b404d14dd234b5d2",
@@ -2117,7 +2117,7 @@
       "tests/live-activity-apns.test.mjs": "75ca9ea2e93b244fbaf331fed441f2ba4816f4b9634e81f12b3c1430d40a52c4",
       "tests/live-match-delivery.test.mjs": "47a84efbab49b18b6f2c775431e10226e2252a5317da6d25789886a3a69a81af",
       "tests/live-match-migration-pglite.test.mjs": "44e200d665cef1925f36ec052ad21a6882eeccc765cd414b8fa550a525d54803",
-      "tests/live-match-state.test.mjs": "8f16279a2d568808df02cdfba812a3114b6c808e3a851d25d227262869563054",
+      "tests/live-match-state.test.mjs": "89228985ca2598bcbbcd515fef1737b17df79299a7fb8c1544cc9a85c15ff3e5",
       "tests/parent-offline-capacity.test.mjs": "a4d92489490ff76cae8831f8f4af7436daadc3fdc0b11978a026d74c05fbe452",
       "apps/mobile-core/src/liveMatchSignOutCore.js": "6445350cd87353c7513a86396742708aee4e92c848e5380d4d632bf17de2b4af",
       "tests/live-match-sign-out.test.mjs": "8c0a97b9c87edbea9a5d1e0d50f724de776e2cc1c3615b48fb8ae20caa93d984",
@@ -3543,7 +3543,7 @@
       "nodeEngine": "20 || >=22"
     }
   },
-  "releasePreparationSha256": "75cf2b0b61afc37d40686272e64c1ba0b94a5fb1e4f7d9ca41901ceb47c6d8ee",
+  "releasePreparationSha256": "af05cd6cea635bb2a3ad7e12178beaa933905b640cead8a3adb6704ef90a58f4",
   "rootOnlyProposalSha256": "45c3b7352c7328c84982e114b7e87e09cf79514d02d102297ae75ec0925812eb",
   "remediationMode": "maintained-source-fixes",
   "officialCompatibilityDependencies": [

@@ -1,5 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 import { createLiveMatchState } from '../apps/mobile-core/src/liveMatchState.js'
 
 const now = Date.parse('2026-11-03T12:30:00Z')
@@ -40,6 +41,10 @@ test('scheduled match score has no pre-match label or clock', () => {
   assert.equal(state.running, false)
   assert.equal(state.homeScore, 2)
   assert.equal(state.awayScore, 3)
+  for (const role of ['coach', 'parent']) {
+    const source = readFileSync(new URL(`../apps/${role}-mobile/widgets/Module.swift`, import.meta.url), 'utf8')
+    assert.match(source, /staleDate: Date\(\)\.addingTimeInterval\(4 \* 60 \* 60\)/)
+  }
 })
 
 test('the payload does not include player, parent or unsent command data', () => {
