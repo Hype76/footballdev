@@ -5,7 +5,7 @@ import { Platform } from 'react-native'
 import { showLiveMatchNotification, hideLiveMatchNotification } from '../modules/live-match/index.js'
 import { getMobileRuntimeConfig } from './config'
 import { createLiveMatchState } from './liveMatchState'
-import { revokeSavedLiveMatchFollows } from './liveMatchSignOutCore'
+import { reconcileSavedLiveMatchFollow, revokeSavedLiveMatchFollows } from './liveMatchSignOutCore'
 import { supabase } from './supabase'
 
 const iosActivity = Platform.OS === 'ios' ? requireOptionalNativeModule('ReactNativeWidgetExtension') : null
@@ -27,8 +27,22 @@ async function confirmedMatch(role, matchId, parentLinkId) {
 export async function readLiveMatchFollow(role, matchId) {
   const { data } = await supabase.auth.getUser()
   if (!data?.user?.id) return null
-  const saved = await AsyncStorage.getItem(keyFor(role, data.user.id, matchId))
-  try { return saved ? JSON.parse(saved) : null } catch { return null }
+  const key = keyFor(role, data.user.id, matchId)
+  const raw = await AsyncStorage.getItem(key)
+  let saved
+  try { saved = raw ? JSON.parse(raw) : null } catch { return null }
+  return reconcileSavedLiveMatchFollow(saved, {
+    check: async followId => {
+      const { data: active, error } = await supabase.rpc('is_live_match_follow_active', { follow_id_value: followId })
+      if (error) throw error
+      return active
+    },
+    clear: async stale => {
+      if (Platform.OS === 'ios' && stale.activityId) await iosActivity?.endMatchActivity(stale.activityId).catch(() => {})
+      if (Platform.OS === 'android') await hideLiveMatchNotification(matchId).catch(() => {})
+      await AsyncStorage.removeItem(key)
+    },
+  })
 }
 
 export async function startLiveMatchFollow(role, matchId, parentLinkId = null) {

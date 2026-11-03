@@ -3,6 +3,7 @@ create schema if not exists private;
 create table private.live_match_follows (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
+  session_id uuid not null references auth.sessions(id) on delete cascade,
   match_day_id uuid not null references public.match_days(id) on delete cascade,
   parent_link_id uuid references public.parent_player_links(id) on delete cascade,
   app_role text not null check (app_role in ('coach', 'parent')),
@@ -62,8 +63,13 @@ returns uuid language plpgsql security definer set search_path = '' as $$
 declare
   match_row public.match_days%rowtype;
   follow_id uuid;
+  session_id_value uuid := nullif(auth.jwt()->>'session_id', '')::uuid;
 begin
   if auth.uid() is null then raise exception 'Sign in to follow a match.' using errcode = '42501'; end if;
+  if session_id_value is null or not exists (
+    select 1 from auth.sessions s where s.id = session_id_value and s.user_id = auth.uid()
+      and (s.not_after is null or s.not_after > now())
+  ) then raise exception 'Active session is required to follow a match.' using errcode = '42501'; end if;
   if app_role_value not in ('coach', 'parent') or platform_value not in ('ios', 'android')
     or (platform_value = 'ios' and (length(activity_token_value) not between 64 and 256 or activity_token_value !~ '^[0-9a-fA-F]+$'))
     or (platform_value = 'android' and activity_token_value !~ '^ExpoPushToken\[[A-Za-z0-9_-]{16,128}\]$') then
@@ -84,11 +90,11 @@ begin
   ) then
     raise exception 'Match access is required.' using errcode = '42501';
   end if;
-  insert into private.live_match_follows(user_id, match_day_id, parent_link_id, app_role, platform, activity_token)
-    values (auth.uid(), match_day_id_value, parent_link_id_value, app_role_value, platform_value,
+  insert into private.live_match_follows(user_id, session_id, match_day_id, parent_link_id, app_role, platform, activity_token)
+    values (auth.uid(), session_id_value, match_day_id_value, parent_link_id_value, app_role_value, platform_value,
       case when platform_value = 'ios' then lower(activity_token_value) else activity_token_value end)
     on conflict (user_id, match_day_id, app_role, platform, activity_token)
-    do update set updated_at = now(), parent_link_id = excluded.parent_link_id
+    do update set updated_at = now(), parent_link_id = excluded.parent_link_id, session_id = excluded.session_id
     returning id into follow_id;
   return follow_id;
 end;
@@ -110,6 +116,17 @@ $$;
 revoke all on function public.stop_following_live_match(uuid) from public, anon;
 grant execute on function public.stop_following_live_match(uuid) to authenticated;
 
+create or replace function public.is_live_match_follow_active(follow_id_value uuid)
+returns boolean language sql stable security definer set search_path = '' as $$
+  select exists (
+    select 1 from private.live_match_follows f
+    where f.id = follow_id_value and f.user_id = auth.uid()
+      and f.session_id = nullif(auth.jwt()->>'session_id', '')::uuid
+  );
+$$;
+revoke all on function public.is_live_match_follow_active(uuid) from public, anon;
+grant execute on function public.is_live_match_follow_active(uuid) to authenticated;
+
 create or replace function public.get_live_match_follows_for_delivery(match_day_id_value uuid)
 returns table(follow_id uuid, app_role text, platform text, activity_token text, access_allowed boolean)
 language plpgsql security definer set search_path = '' as $$
@@ -124,8 +141,10 @@ begin
   end if;
   select * into match_row from public.match_days where id = match_day_id_value;
   if match_row.id is null then return; end if;
-  for follower in select * from private.live_match_follows
-    where match_day_id = match_day_id_value and updated_at > now() - interval '3 hours' loop
+  for follower in select f.* from private.live_match_follows f
+    join auth.sessions s on s.id = f.session_id
+    where f.match_day_id = match_day_id_value
+      and (s.not_after is null or s.not_after > now()) loop
     perform set_config('request.jwt.claim.sub', follower.user_id::text, true);
     if follower.app_role = 'coach' then
       can_follow := coalesce(public.can_read_match_day(match_row.team_id), false)
@@ -191,13 +210,16 @@ returns integer language plpgsql security definer set search_path = '' as $$
 declare queued_count integer;
 begin
   if auth.role() <> 'service_role' then raise exception 'Service access is required.' using errcode = '42501'; end if;
-  delete from private.live_match_follows where updated_at <= now() - interval '3 hours';
+  delete from private.live_match_follows f where not exists (
+    select 1 from auth.sessions s where s.id = f.session_id
+      and (s.not_after is null or s.not_after > now())
+  );
   insert into private.live_match_changes(match_day_id)
   select match_row.id
   from public.match_days match_row
   where match_row.status in ('live', 'second_half', 'extra_time', 'penalties')
     and match_row.deleted_at is null and match_row.concluded_at is null
-    and exists (select 1 from private.live_match_follows f where f.match_day_id = match_row.id and f.updated_at > now() - interval '3 hours')
+    and exists (select 1 from private.live_match_follows f where f.match_day_id = match_row.id)
     and not exists (
       select 1 from private.live_match_changes c
       where c.match_day_id = match_row.id and c.changed_at > now() - interval '3 minutes'

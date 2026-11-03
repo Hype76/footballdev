@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { revokeSavedLiveMatchFollows } from '../apps/mobile-core/src/liveMatchSignOutCore.js'
+import { reconcileSavedLiveMatchFollow, revokeSavedLiveMatchFollows } from '../apps/mobile-core/src/liveMatchSignOutCore.js'
 
 test('sign-out revokes every saved server follow before removing local matches', async () => {
   const events = []
@@ -32,4 +32,20 @@ test('failed server revocation keeps local follow IDs for a later retry', async 
   settings.revoke = async id => { events.push(`retry:${id}`); return { error: null } }
   await revokeSavedLiveMatchFollows(settings)
   assert.deepEqual(events.slice(2), ['retry:first', 'retry:second', 'finish', 'remove'])
+})
+
+test('a follow from a revoked session is cleared when the account signs in again', async () => {
+  const saved = { followId: 'old-session' }
+  let cleared = false
+  const stale = await reconcileSavedLiveMatchFollow(saved, {
+    check: async () => false,
+    clear: async () => { cleared = true },
+  })
+  assert.equal(stale, null)
+  assert.equal(cleared, true)
+  const offline = await reconcileSavedLiveMatchFollow(saved, {
+    check: async () => { throw new Error('offline') },
+    clear: async () => { throw new Error('must keep saved work') },
+  })
+  assert.equal(offline, saved)
 })

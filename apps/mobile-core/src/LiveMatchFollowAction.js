@@ -15,6 +15,9 @@ export function LiveMatchFollowAction({ role, matchId, parentLinkId = null, text
     }).catch(() => {})
     const { data: listener } = supabase.auth.onAuthStateChange(event => {
       if (event === 'SIGNED_OUT') setFollowing(false)
+      if (event === 'SIGNED_IN') void readLiveMatchFollow(role, matchId).then(saved => {
+        if (active) setFollowing(Boolean(saved))
+      }).catch(() => {})
     })
     return () => { active = false; listener.subscription.unsubscribe() }
   }, [role, matchId, parentLinkId])

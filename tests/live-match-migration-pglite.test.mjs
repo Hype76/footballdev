@@ -12,8 +12,10 @@ test('live match migration protects followers and queues confirmed match changes
       create role anon; create role authenticated; create role service_role;
       create schema auth;
       create table auth.users(id uuid primary key);
+      create table auth.sessions(id uuid primary key, user_id uuid not null references auth.users(id), not_after timestamptz);
       create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
       create function auth.role() returns text language sql stable as $$ select current_setting('request.jwt.claim.role', true) $$;
+      create function auth.jwt() returns jsonb language sql stable as $$ select jsonb_build_object('session_id', current_setting('request.jwt.claim.session_id', true)) $$;
       create table public.parent_player_links(id uuid primary key);
       create table public.match_days(
         id uuid primary key, team_id uuid, status text, home_score integer, away_score integer,
@@ -27,10 +29,13 @@ test('live match migration protects followers and queues confirmed match changes
     `)
     await db.exec(migration)
     const userId = '11111111-1111-4111-8111-111111111111'
+    const sessionId = '33333333-3333-4333-8333-333333333333'
     const matchId = '22222222-2222-4222-8222-222222222222'
     await db.query('insert into auth.users(id) values ($1)', [userId])
+    await db.query('insert into auth.sessions(id,user_id) values ($1,$2)', [sessionId, userId])
     await db.query("insert into public.match_days(id,team_id,status,home_score,away_score) values ($1,$1,'live',0,0)", [matchId])
     await db.query("select set_config('request.jwt.claim.sub',$1,false), set_config('request.jwt.claim.role','authenticated',false)", [userId])
+    await db.query("select set_config('request.jwt.claim.session_id',$1,false)", [sessionId])
     const token = 'ab'.repeat(32)
     const followed = await db.query("select public.follow_live_match($1,'coach','ios',$2)", [matchId, token])
     assert.ok(followed.rows[0].follow_live_match)
@@ -42,6 +47,8 @@ test('live match migration protects followers and queues confirmed match changes
     const delivery = await db.query('select * from public.get_live_match_follows_for_delivery($1)', [matchId])
     assert.equal(delivery.rows.length, 1)
     assert.equal(delivery.rows[0].access_allowed, true)
+    const active = await db.query('select public.is_live_match_follow_active($1) as active', [followed.rows[0].follow_live_match])
+    assert.equal(active.rows[0].active, true)
     await db.query("select set_config('request.jwt.claim.role','authenticated',false)")
     const stopped = await db.query('select public.stop_following_live_match($1) as stopped', [followed.rows[0].follow_live_match])
     assert.equal(stopped.rows[0].stopped, true)
@@ -52,11 +59,11 @@ test('live match migration protects followers and queues confirmed match changes
     await db.query("select public.follow_live_match($1,'coach','ios',$2)", [matchId, token])
     await db.query("update private.live_match_follows set updated_at = now() - interval '4 hours'")
     await db.query("select set_config('request.jwt.claim.role','service_role',false)")
-    const expired = await db.query('select * from public.get_live_match_follows_for_delivery($1)', [matchId])
-    assert.equal(expired.rows.length, 0)
-    await db.query('select public.enqueue_live_match_heartbeats()')
-    const pruned = await db.query('select count(*)::int as total from private.live_match_follows')
-    assert.equal(pruned.rows[0].total, 0)
+    const delayedMatch = await db.query('select * from public.get_live_match_follows_for_delivery($1)', [matchId])
+    assert.equal(delayedMatch.rows.length, 1)
+    await db.query('delete from auth.sessions where id=$1', [sessionId])
+    const signedOut = await db.query('select * from public.get_live_match_follows_for_delivery($1)', [matchId])
+    assert.equal(signedOut.rows.length, 0)
     const claim = await db.query('select * from public.claim_live_match_changes(2)')
     assert.equal(claim.rows.length, 1)
     await db.query('select public.complete_live_match_change($1,false)', [claim.rows[0].change_id])
