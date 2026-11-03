@@ -1,10 +1,13 @@
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
-import { randomBytes, randomUUID } from 'node:crypto'
+import { createHash, randomBytes, randomUUID } from 'node:crypto'
 import test from 'node:test'
 import { xchacha20poly1305 } from '../apps/parent-mobile/node_modules/@noble/ciphers/chacha.js'
 import { bytesToUtf8, utf8ToBytes } from '../apps/parent-mobile/node_modules/@noble/ciphers/utils.js'
 import { createEncryptedOfflineStore } from '../apps/mobile-core/src/offlineStorageCore.js'
+import { createCoachFileStorage } from '../apps/mobile-core/src/coachFileStorage.js'
+import { createCoachVersionedOfflineStore } from '../apps/mobile-core/src/coachVersionedOfflineStore.js'
+import { createCoachRecoveryNotice } from '../apps/coach-mobile/src/coachRecoveryNotice.js'
 import * as coach from '../apps/mobile-core/src/coachOfflineCore.js'
 import * as parent from '../apps/mobile-core/src/parentOfflineCore.js'
 import * as links from '../apps/mobile-core/src/parentLinks.js'
@@ -15,10 +18,11 @@ const projectRef = 'ndohkecigwlwayghsopw'
 function deferred() { let resolve; const promise = new Promise((done) => { resolve = done }); return {promise,resolve} }
 function fixture(role, options = {}) {
   const values = new Map(), keys = new Map()
-  const storage = { fail: false, async getItem(key) { return values.get(key) ?? null }, async removeItem(key) { values.delete(key) }, async setItem(key,value) { if (this.fail) throw new Error('synthetic_write_failure'); values.set(key,value) } }
+  const storage = { fail: false, async getItem(key) { return values.get(key) ?? null }, async removeItem(key) { values.delete(key) }, async setItem(key,value) { if (this.fail) throw new Error('synthetic_write_failure'); values.set(key,value) }, async getAllKeys() { return [...values.keys()] } }
   const keyStore = { async getItemAsync(key) { return keys.get(key) ?? null }, async setItemAsync(key,value) {keys.set(key,value)}, async deleteItemAsync(key) {keys.delete(key)} }
-  const dependencies = { ...coach, ...parent, ...links, applyParentNotificationAction, createEncryptedOfflineStore, getScopedTeamBranding,
-    AsyncStorage: storage, SecureStore:keyStore, Crypto:{randomUUID, getRandomBytesAsync:async (n)=>new Uint8Array(randomBytes(n))}, xchacha20poly1305,bytesToUtf8,utf8ToBytes,
+  const dependencies = { ...coach, ...parent, ...links, applyParentNotificationAction, createEncryptedOfflineStore, createCoachFileStorage, createCoachVersionedOfflineStore, createCoachRecoveryNotice, getScopedTeamBranding,
+    AsyncStorage: storage, SecureStore:keyStore, Crypto:{randomUUID, CryptoDigestAlgorithm:{SHA256:'SHA256'}, digestStringAsync:async (_, value)=>createHash('sha256').update(value).digest('hex'), getRandomBytesAsync:async (n)=>new Uint8Array(randomBytes(n))}, xchacha20poly1305,bytesToUtf8,utf8ToBytes,
+    requireOptionalNativeModule:()=>null,
     getMobileRuntimeConfig:()=>({isUsable:true,isProduction:false,supabaseUrl:`https://${projectRef}.supabase.co`}),
     APPROVED_MOBILE_PRODUCTION:{supabaseRef:'production'}, APPROVED_MOBILE_TEST:{supabaseRef:projectRef},
     markParentMessageRead:options.markParentMessageRead || (async()=>{}),submitParentPollVote:async()=>{} }
@@ -42,7 +46,8 @@ for (const role of ['coach','parent']) {
     await Promise.all([f.save({calendar:[{id:'first'}]}),f.save({calendar:[{id:'last'}]})])
     assert.equal((await f.read()).resources.calendar[0].id,'last')
     f.storage.fail=true;await assert.rejects(f.save({calendar:[{id:'lost'}]}),/synthetic_write_failure/);f.storage.fail=false
-    assert.equal((await f.read(f.load())).resources.calendar[0].id,'last')
+    const reloaded = f.load(); await reloaded[`${role}OfflineProfileStore`].read('user')
+    assert.equal((await f.read(reloaded)).resources.calendar[0].id,'last')
     await f.save({calendar:[{id:'recovered'}]});assert.equal((await f.read()).resources.calendar[0].id,'recovered')
     assert.ok([...f.values.values()].every((value)=>!value.includes('recovered')),'only ciphertext is persisted')
   })
