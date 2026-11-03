@@ -1,0 +1,4 @@
+{
+  "platforms": ["android"],
+  "android": { "modules": ["online.footballplayer.livematch.LiveMatchModule"] }
+}

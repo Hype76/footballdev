@@ -11,12 +11,25 @@ function memory(initial = null) {
     async update(value, updater) { const current = (await this.read(value)).document, next = await updater(current); if (!next || next === current) return current; return this.write(value, next) },
     async clear() { document = null }, mutate(value) { document = value }, peek() { return document } }
 }
-function fixture(initial = { userScope: 'coach-a', pending: [{ id: 'unsent' }] }) {
+function fixture(initial = { userScope: 'coach-a', pending: [{ id: 'unsent' }] }, checkpointKey) {
   const old = memory(initial), markers = new Map(), stores = new Map()
   const markerStorage = { async getAllKeys() { return [...markers.keys()] }, async getItem(k) { return markers.get(k) || null }, async setItem(k,v) { markers.set(k,v) }, async removeItem(k) { markers.delete(k) } }
-  const store = createCoachVersionedOfflineStore({ legacyStore: old, markerStorage, markerPrefix: 'migration', createScopedStore(key) { if (!stores.has(key)) stores.set(key,memory()); return stores.get(key) }, fingerprint: async value => createHash('sha256').update(value).digest('hex') })
+  const store = createCoachVersionedOfflineStore({ legacyStore: old, markerStorage, markerPrefix: 'migration', checkpointKey, createScopedStore(key) { if (!stores.has(key)) stores.set(key,memory()); return stores.get(key) }, fingerprint: async value => createHash('sha256').update(value).digest('hex') })
   return { old, markers, stores, store, markerStorage }
 }
+
+test('parent migration keeps unsent scorer work and rejects divergent legacy copies', async () => {
+  const f = fixture({ userScope: 'parent-a', pending: [{ id: 'unsent' }] }, '__parentLegacyCheckpoint')
+  f.store.activate('parent-a')
+  assert.equal((await f.store.read('parent-a')).document.pending[0].id, 'unsent')
+  assert.equal(f.old.peek().pending[0].id, 'unsent')
+  await f.store.update('parent-a', value => ({ ...value, pending: [...value.pending, { id: 'new' }] }))
+  assert.equal(f.stores.get('parent_a').peek().__parentLegacyCheckpoint.startsWith('sha256:'), true)
+  f.old.mutate({ userScope: 'parent-a', pending: [{ id: 'old-app-change' }] })
+  f.store.activate('parent-b'); f.store.activate('parent-a')
+  await assert.rejects(f.store.read('parent-a'), /offline_legacy_recovery_required/)
+  assert.equal(f.stores.get('parent_a').peek().pending[1].id, 'new')
+})
 
 test('migration keeps the legacy encrypted snapshot and preserves pending work', async () => {
   const f = fixture(); f.store.activate('coach-a'); const read = await f.store.read('coach-a')

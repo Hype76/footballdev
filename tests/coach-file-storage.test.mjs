@@ -22,6 +22,21 @@ test('migrates encrypted generations from legacy storage and keeps pointers unch
   await f.adapter.removeItem(key); assert.equal(await f.adapter.getItem(key), null)
 })
 
+test('parent file storage isolates encrypted generations from Coach storage', async () => {
+  const f = fixture()
+  const parent = createCoachFileStorage({ appRole: 'parent', fileSystem: f.fs, legacyStorage: f.storage })
+  const parentKey = 'fp.mobile.offline.v1.parent.live.project.parent2.parent_a.g.a'
+  const parentPointer = 'fp.mobile.offline.v1.parent.live.project.parent2.parent_a.active'
+  f.legacy.set(parentKey, 'parent-saved')
+  await parent.setItem(parentPointer, 'parent-pointer')
+  assert.equal(await parent.getItem(parentKey), 'parent-saved')
+  await parent.setItem(parentKey, 'x'.repeat(2_100_000))
+  assert.equal((await parent.getItem(parentKey)).length, 2_100_000)
+  assert.equal(await parent.getItem(parentPointer), 'parent-pointer')
+  assert.equal([...f.files.keys()].every(name => name.includes('/fp-parent-offline-v1/')), true)
+  assert.equal(await f.adapter.getItem(parentKey), null)
+})
+
 test('file storage accepts an encrypted envelope beyond the requested 15 MB document limit', async () => {
   const f = fixture(); assert.equal(COACH_PHASE_31F_MAX_CACHE_BYTES, 15_000_000)
   const envelope = 'x'.repeat(20_000_000)

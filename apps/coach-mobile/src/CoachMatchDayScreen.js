@@ -1,4 +1,5 @@
 import { MobileSwitch as Switch } from '../../mobile-core/src/MobileSwitch.js'
+import { LiveMatchFollowAction } from '../../mobile-core/src/LiveMatchFollowAction'
 import { CoachSavedFormationBoards } from './CoachSavedFormationBoards'
 import { getMatchDayLifecycleState } from '../../../src/lib/matchday-lifecycle.js'
 import { formatUkDate } from '../../../src/lib/date-format.js'
@@ -1116,6 +1117,7 @@ function CoachMatchDayScoped({ context, matchDayTarget, onMatchDayTargetHandled,
       {serverMatch?.status === 'full_time' ? <Text style={styles.body}>The server match has reached full time. Review the saved actions above and sync them, or discard them if they are no longer needed, before concluding.</Text> : null}
     </View> : null}
     {panel === 'saved-actions' && pendingCount === 0 ? <Text style={styles.body}>All recorded actions have synced.</Text> : null}
+    {selectedMatchIsLive && serverMatch && !fixtureFormOpen ? <LiveMatchFollowAction role="coach" matchId={serverMatch.id} textStyle={styles.body} /> : null}
     {!fixtureFormOpen && !match ? <MatchList filter={visibleFilter} matches={matches} onOpen={open} selectedId={match?.id} setFilter={(nextFilter) => { setFilter(nextFilter); setFilterChosen(true) }} styles={styles} /> : null}
     {match && !fixtureFormOpen ? <>{!focusedLiveMode ? <><View style={styles.row}><Button compact iconKey="action.back" label="Back to fixtures" onPress={closeFixture} secondary styles={styles} />{canEditCoachFixture({ context, fixture: serverMatch, stale: stale || user.isOfflineProfile || reconciling }) ? <Button compact iconKey="action.edit" label="Edit fixture" onPress={() => { setFixtureFormMatch(serverMatch); setFixtureFormOpen(true); setError(''); setNotice(''); onRequestScrollTop?.() }} secondary styles={styles} /> : null}</View><FixtureHero match={match} styles={styles} /><FixtureNavigation key={match.id} panel={panel} onChange={(nextPanel) => { if (nextPanel === 'formation') { formationReturnPanelRef.current = panel; setFormationBoardId('') } setPanel(nextPanel) }} styles={styles} /></> : null}
       {pendingCount === 0 && reportMatch.status === 'full_time' && !reportMatch.concludedAt && panel === 'overview' ? <View style={styles.stack}><Text style={styles.cardTitle}>Ready for coach review</Text><Text style={styles.body}>Full time has been recorded. Review the result and conclude this match.</Text><Button disabled={busy || reconciling} label="Review and conclude" onPress={() => { setPanel('report'); onRequestScrollTop?.() }} styles={styles} /></View> : null}

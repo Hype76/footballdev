@@ -41,13 +41,16 @@
     "expo-notifications": "~0.32.16",
     "expo-secure-store": "~15.0.8",
     "expo-status-bar": "~3.0.9",
+    "expo-task-manager": "~14.0.9",
     "expo-updates": "~29.0.20",
+    "football-player-live-match": "file:../mobile-core/modules/live-match",
     "react": "19.1.0",
     "react-dom": "19.1.0",
     "react-native": "0.81.5",
     "react-native-safe-area-context": "~5.6.0",
     "react-native-url-polyfill": "^3.0.0",
-    "react-native-web": "^0.21.0"
+    "react-native-web": "^0.21.0",
+    "react-native-widget-extension": "^0.3.0"
   },
   "overrides": {
     "shell-quote": "1.11.0",

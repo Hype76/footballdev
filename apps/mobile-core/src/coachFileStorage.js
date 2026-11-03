@@ -1,12 +1,14 @@
-const POINTER_KEY = /^fp\.mobile\.offline\.v1\.coach\.(?:live|test)\.[a-z0-9]+(?:\.coach2\.[A-Za-z0-9_-]+)?\.active$/
-const GENERATION_KEY = /^fp\.mobile\.offline\.v1\.coach\.(?:live|test)\.[a-z0-9]+(?:\.coach2\.[A-Za-z0-9_-]+)?\.g\.[ab]$/
 const LEGACY_ENVELOPE_LIMIT = 1_950_000
 
 // Only encrypted generation envelopes use files. Pointers and the existing
 // keychain key stay in their original stores, allowing existing data to open.
-export function createCoachFileStorage({ fileSystem, legacyStorage }) {
+export function createCoachFileStorage({ fileSystem, legacyStorage, appRole = 'coach' }) {
+  if (!['coach', 'parent'].includes(appRole)) throw new Error('offline_storage_role_invalid')
+  const prefix = `^fp\\.mobile\\.offline\\.v1\\.${appRole}\\.(?:live|test)\\.[a-z0-9]+(?:\\.${appRole}2\\.[A-Za-z0-9_-]+)?`
+  const POINTER_KEY = new RegExp(`${prefix}\\.active$`)
+  const GENERATION_KEY = new RegExp(`${prefix}\\.g\\.[ab]$`)
   const supported = Boolean(fileSystem?.documentDirectory && ['getInfoAsync', 'makeDirectoryAsync', 'readAsStringAsync', 'writeAsStringAsync', 'moveAsync', 'deleteAsync'].every(name => typeof fileSystem[name] === 'function'))
-  const directory = supported ? `${fileSystem.documentDirectory.replace(/\/*$/, '')}/fp-coach-offline-v1/` : ''
+  const directory = supported ? `${fileSystem.documentDirectory.replace(/\/*$/, '')}/fp-${appRole}-offline-v1/` : ''
   const file = key => `${directory}${key}.json`
   const marker = key => `${key}.file-backed`
   return {

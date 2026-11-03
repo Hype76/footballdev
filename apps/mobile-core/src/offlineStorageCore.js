@@ -152,7 +152,7 @@ export function createEncryptedOfflineStore({
   namespaceSuffix = '',
   preserveOnFailure = false,
 }) {
-  if (namespaceSuffix && (appRole !== 'coach' || !/^coach2\.[A-Za-z0-9_-]{1,180}$/.test(namespaceSuffix))) throw offlineError('offline_storage_namespace_invalid')
+  if (namespaceSuffix && (!['coach', 'parent'].includes(appRole) || !new RegExp(`^${appRole}2\\.[A-Za-z0-9_-]{1,180}$`).test(namespaceSuffix))) throw offlineError('offline_storage_namespace_invalid')
   const namespace = deriveOfflineStorageNamespace({ appRole, environment, projectRef }) + (namespaceSuffix ? `.${namespaceSuffix}` : '')
   const aad = `${namespace}.authenticated-envelope`
   const keyName = `${namespace}.key`

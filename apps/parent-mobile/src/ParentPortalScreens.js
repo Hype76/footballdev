@@ -1,4 +1,5 @@
 import { MobileSwitch as Switch } from '../../mobile-core/src/MobileSwitch.js'
+import { LiveMatchFollowAction } from '../../mobile-core/src/LiveMatchFollowAction'
 import { createPdfVisitTracker } from '../../mobile-core/src/pdfVisit.js'
 import { getParentDevelopmentProgression } from '../../mobile-core/src/parentDevelopmentProgression.js'
 import { ParentDevelopmentProgressionChart } from './ParentDevelopmentProgressionChart.js'
@@ -1249,6 +1250,7 @@ export function MatchdayScreen({ activeActionId, clubKits, formationViewportHeig
               <View style={styles.gameDayStat}><Text style={styles.gameDayStatLabel}>Period</Text><Text style={styles.gameDayStatValue}>{presentation?.phaseLabel || 'Pre-match'}</Text></View>
             </View>
           </View> : null}
+          {selectedMatchIsLive && !selectedMatch.isFanView ? <LiveMatchFollowAction role="parent" matchId={selectedMatch.id} parentLinkId={link?.id} textStyle={styles.body} /> : null}
           {!selectedMatch.isFanView && !isCompleted ? <View style={styles.section}>
             <View style={styles.row}><View style={{ gap: 6, flexShrink: 1 }}><Text style={styles.fieldLabel}>Availability</Text><MatchStatusBadge colors={colors} status={getParentMatchAvailability(selectedMatch, attendanceInvitation, link, now)} prefix="Availability" styles={styles} /></View>
               {canChangeAvailability && onRespond ? <Pressable accessibilityLabel={availabilityOpen ? 'Close availability response' : 'Change availability'} accessibilityRole="button" accessibilityState={{ expanded: availabilityOpen, disabled: isOffline || Boolean(activeActionId) }} disabled={isOffline || Boolean(activeActionId)} onPress={() => setAvailabilityOpenKey(availabilityOpen ? '' : availabilityKey)} style={{ minHeight: 44, paddingHorizontal: 10, flexDirection: 'row', alignItems: 'center', gap: 6 }}><Text style={[styles.body, { color: colors.accentText, fontWeight: '700' }]}>{availabilityOpen ? 'Done' : 'Change'}</Text><ParentIcon color={colors.accentText} iconKey="action.open" size={20} /></Pressable> : null}

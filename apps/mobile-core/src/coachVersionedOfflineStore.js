@@ -1,8 +1,7 @@
-const CHECKPOINT = '__coachLegacyCheckpoint'
-
 // Each account gets a new encrypted namespace. The legacy store remains intact
 // until an explicit sign-out, and an interrupted migration never overwrites it.
-export function createCoachVersionedOfflineStore({ legacyStore, markerStorage, markerPrefix, createScopedStore, fingerprint }) {
+export function createCoachVersionedOfflineStore({ legacyStore, markerStorage, markerPrefix, createScopedStore, fingerprint, checkpointKey = '__coachLegacyCheckpoint' }) {
+  if (!['__coachLegacyCheckpoint', '__parentLegacyCheckpoint'].includes(checkpointKey)) throw new Error('offline_checkpoint_invalid')
   const stores = new Map(), markerWrites = new Set(), activeKey = `${markerPrefix}.active`
   async function writeMarker(key, value) {
     const write = Promise.resolve(markerStorage.setItem(key, value))
@@ -47,7 +46,7 @@ export function createCoachVersionedOfflineStore({ legacyStore, markerStorage, m
       const legacy = await legacyCheckpoint(scope, guard)
       const preparing = `preparing:${legacy.checkpoint}`, committed = `committed:${legacy.checkpoint}`
       if (saved.status === 'ready' && saved.document) {
-        if (![preparing, committed].includes(marker) || saved.document[CHECKPOINT] !== legacy.checkpoint) throw new Error('offline_legacy_recovery_required')
+        if (![preparing, committed].includes(marker) || saved.document[checkpointKey] !== legacy.checkpoint) throw new Error('offline_legacy_recovery_required')
         if (marker === preparing) { await writeMarker(markerKey(scope), committed); guard() }
         return { target, checkpoint: legacy.checkpoint, guard }
       }
@@ -59,7 +58,7 @@ export function createCoachVersionedOfflineStore({ legacyStore, markerStorage, m
       }
       if (legacy.document) {
         if (!marker) { await writeMarker(markerKey(scope), preparing); guard(); marker = preparing }
-        await target.write(scope, { ...legacy.document, [CHECKPOINT]: legacy.checkpoint }); guard()
+        await target.write(scope, { ...legacy.document, [checkpointKey]: legacy.checkpoint }); guard()
         await writeMarker(markerKey(scope), committed); guard()
       }
       return { target, checkpoint: legacy.checkpoint, guard }
@@ -91,7 +90,7 @@ export function createCoachVersionedOfflineStore({ legacyStore, markerStorage, m
         if (!next || next === current) return next
         await writeMarker(markerKey(scope), `preparing:${checkpoint}`); guard()
         changed = true
-        return { ...next, [CHECKPOINT]: checkpoint }
+        return { ...next, [checkpointKey]: checkpoint }
       })
       guard()
       if (changed) { await writeMarker(markerKey(scope), `committed:${checkpoint}`); guard() }
@@ -100,7 +99,7 @@ export function createCoachVersionedOfflineStore({ legacyStore, markerStorage, m
     async write(scope, value) {
       const { target, checkpoint, guard } = await ensure(scope)
       await writeMarker(markerKey(scope), `preparing:${checkpoint}`); guard()
-      const result = await target.write(scope, { ...value, [CHECKPOINT]: checkpoint }); guard()
+      const result = await target.write(scope, { ...value, [checkpointKey]: checkpoint }); guard()
       await writeMarker(markerKey(scope), `committed:${checkpoint}`); guard()
       return result
     },
@@ -127,7 +126,7 @@ export function createCoachVersionedOfflineStore({ legacyStore, markerStorage, m
         const legacy = await legacyCheckpoint(scope, () => {})
         const preparing = `preparing:${legacy.checkpoint}`, committed = `committed:${legacy.checkpoint}`
         if (saved.status === 'ready' && saved.document) {
-          if (![preparing, committed].includes(marker) || saved.document[CHECKPOINT] !== legacy.checkpoint) throw new Error('offline_legacy_recovery_required')
+          if (![preparing, committed].includes(marker) || saved.document[checkpointKey] !== legacy.checkpoint) throw new Error('offline_legacy_recovery_required')
         } else if (saved.status === 'missing') {
           if (marker) {
             if (marker !== preparing) throw new Error('offline_migration_recovery_required')

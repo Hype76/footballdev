@@ -42,5 +42,9 @@ output/
 outputs/
 apps/*/assets/assets for android/
 apps/*/assets/ios-screenshots/
+apps/*/android/
+apps/*/dist-android-check/
+apps/*/dist-ios-check/
+.npm-*-cache/
 scripts/check-real-ui-login.mjs
 scripts/create-demo-superadmin.mjs

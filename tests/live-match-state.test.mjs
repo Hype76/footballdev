@@ -1,0 +1,41 @@
+import test from 'node:test'
+import assert from 'node:assert/strict'
+import { createLiveMatchState } from '../apps/mobile-core/src/liveMatchState.js'
+
+const now = Date.parse('2026-11-03T12:30:00Z')
+const fixture = {
+  status: 'second_half', currentMatchPhase: 'second_half', teamName: 'Rovers', opponent: 'City', homeAway: 'away',
+  homeScore: 2, awayScore: 3, matchDurationMinutes: 90, timerStatus: 'running',
+  timerElapsedSeconds: 2700, timerStartedAt: new Date(now - 30000).toISOString(),
+}
+
+test('live activity state follows the match clock and home/away order', () => {
+  const state = createLiveMatchState(fixture, now)
+  assert.equal(state.homeName, 'City')
+  assert.equal(state.awayName, 'Rovers')
+  assert.equal(state.homeScore, 2)
+  assert.equal(state.awayScore, 3)
+  assert.equal(state.elapsedSeconds, 2730)
+  assert.equal(state.running, true)
+  assert.equal(state.sampledAtMs, now)
+  assert.equal(state.phase, 'Second half')
+})
+
+test('pauses, shootouts, conclusion and cancellation do not present a running timer', () => {
+  const paused = createLiveMatchState({ ...fixture, timerStatus: 'paused' }, now)
+  assert.equal(paused.elapsedSeconds, 2700)
+  assert.equal(paused.running, false)
+  const shootout = createLiveMatchState({ ...fixture, status: 'penalties', currentMatchPhase: 'penalties', homeShootoutScore: 4, awayShootoutScore: 3 }, now)
+  assert.equal(shootout.running, false)
+  assert.equal(shootout.homeShootoutScore, 4)
+  assert.equal(shootout.awayShootoutScore, 3)
+  assert.equal(createLiveMatchState({ ...fixture, concludedAt: new Date(now).toISOString() }, now).end, true)
+  assert.deepEqual(createLiveMatchState({ ...fixture, status: 'cancelled' }, now), { end: true })
+})
+
+test('the payload does not include player, parent or unsent command data', () => {
+  const state = createLiveMatchState({ ...fixture, players: [{ name: 'Private' }], journal: [{ pending: true }] }, now)
+  assert.equal(JSON.stringify(state).includes('Private'), false)
+  assert.equal('journal' in state, false)
+  assert.throws(() => createLiveMatchState(fixture, NaN), /live_match_snapshot_invalid/)
+})

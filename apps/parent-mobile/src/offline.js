@@ -5,10 +5,14 @@ import { xchacha20poly1305 } from '@noble/ciphers/chacha.js'
 import { bytesToUtf8, utf8ToBytes } from '@noble/ciphers/utils.js'
 import * as Crypto from 'expo-crypto'
 import * as SecureStore from 'expo-secure-store'
+import { requireOptionalNativeModule } from 'expo-modules-core'
 import { getMobileRuntimeConfig } from '../../mobile-core/src/config'
 import { markParentMessageRead, submitParentPollVote } from '../../mobile-core/src/data'
 import { APPROVED_MOBILE_PRODUCTION, APPROVED_MOBILE_TEST } from '../../mobile-core/src/environmentBoundary'
 import { createEncryptedOfflineStore } from '../../mobile-core/src/offlineStorageCore'
+import { createCoachFileStorage } from '../../mobile-core/src/coachFileStorage'
+import { createCoachVersionedOfflineStore } from '../../mobile-core/src/coachVersionedOfflineStore'
+import { assertParentOfflineCapacity } from '../../mobile-core/src/parentOfflineCapacity'
 import {
   createParentOfflineDocument,
   createParentSyncCoordinator,
@@ -63,7 +67,7 @@ const cryptoProvider = {
   },
 }
 
-function createStore({ environment, ref }) {
+function createLegacyStore({ environment, ref }) {
   return createEncryptedOfflineStore({
     appRole: 'parent',
     cryptoProvider,
@@ -74,7 +78,24 @@ function createStore({ environment, ref }) {
       requireAuthentication: false,
     },
     projectRef: ref,
-    storage: AsyncStorage,
+    storage: AsyncStorage, preserveOnFailure: true,
+  })
+}
+
+const parentStorage = createCoachFileStorage({ appRole: 'parent', fileSystem: requireOptionalNativeModule('ExponentFileSystem'), legacyStorage: AsyncStorage })
+function createStore({ environment, ref }) {
+  return createCoachVersionedOfflineStore({
+    legacyStore: createLegacyStore({ environment, ref }), markerStorage: AsyncStorage,
+    markerPrefix: `fp.mobile.offline.v1.parent.${environment}.${ref}.parent2.migration`,
+    checkpointKey: '__parentLegacyCheckpoint',
+    fingerprint: value => Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, value),
+    createScopedStore: key => createEncryptedOfflineStore({
+      appRole: 'parent', cryptoProvider, environment, projectRef: ref,
+      keyStore: SecureStore,
+      keyStoreOptions: { keychainAccessible: SecureStore.AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY, requireAuthentication: false },
+      namespaceSuffix: `parent2.${key}`, preserveOnFailure: true,
+      operationTimeoutMs: 60_000, storage: parentStorage,
+    }),
   })
 }
 
@@ -83,7 +104,7 @@ const store = config.isUsable && projectRef === expectedRef
   ? createStore({ environment: config.isProduction ? 'live' : 'test', ref: projectRef })
   : unavailableStore()
 const incompatibleTestStore = config.isProduction
-  ? createStore({ environment: 'test', ref: APPROVED_MOBILE_TEST.supabaseRef })
+  ? createLegacyStore({ environment: 'test', ref: APPROVED_MOBILE_TEST.supabaseRef })
   : null
 
 export async function quarantineIncompatibleParentOfflineState() {
@@ -266,7 +287,7 @@ export async function queueParentScorerAction(user, link, match, kind, payload) 
     const base = current || { baseMatch: match, pending: [], verifiedAt: match.offlineVerifiedAt || match.updatedAt, error: '' }
     journal = appendParentScorerCommand(base, { id: Crypto.randomUUID(), kind, payload })
     const next = { ...document, parentScorerOutboxes: { ...outboxes, [link.id]: { ...outboxes[link.id], [match.id]: journal } } }
-    if (JSON.stringify(next).length > 1500000) throw new Error('There is not enough offline storage. Reconnect and sync before recording more.')
+    assertParentOfflineCapacity(next, value => utf8ToBytes(value).length)
     return next
   })
   return { journal, match: projectParentScorerOutbox(journal) }

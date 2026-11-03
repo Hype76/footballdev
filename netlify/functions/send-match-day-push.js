@@ -12,6 +12,7 @@ import { resolveMatchDayNotificationTeamName } from '../../src/lib/team-notifica
 import { sendCoachMatchReviewPush } from './send-coach-mobile-push.js'
 import { deliverCoachMatchReviewOnce } from './lib/_coach-match-review-delivery.js'
 import { buildMatchDayNativeMessage } from './lib/_match-day-native-message.js'
+import { deliverLiveMatchChange } from './lib/_deliver-live-match-changes.js'
 
 function jsonResponse(statusCode, payload) {
   return {
@@ -483,6 +484,16 @@ export async function deliverMatchDayNotification({ match, type, eventId = '', n
     targetParentLinkIds,
     notificationCopy,
   })
+  // The database queue retries this independently if the immediate update fails.
+  await deliverLiveMatchChange(match.id, {
+    client: supabaseAdmin,
+    provider: {
+      teamId: process.env.LIVE_ACTIVITY_APPLE_TEAM_ID,
+      keyId: process.env.LIVE_ACTIVITY_APPLE_KEY_ID,
+      privateKey: process.env.LIVE_ACTIVITY_APPLE_PRIVATE_KEY,
+      production: process.env.LIVE_ACTIVITY_APNS_PRODUCTION === 'true',
+    },
+  }).catch(() => {})
   return { sent, revoked, webFailed: results.filter((result) => !result.sent && !result.revoked).length, mobileSent: mobileResult.sent, mobileFailed: mobileResult.failed, mobileInbox: inboxResult.available, ...fans }
 }
 

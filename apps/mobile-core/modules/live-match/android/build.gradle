@@ -1,0 +1,11 @@
+plugins {
+  id 'com.android.library'
+  id 'expo-module-gradle-plugin'
+}
+
+group = 'online.footballplayer'
+version = '1.0.0'
+
+android {
+  namespace 'online.footballplayer.livematch'
+}
