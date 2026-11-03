@@ -559,7 +559,7 @@
   "implementationHashes": {
     "scripts/security-supply-chain-gate.mjs": "dcf722bc6cbf2015da4250ea60cbb81e34d3c5c64ec7bb6059671cbae5ab4207",
     "scripts/security-apply-reviewed-backports.mjs": "d1f039f35d9c8fddbb1b5694b89d2edd9d9adfd486dc75bd09f26194b7daa941",
-    "scripts/security-verify-reviewed-backports.mjs": "805fd58bf3274d316d5f7fe106b9a612e87493b017fe589e0a31b93d63a8d8f7",
+    "scripts/security-verify-reviewed-backports.mjs": "a69eae65d83be3902a0e12e2f37a6d95048237964c67be160a3da812b2636361",
     "security/patches/braces-3.0.3.patch": "e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699",
     "security/patches/node-forge-1.4.0.patch": "2de065ac998bf58917a14d0935112d97ec2957ac41b5f06958d500934f188ed4",
     "security/patches/reviewed-source-manifest.json": "facb364bbac44a8276d082068e8ed8415ca89777d24f4c7a05ff370f71e5a54d",
@@ -1449,7 +1449,7 @@
       "apps/parent-mobile/src/FanPlayerCard.js": "18f94e46b49bfd78cb99722dfe3d3ba57aab9be7632cb040af02e1a37bec4b5e",
       "apps/parent-mobile/src/FansScreen.js": "e713e1c3f052c5d429cdf3c6a23e9e0a33cf51f35f991ca33e215ef14b226b8c",
       "apps/parent-mobile/src/ParentDevelopmentProgressionChart.js": "189ccf1e8f3077178f4eb9df33d2d82dd0fda106e7d353287f95426f77c0ff49",
-      "apps/parent-mobile/src/ParentPortalScreens.js": "440a7c2552e45aeb10324f33d65b397e07979a52396366d4ce4d4c938ce41286",
+      "apps/parent-mobile/src/ParentPortalScreens.js": "6a1d8ecab691b83308e897b86bcb4ab433bb0cb215ee3f50c695025de12c07bb",
       "apps/parent-mobile/src/offline.js": "20a97a45dbb8ab6e740d77648bcba047ec9d231a46b7d4c3244a820d31fa5446",
       "apps/parent-mobile/src/parentMatchReportBranding.js": "08db7b1cb838bfb68f3db5aa318677db60cf1264c1f8fe62e8f99be2c6de0cb5",
       "apps/parent-mobile/src/parentPortalData.js": "2204da3c8d14c193b4f4a1e589117b94d6ab819e22adced658c59ecfaa45ea6a",
@@ -2124,7 +2124,7 @@
       "src/pages/StaffInvitePage.jsx": "c03a94b8ed57097ca2dfc1360e9517dfc5cc9a1d5f02cde77cd3406f54d02043",
       "tests/mobile-coach-hardening-31f.test.mjs": "ff29ecec9d4e2d74486563af2d7b2ccf6473dea9814e5f7861b2f425906cac6a",
       "apps/coach-mobile/widgets/Assets.xcassets/FootballPlayerFallback.imageset/Contents.json": "1b98bd1ab0f035c25ed4388b8bef83c2a43f02145b3083f612c6e05f6554b896",
-      "apps/mobile-core/src/MatchTeamsLine.js": "acdf06b8a82cf6777135c2dde39cd7d32cfd3ee319d036ecdb404c9b1f245211",
+      "apps/mobile-core/src/MatchTeamsLine.js": "1d410162e5124aacedcab3f5ab3324f4ea8aef120da262f894f5e007fc989e29",
       "apps/parent-mobile/widgets/Assets.xcassets/FootballPlayerFallback.imageset/Contents.json": "1b98bd1ab0f035c25ed4388b8bef83c2a43f02145b3083f612c6e05f6554b896",
       "supabase/migrations/20261103213000_parent_live_match_cards.sql": "3e7af1c723741d9c9cdd070bf429cbc5cc56e3604c3e23beb6b32c268ed146cb",
       "tests/parent-live-match-cards-pglite.test.mjs": "01a058a22d36981b3f8ad83448761af87e7357af645756bc8e52d17b3c83e99a",
@@ -3556,7 +3556,7 @@
       "nodeEngine": "20 || >=22"
     }
   },
-  "releasePreparationSha256": "bb1c1098f60ccf8d00d54d6929617d8e1eff0141a776ed2cee91671a726d6168",
+  "releasePreparationSha256": "00ffc8564f348c754c6851f4e9509e8d725a6011eeaa0b85bcc24d5b0b5cb687",
   "rootOnlyProposalSha256": "45c3b7352c7328c84982e114b7e87e09cf79514d02d102297ae75ec0925812eb",
   "remediationMode": "maintained-source-fixes",
   "officialCompatibilityDependencies": [

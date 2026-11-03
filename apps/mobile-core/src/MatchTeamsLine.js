@@ -16,13 +16,13 @@ function TeamLogo({ name, logoUrl, size }) {
   />
 }
 
-export function MatchTeamsLine({ match, clubLogoUrl = '', textStyle, compact = false }) {
+export function MatchTeamsLine({ match, clubLogoUrl = '', textStyle, compact = false, header = false }) {
   const parts = getMatchDayDisplayParts(match)
   const clubIsHome = String(match?.homeAway ?? match?.home_away ?? '').trim().toLowerCase() !== 'away'
   const size = compact ? 20 : 28
   const firstLogo = clubIsHome ? clubLogoUrl : ''
   const secondLogo = clubIsHome ? '' : clubLogoUrl
-  return <View accessibilityLabel={`${parts.firstTeam} versus ${parts.secondTeam}`} style={{ flexDirection: 'row', alignItems: 'center', gap: compact ? 5 : 8, minWidth: 0 }}>
+  return <View accessibilityRole={header ? 'header' : undefined} accessibilityLabel={header ? `${parts.firstTeam} v ${parts.secondTeam}` : `${parts.firstTeam} versus ${parts.secondTeam}`} style={{ flexDirection: 'row', alignItems: 'center', gap: compact ? 5 : 8, minWidth: 0 }}>
     <TeamLogo key={`first:${firstLogo}`} name={parts.firstTeam} logoUrl={firstLogo} size={size} />
     <Text numberOfLines={2} style={[textStyle, { flex: 1, minWidth: 0, textAlign: 'left' }]}>{parts.firstTeam}</Text>
     <Text style={textStyle}>v</Text>

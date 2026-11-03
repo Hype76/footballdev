@@ -1237,7 +1237,7 @@ export function MatchdayScreen({ activeActionId, clubKits, formationViewportHeig
         {selectedMatch.isScorer ? <MatchdayAction accessibilityLabel="Back to Matchday" label="Back" iconKey="action.back" onPress={onBack} colors={colors} styles={styles} back /> : null}
         <View style={[styles.gameDayHero, selectedMatchIsLive && styles.gameDayHeroLive]}>
           {['cancelled', 'postponed'].includes(selectedMatch.status) ? <Text style={styles.pill}>{getParentMatchStatusLabel(selectedMatch)}</Text> : null}
-          <MatchTeamsLine match={selectedMatch} clubLogoUrl={resolveParentMobileBranding(link).clubLogoUrl} textStyle={styles.header} />
+          <MatchTeamsLine match={selectedMatch} clubLogoUrl={resolveParentMobileBranding(link).clubLogoUrl} header textStyle={styles.header} />
           <View accessibilityLabel="Match information" style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 6 }}>
             <MatchTypeIcon compact fixtureType={selectedMatch.fixtureType} textStyle={styles.body} />
             <HomeAwayIcon compact homeAway={selectedMatch.homeAway} textStyle={styles.body} />
