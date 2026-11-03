@@ -17,6 +17,7 @@ const allowedBuilds = new Set([
 ])
 const productionBuilds = new Set(['internal-live:android', 'internal-live:ios', 'store-live:android', 'store-live:ios'])
 const authorisedParentProductionReferences = new Set([
+  'FP-MOBILE-LIVE-MATCH-112-20261103',
   'FP-MOBILE-CALENDAR-BACKGROUND-ACTIONS-271026',
   'FP-MOBILE-PARENT-IOS-BLACK-SCREEN-AND-PLAY-CLOSED-TEST-28',
   'FP-MOBILE-PARENT-LIVE-ACCOUNT-QA-CORRECTIVE-29',
@@ -47,6 +48,7 @@ const authorisedParentProductionReferences = new Set([
   'FP-MOBILE-FEEDBACK-CALENDAR-STATS-132',
 ])
 const authorisedCoachProductionReferences = new Set([
+  'FP-MOBILE-LIVE-MATCH-112-20261103',
   'FP-COACH-OFFLINE-15MB-20261102',
   'FP-MOBILE-CALENDAR-BACKGROUND-ACTIONS-271026',
   'FP-MOBILE-COACH-PRODUCTION-PROMOTION-MASTER-32',
@@ -94,13 +96,15 @@ const currentCoachStoreAndroid = appRole === 'coach'
   && ['FP-COACH-OFFLINE-15MB-20261102', 'FP-MOBILE-COACH-FORMATION-AUTOUPDATE-49', 'FP-MOBILE-COACH-FORMATION-STEPPER-50', 'FP-MOBILE-COACH-FORMATION-DRAG-51', 'FP-MOBILE-COACH-RESOURCES-MATCH-LINK-CORRECTIVE-53', 'FP-MOBILE-COACH-FORM-SELECTION-CORRECTIVE-54'].includes(promotionReference)
 const currentFeedbackStoreAndroid = `${profile}:${platform}` === 'store-live:android'
   && promotionReference === 'FP-MOBILE-SIMON-FEEDBACK-55'
+const currentLiveMatchStoreAndroid = `${profile}:${platform}` === 'store-live:android'
+  && promotionReference === 'FP-MOBILE-LIVE-MATCH-112-20261103'
 
 if (!app) {
   console.error('Unknown mobile app role. Expected coach or parent.')
   process.exit(1)
 }
 
-if (!allowedBuilds.has(`${profile}:${platform}`) && !masterStoreAndroid && !currentInternalIos && !currentCoachStoreAndroid && !currentFeedbackStoreAndroid) {
+if (!allowedBuilds.has(`${profile}:${platform}`) && !masterStoreAndroid && !currentInternalIos && !currentCoachStoreAndroid && !currentFeedbackStoreAndroid && !currentLiveMatchStoreAndroid) {
   console.error('Unknown mobile build profile and platform combination.')
   process.exit(1)
 }
