@@ -66,7 +66,7 @@ test('actual Android follow never saves or displays after forced session loss du
     getMobileRuntimeConfig: () => ({ isUsable: true, appRole: 'coach', easProjectId: 'test' }),
     supabase: { auth: { getUser: async () => ({ data: { user: { id: 'coach-1' } } }) }, rpc: async name => {
       if (name === 'follow_live_match') { reachedRegistration(); await registration; return { data: 'follow-1' } }
-      revoked.push(name); return { error: null }
+      revoked.push(name); return { data: true, error: null }
     } },
     confirmedMatch: async () => ({ id: 'match-1' }),
     createLiveMatchState: () => ({ end: false }),
@@ -88,6 +88,58 @@ test('actual Android follow never saves or displays after forced session loss du
   assert.equal(saved.length, 0)
   assert.equal(shown.length, 0)
   assert.deepEqual(revoked, ['stop_following_live_match'])
+})
+
+test('failed rollback retains the server follow ID for both RPC errors and thrown failures', async () => {
+  const source = readFileSync(new URL('../apps/mobile-core/src/liveMatchFollow.js', import.meta.url), 'utf8')
+  const startSource = source.slice(source.indexOf('async function startLiveMatchFollow('), source.indexOf('export async function stopLiveMatchFollow('))
+  for (const failure of ['returned', 'thrown']) {
+    const barrier = createLiveMatchStartBarrier()
+    const saved = new Map()
+    let finishRegistration, reachedRegistration
+    const registrationReached = new Promise(resolve => { reachedRegistration = resolve })
+    const registration = new Promise(resolve => { finishRegistration = resolve })
+    const deps = {
+      startBarrier: barrier,
+      getMobileRuntimeConfig: () => ({ isUsable: true, appRole: 'coach', easProjectId: 'test' }),
+      supabase: { auth: { getUser: async () => ({ data: { user: { id: 'coach-1' } } }) }, rpc: async name => {
+        if (name === 'follow_live_match') { reachedRegistration(); await registration; return { data: 'follow-1' } }
+        if (failure === 'thrown') throw new Error('offline')
+        return { error: new Error('offline') }
+      } },
+      confirmedMatch: async () => ({ id: 'match-1' }),
+      createLiveMatchState: () => ({ end: false }),
+      Platform: { OS: 'android' },
+      Notifications: { getPermissionsAsync: async () => ({ granted: true }), getExpoPushTokenAsync: async () => ({ data: 'push-token' }) },
+      AsyncStorage: { setItem: async (key, value) => { saved.set(key, JSON.parse(value)) }, removeItem: async key => { saved.delete(key) } },
+      showLiveMatchNotification: async () => { throw new Error('display must stay hidden') },
+      hideLiveMatchNotification: async () => {},
+      keyFor: () => 'saved-follow',
+      iosActivity: null,
+    }
+    const startFollow = new Function(...Object.keys(deps), `${startSource}; return startLiveMatchFollow`)(...Object.values(deps))
+    const start = barrier.start('coach', 'match-1', () => startFollow('coach', 'match-1'))
+    await registrationReached
+    const forcedLoss = barrier.beforeSignOut('coach')
+    finishRegistration()
+    await assert.rejects(start, /signed out/)
+    await forcedLoss
+    assert.deepEqual(saved.get('saved-follow'), { followId: 'follow-1', activityId: '', parentLinkId: null, rollbackPending: true })
+  }
+})
+
+test('a rollback-pending follow remains available for explicit cleanup after signing in again', async () => {
+  const source = readFileSync(new URL('../apps/mobile-core/src/liveMatchFollow.js', import.meta.url), 'utf8')
+  const readSource = source.slice(source.indexOf('export async function readLiveMatchFollow('), source.indexOf('async function startLiveMatchFollow(')).replace(/^export /, '')
+  const saved = { followId: 'old-follow', rollbackPending: true }
+  const read = new Function('supabase', 'AsyncStorage', 'keyFor', 'reconcileSavedLiveMatchFollow', `${readSource}; return readLiveMatchFollow`)(
+    { auth: { getUser: async () => ({ data: { user: { id: 'coach-1' } } }) } },
+    { getItem: async () => JSON.stringify(saved) },
+    () => 'saved-follow',
+    () => { throw new Error('rollback ID must remain available') },
+  )
+  assert.deepEqual(await read('coach', 'match-1'), saved)
+  assert.match(readFileSync(new URL('../apps/mobile-core/src/liveMatchBackground.js', import.meta.url), 'utf8'), /saved\.rollbackPending/)
 })
 
 test('sign-out revokes every saved server follow before removing local matches', async () => {

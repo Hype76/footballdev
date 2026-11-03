@@ -36,6 +36,7 @@ export async function readLiveMatchFollow(role, matchId) {
   const raw = await AsyncStorage.getItem(key)
   let saved
   try { saved = raw ? JSON.parse(raw) : null } catch { return null }
+  if (saved?.rollbackPending && saved.followId) return saved
   return reconcileSavedLiveMatchFollow(saved, {
     check: async followId => {
       const { data: active, error } = await supabase.rpc('is_live_match_follow_active', { follow_id_value: followId })
@@ -95,10 +96,23 @@ async function startLiveMatchFollow(role, matchId, parentLinkId = null) {
     startBarrier.check(role, generation)
     return saved
   } catch (error) {
-    if (registeredFollowId) await supabase.rpc('stop_following_live_match', { follow_id_value: registeredFollowId }).catch(() => {})
+    let revoked = false
+    if (registeredFollowId) {
+      try {
+        const result = await supabase.rpc('stop_following_live_match', { follow_id_value: registeredFollowId })
+        revoked = !result.error && result.data === true
+      } catch { revoked = false }
+    }
     if (activityId) await iosActivity?.endMatchActivity(activityId).catch(() => {})
     if (Platform.OS === 'android') await hideLiveMatchNotification(matchId).catch(() => {})
-    if (userId) await AsyncStorage.removeItem(keyFor(role, userId, matchId)).catch(() => {})
+    if (userId) {
+      const key = keyFor(role, userId, matchId)
+      if (registeredFollowId && !revoked) {
+        await AsyncStorage.setItem(key, JSON.stringify({ followId: registeredFollowId, activityId, parentLinkId, rollbackPending: true })).catch(() => {})
+      } else {
+        await AsyncStorage.removeItem(key).catch(() => {})
+      }
+    }
     throw error
   }
 }
@@ -119,7 +133,7 @@ export async function stopLiveMatchFollow(role, matchId) {
 export async function refreshLiveMatchNotification(role, matchId) {
   if (Platform.OS !== 'android') return
   const saved = await readLiveMatchFollow(role, matchId)
-  if (!saved) return
+  if (!saved || saved.rollbackPending) return
   try {
     const match = await confirmedMatch(role, matchId, saved.parentLinkId)
     const state = createLiveMatchState(match, Date.now())
