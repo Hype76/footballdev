@@ -259,8 +259,19 @@ export function verifyInstallation(root, record, source, copies, review) {
   return receipt
 }
 export async function verifyUpstream(record, payload, request = fetch) {
+  let githubToken = ''
+  if (request === fetch) {
+    try {
+      githubToken = execFileSync('gh', ['auth', 'token'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim()
+    } catch {
+      // The official public API remains available when GitHub CLI is not signed in.
+    }
+  }
   const get = async url => {
-    const response = await request(url, { headers: { 'User-Agent': 'Football-local-security-verification', Accept: url.startsWith('https://api.github.com/') ? 'application/vnd.github+json' : 'application/json' }, signal: AbortSignal.timeout(20000) })
+    const github = url.startsWith('https://api.github.com/')
+    const headers = { 'User-Agent': 'Football-local-security-verification', Accept: github ? 'application/vnd.github+json' : 'application/json' }
+    if (github && githubToken) headers.Authorization = `Bearer ${githubToken}`
+    const response = await request(url, { headers, signal: AbortSignal.timeout(20000) })
     assert.ok(response.ok, `Official upstream lookup failed: ${response.status}`)
     return response.json()
   }
