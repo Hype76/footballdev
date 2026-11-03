@@ -559,7 +559,7 @@
   "implementationHashes": {
     "scripts/security-supply-chain-gate.mjs": "dcf722bc6cbf2015da4250ea60cbb81e34d3c5c64ec7bb6059671cbae5ab4207",
     "scripts/security-apply-reviewed-backports.mjs": "d1f039f35d9c8fddbb1b5694b89d2edd9d9adfd486dc75bd09f26194b7daa941",
-    "scripts/security-verify-reviewed-backports.mjs": "d9e91f6beacb6ec1a9c22d90ba34965f09596232a9b00b9071392a4886babe4a",
+    "scripts/security-verify-reviewed-backports.mjs": "b3de275c639a29b686a2b77d16b86fed555cf34fe6144ea373abac0beeecab81",
     "security/patches/braces-3.0.3.patch": "e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699",
     "security/patches/node-forge-1.4.0.patch": "2de065ac998bf58917a14d0935112d97ec2957ac41b5f06958d500934f188ed4",
     "security/patches/reviewed-source-manifest.json": "facb364bbac44a8276d082068e8ed8415ca89777d24f4c7a05ff370f71e5a54d",
@@ -1675,7 +1675,7 @@
       "tests/coach-home-warning-recovery.test.mjs": "4f19deb7b64f3ca8c5164dbdd4a61ecf473d48f10114e190dc4ca72377903838",
       "tests/coach-invite-table-browser.mjs": "84d25d718f8e3ff33197486261129241d01eb54910b3c5b2b42a0d4c94293495",
       "tests/coach-keyboard-viewport.test.mjs": "782d2e0a74a4760d93b4cc4167d2bf44faeb80a909f9889e24b7aa36b771f671",
-      "tests/coach-matchday-offline-browser.mjs": "dc83de83cb11562f591aa01c8a3ec49d83b71315d235616595b73b7eba2ece04",
+      "tests/coach-matchday-offline-browser.mjs": "4c1405b82545e981aeaf52814476da04095be6869ccd030588039bd47f3791cb",
       "tests/coach-mobile-parent-invite-email-80.test.mjs": "4dc2b311ae45aa1eb1a03cd5a40c135dde789590aabb7c2a94072f41c735f006",
       "tests/coach-more-menu-browser.mjs": "e6d4ea6c73762d2f72e83cc24e164ebc932baec812af56613a45a5ebb898be23",
       "tests/coach-offline-storage.test.mjs": "0c8c0d4b64478c844f6b165b2880210aea9c397b5b4afb353daef8a61e4a62a7",
@@ -1815,7 +1815,7 @@
       "tests/parent-auth-intent.test.mjs": "7778b55613d1e3564ac57f1d9e2d56ba4f1359e95762f25132a8f2834d0c0c69",
       "tests/parent-bottom-tabs-browser.mjs": "ab64bbb4c9e0279d6dfdc6c6385f3be1250d8915b2017adeebc6bcfdb16df95d",
       "tests/parent-chat-layout-browser.mjs": "baf6f282e3aa374c345219e7cdb6928532cd2a1b66d3616e367f183b98aa8dc8",
-      "tests/parent-compact-matchday-browser.mjs": "0bf6f4c62589f5ee16d88686e27f8ee5e4dea512c5c78a7de93f8c3d6cc1e9b4",
+      "tests/parent-compact-matchday-browser.mjs": "0adc8be661ec9f4f0eb633e247e74ff07d19aa14b2edbe37ee7316bbc27172c1",
       "tests/parent-development-pdf-actions.test.mjs": "5ec3f9e267cbbf038c8db71a6ce414ab8ecc7f5b6e0d4133185b9a5e4962eef2",
       "tests/parent-development-pdf-browser.mjs": "cb0a619f7981b788db4f32ecfbee1433a19afe235f59f797521ba07c39d4d2b3",
       "tests/parent-development-progression-browser.mjs": "4408c03a9b6af88389b9d5c5ed8169215c517e0082e761311a9865c324379eb6",
@@ -3543,7 +3543,7 @@
       "nodeEngine": "20 || >=22"
     }
   },
-  "releasePreparationSha256": "1bb089ea37d61ade82addae1b4a788273cd8b017c0af9e13b0bc581588732cb6",
+  "releasePreparationSha256": "6c7b8af90e47cdcd905423e85a7367d1b3838550e63493dd6c97bd69fd9844a0",
   "rootOnlyProposalSha256": "45c3b7352c7328c84982e114b7e87e09cf79514d02d102297ae75ec0925812eb",
   "remediationMode": "maintained-source-fixes",
   "officialCompatibilityDependencies": [

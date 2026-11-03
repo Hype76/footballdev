@@ -56,6 +56,7 @@ const VOLUNTEER_ROLE_STATUS_LABEL='Volunteer role status',getResourceDisplayTitl
 const BrandLoader=()=>null,useConfirmedConnectionIssue=value=>value;
 const ResourceState=()=>null;
 const ScorerControls=()=> <Text>Authorised scorer controls</Text>;
+const LiveMatchFollowAction=()=>null;
 const supabase={},peekMobileClubKits=()=>({}),loadMobileClubKits=async()=>({}),peekMobileTeamKits=()=>({}),loadMobileTeamKits=async()=>({}),kitLabel=()=> 'Home kit';
 const mobileKitImageStorage={resolve:async uri=>uri};
 const kitImageUrl=()=> 'data:image/svg+xml;base64,${Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><rect width="40" height="40" fill="blue"/></svg>').toString('base64')}';

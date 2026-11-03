@@ -81,6 +81,7 @@ const mocks = [
   [/CoachFormationBoard$/, 'export const CoachFormationBoard=()=>null;'],
   [/CoachFixtureForm$/, `export const CoachFixtureForm=({match,onCancel,onUpdated})=><div><p>Editing fixture {match.id}</p><button onClick={onCancel}>Cancel fixture edit</button><button onClick={()=>onUpdated({...match,matchDate:'2099-09-20'})}>Save fixture edit</button></div>;`],
   [/CoachGuestScorer$/, 'export const CoachGuestScorer=()=>null;'],
+  [/LiveMatchFollowAction(?:\.js)?$/, 'export const LiveMatchFollowAction=()=>null;'],
   [/^expo-keep-awake$/, 'export const isAvailableAsync=async()=>false;export const activateKeepAwakeAsync=async()=>{};export const deactivateKeepAwake=async()=>{};'],
   [/^react-native$/, `export * from 'rn-web';export const AppState={currentState:'active',addEventListener(){return {remove(){}}}};`],
 ]
