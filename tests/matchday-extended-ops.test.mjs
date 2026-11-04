@@ -93,6 +93,10 @@ test('shootout completion supports early mathematical completion and sudden deat
 
   const notFinished = { shootoutEvents: earlyFinish.shootoutEvents.slice(0, 5) }
   assert.equal(canFinishPenaltyShootout(notFinished), false)
+  assert.equal(canFinishPenaltyShootout({ shootoutEvents: [
+    ...notFinished.shootoutEvents,
+    { teamSide: 'club', outcome: 'scored', voidedAt: '2026-11-03T21:45:00Z' },
+  ] }), false)
 
   const suddenDeath = {
     shootoutEvents: [

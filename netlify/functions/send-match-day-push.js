@@ -478,7 +478,7 @@ export async function deliverMatchDayNotification({ match, type, eventId = '', n
   const fans = await sendFanMatchNotifications({
     client: supabaseAdmin,
     match,
-    type,
+    type: notificationCopy.notificationType,
     eventId,
     notificationId,
     targetParentLinkIds,

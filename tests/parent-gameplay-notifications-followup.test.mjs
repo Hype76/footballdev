@@ -4,7 +4,7 @@ import test from 'node:test'
 import { deliverParentScorerCommands } from '../netlify/functions/lib/_parent-scorer-command-notifications.js'
 
 const source = await readFile(new URL('../apps/parent-mobile/App.js', import.meta.url), 'utf8')
-const actionSource = source.slice(source.indexOf('async function handleScorerAction'), source.indexOf('async function handleDisplayThemeChange'))
+const actionSource = source.slice(source.indexOf('async function handleScorerAction'), source.indexOf('async function handleRestoreRejectedShootout'))
 const names = ['activeActionId', 'scorerActionInFlightRef', 'selectedMobileUser', 'selectedLink', 'setActiveActionId',
   'setNotice', 'queueParentScorerAction', 'setScorerOutboxes', 'isOffline', 'runParentSync', 'getParentFriendlyError']
 const makeAction = new Function(...names, `return (${actionSource.trim()})`)

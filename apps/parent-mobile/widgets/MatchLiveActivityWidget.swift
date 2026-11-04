@@ -99,15 +99,17 @@ struct MatchLiveActivityWidget: Widget {
             muted: context.attributes.clubIsHome,
             yellow: context.state.awayYellowCards ?? 0, red: context.state.awayRedCards ?? 0, trailing: true)
         }
-        HStack {
-          Text(context.state.phase).frame(maxWidth: .infinity, alignment: .leading)
-          MatchClock(state: context.state).frame(maxWidth: .infinity, alignment: .center)
-          Group {
-            if context.isStale { Text("Update delayed") }
-            else if let home = context.state.homeShootoutScore, let away = context.state.awayShootoutScore {
-              Text("Penalties \(home) - \(away)")
-            } else { Text("") }
-          }.frame(maxWidth: .infinity, alignment: .trailing)
+        ZStack {
+          HStack {
+            Text(context.state.phase).frame(maxWidth: .infinity, alignment: .leading)
+            Group {
+              if context.isStale { Text("Update delayed") }
+              else if let home = context.state.homeShootoutScore, let away = context.state.awayShootoutScore {
+                Text("Penalties \(home) - \(away)")
+              } else { Text("") }
+            }.frame(maxWidth: .infinity, alignment: .trailing)
+          }
+          MatchClock(state: context.state)
         }.font(.caption)
       }.padding().foregroundStyle(.white).activityBackgroundTint(Color(red: 0, green: 76.0 / 255.0, blue: 140.0 / 255.0))
     } dynamicIsland: { context in
@@ -126,10 +128,12 @@ struct MatchLiveActivityWidget: Widget {
         }
         DynamicIslandExpandedRegion(.center) { Text("\(context.state.homeScore) - \(context.state.awayScore)").bold() }
         DynamicIslandExpandedRegion(.bottom) {
-          HStack {
-            Text(context.state.phase).frame(maxWidth: .infinity, alignment: .leading)
-            MatchClock(state: context.state).frame(maxWidth: .infinity, alignment: .center)
-            Text(context.isStale ? "Update delayed" : "").frame(maxWidth: .infinity, alignment: .trailing)
+          ZStack {
+            HStack {
+              Text(context.state.phase).frame(maxWidth: .infinity, alignment: .leading)
+              Text(context.isStale ? "Update delayed" : "").frame(maxWidth: .infinity, alignment: .trailing)
+            }
+            MatchClock(state: context.state)
           }
         }
       } compactLeading: {

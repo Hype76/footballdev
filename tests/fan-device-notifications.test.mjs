@@ -1,6 +1,14 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { readFanDeviceNotifications as read, enableFanDeviceNotifications as enable, disableFanDeviceNotifications as disable, fanNotificationPreferenceKey as preferenceKey } from '../apps/parent-mobile/src/fanDeviceNotifications.js'
+import { buildParentMatchDayNotificationCopy } from '../netlify/functions/lib/_match-day-notification-copy.js'
+import { isFanMatchNotificationType } from '../netlify/functions/lib/_fan-push.js'
+
+test('the match-start notification name is accepted by fan delivery', () => {
+  const copy = buildParentMatchDayNotificationCopy({ match: { id: 'match', teamName: 'U17 Green', opponent: 'Liverpool', homeAway: 'home', homeScore: 0, awayScore: 0 }, type: 'live' })
+  assert.equal(copy.notificationType, 'match_started')
+  assert.equal(isFanMatchNotificationType(copy.notificationType), true)
+})
 
 function fixture() {
   const state = { permission: { status: 'granted', canAskAgain: true }, token: 'ExpoPushToken[current]', storage: new Map(), registered: new Set(), requests: [], prompts: 0, tokenReads: [], failRegister: false, failUnregister: false }

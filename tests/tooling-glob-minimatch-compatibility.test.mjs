@@ -58,7 +58,7 @@ test('official tooling updates preserve unrelated dependencies and the exact app
     const { overrides: oldOverrides, ...oldPackage } = before
     const { overrides, ...newPackage } = current
     assert.deepEqual(newPackage, oldPackage, `${scope} direct dependencies and scripts match the exact mobile feature additions`)
-    assert.deepEqual(overrides, { ...oldOverrides, minimatch: '11.0.4', 'glob@>=9.0.0 <=14.0.1': '14.0.3', ...(scope === '.' ? { '@eslint/config-array': '0.23.5' } : { 'test-exclude': '8.0.0' }) })
+    assert.deepEqual(overrides, { ...oldOverrides, minimatch: '11.0.4', 'glob@>=9.0.0 <=14.0.1': '14.0.3', ...(scope === '.' ? { '@eslint/config-array': '0.23.5' } : { 'test-exclude': '8.0.0', 'node-forge': '1.4.3' }) })
     const oldLock = previousLock.packages
     const newLock = JSON.parse(fs.readFileSync(`${prefix}package-lock.json`)).packages
     for (const file of new Set([...Object.keys(oldLock), ...Object.keys(newLock)])) {
@@ -66,7 +66,11 @@ test('official tooling updates preserve unrelated dependencies and the exact app
       const old = oldLock[file], next = newLock[file]
       if (old?.version === next?.version && old?.integrity === next?.integrity) continue
       const name = file.split('node_modules/').at(-1)
-      assert.ok(toolingPackages.has(name) || liveMatchPackages.has(name) || file === '../mobile-core/modules/live-match', `Unexpected package artifact change: ${scope}/${file}`)
+      assert.ok(toolingPackages.has(name) || liveMatchPackages.has(name) || scope !== '.' && name === 'node-forge' || file === '../mobile-core/modules/live-match', `Unexpected package artifact change: ${scope}/${file}`)
+      if (name === 'node-forge') {
+        assert.equal(next.version, '1.4.3')
+        assert.equal(next.integrity, 'sha512-P6wzfh6t70avmV8FrVEAd/36sOPJQ+hkaJVX1Laap9J/77m7M0eyozDvc8SwnDf4P7MP94gwbAAo0rg3YVXT+g==')
+      }
       for (const entry of [old, next].filter(Boolean)) {
         assert.notEqual(entry.hasInstallScript, true, `${name} cannot add native installation scripts`)
         assert.equal(entry.os, undefined)
@@ -89,6 +93,7 @@ test('minimatch 11.0.4 changes only the official package identity and supported 
     if (scope !== '.') {
       oldPackage.overrides['glob@>=9.0.0 <=14.0.1'] = '14.0.3'
       oldPackage.overrides['test-exclude'] = '8.0.0'
+      oldPackage.overrides['node-forge'] = '1.4.3'
     }
     assert.deepEqual(newPackage, oldPackage)
     const newLock = JSON.parse(fs.readFileSync(`${prefix}package-lock.json`))

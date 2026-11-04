@@ -46,6 +46,7 @@ import { useConfirmedConnectionMessage } from '../../mobile-core/src/useConfirme
 import ParentIcon from './ParentIcon'
 import { formatMatchAddedTimeClock, getMatchEventTime } from '../../../src/lib/matchday-event-time.js'
 import { captureParentScorerAction, getParentMatchTimeline, getParentScorerActionLabel, getParentScorerMatches } from './parentScorerCore'
+import { canRestoreRejectedShootout } from './parentScorerOutboxCore.js'
 import { getParentEventDateTimeLabel, getParentEventKey, getParentEventPresentation } from './parentEventPresentation'
 import {
   getParentScorerInterestInvitation,
@@ -315,11 +316,12 @@ function IconChoice({ accessibilityLabel, busy = false, colors, disabled = false
   )
 }
 
-function InvitationResponseControl({ activeActionId, colors, invitation, isOffline, isLocked = false, label, onRespond, styles }) {
+function InvitationResponseControl({ activeActionId, colors, invitation, isOffline, isLocked = false, label, onRespond, showChoicesInitially = false, styles }) {
   const scope = JSON.stringify([invitation.parentLinkId, invitation.childId, invitation.invitationId])
   const captureView = useAttendanceUiGuard(scope)
   const inFlight = useRef(null)
   const [submission, setSubmission] = useState(null)
+  const [changingScope, setChangingScope] = useState(showChoicesInitially ? scope : '')
   const local = submission?.scope === scope ? submission : null
   const response = invitationResponsePresentation(invitation)
   const actionable = isParentInvitationActionable(invitation)
@@ -349,11 +351,22 @@ function InvitationResponseControl({ activeActionId, colors, invitation, isOffli
       const receipt = await onRespond(invitation, value, { inlineFeedback: true })
       if (!current()) return
       setSubmission({ scope, response: value, pending: false, saved: Boolean(receipt?.saved), error: receipt?.error || '' })
+      if (receipt?.saved && !receipt?.error) setChangingScope('')
     } catch (failure) {
       if (current()) setSubmission({ scope, pending: false, error: failure?.message || 'Your response could not be saved. Try again.' })
     } finally {
       if (inFlight.current === request) inFlight.current = null
     }
+  }
+
+  if (accepted && !busy && !error && changingScope !== scope && options.length) {
+    const confirmation = isVolunteer ? `${label} accepted` : 'Attending'
+    const detail = isVolunteer ? "You've accepted this role." : "You've confirmed you are attending."
+    return <View accessibilityLabel={`${confirmation}. ${detail}`} style={[styles.inviteResponseRow, { borderBottomWidth: 1, borderBottomColor: colors.border, flexDirection: 'row', alignItems: 'center' }]}>
+      <ParentIcon color={colors.success} iconKey="attendance.available" size={24} />
+      <View style={[styles.inviteSectionCopy, { flex: 1 }]}><Text style={[styles.inviteSectionTitle, { color: colors.success }]}>{confirmation}</Text><Text style={styles.meta}>{detail}</Text></View>
+      <Pressable accessibilityLabel={`Change ${label.toLowerCase()} response`} accessibilityRole="button" onPress={() => setChangingScope(scope)} style={{ minHeight: 44, minWidth: 64, justifyContent: 'center', alignItems: 'center' }}><Text style={[styles.body, { color: colors.accentText, fontWeight: '700' }]}>Change</Text></Pressable>
+    </View>
   }
 
   return (
@@ -964,7 +977,7 @@ function getScorerPeriodLabel(match) {
   return `${phase} (${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')})`
 }
 
-function ScorerControls({ activeActionId, isOffline, match, onAction, placeholderColor, players = [], scorerSync, styles }) {
+function ScorerControls({ activeActionId, isOffline, match, onAction, onRestore, placeholderColor, players = [], scorerSync, styles }) {
   const busy = activeActionId.startsWith(`scorer:${match.id}:`)
   const [homeScore, setHomeScore] = useState(String(match.homeScore || 0))
   const [awayScore, setAwayScore] = useState(String(match.awayScore || 0))
@@ -1048,12 +1061,14 @@ function ScorerControls({ activeActionId, isOffline, match, onAction, placeholde
         {isOffline ? <Text style={styles.warning}>Offline. Game Day actions save on this phone and sync when connected.</Text> : null}
         {scorerSync?.pending?.length ? <Text accessibilityRole="status" style={styles.helper}>{scorerSync.pending.length} saved action{scorerSync.pending.length === 1 ? '' : 's'} waiting to sync.</Text> : null}
         {scorerSync?.error ? <Text accessibilityRole="alert" style={styles.warning}>{scorerSync.error}</Text> : null}
+        {canRestoreRejectedShootout(scorerSync) ? <Button disabled={busy} label="Restore shootout controls" onPress={onRestore} outline styles={styles} /> : null}
+        {match.currentMatchPhase === 'penalties' && timerActions.some(item => item.action === 'full_time' && item.disabled) ? <Text style={styles.helper}>Keep recording kicks until one team has a clear winner.</Text> : null}
         {match.pendingReview ? <Text accessibilityRole="status" style={styles.helper}>Coach handover saved on this phone and waiting to sync.</Text> : null}
         {!keepAwake ? awakeControl : null}
         <View style={styles.actionGrid} testID="scorer-primary-actions">
           {canRecordEvents ? <ScorerActionButton disabled={disabled} icon="sports-soccer" label="Goal" onPress={() => openAction('goal', 'Add goal')} primary styles={styles} /> : null}
           {Object.entries(SCORER_EVENT_LABELS).filter(([kind]) => canRecordParentScorerEvent(match, kind)).map(([kind, label]) => <ScorerActionButton disabled={disabled} icon={kind === 'substitution' ? 'swap-horiz' : 'style'} iconColor={kind === 'yellow_card' ? PARENT_SCORER_ICON_COLOURS.yellow : kind === 'red_card' ? PARENT_SCORER_ICON_COLOURS.red : PARENT_SCORER_ICON_COLOURS.substitution} key={kind} label={label} onPress={() => openAction(kind, label)} styles={styles} />)}
-          {timerActions.filter((item) => item.action !== 'hydration').map((item) => <ScorerActionButton danger={item.action === 'full_time'} disabled={disabled} icon={item.action === 'pause' ? 'pause' : item.action === 'full_time' ? 'stop' : item.action.includes('half_time') ? 'timer' : 'play-arrow'} key={item.action} label={item.label} onPress={() => chooseTimerAction(item.action)} styles={styles} />)}
+          {timerActions.filter((item) => item.action !== 'hydration').map((item) => <ScorerActionButton danger={item.action === 'full_time'} disabled={disabled || item.disabled} icon={item.action === 'pause' ? 'pause' : item.action === 'full_time' ? 'stop' : item.action.includes('half_time') ? 'timer' : 'play-arrow'} key={item.action} label={item.label} onPress={() => chooseTimerAction(item.action)} styles={styles} />)}
           {match.status === 'full_time' && !match.concludedAt ? <View style={styles.actionGridItem}><Button disabled={disabled} label="Send to Coach to conclude" onPress={() => onAction('request-review')} styles={styles} /></View> : null}
           <ScorerActionButton disabled={disabled || !canCorrectScore} icon="track-changes" label="Correct score" onPress={() => openAction('score', 'Correct score')} styles={styles} />
         </View>
@@ -1075,7 +1090,7 @@ function ScorerControls({ activeActionId, isOffline, match, onAction, placeholde
         <Button disabled={busy} label="Cancel" onPress={() => setActionSheet(null)} outline styles={styles} />
       </ParentMatchDayActionSheet> : null}
       {actionSheet?.kind === 'goal' ? <ParentMatchDayActionSheet busy={busy} capturedClock={actionSheet.capturedClock} onClose={() => setActionSheet(null)} styles={styles} title="Add goal"><Text style={styles.body}>The match time was captured when you pressed Goal. Add the details without rushing.</Text>{actionError ? <Text accessibilityRole="alert" style={styles.error}>{actionError}</Text> : null}<GoalForm disabled={disabled} events={match.events} initialMinute={actionSheet.capturedMinute} initialStoppageMinute={actionSheet.capturedStoppageMinute} onAdd={(goal) => submitAndClose('goal', goal)} placeholderColor={placeholderColor} players={players} styles={styles} /></ParentMatchDayActionSheet> : null}
-      {actionSheet && SCORER_EVENT_LABELS[actionSheet.kind] ? <ParentMatchDayActionSheet busy={busy} capturedClock={actionSheet.capturedClock} onClose={() => setActionSheet(null)} styles={styles} title={actionSheet.title}>{actionError ? <Text accessibilityRole="alert" style={styles.error}>{actionError}</Text> : null}<ScorerEventForm disabled={disabled} capture={actionSheet} onAdd={(event) => submitAndClose('event', event)} players={actionSheet.kind === 'substitution' ? getMatchDaySubstitutionPlayers(match, players) : players} styles={styles} placeholderColor={placeholderColor} /></ParentMatchDayActionSheet> : null}
+      {actionSheet && SCORER_EVENT_LABELS[actionSheet.kind] ? <ParentMatchDayActionSheet busy={busy} capturedClock={actionSheet.capturedClock} onClose={() => setActionSheet(null)} styles={styles} title={actionSheet.title}>{actionError ? <Text accessibilityRole="alert" style={styles.error}>{actionError}</Text> : null}<ScorerEventForm disabled={disabled} capture={actionSheet} onAdd={(event) => submitAndClose('event', event)} players={['substitution', 'yellow_card', 'red_card'].includes(actionSheet.kind) ? getMatchDaySubstitutionPlayers(match, players) : players} styles={styles} placeholderColor={placeholderColor} /></ParentMatchDayActionSheet> : null}
       {actionSheet?.kind === 'score' ? <ParentMatchDayActionSheet busy={busy} capturedClock={actionSheet.capturedClock} onClose={() => setActionSheet(null)} styles={styles} title="Correct score"><Text style={styles.body}>Use this only when the displayed score is wrong. The correction remains in the Match Day history.</Text><View style={styles.actionRow}><TextInput accessibilityLabel="Home score" editable={!disabled} keyboardType="number-pad" onChangeText={setHomeScore} style={[styles.field, { flex: 1, minWidth: 96 }]} value={homeScore} /><TextInput accessibilityLabel="Away score" editable={!disabled} keyboardType="number-pad" onChangeText={setAwayScore} style={[styles.field, { flex: 1, minWidth: 96 }]} value={awayScore} /></View><Text style={styles.fieldLabel}>Reason, optional</Text><TextInput accessibilityLabel="Score correction reason" editable={!disabled} maxLength={240} multiline onChangeText={setScoreReason} placeholder="Why are you correcting the score?" placeholderTextColor={placeholderColor} style={[styles.field, { minHeight: 88, textAlignVertical: 'top' }]} value={scoreReason} /><Button disabled={disabled} label={busy ? 'Saving...' : 'Save score correction'} onPress={() => submitAndClose('score', { awayScore, homeScore, reason: scoreReason })} styles={styles} /></ParentMatchDayActionSheet> : null}
       {actionSheet?.kind === 'correct-goal' ? <ParentMatchDayActionSheet busy={busy} capturedClock={actionSheet.capturedClock} onClose={() => setActionSheet(null)} styles={styles} title="Correct a goal">{actionError ? <Text accessibilityRole="alert" style={styles.error}>{actionError}</Text> : null}<GoalCorrectionForm disabled={disabled} events={match.events} match={match} players={players} onCorrect={(value) => submitAndClose('correct-goal', value)} onVoid={(value) => submitAndClose('void-goal', value)} placeholderColor={placeholderColor} styles={styles} /></ParentMatchDayActionSheet> : null}
       {actionSheet?.kind === 'shootout' ? <ParentMatchDayActionSheet busy={busy} capturedClock={actionSheet.capturedClock} onClose={() => setActionSheet(null)} styles={styles} title="Penalty shootout"><ShootoutControls disabled={disabled} match={match} onRecord={(value) => submitAndClose('shootout', value)} onVoid={(value) => submitAndClose('void-shootout', value)} placeholderColor={placeholderColor} styles={styles} /></ParentMatchDayActionSheet> : null}
@@ -1190,7 +1205,7 @@ function ParentMatchFormationPlan({ error = '', onFocusBoard, plan = null, plans
   )
 }
 
-export function MatchdayScreen({ activeActionId, clubKits, formationViewportHeight = 0, invitations = [], isOffline, link, onAddToCalendar, onBack, onDismiss, onFocusFormation, onLiveRefresh, onOpen, onOpenLink, onRespond, onTransport, onScorerAction, onVolunteer, players = [], resource, scorerSync, selectedMatch, themeTokens }) {
+export function MatchdayScreen({ activeActionId, clubKits, formationViewportHeight = 0, invitations = [], isOffline, link, onAddToCalendar, onBack, onDismiss, onFocusFormation, onLiveRefresh, onOpen, onOpenLink, onRespond, onRestoreScorer, onTransport, onScorerAction, onVolunteer, players = [], resource, scorerSync, selectedMatch, themeTokens }) {
   const { colors, styles } = usePortalStyles(themeTokens)
   const [matchSection, setMatchSection] = useState('upcoming')
   const [squadOpenMatchId, setSquadOpenMatchId] = useState('')
@@ -1233,7 +1248,7 @@ export function MatchdayScreen({ activeActionId, clubKits, formationViewportHeig
       <View style={styles.stack}>
         {!selectedMatch.isScorer ? <MatchdayAction accessibilityLabel="Back to Matchday" label="Back" iconKey="action.back" onPress={onBack} colors={colors} styles={styles} back /> : null}
         {selectedMatch.scorerReviewRequestedAt && !selectedMatch.isScorer ? <View style={styles.card}><Text accessibilityRole="status" style={styles.body}>Sent to Coach to conclude. Your scoring access has ended.</Text></View> : null}
-        {selectedMatch.isScorer ? <ScorerControls activeActionId={activeActionId} isOffline={isOffline} match={selectedMatch} onAction={(action, value) => onScorerAction(selectedMatch, action, value)} placeholderColor={colors.muted} players={scorerPlayers} scorerSync={scorerSync} styles={styles} /> : null}
+        {selectedMatch.isScorer ? <ScorerControls activeActionId={activeActionId} isOffline={isOffline} match={selectedMatch} onAction={(action, value) => onScorerAction(selectedMatch, action, value)} onRestore={() => onRestoreScorer?.(selectedMatch)} placeholderColor={colors.muted} players={scorerPlayers} scorerSync={scorerSync} styles={styles} /> : null}
         {selectedMatch.isScorer ? <MatchdayAction accessibilityLabel="Back to Matchday" label="Back" iconKey="action.back" onPress={onBack} colors={colors} styles={styles} back /> : null}
         <View style={[styles.gameDayHero, selectedMatchIsLive && styles.gameDayHeroLive]}>
           {['cancelled', 'postponed'].includes(selectedMatch.status) ? <Text style={styles.pill}>{getParentMatchStatusLabel(selectedMatch)}</Text> : null}
@@ -1262,7 +1277,7 @@ export function MatchdayScreen({ activeActionId, clubKits, formationViewportHeig
             <View style={styles.row}><View style={{ gap: 6, flexShrink: 1 }}><Text style={styles.fieldLabel}>Availability</Text><MatchStatusBadge colors={colors} status={getParentMatchAvailability(selectedMatch, attendanceInvitation, link, now)} prefix="Availability" styles={styles} /></View>
               {canChangeAvailability && onRespond ? <Pressable accessibilityLabel={availabilityOpen ? 'Close availability response' : 'Change availability'} accessibilityRole="button" accessibilityState={{ expanded: availabilityOpen, disabled: isOffline || Boolean(activeActionId) }} disabled={isOffline || Boolean(activeActionId)} onPress={() => setAvailabilityOpenKey(availabilityOpen ? '' : availabilityKey)} style={{ minHeight: 44, paddingHorizontal: 10, flexDirection: 'row', alignItems: 'center', gap: 6 }}><Text style={[styles.body, { color: colors.accentText, fontWeight: '700' }]}>{availabilityOpen ? 'Done' : 'Change'}</Text><ParentIcon color={colors.accentText} iconKey="action.open" size={20} /></Pressable> : null}
             </View>
-            {availabilityOpen ? <View style={styles.stack}><InvitationResponseControl label="Availability" activeActionId={activeActionId} colors={colors} invitation={attendanceInvitation} isOffline={isOffline} onRespond={onRespond} styles={styles} /><ParentCarpoolControl activeActionId={activeActionId} colors={colors} invitation={attendanceInvitation} isOffline={isOffline} onTransport={onTransport} styles={styles} /></View> : null}
+            {availabilityOpen ? <View style={styles.stack}><InvitationResponseControl label="Availability" activeActionId={activeActionId} colors={colors} invitation={attendanceInvitation} isOffline={isOffline} onRespond={onRespond} showChoicesInitially styles={styles} /><ParentCarpoolControl activeActionId={activeActionId} colors={colors} invitation={attendanceInvitation} isOffline={isOffline} onTransport={onTransport} styles={styles} /></View> : null}
             <View style={{ gap: 6 }}><Text style={styles.fieldLabel}>Match squad</Text><MatchStatusBadge colors={colors} status={getParentMatchSquadStatus(selectedMatch)} prefix="Match squad" styles={styles} /></View>
           </View> : null}
           {selectedMatch.notes ? <><Text style={styles.cardTitle}>Match notes</Text><Text style={styles.body}>{selectedMatch.notes}</Text></> : null}

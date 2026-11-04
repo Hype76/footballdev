@@ -169,10 +169,14 @@ export function CoachFixtureForm({ defaultMatchDate = '', match = null, matches,
     setBusy(true)
     const startedAt = Date.now()
     let creationPending = !isEditing
-    let slowNotified = false
+    let slowNotification = null
     const notify = (title, body) => Notifications.scheduleNotificationAsync({ content: { title, body }, trigger: null }).catch(() => {})
     const slowNotice = !isEditing ? setTimeout(() => {
-      if (creationPending) { slowNotified = true; void notify('Match setup is taking longer', 'The fixture is still being checked. Please do not press Create again.') }
+      if (creationPending) {
+        slowNotification = Notifications.scheduleNotificationAsync({ content: { title: 'Match setup is taking longer', body: 'The fixture is still being checked. Please do not press Create again.' }, trigger: null })
+          .then(async (id) => { if (!creationPending) await Notifications.dismissNotificationAsync(id).catch(() => {}); return id })
+          .catch(() => '')
+      }
     }, 10000) : null
     const squadCalendarPlayerIds = players
       .filter((player) => String(player.section || '').trim().toLowerCase() === 'squad')
@@ -193,6 +197,10 @@ export function CoachFixtureForm({ defaultMatchDate = '', match = null, matches,
         : await createCoachMatchDayFixture(user, submittedForm, { calendarTarget })
       creationPending = false
       if (slowNotice) clearTimeout(slowNotice)
+      if (slowNotification) {
+        const id = await slowNotification
+        if (id) await Notifications.dismissNotificationAsync(id).catch(() => {})
+      }
       let preferencesWarning = ''
       try {
         const currentPreferences = await readCoachFixturePreferences(user.id, user.activeTeamId)
@@ -213,12 +221,16 @@ export function CoachFixtureForm({ defaultMatchDate = '', match = null, matches,
     } catch (saveError) {
       creationPending = false
       if (slowNotice) clearTimeout(slowNotice)
+      if (slowNotification) {
+        const id = await slowNotification
+        if (id) await Notifications.dismissNotificationAsync(id).catch(() => {})
+      }
       const friendly = getCoachFriendlyError(saveError, 'The fixture could not be created.')
       const message = !isEditing && friendly.startsWith('We could not connect')
         ? 'Could not confirm fixture creation. Check Match Day before trying again.' : friendly
       const remaining = !isEditing ? Math.max(0, 10000 - (Date.now() - startedAt)) : 0
       if (remaining) await new Promise(resolve => setTimeout(resolve, remaining))
-      if (!isEditing && !slowNotified) void notify('Match setup needs attention', message)
+      if (!isEditing) void notify('Match setup needs attention', message)
       setError(message)
     } finally {
       if (slowNotice) clearTimeout(slowNotice)

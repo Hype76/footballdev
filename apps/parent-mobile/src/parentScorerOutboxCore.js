@@ -1,8 +1,23 @@
 import { MATCH_DAY_OFFLINE_MAX_AGE, MATCH_DAY_OUTBOX_LIMIT, mergeMatchDayCommandSnapshot, projectMatchDayCommand } from '../../mobile-core/src/matchDayOutboxCore.js'
+import { canFinishPenaltyShootout } from '../../../src/lib/matchday-extended-ops.js'
 
 const ACTIONS = new Set(['start', 'timer', 'extended', 'score', 'goal', 'event', 'correct-goal', 'void-goal', 'shootout', 'void-shootout', 'request-review'])
 const TIMER_ACTIONS = new Set(['pause', 'hydration', 'half_time', 'resume', 'full_time'])
 const EXTENDED_ACTIONS = new Set(['normal_time_complete', 'start_extra_time', 'extra_time_half_time', 'start_extra_time_second_half', 'complete_extra_time', 'start_penalties'])
+const REJECTED_SHOOTOUT_FINISH = 'Complete the penalty shootout with a clear winner before Full Time.'
+
+export function canRestoreRejectedShootout(journal) {
+  return journal?.error?.includes(REJECTED_SHOOTOUT_FINISH)
+    && journal.pending?.[0]?.kind === 'timer'
+    && journal.pending[0].payload?.action === 'full_time'
+    && journal.baseMatch?.currentMatchPhase === 'penalties'
+    && journal.pending.slice(1).every(command => command.kind === 'request-review')
+}
+
+export function restoreRejectedShootout(journal) {
+  if (!canRestoreRejectedShootout(journal)) throw new Error('The saved shootout actions need review before they can be changed.')
+  return { ...journal, pending: [], error: '', errorCode: '' }
+}
 
 function scoreSide(match, side) {
   return (side === 'club') === (match.homeAway !== 'away') ? 'homeScore' : 'awayScore'
@@ -20,6 +35,12 @@ export function appendParentScorerCommand(journal, { id, kind, payload = {}, cap
   if (!id || journal.pending.some(command => command.id === id)) throw new Error('This action already exists.')
   if (journal.pending.length >= MATCH_DAY_OUTBOX_LIMIT) throw new Error('The saved action queue is full. Reconnect to sync before recording more.')
   if (!ACTIONS.has(kind) || kind === 'timer' && !TIMER_ACTIONS.has(payload.action) || kind === 'extended' && !EXTENDED_ACTIONS.has(payload.action)) throw new Error('This match action is unavailable.')
+  if (kind === 'timer' && payload.action === 'full_time') {
+    const visible = projectParentScorerOutbox(journal)
+    if (visible?.currentMatchPhase === 'penalties' && !canFinishPenaltyShootout(visible)) {
+      throw new Error('Record more shootout kicks until one team has a clear winner before finishing.')
+    }
+  }
   if (kind === 'score' && ![payload.homeScore, payload.awayScore].every(value => Number.isInteger(Number(value)) && Number(value) >= 0 && Number(value) <= 999)) throw new Error('Enter valid whole-number scores.')
   const previous = journal.pending.at(-1)
   if (previous && captured < Date.parse(previous.capturedAt)) throw new Error('The device clock changed. Check its time before recording another action.')

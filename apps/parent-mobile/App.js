@@ -183,6 +183,7 @@ import {
   queueParentMessageRead,
   queueParentPollVote,
   queueParentScorerAction,
+  restoreParentRejectedShootout,
   readParentScorerOutboxes,
   readParentOfflineView,
   refreshParentScorerOutboxes,
@@ -2124,6 +2125,19 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
       setActiveActionId('')
     }
   }
+  async function handleRestoreRejectedShootout(match) {
+    if (activeActionId || !selectedMobileUser?.id || !selectedLink?.id) return
+    setActiveActionId(`scorer:${match.id}:restore`)
+    try {
+      const journal = await restoreParentRejectedShootout(selectedMobileUser, selectedLink, match.id)
+      setScorerOutboxes(current => ({ ...current, [match.id]: journal }))
+      setNotice({ message: 'Shootout controls restored. Recorded kicks are still saved.', tone: 'success' })
+    } catch (error) {
+      setNotice({ message: getParentFriendlyError(error, 'Could not restore the shootout controls.'), tone: 'error' })
+    } finally {
+      setActiveActionId('')
+    }
+  }
   async function handleDisplayThemeChange(theme) {
     if (!['system', 'dark', 'light'].includes(theme)) return
     setThemePreference(theme)
@@ -2559,6 +2573,7 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
                 onAddToCalendar={handleAddToCalendar}
                 onOpenLink={handleOpenMatchLink}
                 onScorerAction={handleScorerAction}
+                onRestoreScorer={handleRestoreRejectedShootout}
                 onVolunteer={handleInvitationResponse}
                 onRespond={handleInvitationResponse}
                 onTransport={handleMatchTransport}

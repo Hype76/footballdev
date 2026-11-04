@@ -1,5 +1,11 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
+import { getCoachMatchDayOfflineNotice } from '../apps/coach-mobile/src/coachOfflineErrors.js'
+
+test('Match Day storage errors distinguish a preparing profile from device storage failure', () => {
+  assert.match(getCoachMatchDayOfflineNotice(new Error('offline_profile_scope_mismatch')), /PROFILE/)
+  assert.match(getCoachMatchDayOfflineNotice(new Error('disk full')), /SPACE/)
+})
 import {
   COACH_PHASE_31F_MAX_CACHE_BYTES,
   getCoachCacheByteLength,

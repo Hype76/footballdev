@@ -82,7 +82,7 @@ export function getMatchDayShootoutWinnerLabel(match = {}) {
 
 export function canFinishPenaltyShootout(match = {}) {
   const kicks = (Array.isArray(match.shootoutEvents) ? match.shootoutEvents : [])
-    .filter((kick) => kick.eventStatus !== 'voided')
+    .filter((kick) => kick.eventStatus !== 'voided' && !kick.voidedAt && !kick.voided_at)
   const clubKicks = kicks.filter((kick) => kick.teamSide === 'club')
   const opponentKicks = kicks.filter((kick) => kick.teamSide === 'opponent')
   const clubGoals = clubKicks.filter((kick) => kick.outcome === 'scored').length

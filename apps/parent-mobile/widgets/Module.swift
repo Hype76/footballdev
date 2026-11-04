@@ -52,7 +52,7 @@ public class ReactNativeWidgetExtensionModule: Module {
       request.timeoutInterval = 5
       let (data, response) = try await URLSession.shared.data(for: request)
       guard let http = response as? HTTPURLResponse, http.statusCode == 200,
-            http.url?.scheme == "https", data.count <= 1_000_000,
+            http.url?.scheme == "https", data.count <= 2_000_000,
             let image = UIImage(data: data), image.size.width <= 4096, image.size.height <= 4096 else { return nil }
       let target = CGSize(width: 32, height: 32)
       let small = UIGraphicsImageRenderer(size: target).image { context in
