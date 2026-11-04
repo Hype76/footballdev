@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Image, Text, View } from 'react-native'
 import { getMatchDayDisplayParts } from '../../../src/lib/matchday-display.js'
 
-const fallbackLogo = require('../assets/football-player-logo.png')
+const fallbackLogo = require('../assets/football-player-logo-grey.png')
 
 function TeamLogo({ name, logoUrl, size }) {
   const [failedUrl, setFailedUrl] = useState('')
@@ -12,7 +12,7 @@ function TeamLogo({ name, logoUrl, size }) {
     onError={remote ? () => setFailedUrl(logoUrl) : undefined}
     resizeMode="contain"
     source={remote ? { uri: logoUrl } : fallbackLogo}
-    style={{ width: size, height: size, opacity: remote ? 1 : 0.55, tintColor: remote ? undefined : '#8a9494' }}
+    style={{ width: size, height: size, tintColor: remote ? undefined : '#8a9494' }}
   />
 }
 
