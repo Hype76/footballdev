@@ -1061,18 +1061,25 @@ test('optional starting squad saves the pitch snapshot, rejects other teams and 
   ])).rows[0].result
   const matchId = '50000000-0000-4000-8000-000000000001'
   await rpc('public.link_formation_board_to_match($1,$2)', [created.board.id, matchId])
-  const submitted = (await rpc('public.submit_match_day_starting_squad($1,$2)', [matchId, created.board.id])).rows[0].result
+  const submitted = (await rpc('public.submit_match_day_starting_squad($1,$2,$3)', [matchId, created.board.id, created.board.current_version_id])).rows[0].result
   assert.deepEqual(submitted.playerIds, [IDS.playerA1])
+  const changed = (await rpc('public.save_formation_board_version($1,$2,$3,$4,$5,$6::jsonb,$7::jsonb,$8,$9,$10,$11)', [
+    created.board.id, 1, '5v5', '5v5-custom', 'portrait', JSON.stringify([placement(IDS.playerA2, 0.4, 0.5)]), '[]', '', 'shared', 'new lineup', 1,
+  ])).rows[0].result
+  await assert.rejects(rpc('public.submit_match_day_starting_squad($1,$2,$3)', [matchId, created.board.id, created.board.current_version_id]), /starting_squad_version_changed/)
+  const replacement = (await rpc('public.submit_match_day_starting_squad($1,$2,$3)', [matchId, created.board.id, changed.board.current_version_id])).rows[0].result
+  assert.deepEqual(replacement.playerIds, [IDS.playerA2])
   const coachRows = await db.query('select * from public.match_day_starting_squads')
   assert.equal(coachRows.rows.length, 1)
+  assert.deepEqual(coachRows.rows[0].player_ids, [IDS.playerA2])
   await setActor(IDS.parent)
   assert.equal((await db.query('select * from public.match_day_starting_squads')).rows.length, 0)
-  await assert.rejects(rpc('public.submit_match_day_starting_squad($1,$2)', [matchId, created.board.id]), /starting_squad_board_forbidden/)
+  await assert.rejects(rpc('public.submit_match_day_starting_squad($1,$2,$3)', [matchId, created.board.id, changed.board.current_version_id]), /starting_squad_board_forbidden/)
   await setActor(IDS.coachB)
   assert.equal((await db.query('select * from public.match_day_starting_squads')).rows.length, 0)
   await setActor(IDS.coach)
   await resetActor()
   await db.query("update public.match_days set timer_status='running',status='live' where id=$1", [matchId])
   await setActor(IDS.coach)
-  await assert.rejects(rpc('public.submit_match_day_starting_squad($1,$2)', [matchId, created.board.id]), /starting_squad_match_already_started/)
+  await assert.rejects(rpc('public.submit_match_day_starting_squad($1,$2,$3)', [matchId, created.board.id, changed.board.current_version_id]), /starting_squad_match_already_started/)
 })

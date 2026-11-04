@@ -559,7 +559,7 @@
   "implementationHashes": {
     "scripts/security-supply-chain-gate.mjs": "dcf722bc6cbf2015da4250ea60cbb81e34d3c5c64ec7bb6059671cbae5ab4207",
     "scripts/security-apply-reviewed-backports.mjs": "7f0e9de0add15a121a0f60f89f71656b503450010b8b9c8d4aaf58bc355fc5ec",
-    "scripts/security-verify-reviewed-backports.mjs": "769af850bea9d4eb2d708778223497c6875302b5478f0fc8dfcb3c9cc7b8c510",
+    "scripts/security-verify-reviewed-backports.mjs": "6804793fe2c4e2c882d613e6b852e77c9d8b847b3e1c83d70a4a81ba1dc1ae9d",
     "security/patches/braces-3.0.3.patch": "e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699",
     "security/patches/node-forge-1.4.0.patch": "2de065ac998bf58917a14d0935112d97ec2957ac41b5f06958d500934f188ed4",
     "security/patches/reviewed-source-manifest.json": "facb364bbac44a8276d082068e8ed8415ca89777d24f4c7a05ff370f71e5a54d",
@@ -1897,7 +1897,7 @@
       "tests/workspace-owner-invites.test.mjs": "3f628caa4a643a7682da316cf5f5bb8903af10d37275c8e617df99e4e30b826a",
       "apps/coach-mobile/src/CoachFormationBoard.js": "afb224bb047d94bb538c465f24729eefc119dba09a6cbd7cc42208703e13218f",
       "apps/mobile-core/src/coachFormationBoardCore.js": "24b48c49ed8b6063ad5fd043b12e6e17f36ef3c881811752edb52f424fa17d14",
-      "apps/mobile-core/src/coachFormationBoardData.js": "d75c1880dcbd70e0ec2fa327eae60290383ec6e8856fd17b72e6dfa8fbaaa104",
+      "apps/mobile-core/src/coachFormationBoardData.js": "704ec292cf66ada78fe1392fe60d30558044261e32791a939f6f2ef243e533ff",
       "apps/mobile-core/src/coachFormationBoardPayload.js": "ea30241e54b53a1bc4b9cac92c25182e7bb5ba4c7bc0cb1535e3328765b23d32",
       "apps/mobile-core/src/coachFormationDraftCore.js": "c1340f1414b45740a1e5583cb908a0ee1884673b29b888c0d6bd86b547ebd919",
       "apps/mobile-core/src/mobileFetchCore.js": "a2b5fe10d1586a4c7239870203041c61f8cbaa31236acfd9f4ad7dc39a9402ee",
@@ -2141,15 +2141,15 @@
       "tests/live-activity-remote-start-migration-pglite.test.mjs": "148576d1c56d07b2dfec88495c0ae7bb5fc106ac9e987d0792e81787d5ff62d3",
       "tests/live-activity-token-handoff.test.mjs": "3a57083e6172f1a68c25838c822d324ed338ca3dcc3bf957270f1ae6e1ad8ba1",
       "supabase/migrations/20261104132129_live_activity_remote_start.sql": "6cf6301b743e3825c4f0358c5b210edbb21da95baec30e5d022bb673898dc768",
-      "apps/mobile-core/src/coachPlayerStatsData.js": "cf13061142ee2d48036729401cc23df49852a269a594c7eacfc187f3d3ec543a",
+      "apps/mobile-core/src/coachPlayerStatsData.js": "35f2921b77198794ba3ae62ae0ded56f6cfb1b70ca14b444e0b14da6ae6b7b3d",
       "apps/parent-mobile/src/PlayerStatsScreen.js": "2d0750c79b93ffb673242c11e73c69349aeba16739ce6b1e3e60ed50ff90b3e7",
-      "netlify/functions/lib/_fan-player-stats.js": "f2f1a52df32be294dcacc17d80d4e8f6a124b23ecab1d69cc2f55c09c918be3c",
-      "src/lib/domain/formation-board.js": "64af6283e7c3467581f3db4ac192dbda539e3c066f1ed2c1c65e729669060290",
-      "src/lib/domain/player-playing-time.js": "d0df4eadfb8bc321d015ea16d8937639bdedd570555f91a5987c35304fbc8e56",
-      "src/pages/FormationBoardsPage.jsx": "fbbf5ce6e4eba726de4db91db08dd616d1cfa2c68c1ea211e13ed1e69becd6d5",
-      "supabase/migrations/20261104152209_optional_match_starting_squad_playtime.sql": "61f5c45b5f4e472b655949d23026f8100055cdf8e1a936c92f4ade77136ed731",
-      "tests/fan-player-stats.test.mjs": "269aff40d4f448a4b029aa4c3e8ffe8c8f093e7f0a0457ef456d22f95ca988d5",
-      "tests/formation-board-foundation-25a-pglite.test.mjs": "719c8cf7bb1cac2188a59bdf6bcd07bb65261867d5b7a6b8d1706dd16794e76d"
+      "netlify/functions/lib/_fan-player-stats.js": "3173e942ec4a4acf0f2439bc38395d39babf5eb9ac1c113d84d0ecbc53e3045c",
+      "src/lib/domain/formation-board.js": "a9c178966e52bc981ce078e23d132c34d0fb91f3f8ec016ccce6e6c89c049e99",
+      "src/lib/domain/player-playing-time.js": "a8f71a7e6f55b53289cb1cbf60ddf9f6b596c7733f32639585687dcd1fa5c05e",
+      "src/pages/FormationBoardsPage.jsx": "b6d8fccaa736eec260bcbbb943097fcd8ba208c1c58c1499fe4fe7d3aa3b73f2",
+      "supabase/migrations/20261104152209_optional_match_starting_squad_playtime.sql": "a7e700343ff20113f22480a3a4e98c14867e9cf6d91ccb193fbdff2a4a43040a",
+      "tests/fan-player-stats.test.mjs": "c8bec50e506d2e36b4a8736cacf7b7477dfd5ce4fecb5fbd16dcbc01df0e1a2f",
+      "tests/formation-board-foundation-25a-pglite.test.mjs": "d9b1f81fe28f7f286b8614a556affac0ada3f9ea84eeab37f45a421123075db3"
     },
     "externalTrustInputs": [
       "FOOTBALL_REVIEW_RECEIPT_BASE64",
@@ -3580,7 +3580,7 @@
       "release": "Migration before web and mobile app updates"
     }
   },
-  "releasePreparationSha256": "2e065a2bc406da11ca820232228902bbb01d69f2ad49191c7590e894917c654c",
+  "releasePreparationSha256": "e8c879fc09416ff84813794467fd80a10b9c672a95e2dd8af131f50f6c6b61bc",
   "rootOnlyProposalSha256": "45c3b7352c7328c84982e114b7e87e09cf79514d02d102297ae75ec0925812eb",
   "remediationMode": "maintained-source-fixes",
   "officialCompatibilityDependencies": [

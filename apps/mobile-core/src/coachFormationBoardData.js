@@ -91,7 +91,12 @@ export async function submitCoachMatchStartingSquad(user, match, board) {
     throw new Error('Save this Formation Board to the match before submitting its starting squad.')
   }
   if (!array(board.currentVersion?.placements).length) throw new Error('Put at least one Player on the pitch before submitting the starting squad.')
-  return rpc('submit_match_day_starting_squad', { target_match_day_id: match.id, target_board_id: board.id })
+  try {
+    return await rpc('submit_match_day_starting_squad', { target_match_day_id: match.id, target_board_id: board.id, target_version_id: board.currentVersionId })
+  } catch (error) {
+    if (String(error.message || '').includes('starting_squad_version_changed')) throw new Error('Another Coach changed this lineup. Open the latest board and submit its starting squad again.')
+    throw error
+  }
 }
 
 export async function linkCoachFormationBoard(user, boardId, matchDayId) {

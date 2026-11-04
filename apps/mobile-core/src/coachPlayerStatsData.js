@@ -29,8 +29,8 @@ export async function getCoachPlayerStats(user, playerId) {
   if (matchIds.length) {
     const [starters, substitutions] = await Promise.all([
       supabase.from('match_day_starting_squads').select('match_day_id,player_ids').eq('club_id', user.clubId).eq('team_id', user.activeTeamId).in('match_day_id', matchIds),
-      supabase.from('match_day_events').select('match_day_id,event_type,team_side,event_status,voided_at,scorer_player_id,assist_player_id,minute,created_at')
-        .in('match_day_id', matchIds).eq('event_type', 'substitution'),
+      supabase.from('match_day_events').select('match_day_id,event_type,team_side,event_status,voided_at,scorer_name,scorer_player_id,assist_player_id,minute,stoppage_minute,created_at')
+        .in('match_day_id', matchIds).in('event_type', ['substitution', 'red_card']),
     ])
     if (starters.error || substitutions.error) throw starters.error || substitutions.error
     playingTime = calculatePlayerPlayingTime(matches, starters.data || [], substitutions.data || [], playerId)

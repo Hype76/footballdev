@@ -19,7 +19,7 @@ create policy match_day_starting_squads_staff_read on public.match_day_starting_
     public.can_manage_match_day(team_id)
   );
 
-create or replace function public.submit_match_day_starting_squad(target_match_day_id uuid, target_board_id uuid)
+create or replace function public.submit_match_day_starting_squad(target_match_day_id uuid, target_board_id uuid, target_version_id uuid)
 returns jsonb language plpgsql security definer set search_path = '' as $$
 declare
   fixture public.match_days%rowtype;
@@ -41,9 +41,12 @@ begin
   select * into board from public.formation_boards
   where id = target_board_id and linked_match_day_id = fixture.id
     and club_id = fixture.club_id and team_id = fixture.team_id
-    and deleted_at is null and archived_at is null;
+    and deleted_at is null and archived_at is null for update;
   if board.id is null or not app_private.formation_board_can_edit(auth.uid(), board.id) then
     raise exception using errcode = '42501', message = 'starting_squad_board_forbidden';
+  end if;
+  if target_version_id is distinct from board.current_version_id then
+    raise exception using errcode = '55000', message = 'starting_squad_version_changed';
   end if;
   select * into version from public.formation_board_versions where id = board.current_version_id and board_id = board.id;
   select array_agg((placement->>'playerId')::uuid order by ordinality)
@@ -62,5 +65,5 @@ begin
 end;
 $$;
 
-revoke all on function public.submit_match_day_starting_squad(uuid, uuid) from public, anon, service_role;
-grant execute on function public.submit_match_day_starting_squad(uuid, uuid) to authenticated;
+revoke all on function public.submit_match_day_starting_squad(uuid, uuid, uuid) from public, anon, service_role;
+grant execute on function public.submit_match_day_starting_squad(uuid, uuid, uuid) to authenticated;

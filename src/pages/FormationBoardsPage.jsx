@@ -1096,7 +1096,7 @@ export function FormationBoardsPage() {
       const linkedBoard = await linkFormationBoardToMatch({ boardId: board.id, matchDayId: selectedMatchId, user })
       if (submitStartingSquad) {
         try {
-          await submitMatchDayStartingSquad({ boardId: linkedBoard.id, matchDayId: selectedMatchId, user })
+          await submitMatchDayStartingSquad({ boardId: linkedBoard.id, matchDayId: selectedMatchId, versionId: board.currentVersionId, user })
         } catch (submitError) {
           setCurrentBoard(linkedBoard)
           setErrorMessage(`Formation Board linked, but the starting squad was not submitted. ${submitError.message}`)

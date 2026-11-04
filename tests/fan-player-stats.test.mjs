@@ -55,3 +55,29 @@ test('playing time stays unavailable without a starting squad or a complete subs
   ] })
   assert.equal(incomplete.personal.playingMinutes, null)
 })
+
+test('recorded playing time respects added-time substitutions in both halves', () => {
+  const completed = [{ ...matches[0], timer_elapsed_seconds: 95 * 60 }]
+  const startingSquads = [{ match_day_id: 'home-win', player_ids: [player.id] }]
+  const events = [
+    { match_day_id: 'home-win', event_type: 'substitution', team_side: 'club', minute: 45, stoppage_minute: 3, scorer_player_id: player.id, assist_player_id: 'player-2' },
+    { match_day_id: 'home-win', event_type: 'substitution', team_side: 'club', minute: 90, stoppage_minute: 2, scorer_player_id: 'player-2', assist_player_id: player.id },
+  ]
+  const stats = buildPlayerStats({ matches: completed, startingSquads, events, player })
+  assert.equal(stats.personal.playingMinutes, 51)
+})
+
+test('a recorded red card ends playing time, while a Coach dismissal does not', () => {
+  const completed = [{ ...matches[0], timer_elapsed_seconds: 95 * 60 }]
+  const startingSquads = [{ match_day_id: 'home-win', player_ids: [player.id] }]
+  const events = [
+    { match_day_id: 'home-win', event_type: 'red_card', team_side: 'club', minute: 20, scorer_name: 'Coach: Alex', scorer_player_id: null },
+    { match_day_id: 'home-win', event_type: 'red_card', team_side: 'club', minute: 75, stoppage_minute: 1, scorer_player_id: player.id },
+  ]
+  const stats = buildPlayerStats({ matches: completed, startingSquads, events, player })
+  assert.equal(stats.personal.playingMinutes, 76)
+  const unknown = buildPlayerStats({ matches: completed, startingSquads, events: [
+    { match_day_id: 'home-win', event_type: 'red_card', team_side: 'club', minute: 75, scorer_name: 'Other: Unknown', scorer_player_id: null },
+  ], player })
+  assert.equal(unknown.personal.playingMinutes, null)
+})

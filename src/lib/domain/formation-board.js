@@ -463,12 +463,18 @@ export async function linkFormationBoardToMatch({ boardId, matchDayId, user } = 
   }))
 }
 
-export async function submitMatchDayStartingSquad({ boardId, matchDayId, user } = {}) {
+export async function submitMatchDayStartingSquad({ boardId, matchDayId, versionId, user } = {}) {
   await prepareFormationBoardMutation(user)
-  return callFormationBoardRpc('submit_match_day_starting_squad', {
-    target_board_id: boardId,
-    target_match_day_id: matchDayId,
-  })
+  try {
+    return await callFormationBoardRpc('submit_match_day_starting_squad', {
+      target_board_id: boardId,
+      target_match_day_id: matchDayId,
+      target_version_id: versionId,
+    })
+  } catch (error) {
+    if (String(error.message || '').includes('starting_squad_version_changed')) throw new Error('Another Coach changed this lineup. Open the latest board and submit its starting squad again.')
+    throw error
+  }
 }
 
 export async function publishFormationBoardMatchPlan({ boardId, matchDayId, user, versionId } = {}) {

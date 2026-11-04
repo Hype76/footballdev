@@ -56,7 +56,7 @@ export async function loadFanPlayerStats(client, scope) {
   const [selections, startingSquads, events, polls, votes] = await Promise.all([
     rows(client.from('match_day_player_squad_decisions').select('match_day_id,player_id,status').eq('club_id', scope.fan.club_id).eq('player_id', scope.player.id).in('match_day_id', matchIds)),
     rows(client.from('match_day_starting_squads').select('match_day_id,player_ids').eq('club_id', scope.fan.club_id).eq('team_id', scope.player.team_id).in('match_day_id', matchIds)),
-    rows(client.from('match_day_events').select('match_day_id,event_type,team_side,event_status,voided_at,is_own_goal,scorer_name,assist_name,scorer_player_id,assist_player_id,minute,created_at').in('match_day_id', matchIds).in('event_type', ['goal', 'substitution'])),
+    rows(client.from('match_day_events').select('match_day_id,event_type,team_side,event_status,voided_at,is_own_goal,scorer_name,assist_name,scorer_player_id,assist_player_id,minute,stoppage_minute,created_at').in('match_day_id', matchIds).in('event_type', ['goal', 'substitution', 'red_card'])),
     pollIds.length ? rows(client.from('polls').select('id,status,closes_at').in('id', pollIds)) : [],
     pollIds.length ? rows(client.from('poll_votes').select('poll_id,option_id').in('poll_id', pollIds)) : [],
   ])
