@@ -73,6 +73,8 @@ import { getCoachPlayerList } from '../mobile-core/src/coachPlayersData'
 import { getCoachChatRooms, getCoachDevelopmentSummary, getCoachInvitesAndAvailability } from '../mobile-core/src/coachPhase31EData'
 import { mergeUnfinishedDevelopmentDrafts } from '../mobile-core/src/developmentOfflineCore'
 import { useMobileDeviceControls } from '../mobile-core/src/deviceControls'
+import { useLiveActivityStartSubscriptions } from '../mobile-core/src/useLiveActivityStartSubscriptions'
+import { getScopedTeamBranding } from '../../src/lib/team-branding-display.js'
 import { getMobileNotificationIndicator, MOBILE_SETTING_LOAD_STATES, preserveMobileNotificationState } from '../mobile-core/src/deviceSettingsCore'
 import { UserFeedbackScreen } from '../mobile-core/src/UserFeedbackScreen'
 import { getCoachRouteIconKey, getMobileIconName } from '../mobile-core/src/mobileIconSystem'
@@ -231,6 +233,11 @@ function CoachHome() {
     [selectedContextId, user],
   )
   const activeContext = contextResolution.allowed ? contextResolution.context : null
+  useLiveActivityStartSubscriptions('coach', (contextResolution.contexts || [])
+    .filter(context => context.teamId && context.clubId)
+    .map(context => ({ type: 'team', id: context.teamId, teamId: context.teamId,
+      clubId: context.clubId,
+      logoUrl: getScopedTeamBranding(context)?.logoUrl || '' })), user?.isOfflineProfile ? '' : user?.id)
   const [matchdayPlanConfig, setMatchdayPlanConfig] = useState(null)
   const contentScrollRef = useRef(null)
   const [contentScrollable, setContentScrollable] = useState(true)

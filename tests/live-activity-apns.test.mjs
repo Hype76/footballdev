@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { generateKeyPairSync, verify } from 'node:crypto'
 import { EventEmitter } from 'node:events'
-import { createLiveActivityApnsRequest, createLiveActivityProviderToken, sendLiveActivityApns } from '../netlify/functions/lib/_live-activity-apns.js'
+import { createLiveActivityApnsRequest, createLiveActivityStartRequest, createLiveActivityProviderToken, sendLiveActivityApns } from '../netlify/functions/lib/_live-activity-apns.js'
 import { createLiveMatchState } from '../apps/mobile-core/src/liveMatchState.js'
 
 test('provider token uses Apple ES256 raw signature and the requested provider identity', () => {
@@ -63,4 +63,20 @@ test('request uses the correct activity topic and excludes unrelated private fie
   const withCards = createLiveActivityApnsRequest({ ...args, contentState: { ...state, homeYellowCards: 2, awayRedCards: 1 } })
   assert.equal(JSON.parse(withCards.body).aps['content-state'].homeYellowCards, 2)
   assert.throws(() => createLiveActivityApnsRequest({ ...args, contentState: { ...state, homeYellowCards: -1 } }), /payload_invalid/)
+})
+
+test('remote start uses the push-to-start token and the widget attribute shape', () => {
+  const state = createLiveMatchState({ teamName: 'Rovers', opponent: 'City', status: 'live', timerStatus: 'running', timerElapsedSeconds: 120 }, 1000000)
+  const args = { bundleId: 'com.footballplayer.parents', startToken: 'cd'.repeat(32), providerToken: 'provider',
+    contentState: state, timestamp: 1000, staleDate: 1060,
+    activityKey: '22222222-2222-4222-8222-222222222222', handoffToken: 'ef'.repeat(32), clubIsHome: true }
+  const request = createLiveActivityStartRequest(args)
+  const payload = JSON.parse(request.body).aps
+  assert.equal(request.headers[':path'], `/3/device/${args.startToken}`)
+  assert.equal(payload.event, 'start')
+  assert.equal(payload['attributes-type'], 'MatchActivityAttributes')
+  assert.deepEqual(payload.attributes, { activityKey: args.activityKey, followId: null, handoffToken: args.handoffToken, badgeData: null, clubIsHome: true })
+  assert.equal(payload.alert.title, 'Match started')
+  assert.equal(payload['content-state'].homeName, state.homeName)
+  assert.throws(() => createLiveActivityStartRequest({ ...args, activityKey: 'bad' }), /attributes_invalid/)
 })

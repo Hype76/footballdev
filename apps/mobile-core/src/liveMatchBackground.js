@@ -1,8 +1,8 @@
 import * as Notifications from 'expo-notifications'
 import * as TaskManager from 'expo-task-manager'
-import { Platform } from 'react-native'
+import { AppState, Platform } from 'react-native'
 import { hideLiveMatchNotification } from '../modules/live-match/index.js'
-import { clearLiveMatchOnSignOut, readLiveMatchFollow, refreshLiveMatchNotification, stopLiveMatchFollow } from './liveMatchFollow'
+import { attachPendingIosMatchActivities, clearLiveMatchOnSignOut, readLiveMatchFollow, refreshLiveMatchNotification, stopLiveMatchFollow } from './liveMatchFollow'
 import { getMobileRuntimeConfig } from './config'
 import { supabase } from './supabase'
 
@@ -32,7 +32,16 @@ export async function registerLiveMatchBackground() {
   const role = getMobileRuntimeConfig().appRole
   if (['coach', 'parent'].includes(role)) supabase.auth.onAuthStateChange(event => {
     if (event === 'SIGNED_OUT') void clearLiveMatchOnSignOut(role).catch(() => {})
+    if (Platform.OS === 'ios' && ['SIGNED_IN', 'TOKEN_REFRESHED'].includes(event)) {
+      void attachPendingIosMatchActivities(role).catch(() => {})
+    }
   })
+  if (Platform.OS === 'ios' && ['coach', 'parent'].includes(role)) {
+    const sync = () => { void attachPendingIosMatchActivities(role).catch(() => {}) }
+    sync()
+    AppState.addEventListener('change', state => { if (state === 'active') sync() })
+    setInterval(sync, 10000)
+  }
   if (Platform.OS !== 'android') return
   await Notifications.registerTaskAsync(taskName)
 }

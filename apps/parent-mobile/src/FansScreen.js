@@ -14,6 +14,7 @@ import QRCode from 'qrcode/lib/core/qrcode'
 import { supabase, getAccessToken } from '../../mobile-core/src/supabase'
 import { getMobileRuntimeConfig } from '../../mobile-core/src/config'
 import { useMobileAuth } from '../../mobile-core/src/auth'
+import { useLiveActivityStartSubscriptions } from '../../mobile-core/src/useLiveActivityStartSubscriptions'
 import { canViewFanNotifications, fanNotificationTarget, FAN_ACCESS, fanAccessSummary, fanInviteUrl, getFanAccessForPlan, isFanAccessAllowedForPlan, normalizeFanPermissions, restrictFanPermissionsForPlan, validateFanInvite } from '../../../src/lib/fans'
 import { useFans } from '../../../src/lib/use-fans'
 import { fetchFansJson } from '../../../src/lib/fans-fetch'
@@ -128,6 +129,11 @@ function FansScreenContent({ embedded = false, themeTokens, themeMode, onBack, s
     || state.connections.find(c => !c.is_owner && c.status === 'active')
   const viewerShell = !embedded && parents.length === 0
   const brandSource = state.connections.find((c) => c.id === state.view?.connectionId) || parent || viewerConnection
+  useLiveActivityStartSubscriptions('parent', state.connections
+    .filter(connection => !connection.is_owner && connection.status === 'active'
+      && connection.permissions?.game_day && connection.notifications_enabled !== false)
+    .map(connection => ({ type: 'fan_connection', id: connection.id,
+      logoUrl: fanBrandingLink(connection).clubLogoUrl || '' })), user?.isOfflineProfile ? '' : user?.id)
   const displayMode = resolveDeviceThemeMode(themeMode || savedMode, systemTheme)
   const tokens = useMemo(() => brandSource ? fanBrandTheme(brandSource, displayMode, matchdayPolicy).tokens : themeTokens || fanBrandTheme({}, displayMode, matchdayPolicy).tokens, [brandSource, displayMode, matchdayPolicy, themeTokens])
   const styles = useMemo(() => createStyles(tokens), [tokens])

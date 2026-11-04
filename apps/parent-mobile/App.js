@@ -75,6 +75,7 @@ import {
 } from '../mobile-core/src/appBadge'
 import { getBiometricAvailability, getBiometricEnabled, setBiometricEnabled } from '../mobile-core/src/biometrics'
 import { getMobileRuntimeConfig } from '../mobile-core/src/config'
+import { useLiveActivityStartSubscriptions } from '../mobile-core/src/useLiveActivityStartSubscriptions'
 import { getMobileChatMessagesFingerprint } from '../mobile-core/src/mobileChatCore'
 import { runPrioritizedMobileLoads } from '../mobile-core/src/mobileLoadCoordinator'
 import { mobileResourceKey } from '../mobile-core/src/mobileResourceCache'
@@ -468,6 +469,10 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
     setNotificationSettingsFocusRequest(null)
   }, [])
   const parentLinks = useMemo(() => getParentPortalLinks(user).filter((link) => link.linkType !== 'fan'), [user])
+  useLiveActivityStartSubscriptions('parent', parentLinks.filter(link => link.id)
+    .map(link => ({ type: 'parent_link', id: link.id, teamId: link.teamId,
+      clubId: link.clubId, logoUrl: link.clubLogoUrl || '' })),
+  user?.isOfflineProfile ? '' : user?.id)
   const selectedLink = useMemo(
     () => getSelectedParentLink({ ...user, parentPortalLinks: parentLinks }, selectedLinkId),
     [parentLinks, selectedLinkId, user],

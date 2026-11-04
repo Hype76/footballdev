@@ -10,7 +10,7 @@ async function autoFollowPreferenceKey(role, matchId) {
   return `fp.live-match.auto.v1.${role}.${data.user.id}.${matchId}`
 }
 
-export function LiveMatchFollowAction({ role, matchId, parentLinkId = null, textStyle }) {
+export function LiveMatchFollowAction({ role, matchId, parentLinkId = null, stopOnly = false, textStyle }) {
   const [following, setFollowing] = useState(false)
   const [needsCleanup, setNeedsCleanup] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -25,6 +25,7 @@ export function LiveMatchFollowAction({ role, matchId, parentLinkId = null, text
         const saved = await readLiveMatchFollow(role, matchId)
         if (!active) return
         if (saved) { setFollowing(true); setNeedsCleanup(Boolean(saved.rollbackPending)); return }
+        if (stopOnly) return
         const preferenceKey = await autoFollowPreferenceKey(role, matchId)
         if (await AsyncStorage.getItem(preferenceKey) === 'off' || !active) return
         setBusy(true)
@@ -43,8 +44,9 @@ export function LiveMatchFollowAction({ role, matchId, parentLinkId = null, text
       }).catch(() => {})
     })
     return () => { active = false; listener.subscription.unsubscribe() }
-  }, [role, matchId, parentLinkId])
+  }, [role, matchId, parentLinkId, stopOnly])
   if (!matchId || Platform.OS === 'web') return null
+  if (stopOnly && !following) return null
   const label = needsCleanup ? 'Clear previous lock screen follow' : following ? 'Stop lock screen score' : 'Show score on lock screen'
   return <View style={{ borderTopWidth: 1, borderTopColor: '#ffffff33', marginTop: 8 }}>
     <Pressable accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ disabled: busy }} disabled={busy}
@@ -57,7 +59,7 @@ export function LiveMatchFollowAction({ role, matchId, parentLinkId = null, text
             await AsyncStorage.setItem(preferenceKey, 'off')
             setFollowing(false)
             setNeedsCleanup(false)
-          } else {
+          } else if (!stopOnly) {
             await startLiveMatchFollowOnce(role, matchId, parentLinkId)
             await AsyncStorage.removeItem(preferenceKey)
             setFollowing(true)
