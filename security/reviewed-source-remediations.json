@@ -559,7 +559,7 @@
   "implementationHashes": {
     "scripts/security-supply-chain-gate.mjs": "dcf722bc6cbf2015da4250ea60cbb81e34d3c5c64ec7bb6059671cbae5ab4207",
     "scripts/security-apply-reviewed-backports.mjs": "7f0e9de0add15a121a0f60f89f71656b503450010b8b9c8d4aaf58bc355fc5ec",
-    "scripts/security-verify-reviewed-backports.mjs": "e5702b8ed67121b368a617ca73e0efdcc785b4039bff00592ad6ae6cdb7725a1",
+    "scripts/security-verify-reviewed-backports.mjs": "769af850bea9d4eb2d708778223497c6875302b5478f0fc8dfcb3c9cc7b8c510",
     "security/patches/braces-3.0.3.patch": "e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699",
     "security/patches/node-forge-1.4.0.patch": "2de065ac998bf58917a14d0935112d97ec2957ac41b5f06958d500934f188ed4",
     "security/patches/reviewed-source-manifest.json": "facb364bbac44a8276d082068e8ed8415ca89777d24f4c7a05ff370f71e5a54d",
@@ -1895,7 +1895,7 @@
       "tests/signup-notification-email.test.mjs": "a6dc16b2b6460102613ea3a8017c5d88171148510717c917c63d04ddde514def",
       "tests/stripe-signup-notification.test.mjs": "aa4f582767f3697bb034b9bfcb25ea5e89cb6bb5d4d5eaed5ecb4a7bf19b0c9b",
       "tests/workspace-owner-invites.test.mjs": "3f628caa4a643a7682da316cf5f5bb8903af10d37275c8e617df99e4e30b826a",
-      "apps/coach-mobile/src/CoachFormationBoard.js": "bbf1be925ba7a440f400e7d4a7cfc39f4b9e0caa2a21347bb5a63bdc8326b95a",
+      "apps/coach-mobile/src/CoachFormationBoard.js": "afb224bb047d94bb538c465f24729eefc119dba09a6cbd7cc42208703e13218f",
       "apps/mobile-core/src/coachFormationBoardCore.js": "24b48c49ed8b6063ad5fd043b12e6e17f36ef3c881811752edb52f424fa17d14",
       "apps/mobile-core/src/coachFormationBoardData.js": "d75c1880dcbd70e0ec2fa327eae60290383ec6e8856fd17b72e6dfa8fbaaa104",
       "apps/mobile-core/src/coachFormationBoardPayload.js": "ea30241e54b53a1bc4b9cac92c25182e7bb5ba4c7bc0cb1535e3328765b23d32",
@@ -3580,7 +3580,7 @@
       "release": "Migration before web and mobile app updates"
     }
   },
-  "releasePreparationSha256": "cf80617b66de806bd0d6e9d4290840295d8cabba0d9f58d8225207f60692ac23",
+  "releasePreparationSha256": "2e065a2bc406da11ca820232228902bbb01d69f2ad49191c7590e894917c654c",
   "rootOnlyProposalSha256": "45c3b7352c7328c84982e114b7e87e09cf79514d02d102297ae75ec0925812eb",
   "remediationMode": "maintained-source-fixes",
   "officialCompatibilityDependencies": [

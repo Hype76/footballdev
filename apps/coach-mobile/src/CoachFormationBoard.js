@@ -811,7 +811,14 @@ export function CoachFormationBoard({ context, initialBoardId = '', match = null
         await saveOfflineFormation({ nextBoard, pendingSave: acknowledgedPendingSave }).catch(() => {})
       }
       if (saveStartingSquad && !queuedSave?.startingSquadSubmitted) {
-        await submitCoachMatchStartingSquad(user, match, nextBoard)
+        try {
+          await submitCoachMatchStartingSquad(user, match, nextBoard)
+        } catch (submitError) {
+          if (isRetryableFormationSaveError(submitError)) throw submitError
+          const failure = new Error(`Formation Board saved to this match, but the starting squad was not submitted. ${submitError.message}`)
+          failure.code = 'starting_squad_submit_failed'
+          throw failure
+        }
         await saveOfflineFormation({ nextBoard, pendingSave: { ...pendingSave, acknowledged: true, board: nextBoard, boardId: nextBoard.id, startingSquadSubmitted: true } }).catch(() => {})
       }
       // Retain a confirmed server identity even if refresh or local storage fails.
@@ -847,6 +854,7 @@ export function CoachFormationBoard({ context, initialBoardId = '', match = null
       return nextBoard
     } catch (saveError) {
       if (saveError.code === 'formation_navigation_changed') throw saveError
+      if (serverAcknowledged && nextBoard) setBoard(nextBoard)
       const retryable = isRetryableFormationSaveError(saveError)
       const hasQueuedSnapshot = savedLocally || Boolean(queuedSave)
       if (!retryable) {
@@ -865,7 +873,7 @@ export function CoachFormationBoard({ context, initialBoardId = '', match = null
         queuedError.code = 'formation_save_queued'
         throw queuedError
       }
-      if (serverAcknowledged) throw new Error(`Saved to this match, but the latest lineup could not be refreshed. ${saveError.message}`)
+      if (serverAcknowledged && saveError.code !== 'starting_squad_submit_failed') throw new Error(`Saved to this match, but the latest lineup could not be refreshed. ${saveError.message}`)
       if (retryable) throw new Error('Your Formation Board could not be saved on this device or confirmed online. Keep this screen open and retry when connected.')
       throw saveError
     }
@@ -881,7 +889,7 @@ export function CoachFormationBoard({ context, initialBoardId = '', match = null
       setNotice(`${nextBoard.title} saved to this match. ${submitStartingSquad ? 'Starting squad submitted. ' : ''}${shared ? 'Visible to parents and players.' : 'Coaches only.'}`)
     } catch (saveError) {
       if (saveError.code === 'formation_navigation_changed' || saveError.code === 'formation_save_queued') return
-      setErrorRetry(saveError.code === 'formation_conflict' ? 'conflict' : 'save')
+      setErrorRetry(saveError.code === 'formation_conflict' ? 'conflict' : saveError.code === 'starting_squad_submit_failed' ? 'load' : 'save')
       setError(saveError.message)
     }
     finally { setBusy(false) }
