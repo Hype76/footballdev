@@ -382,6 +382,7 @@ export {
   normalizeFormationBoardPreset,
   normalizeFormationBoardMatchPublication,
   linkFormationBoardToMatch,
+  submitMatchDayStartingSquad,
   publishFormationBoardMatchPlan,
   publishFormationBoardVersion,
   renameFormationBoard,

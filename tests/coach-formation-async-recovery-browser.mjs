@@ -38,6 +38,7 @@ const entry = `
     lastLocalDraft: null,
     presetCalls: 0,
     saveCalls: 0,
+    startingSquadCalls: 0,
     lastShared: false,
     lastSavedTitle: '',
     publishCalls: 0,
@@ -118,6 +119,7 @@ const dataMock = `
   export const getCoachFormationResourcePublications = async () => []
   export const linkCoachFormationBoard = async (user, currentBoard, matchId) => ({ ...currentBoard, linkedMatchDayId: matchId })
   export const publishCoachFormationBoard = async () => { globalThis.__formationTest.publishCalls += 1; return {} }
+  export const submitCoachMatchStartingSquad = async () => { globalThis.__formationTest.startingSquadCalls += 1; return {} }
   export const publishCoachFormationResource = async () => ({})
   export const withdrawCoachFormationBoard = async () => ({})
 
@@ -556,7 +558,10 @@ try {
       await page.waitForTimeout(600)
       await page.screenshot({ path: path.join(rootDir, 'outputs', 'match-formations', 'save-to-match-preview.png') })
     }
-    if (process.env.FORMATION_ASYNC_SCENARIO === 'retry') await page.getByRole('radio', { name: 'Parents and players', exact: true }).click()
+    if (process.env.FORMATION_ASYNC_SCENARIO === 'retry') {
+      await page.getByRole('radio', { name: 'Parents and players', exact: true }).click()
+      await page.getByRole('switch', { name: 'Submit as starting squad', exact: true }).click()
+    }
     await page.getByRole('button', { name: 'Save to match', exact: true }).click()
     await page.waitForFunction(() => window.__formationTest.saveCalls === 1)
     await page.waitForTimeout(120)
@@ -568,6 +573,7 @@ try {
       assert.equal(await page.evaluate(() => window.__formationTest.saveCalls), 1, 'Acknowledged retry must not issue a second RPC')
       assert.equal(await page.evaluate(() => window.__formationTest.lastMatchId), 'match-a')
       assert.equal(await page.evaluate(() => window.__formationTest.lastShared), true)
+      assert.equal(await page.evaluate(() => window.__formationTest.startingSquadCalls), 1)
     } else {
       await page.getByRole('button', { name: 'Retry save', exact: true }).click()
       await page.waitForFunction(() => window.__formationTest.saveCalls === 2)

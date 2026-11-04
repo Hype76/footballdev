@@ -1,4 +1,5 @@
 import { loadFanMatches } from './_fan-schedule.js'
+import { calculatePlayerPlayingTime } from '../../../src/lib/domain/player-playing-time.js'
 
 const normalizeName = (value) => String(value || '').replace(/^Other:\s*/i, '').trim().toLocaleLowerCase('en-GB')
 
@@ -8,7 +9,7 @@ async function rows(query) {
   return data || []
 }
 
-export function buildPlayerStats({ matches = [], selections = [], events = [], votes = [], polls = [], player }) {
+export function buildPlayerStats({ matches = [], selections = [], startingSquads = [], events = [], votes = [], polls = [], player }) {
   const completed = matches.filter(match => match.status === 'full_time' && match.team_id === player.team_id)
   const selectedIds = new Set(selections.filter(row => row.player_id === player.id && row.status === 'selected').map(row => row.match_day_id))
   const matchIds = new Set(completed.map(match => match.id))
@@ -31,6 +32,7 @@ export function buildPlayerStats({ matches = [], selections = [], events = [], v
     const highest = Math.max(0, ...totals.values())
     return count + (highest > 0 && totals.get(player.id) === highest ? 1 : 0)
   }, 0)
+  const playingTime = calculatePlayerPlayingTime(completed, startingSquads, events, player.id)
   return {
     period: 'Last 12 months',
     matches: record,
@@ -39,6 +41,8 @@ export function buildPlayerStats({ matches = [], selections = [], events = [], v
       goals: activeGoals.filter(event => normalizeName(event.scorer_name) === playerName).length,
       assists: activeGoals.filter(event => normalizeName(event.assist_name) === playerName).length,
       playerOfTheMatch: awards,
+      playingMinutes: playingTime.minutes,
+      playingTimeMatches: playingTime.recordedMatches,
     },
   }
 }
@@ -49,11 +53,12 @@ export async function loadFanPlayerStats(client, scope) {
   const matchIds = matches.map(match => match.id)
   if (!matchIds.length) return buildPlayerStats({ player: scope.player })
   const pollIds = [...new Set(matches.map(match => match.motm_poll_id).filter(Boolean))]
-  const [selections, events, polls, votes] = await Promise.all([
+  const [selections, startingSquads, events, polls, votes] = await Promise.all([
     rows(client.from('match_day_player_squad_decisions').select('match_day_id,player_id,status').eq('club_id', scope.fan.club_id).eq('player_id', scope.player.id).in('match_day_id', matchIds)),
-    rows(client.from('match_day_events').select('match_day_id,event_type,team_side,event_status,voided_at,is_own_goal,scorer_name,assist_name').in('match_day_id', matchIds).eq('event_type', 'goal')),
+    rows(client.from('match_day_starting_squads').select('match_day_id,player_ids').eq('club_id', scope.fan.club_id).eq('team_id', scope.player.team_id).in('match_day_id', matchIds)),
+    rows(client.from('match_day_events').select('match_day_id,event_type,team_side,event_status,voided_at,is_own_goal,scorer_name,assist_name,scorer_player_id,assist_player_id,minute,stoppage_minute,created_at').in('match_day_id', matchIds).in('event_type', ['goal', 'substitution', 'red_card'])),
     pollIds.length ? rows(client.from('polls').select('id,status,closes_at').in('id', pollIds)) : [],
     pollIds.length ? rows(client.from('poll_votes').select('poll_id,option_id').in('poll_id', pollIds)) : [],
   ])
-  return buildPlayerStats({ matches, selections, events, polls, votes, player: scope.player })
+  return buildPlayerStats({ matches, selections, startingSquads, events, polls, votes, player: scope.player })
 }

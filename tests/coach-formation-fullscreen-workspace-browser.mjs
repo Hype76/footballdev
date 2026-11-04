@@ -83,6 +83,7 @@ const dataMock = `
   export const getCoachFormationPublications = async () => []
   export const getCoachFormationResourcePublications = async () => []
   export const saveCoachMatchFormationBoard = async (user, match, previous, draft, title, shared) => { window.__workspaceTest.lastSave = { title, shared }; return {...board,title,isLocked:Boolean(window.__workspaceTest.lockSaved)} }
+  export const submitCoachMatchStartingSquad = async () => ({})
   export const deleteCoachFormationBoard = async () => { window.__workspaceTest.deleteCalls = (window.__workspaceTest.deleteCalls || 0) + 1 }
   export const linkCoachFormationBoard = async () => board
   export const publishCoachFormationBoard = async () => ({})
