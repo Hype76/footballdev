@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs'
 import { PGlite } from '@electric-sql/pglite'
 
 const base = readFileSync(new URL('../supabase/migrations/20261103082500_live_match_follows.sql', import.meta.url), 'utf8')
-const remote = readFileSync(new URL('../supabase/migrations/20261104123000_live_activity_remote_start.sql', import.meta.url), 'utf8')
+const remote = readFileSync(new URL('../supabase/migrations/20261104132129_live_activity_remote_start.sql', import.meta.url), 'utf8')
 const user = '11111111-1111-4111-8111-111111111111'
 const session = '33333333-3333-4333-8333-333333333333'
 const match = '22222222-2222-4222-8222-222222222222'
