@@ -74,6 +74,7 @@ const parentCode = `${shared}
   import { createParentMobileTheme, DEFAULT_PARENT_MOBILE_THEME } from './apps/mobile-core/src/parentThemeCore.js'
   import { SCORER_EVENT_LABELS, validateScorerMatchEvent } from './src/lib/matchday-scorer-event.js'
   import { captureParentScorerAction } from './apps/parent-mobile/src/parentScorerCore.js'
+  import { canRestoreRejectedShootout } from './apps/parent-mobile/src/parentScorerOutboxCore.js'
   import glyphs from './apps/parent-mobile/node_modules/@expo/vector-icons/build/vendor/react-native-vector-icons/glyphmaps/MaterialIcons.json'
   const MaterialIcons = ({ color, name, size }) => <Text aria-hidden="true" style={{ color, fontFamily: 'MaterialIcons', fontSize: size }}>{String.fromCodePoint(glyphs[name])}</Text>
   const Crypto = { randomUUID: () => '70000000-0000-4000-8000-000000000001' }
