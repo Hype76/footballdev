@@ -15,7 +15,7 @@ private struct MatchClock: View {
       Text("\(seconds / 60):\(String(format: "%02d", seconds % 60))")
         .monospacedDigit()
     } else {
-      Text(state.phase)
+      EmptyView()
     }
   }
 }
@@ -99,7 +99,7 @@ struct MatchLiveActivityWidget: Widget {
             muted: context.attributes.clubIsHome,
             yellow: context.state.awayYellowCards ?? 0, red: context.state.awayRedCards ?? 0, trailing: true)
         }
-        ZStack {
+        VStack(spacing: 3) {
           HStack {
             Text(context.state.phase).frame(maxWidth: .infinity, alignment: .leading)
             Group {
@@ -109,7 +109,7 @@ struct MatchLiveActivityWidget: Widget {
               } else { Text("") }
             }.frame(maxWidth: .infinity, alignment: .trailing)
           }
-          MatchClock(state: context.state)
+          MatchClock(state: context.state).frame(maxWidth: .infinity, alignment: .center)
         }.font(.caption)
       }.padding().foregroundStyle(.white).activityBackgroundTint(.black)
     } dynamicIsland: { context in
@@ -128,18 +128,19 @@ struct MatchLiveActivityWidget: Widget {
         }
         DynamicIslandExpandedRegion(.center) { Text("\(context.state.homeScore) - \(context.state.awayScore)").bold() }
         DynamicIslandExpandedRegion(.bottom) {
-          ZStack {
+          VStack(spacing: 3) {
             HStack {
               Text(context.state.phase).frame(maxWidth: .infinity, alignment: .leading)
               Text(context.isStale ? "Update delayed" : "").frame(maxWidth: .infinity, alignment: .trailing)
             }
-            MatchClock(state: context.state)
+            MatchClock(state: context.state).frame(maxWidth: .infinity, alignment: .center)
           }
         }
       } compactLeading: {
         Text("\(context.state.homeScore)-\(context.state.awayScore)").monospacedDigit()
       } compactTrailing: {
-        MatchClock(state: context.state)
+        if context.state.elapsedSeconds == nil { Text(context.state.phase) }
+        else { MatchClock(state: context.state) }
       } minimal: {
         Text("\(context.state.homeScore)-\(context.state.awayScore)").monospacedDigit()
       }.keylineTint(.white)
