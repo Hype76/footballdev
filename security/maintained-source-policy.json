@@ -8,7 +8,7 @@
     "proposalSha256": "95f1b5c782335dea22aee6223bbf1426cfe5f2e281dc30e5076f4c7ad0177a91",
     "calendarQualificationExpiry": "2026-10-19T22:59:59Z"
   },
-  "scope": "Three exact source-fixed braces3.0.3 copies, three exact locally corrected deepmerge4.3.1 copies and two unchanged official node-forge1.4.2 copies. Complete package trees, registry integrity, locks and native inputs remain verified. No generic advisory exceptions. Eight exact glob7.2.3 compatibility copies retain callback consumers with official minimatch11.0.4; six official minimatch/glob package trees remain byte-identical to registry artifacts. No new advisory acceptance.",
+  "scope": "Three exact source-fixed braces3.0.3 copies, three exact locally corrected deepmerge4.3.1 copies and two unchanged official node-forge1.4.3 copies. Complete package trees, registry integrity, locks and native inputs remain verified. No generic advisory exceptions. Eight exact glob7.2.3 compatibility copies retain callback consumers with official minimatch11.0.4; six official minimatch/glob package trees remain byte-identical to registry artifacts. No new advisory acceptance.",
   "controls": [
     "Independent external receipt SHA256 binds exact clean HEAD, record, policy, implementation, native and release preparation identities.",
     "Every release checks full installed package trees, all sixteen source/security copies and six unchanged official tooling copies, exact registry preimages/postimages, locks and native inputs. Official-maintained copies must remain byte-identical to the reviewed registry tree and receive no local source writes.",
@@ -41,7 +41,7 @@
     },
     {
       "path": "apps/parent-mobile/node_modules/node-forge",
-      "treeSha256": "dbe2e243bd0239e3a366332f5265ca6bf4b32b050e9178c64e383de3d3455ea4"
+      "treeSha256": "808be11e152fcde0d82e165e040e45e9f33b0ba9f24cbefe4af99e5f7d0bc865"
     },
     {
       "path": "apps/coach-mobile/node_modules/braces",
@@ -49,7 +49,7 @@
     },
     {
       "path": "apps/coach-mobile/node_modules/node-forge",
-      "treeSha256": "dbe2e243bd0239e3a366332f5265ca6bf4b32b050e9178c64e383de3d3455ea4"
+      "treeSha256": "808be11e152fcde0d82e165e040e45e9f33b0ba9f24cbefe4af99e5f7d0bc865"
     },
     {
       "path": "node_modules/deepmerge",
@@ -118,7 +118,7 @@
     ]
   },
   "limitations": [
-    "The three braces copies remain locally maintained source fixes. The two node-forge copies use the compatible official1.4.2 release without source patches; full registry audits remain mandatory.",
+    "The three braces copies remain locally maintained source fixes. The two node-forge copies use the compatible official1.4.3 release without source patches; full registry audits remain mandatory.",
     "Fix ownership and future security maintenance remain necessary. New security evidence can still block releases.",
     "No app feature, publisher path, production data, store binary or handset-acceptance change is approved by this policy.",
     "Eight glob7.2.3 copies carry a local compatibility correction for the fixed official minimatch11 Matcher API. This is not an official glob7 release or an advisory waiver."
@@ -253,5 +253,18 @@
       "8.0.3",
       "8.1.0"
     ]
+  },
+  "officialForgeSecurityUpdate": {
+    "qualifiedOn": "2026-11-04",
+    "authority": "Required release gate after official security update for the already authorised Coach and Parents test release.",
+    "from": "1.4.2",
+    "to": "1.4.3",
+    "registryUrl": "https://registry.npmjs.org/node-forge/1.4.3",
+    "registryIntegrity": "sha512-P6wzfh6t70avmV8FrVEAd/36sOPJQ+hkaJVX1Laap9J/77m7M0eyozDvc8SwnDf4P7MP94gwbAAo0rg3YVXT+g==",
+    "gitHead": "936b24d939dc7261ee37982576f9cf2b410084ee",
+    "completeTreeSha256": "808be11e152fcde0d82e165e040e45e9f33b0ba9f24cbefe4af99e5f7d0bc865",
+    "sourceWritesAllowed": false,
+    "advisoryAcceptanceAllowed": false,
+    "reason": "Official release fixes new X.509, TLS and HTTP issues. The older 1.4.2 replacement record remains historical."
   }
 }

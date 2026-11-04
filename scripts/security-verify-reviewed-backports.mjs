@@ -70,9 +70,9 @@ export function loadRecord(root) {
   const record = JSON.parse(fs.readFileSync(safe(root, 'security/reviewed-source-remediations.json')))
   verifyMaintainedAuthority(record)
   assert.equal(record.baseline, '864a6ad3856a02b65ec33bfe8e952e6f98d13dbd')
-  assert.equal(record.adoptionProposalSha256, 'b13b4051d0b842a211f6322c4db7eb0de3fe48c8f53b2a91c67f671ad7bc53c4', 'Maintained source policy identity changed')
+  assert.equal(record.adoptionProposalSha256, 'bbbb2aa51a621938b5ea4964bc73512feffd362a4879c8c2f479bc53b1487847', 'Maintained source policy identity changed')
   assert.equal(hash(fs.readFileSync(safe(root, 'security/maintained-source-policy.json'))), record.adoptionProposalSha256, 'Maintained source policy evidence drift')
-  assert.equal(record.releasePreparationSha256, "158d1a57b1ad9a01ce551c8a2088118fe19dedf9ad7524f9ef68e4212bb1bd1b", 'Release preparation scope drift')
+  assert.equal(record.releasePreparationSha256, "811eb4b8ee021b107a04833a093ce6bea79e102a2b35060bed001d33ca5b9ad0", 'Release preparation scope drift')
   assert.equal(hash(Buffer.from(JSON.stringify(record.releasePreparation, null, 2) + '\n')), record.releasePreparationSha256, 'Release preparation pins drift')
   assert.equal(record.releasePreparation.baseline, record.baseline, 'Release preparation baseline mismatch')
   verifyReleasePreparation(root, record.releasePreparation)
@@ -85,9 +85,9 @@ export function loadRecord(root) {
   assert.deepEqual(record.targets.map(t => [t.scope, t.packagePath, t.name, t.version]), [
     ['.', 'node_modules/braces', 'braces', '3.0.3'],
     ['apps/parent-mobile', 'node_modules/braces', 'braces', '3.0.3'],
-    ['apps/parent-mobile', 'node_modules/node-forge', 'node-forge', '1.4.2'],
+    ['apps/parent-mobile', 'node_modules/node-forge', 'node-forge', '1.4.3'],
     ['apps/coach-mobile', 'node_modules/braces', 'braces', '3.0.3'],
-    ['apps/coach-mobile', 'node_modules/node-forge', 'node-forge', '1.4.2'],
+    ['apps/coach-mobile', 'node_modules/node-forge', 'node-forge', '1.4.3'],
     ['.', 'node_modules/deepmerge', 'deepmerge', '4.3.1'],
     ['apps/parent-mobile', 'node_modules/deepmerge', 'deepmerge', '4.3.1'],
     ['apps/coach-mobile', 'node_modules/deepmerge', 'deepmerge', '4.3.1'],
@@ -108,7 +108,7 @@ export function loadRecord(root) {
         ? ['7ebc2bd97fe2ba61dbece477cdffea35fe840069176cd501ef26f95104d0b8a7', '286d2a30d121c50de539f45ff69196a5c0aa949f262302c3cb511c370376a432']
         : t.name === 'glob'
           ? ['e5934ac4474d9971f8e2ebe25e8073122e5fa05a037ffe4ebbe8d6027a02976b', 'c88ad563cec6a84b835eda010386afcd6794ee6660db63b389150462cc218d5f']
-          : ['dbe2e243bd0239e3a366332f5265ca6bf4b32b050e9178c64e383de3d3455ea4', 'dbe2e243bd0239e3a366332f5265ca6bf4b32b050e9178c64e383de3d3455ea4']
+          : ['808be11e152fcde0d82e165e040e45e9f33b0ba9f24cbefe4af99e5f7d0bc865', '808be11e152fcde0d82e165e040e45e9f33b0ba9f24cbefe4af99e5f7d0bc865']
     assert.deepEqual([t.originalTreeSha256, t.patchedTreeSha256], trees, 'Reviewed package-tree identities changed')
     assert.equal(t.mode, t.name === 'node-forge' ? 'official-maintained' : t.name === 'glob' ? 'reviewed-compatibility' : 'reviewed-source', 'Package verification mode changed')
     if (t.name === 'glob') {
@@ -120,7 +120,7 @@ export function loadRecord(root) {
       assert.deepEqual(t.files.map(file => [file.path, file.originalBytes, file.patchedBytes]), [['dist/cjs.js', 4048, 4194], ['dist/umd.js', 4420, 4572], ['index.js', 3293, 3439]], 'All shipped deepmerge entrypoints and exact byte lengths must be corrected')
     }
     if (t.mode === 'official-maintained') {
-      assert.equal(t.registryIntegrity, 'sha512-rRtAR5XLJ8gCKd9du4qrKAsgCG1ObGP4gLeNJMa4vYSeq4bmBMOJk5IHkrviBV0q7uoAJlVd8HEQYQSVUb4FGQ==', 'Official node-forge integrity changed')
+      assert.equal(t.registryIntegrity, 'sha512-P6wzfh6t70avmV8FrVEAd/36sOPJQ+hkaJVX1Laap9J/77m7M0eyozDvc8SwnDf4P7MP94gwbAAo0rg3YVXT+g==', 'Official node-forge integrity changed')
       assert.deepEqual(t.files, [], 'Official node-forge cannot accept local source patches')
     }
   }

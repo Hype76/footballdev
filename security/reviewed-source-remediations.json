@@ -151,10 +151,10 @@
       "scope": "apps/parent-mobile",
       "packagePath": "node_modules/node-forge",
       "name": "node-forge",
-      "version": "1.4.2",
-      "registryIntegrity": "sha512-rRtAR5XLJ8gCKd9du4qrKAsgCG1ObGP4gLeNJMa4vYSeq4bmBMOJk5IHkrviBV0q7uoAJlVd8HEQYQSVUb4FGQ==",
-      "originalTreeSha256": "dbe2e243bd0239e3a366332f5265ca6bf4b32b050e9178c64e383de3d3455ea4",
-      "patchedTreeSha256": "dbe2e243bd0239e3a366332f5265ca6bf4b32b050e9178c64e383de3d3455ea4",
+      "version": "1.4.3",
+      "registryIntegrity": "sha512-P6wzfh6t70avmV8FrVEAd/36sOPJQ+hkaJVX1Laap9J/77m7M0eyozDvc8SwnDf4P7MP94gwbAAo0rg3YVXT+g==",
+      "originalTreeSha256": "808be11e152fcde0d82e165e040e45e9f33b0ba9f24cbefe4af99e5f7d0bc865",
+      "patchedTreeSha256": "808be11e152fcde0d82e165e040e45e9f33b0ba9f24cbefe4af99e5f7d0bc865",
       "files": [],
       "mode": "official-maintained"
     },
@@ -199,10 +199,10 @@
       "scope": "apps/coach-mobile",
       "packagePath": "node_modules/node-forge",
       "name": "node-forge",
-      "version": "1.4.2",
-      "registryIntegrity": "sha512-rRtAR5XLJ8gCKd9du4qrKAsgCG1ObGP4gLeNJMa4vYSeq4bmBMOJk5IHkrviBV0q7uoAJlVd8HEQYQSVUb4FGQ==",
-      "originalTreeSha256": "dbe2e243bd0239e3a366332f5265ca6bf4b32b050e9178c64e383de3d3455ea4",
-      "patchedTreeSha256": "dbe2e243bd0239e3a366332f5265ca6bf4b32b050e9178c64e383de3d3455ea4",
+      "version": "1.4.3",
+      "registryIntegrity": "sha512-P6wzfh6t70avmV8FrVEAd/36sOPJQ+hkaJVX1Laap9J/77m7M0eyozDvc8SwnDf4P7MP94gwbAAo0rg3YVXT+g==",
+      "originalTreeSha256": "808be11e152fcde0d82e165e040e45e9f33b0ba9f24cbefe4af99e5f7d0bc865",
+      "patchedTreeSha256": "808be11e152fcde0d82e165e040e45e9f33b0ba9f24cbefe4af99e5f7d0bc865",
       "files": [],
       "mode": "official-maintained"
     },
@@ -521,11 +521,11 @@
     },
     {
       "scope": "apps/parent-mobile",
-      "normalisedUtf8Sha256": "f08050a715e06f634a1c770967aa7c0a7d0f8efd91915d7289b5444fd5032e51"
+      "normalisedUtf8Sha256": "8e34f4f28dd4e5f83c40b13b0ca26b2992dd67ce2c40fd6ca02ada12a51c44ef"
     },
     {
       "scope": "apps/coach-mobile",
-      "normalisedUtf8Sha256": "2d459a294b8c8d47dfeb34186b4266bc60806714e3dee708163928e5996d0bff"
+      "normalisedUtf8Sha256": "abc3c8700491c5106ae8674ec25ec2f11f159a926aee4d654ef6e425ef83138b"
     }
   ],
   "patches": [
@@ -558,8 +558,8 @@
   },
   "implementationHashes": {
     "scripts/security-supply-chain-gate.mjs": "dcf722bc6cbf2015da4250ea60cbb81e34d3c5c64ec7bb6059671cbae5ab4207",
-    "scripts/security-apply-reviewed-backports.mjs": "d1f039f35d9c8fddbb1b5694b89d2edd9d9adfd486dc75bd09f26194b7daa941",
-    "scripts/security-verify-reviewed-backports.mjs": "0890bb2477bae60ab6bbdc1de28a72317a9949840bc7bb92cb1a3e6033a4c7c7",
+    "scripts/security-apply-reviewed-backports.mjs": "7f0e9de0add15a121a0f60f89f71656b503450010b8b9c8d4aaf58bc355fc5ec",
+    "scripts/security-verify-reviewed-backports.mjs": "7eb065d7cbe28760510bf657099174451eabf94b2d8caf71c8b8e317e9f434df",
     "security/patches/braces-3.0.3.patch": "e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699",
     "security/patches/node-forge-1.4.0.patch": "2de065ac998bf58917a14d0935112d97ec2957ac41b5f06958d500934f188ed4",
     "security/patches/reviewed-source-manifest.json": "facb364bbac44a8276d082068e8ed8415ca89777d24f4c7a05ff370f71e5a54d",
@@ -572,13 +572,13 @@
     "scripts/security-provision-root-backport.mjs": "ad2b058de5e567b0491b7b7e9c263c8055fd985955db11f4e7fd0c6874924df7",
     "security/root-backport-proposal.json": "45c3b7352c7328c84982e114b7e87e09cf79514d02d102297ae75ec0925812eb",
     "security/supply-chain-policy.json": "d5e3090a995738cc22311275763965c2d278900b5e609a41dba0526ca0843265",
-    "tests/security-backport-runtime.test.mjs": "33ca0e2dbbb7fc8fa25ef22cb41691026297cdc06bbe022e5289d67a8bfc9483",
+    "tests/security-backport-runtime.test.mjs": "313a96b759d6efafefc36e17e1e0714c0e9942fc834ae16da8f4678590d3dda4",
     "security/backport-requalification.json": "95f1b5c782335dea22aee6223bbf1426cfe5f2e281dc30e5076f4c7ad0177a91",
     "scripts/security-maintained-release-gate.mjs": "73d668b0c10dbd6f05cac3c0dbcf5dea652152677a6542aeb4d8d166a4cd7781",
     "scripts/security-netlify-build.mjs": "addebe95880ca66b90fe784f68cc23a61d67cf9e4482f8af1ed87f98d54243f6",
     "tests/security-maintained-source.test.mjs": "b052ab4434a54908e3a5e69e49c6aca2554e170e5566b84cb3bed0310f48730d",
     "netlify.toml": "24355fc9ade642f0468a30288ad52230672cd58b0166a03b9cbca5ba668fca8d",
-    "security/maintained-source-policy.json": "b13b4051d0b842a211f6322c4db7eb0de3fe48c8f53b2a91c67f671ad7bc53c4",
+    "security/maintained-source-policy.json": "bbbb2aa51a621938b5ea4964bc73512feffd362a4879c8c2f479bc53b1487847",
     "tests/security-m3-governance.test.mjs": "1e1134b46175e6b8a5fcfd853dc85ae0a74393bdb99cfddba6945de4c5114e20",
     "tests/security-toml-upstream.test.mjs": "2766b75496f5fb02ae5ba4c803d29dcbf4df8b41b82a2c50eefa9f2a4a16b836",
     "security/patches/deepmerge-4.3.1.patch": "6241e75cd0ebdeefbe93564d0f9a0da153bc6608add12970bd3c390910e7e4f4",
@@ -586,7 +586,7 @@
     "tests/security-glob-compatibility.test.mjs": "fcff4ada74faea12ce766dfcabfff7c3be6db8acb0ddff00a630873978da3af9"
   },
   "payloadSha256": "facb364bbac44a8276d082068e8ed8415ca89777d24f4c7a05ff370f71e5a54d",
-  "adoptionProposalSha256": "b13b4051d0b842a211f6322c4db7eb0de3fe48c8f53b2a91c67f671ad7bc53c4",
+  "adoptionProposalSha256": "bbbb2aa51a621938b5ea4964bc73512feffd362a4879c8c2f479bc53b1487847",
   "nativeInputs": [
     {
       "path": "package.json",
@@ -608,13 +608,13 @@
     },
     {
       "path": "apps/parent-mobile/package.json",
-      "normalisedUtf8Sha256": "01990d66fbd30c9c6c3cb9926426a977b22a91a13bbab7b9b4516e4134799a0b",
+      "normalisedUtf8Sha256": "6f80061b226eadbb8bf21a712e50f5eb1de4db68b5c0d1528f595f95c284d637",
       "unchanged": false,
       "reason": "User-authorised 27 October native release 1.1.0: calendar subscriptions, Parent background actions, Expo SDK 54 task manager and matching native runtime versions. All five package copies remain verified using the approved source-backport or official-maintained mode; all release checks remain required. Official glob/minimatch tooling prerequisite on 31 October: only overrides and JavaScript lock graph changed; direct app dependencies, native packages and runtime configuration remain unchanged, with exact graph and compatibility tests required. Official minimatch 11.0.4 tooling metadata update only; exact graph and native identities independently checked."
     },
     {
       "path": "apps/parent-mobile/package-lock.json",
-      "normalisedUtf8Sha256": "f08050a715e06f634a1c770967aa7c0a7d0f8efd91915d7289b5444fd5032e51",
+      "normalisedUtf8Sha256": "8e34f4f28dd4e5f83c40b13b0ca26b2992dd67ce2c40fd6ca02ada12a51c44ef",
       "unchanged": false,
       "reason": "User-authorised 27 October native release 1.1.0: calendar subscriptions, Parent background actions, Expo SDK 54 task manager and matching native runtime versions. All five package copies remain verified using the approved source-backport or official-maintained mode; all release checks remain required. Official glob/minimatch tooling prerequisite on 31 October: only overrides and JavaScript lock graph changed; direct app dependencies, native packages and runtime configuration remain unchanged, with exact graph and compatibility tests required. Official minimatch 11.0.4 tooling metadata update only; exact graph and native identities independently checked."
     },
@@ -632,13 +632,13 @@
     },
     {
       "path": "apps/coach-mobile/package.json",
-      "normalisedUtf8Sha256": "1005290ec58339bcf1d7d72dd32c0ea069d47d4c6f151b02239fd10765bc390b",
+      "normalisedUtf8Sha256": "6b29d446b145c951929eca18af94eac21e98f6995055c5b9b69ecdc9d3e2e4b8",
       "unchanged": false,
       "reason": "User-authorised Coach-only 15 MB offline storage native testing: Expo file system 19.0.24 and isolated runtime 1.1.2; original data preserved, separate production store publication not authorised, all independent review and release controls retained."
     },
     {
       "path": "apps/coach-mobile/package-lock.json",
-      "normalisedUtf8Sha256": "2d459a294b8c8d47dfeb34186b4266bc60806714e3dee708163928e5996d0bff",
+      "normalisedUtf8Sha256": "abc3c8700491c5106ae8674ec25ec2f11f159a926aee4d654ef6e425ef83138b",
       "unchanged": false,
       "reason": "User-authorised Coach-only 15 MB offline storage native testing: Expo file system 19.0.24 and isolated runtime 1.1.2; original data preserved, separate production store publication not authorised, all independent review and release controls retained."
     },
@@ -841,11 +841,11 @@
     ],
     "lockImpactSha256": "d6f3d9e1a0f877643ed90ac381c7838a170159c327ff5903c7dafb895b8516a6",
     "changedSourceHashes": {
-      "apps/coach-mobile/package.json": "1005290ec58339bcf1d7d72dd32c0ea069d47d4c6f151b02239fd10765bc390b",
-      "apps/coach-mobile/package-lock.json": "2d459a294b8c8d47dfeb34186b4266bc60806714e3dee708163928e5996d0bff",
+      "apps/coach-mobile/package.json": "6b29d446b145c951929eca18af94eac21e98f6995055c5b9b69ecdc9d3e2e4b8",
+      "apps/coach-mobile/package-lock.json": "abc3c8700491c5106ae8674ec25ec2f11f159a926aee4d654ef6e425ef83138b",
       "tests/parent-chat-layout-browser.mjs": "baf6f282e3aa374c345219e7cdb6928532cd2a1b66d3616e367f183b98aa8dc8",
-      "apps/parent-mobile/package.json": "01990d66fbd30c9c6c3cb9926426a977b22a91a13bbab7b9b4516e4134799a0b",
-      "apps/parent-mobile/package-lock.json": "f08050a715e06f634a1c770967aa7c0a7d0f8efd91915d7289b5444fd5032e51",
+      "apps/parent-mobile/package.json": "6f80061b226eadbb8bf21a712e50f5eb1de4db68b5c0d1528f595f95c284d637",
+      "apps/parent-mobile/package-lock.json": "8e34f4f28dd4e5f83c40b13b0ca26b2992dd67ce2c40fd6ca02ada12a51c44ef",
       "package.json": "8916918aad378f9aafc23e5ca595a3a72aca8c07757d25c18b8200c37fe4f1d3",
       "package-lock.json": "cb285cd0f5729fa4f49b0da018297e0e1d38498b1e9fb8a8b15a57a40d4ea8c3"
     },
@@ -1343,7 +1343,7 @@
       "prebuildScriptAliases": "Expo start uses equivalent -a and -i aliases to prevent generated native prebuild from mutating reviewed package source."
     }
   },
-  "dependencyRemediationSha256": "19924071d4023066b619d5a6fecb2c8940ede494b9063d233798ca82c3f56eff",
+  "dependencyRemediationSha256": "f217ef17d01339305dfcdc22e5718664a617fea62398edf3d6bc482a4a5f6955",
   "releasePreparation": {
     "previousCandidate": "ef466f2584f5dcf429150aea9ed943473ed094ac",
     "originalApplicationBaseline": "041ae89454ed0b2f032f36089335a34d357ad1a4",
@@ -1352,8 +1352,8 @@
     "changedSourceHashes": {
       ".github/workflows/security-gate.yml": "402856f232edd7eebf823a9e9b0dfd1868148ae18aa7820162c604398f809f1a",
       "apps/coach-mobile/App.js": "004287e01eae4b7413ffcb59ed16fae0af93d9dd3e98bbdb89ba0ca5989a7157",
-      "apps/coach-mobile/package-lock.json": "2d459a294b8c8d47dfeb34186b4266bc60806714e3dee708163928e5996d0bff",
-      "apps/coach-mobile/package.json": "1005290ec58339bcf1d7d72dd32c0ea069d47d4c6f151b02239fd10765bc390b",
+      "apps/coach-mobile/package-lock.json": "abc3c8700491c5106ae8674ec25ec2f11f159a926aee4d654ef6e425ef83138b",
+      "apps/coach-mobile/package.json": "6b29d446b145c951929eca18af94eac21e98f6995055c5b9b69ecdc9d3e2e4b8",
       "apps/coach-mobile/src/CoachClubPromotionScreen.js": "50ee2f15d0020d34ce1bc6d91cb737d164efc95c8c93c1b5a5d89b46a1bfcd6d",
       "apps/coach-mobile/src/CoachDevelopmentTemplateBuilder.js": "976c1e91e9b86eff4621bac8e58e06022e83c8c50f08b21dc389dec9b79dbdb9",
       "apps/coach-mobile/src/CoachFixtureForm.js": "721ed21e1669342c05b55c2649506d3799afc392b0d3f79fe2188f29c73f4567",
@@ -1443,8 +1443,8 @@
       "apps/mobile-core/src/useAttendanceOutbox.js": "bdcbe13d5b79c2e40b5a52ab767490ea017912dffee7ca67313a467fe789b2bd",
       "apps/mobile-core/src/useTeamLeagueLink.js": "78945d958af2ba81bab0247dffb844e67003f3e5697c04d5903617d23c9a1951",
       "apps/parent-mobile/App.js": "8f270a063bcb060ace96d1555540fc5ee1a6bfac0292ed4b47d1dc355e790249",
-      "apps/parent-mobile/package-lock.json": "f08050a715e06f634a1c770967aa7c0a7d0f8efd91915d7289b5444fd5032e51",
-      "apps/parent-mobile/package.json": "01990d66fbd30c9c6c3cb9926426a977b22a91a13bbab7b9b4516e4134799a0b",
+      "apps/parent-mobile/package-lock.json": "8e34f4f28dd4e5f83c40b13b0ca26b2992dd67ce2c40fd6ca02ada12a51c44ef",
+      "apps/parent-mobile/package.json": "6f80061b226eadbb8bf21a712e50f5eb1de4db68b5c0d1528f595f95c284d637",
       "apps/parent-mobile/parentDevelopment.js": "da85be42f4b1eff315bd4cd5bc626b79899617609b0f94d24bad3a032c42f352",
       "apps/parent-mobile/src/FanPlayerCard.js": "18f94e46b49bfd78cb99722dfe3d3ba57aab9be7632cb040af02e1a37bec4b5e",
       "apps/parent-mobile/src/FansScreen.js": "e713e1c3f052c5d429cdf3c6a23e9e0a33cf51f35f991ca33e215ef14b226b8c",
@@ -3559,7 +3559,7 @@
       "nodeEngine": "20 || >=22"
     }
   },
-  "releasePreparationSha256": "158d1a57b1ad9a01ce551c8a2088118fe19dedf9ad7524f9ef68e4212bb1bd1b",
+  "releasePreparationSha256": "811eb4b8ee021b107a04833a093ce6bea79e102a2b35060bed001d33ca5b9ad0",
   "rootOnlyProposalSha256": "45c3b7352c7328c84982e114b7e87e09cf79514d02d102297ae75ec0925812eb",
   "remediationMode": "maintained-source-fixes",
   "officialCompatibilityDependencies": [
