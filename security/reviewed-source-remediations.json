@@ -559,7 +559,7 @@
   "implementationHashes": {
     "scripts/security-supply-chain-gate.mjs": "dcf722bc6cbf2015da4250ea60cbb81e34d3c5c64ec7bb6059671cbae5ab4207",
     "scripts/security-apply-reviewed-backports.mjs": "7f0e9de0add15a121a0f60f89f71656b503450010b8b9c8d4aaf58bc355fc5ec",
-    "scripts/security-verify-reviewed-backports.mjs": "33afaca40644af303b5c981fb68d2576a4a1a4d927a36bf949bbff4b6bc4468f",
+    "scripts/security-verify-reviewed-backports.mjs": "26b9b80e41bc9a73a0bad56d244caab68a90839e1cd4e462479738c0e4607de3",
     "security/patches/braces-3.0.3.patch": "e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699",
     "security/patches/node-forge-1.4.0.patch": "2de065ac998bf58917a14d0935112d97ec2957ac41b5f06958d500934f188ed4",
     "security/patches/reviewed-source-manifest.json": "facb364bbac44a8276d082068e8ed8415ca89777d24f4c7a05ff370f71e5a54d",
@@ -1823,7 +1823,7 @@
       "tests/parent-email-change-linkflow.test.mjs": "7ee5082c4645a11f6ad7f2ac47f1f1f5be22cef1528378924e331ff1410ae322",
       "tests/parent-event-details-browser.mjs": "af41fcc4d35fd30e19827458d765ea23495f30f254aea17dc83133d0242606bc",
       "tests/parent-fixture-date-layout-browser.mjs": "fa4e29b6e29bf039a0499bd6d583f32de8cbf7d007c75275822cea4821bbc256",
-      "tests/parent-gameplay-notifications-followup.test.mjs": "d1a6632199f418e3ab37b65e263202333734ffd5606f09b9c8cfb6ec6c6d59d7",
+      "tests/parent-gameplay-notifications-followup.test.mjs": "63fa44e11a212854078a46fc84504885b19f17736d0cd81e1ac9690aa85dddbc",
       "tests/parent-home-sections-browser.mjs": "2adf341020b2a48ce1c9e705c90f919ae512c60302d1f59094780c0e05fbb4d8",
       "tests/parent-home-status-actions-browser.mjs": "ab18f1ab13a3b17e97b4ac9e4b6dda04b278e68c37064427142c0dce950b64d4",
       "tests/parent-invite-branding-pglite.test.mjs": "623cecf4e9240f52161221ad8260b4f8a59bd291951193dcfa5852e3cb2f1609",
@@ -3559,7 +3559,7 @@
       "nodeEngine": "20 || >=22"
     }
   },
-  "releasePreparationSha256": "23e8b8cb049143a72a1d8f6e6daa7dd1d513d1579c68b2c6a4bceea8f78e5718",
+  "releasePreparationSha256": "88a26d5c5952c1284d6a16afbae4774e0d0ade53e72c5e593df126963f143f25",
   "rootOnlyProposalSha256": "45c3b7352c7328c84982e114b7e87e09cf79514d02d102297ae75ec0925812eb",
   "remediationMode": "maintained-source-fixes",
   "officialCompatibilityDependencies": [
