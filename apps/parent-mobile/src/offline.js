@@ -31,7 +31,7 @@ import {
 import { getParentPortalLinks, withSelectedParentLink } from '../../mobile-core/src/parentLinks'
 import { applyParentNotificationAction } from '../../mobile-core/src/parentNotificationInboxCore'
 import { pruneRemovedParentOfflineScopes } from '../../mobile-core/src/parentAccessRemovalCore'
-import { appendParentScorerCommand, projectParentScorerOutbox } from './parentScorerOutboxCore'
+import { appendParentScorerCommand, projectParentScorerOutbox, restoreRejectedShootout } from './parentScorerOutboxCore'
 import { applyParentScorerCommand } from './parentPortalData'
 
 const config = getMobileRuntimeConfig('parent')
@@ -291,6 +291,18 @@ export async function queueParentScorerAction(user, link, match, kind, payload) 
     return next
   })
   return { journal, match: projectParentScorerOutbox(journal) }
+}
+
+export async function restoreParentRejectedShootout(user, link, matchId) {
+  let journal
+  await updateParentDocument(user, document => {
+    const current = document?.parentScorerOutboxes?.[link.id]?.[matchId]
+    assertParentScorerScope(document, user, link, current?.baseMatch)
+    journal = restoreRejectedShootout(current)
+    return { ...document, parentScorerOutboxes: { ...document.parentScorerOutboxes,
+      [link.id]: { ...document.parentScorerOutboxes[link.id], [matchId]: journal } } }
+  })
+  return journal
 }
 
 export async function refreshParentScorerOutboxes(user, link, matches) {

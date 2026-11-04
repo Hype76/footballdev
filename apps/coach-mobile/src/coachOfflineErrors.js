@@ -23,3 +23,20 @@ export function getCoachOfflineSaveWarning(error) {
   }
   return `Sessions are up to date, but this phone could not save an offline copy. Keep an internet connection while using Sessions. ${detail}`
 }
+
+export function getCoachMatchDayOfflineNotice(error) {
+  const reason = `${error?.code || ''} ${error?.message || ''}`.toLowerCase()
+  if (/offline_profile_scope_mismatch|offline_context_scope_mismatch/.test(reason)) {
+    return 'The saved Match Day workspace is still preparing. Return to Home and reopen this fixture. Reference: PROFILE.'
+  }
+  if (/scope|authority|access|context/.test(reason)) {
+    return 'Saved Match Day actions belong to a different workspace. Select the original team before syncing. Reference: ACCESS.'
+  }
+  if (/quota|disk.*full|not enough.*storage|payload_too_large/.test(reason)) {
+    return 'This phone could not save more Match Day work. Keep app data, free some device storage and retry. Reference: SPACE.'
+  }
+  if (/recovery_required|corrupt/.test(reason)) {
+    return 'Saved Match Day work needs recovery. Keep app data and contact support. Reference: RECOVERY.'
+  }
+  return 'This phone could not verify its saved Match Day copy. Retry before recording another action. Reference: DEVICE.'
+}

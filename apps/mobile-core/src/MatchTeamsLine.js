@@ -12,7 +12,7 @@ function TeamLogo({ name, logoUrl, size }) {
     onError={remote ? () => setFailedUrl(logoUrl) : undefined}
     resizeMode="contain"
     source={remote ? { uri: logoUrl } : fallbackLogo}
-    style={{ width: size, height: size, opacity: remote ? 1 : 0.42 }}
+    style={{ width: size, height: size, opacity: remote ? 1 : 0.55, tintColor: remote ? undefined : '#8a9494' }}
   />
 }
 
@@ -24,9 +24,9 @@ export function MatchTeamsLine({ match, clubLogoUrl = '', textStyle, compact = f
   const secondLogo = clubIsHome ? '' : clubLogoUrl
   return <View accessibilityRole={header ? 'header' : undefined} accessibilityLabel={header ? `${parts.firstTeam} v ${parts.secondTeam}` : `${parts.firstTeam} versus ${parts.secondTeam}`} style={{ flexDirection: 'row', alignItems: 'center', gap: compact ? 5 : 8, minWidth: 0 }}>
     <TeamLogo key={`first:${firstLogo}`} name={parts.firstTeam} logoUrl={firstLogo} size={size} />
-    <Text numberOfLines={2} style={[textStyle, { flex: 1, minWidth: 0, textAlign: 'left' }]}>{parts.firstTeam}</Text>
+    <Text adjustsFontSizeToFit minimumFontScale={0.6} numberOfLines={parts.firstTeam.includes(' ') ? 2 : 1} style={[textStyle, { flex: 1, minWidth: 0, textAlign: 'left' }]}>{parts.firstTeam}</Text>
     <Text style={textStyle}>v</Text>
-    <Text numberOfLines={2} style={[textStyle, { flex: 1, minWidth: 0, textAlign: 'right' }]}>{parts.secondTeam}</Text>
+    <Text adjustsFontSizeToFit minimumFontScale={0.6} numberOfLines={parts.secondTeam.includes(' ') ? 2 : 1} style={[textStyle, { flex: 1, minWidth: 0, textAlign: 'right' }]}>{parts.secondTeam}</Text>
     <TeamLogo key={`second:${secondLogo}`} name={parts.secondTeam} logoUrl={secondLogo} size={size} />
   </View>
 }

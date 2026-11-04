@@ -5,7 +5,25 @@ import { parse } from '@babel/parser'
 import { normalizeMatchDayShirtChoice } from '../src/lib/matchday-model.js'
 import { normalizePitchType } from '../src/lib/pitch-type.js'
 import { normalizePersonName } from '../src/lib/person-name.js'
-import { appendParentScorerCommand, getVisibleParentScorerMatch, mergeParentScorerAcknowledgement, projectParentScorerOutbox } from '../apps/parent-mobile/src/parentScorerOutboxCore.js'
+import { appendParentScorerCommand, canRestoreRejectedShootout, getVisibleParentScorerMatch, mergeParentScorerAcknowledgement, projectParentScorerOutbox, restoreRejectedShootout } from '../apps/parent-mobile/src/parentScorerOutboxCore.js'
+
+test('unfinished shootout cannot enter the offline finish queue and a rejected finish can be restored', () => {
+  const shootout = { ...base, status: 'penalties', currentMatchPhase: 'penalties', timerStatus: 'paused',
+    shootoutEvents: [
+      { teamSide: 'club', outcome: 'scored' }, { teamSide: 'opponent', outcome: 'missed' },
+      { teamSide: 'club', outcome: 'scored' }, { teamSide: 'opponent', outcome: 'scored' },
+    ] }
+  const current = { ...journal(), baseMatch: shootout }
+  assert.throws(() => appendParentScorerCommand(current, { id: 'finish', kind: 'timer', payload: { action: 'full_time' }, capturedAt: startAt }), /Record more shootout kicks/)
+  const rejected = { ...current, error: 'Complete the penalty shootout with a clear winner before Full Time.', pending: [
+    { id: 'finish', kind: 'timer', payload: { action: 'full_time' } },
+    { id: 'review', kind: 'request-review', payload: {} },
+  ] }
+  assert.equal(canRestoreRejectedShootout(rejected), true)
+  assert.deepEqual(restoreRejectedShootout(rejected).pending, [])
+  assert.equal(restoreRejectedShootout(rejected).baseMatch.shootoutEvents.length, 4)
+  assert.equal(canRestoreRejectedShootout({ ...rejected, pending: [...rejected.pending, { kind: 'shootout' }] }), false)
+})
 import { deliverParentScorerCommands } from '../netlify/functions/lib/_parent-scorer-command-notifications.js'
 
 const startAt = '2026-09-26T11:00:00Z'
