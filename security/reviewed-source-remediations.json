@@ -559,7 +559,7 @@
   "implementationHashes": {
     "scripts/security-supply-chain-gate.mjs": "dcf722bc6cbf2015da4250ea60cbb81e34d3c5c64ec7bb6059671cbae5ab4207",
     "scripts/security-apply-reviewed-backports.mjs": "7f0e9de0add15a121a0f60f89f71656b503450010b8b9c8d4aaf58bc355fc5ec",
-    "scripts/security-verify-reviewed-backports.mjs": "26b9b80e41bc9a73a0bad56d244caab68a90839e1cd4e462479738c0e4607de3",
+    "scripts/security-verify-reviewed-backports.mjs": "8c328a0ad7e9ede63a91d443cd128df7e35b5ad41acd65f8ea942c9334e8c5d3",
     "security/patches/braces-3.0.3.patch": "e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699",
     "security/patches/node-forge-1.4.0.patch": "2de065ac998bf58917a14d0935112d97ec2957ac41b5f06958d500934f188ed4",
     "security/patches/reviewed-source-manifest.json": "facb364bbac44a8276d082068e8ed8415ca89777d24f4c7a05ff370f71e5a54d",
@@ -1449,7 +1449,7 @@
       "apps/parent-mobile/src/FanPlayerCard.js": "18f94e46b49bfd78cb99722dfe3d3ba57aab9be7632cb040af02e1a37bec4b5e",
       "apps/parent-mobile/src/FansScreen.js": "e713e1c3f052c5d429cdf3c6a23e9e0a33cf51f35f991ca33e215ef14b226b8c",
       "apps/parent-mobile/src/ParentDevelopmentProgressionChart.js": "189ccf1e8f3077178f4eb9df33d2d82dd0fda106e7d353287f95426f77c0ff49",
-      "apps/parent-mobile/src/ParentPortalScreens.js": "4d0545265c3e7d9bb0ba0a9cb3a4a7ac2293b01ad710b84f4e33fc06de2bf70b",
+      "apps/parent-mobile/src/ParentPortalScreens.js": "9c7b5e930b2afbf424a14edcdfcd0b65759be2c8ce19f0af85c0ee92a42f5ca0",
       "apps/parent-mobile/src/offline.js": "1ce47da2dddf73a7916298597dd3e6f4c663630d36604276311092b26299ad78",
       "apps/parent-mobile/src/parentMatchReportBranding.js": "08db7b1cb838bfb68f3db5aa318677db60cf1264c1f8fe62e8f99be2c6de0cb5",
       "apps/parent-mobile/src/parentPortalData.js": "2204da3c8d14c193b4f4a1e589117b94d6ab819e22adced658c59ecfaa45ea6a",
@@ -1815,7 +1815,7 @@
       "tests/parent-auth-intent.test.mjs": "7778b55613d1e3564ac57f1d9e2d56ba4f1359e95762f25132a8f2834d0c0c69",
       "tests/parent-bottom-tabs-browser.mjs": "ab64bbb4c9e0279d6dfdc6c6385f3be1250d8915b2017adeebc6bcfdb16df95d",
       "tests/parent-chat-layout-browser.mjs": "baf6f282e3aa374c345219e7cdb6928532cd2a1b66d3616e367f183b98aa8dc8",
-      "tests/parent-compact-matchday-browser.mjs": "2b95e4ac0cfeb54516f1b54c0df5e1fe71b2b524da25c98551a08a917a61e51c",
+      "tests/parent-compact-matchday-browser.mjs": "46a8cec334bac568d9b1b552d5aa547f684288ee62933979fa4a7ae0e28ed7a2",
       "tests/parent-development-pdf-actions.test.mjs": "5ec3f9e267cbbf038c8db71a6ce414ab8ecc7f5b6e0d4133185b9a5e4962eef2",
       "tests/parent-development-pdf-browser.mjs": "cb0a619f7981b788db4f32ecfbee1433a19afe235f59f797521ba07c39d4d2b3",
       "tests/parent-development-progression-browser.mjs": "4408c03a9b6af88389b9d5c5ed8169215c517e0082e761311a9865c324379eb6",
@@ -3559,7 +3559,7 @@
       "nodeEngine": "20 || >=22"
     }
   },
-  "releasePreparationSha256": "88a26d5c5952c1284d6a16afbae4774e0d0ade53e72c5e593df126963f143f25",
+  "releasePreparationSha256": "7903f12e835e322399b27820d0de3d1726defac78424046c83532797791c2d97",
   "rootOnlyProposalSha256": "45c3b7352c7328c84982e114b7e87e09cf79514d02d102297ae75ec0925812eb",
   "remediationMode": "maintained-source-fixes",
   "officialCompatibilityDependencies": [

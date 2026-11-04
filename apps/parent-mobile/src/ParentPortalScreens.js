@@ -316,12 +316,12 @@ function IconChoice({ accessibilityLabel, busy = false, colors, disabled = false
   )
 }
 
-function InvitationResponseControl({ activeActionId, colors, invitation, isOffline, isLocked = false, label, onRespond, styles }) {
+function InvitationResponseControl({ activeActionId, colors, invitation, isOffline, isLocked = false, label, onRespond, showChoicesInitially = false, styles }) {
   const scope = JSON.stringify([invitation.parentLinkId, invitation.childId, invitation.invitationId])
   const captureView = useAttendanceUiGuard(scope)
   const inFlight = useRef(null)
   const [submission, setSubmission] = useState(null)
-  const [changingScope, setChangingScope] = useState('')
+  const [changingScope, setChangingScope] = useState(showChoicesInitially ? scope : '')
   const local = submission?.scope === scope ? submission : null
   const response = invitationResponsePresentation(invitation)
   const actionable = isParentInvitationActionable(invitation)
@@ -1277,7 +1277,7 @@ export function MatchdayScreen({ activeActionId, clubKits, formationViewportHeig
             <View style={styles.row}><View style={{ gap: 6, flexShrink: 1 }}><Text style={styles.fieldLabel}>Availability</Text><MatchStatusBadge colors={colors} status={getParentMatchAvailability(selectedMatch, attendanceInvitation, link, now)} prefix="Availability" styles={styles} /></View>
               {canChangeAvailability && onRespond ? <Pressable accessibilityLabel={availabilityOpen ? 'Close availability response' : 'Change availability'} accessibilityRole="button" accessibilityState={{ expanded: availabilityOpen, disabled: isOffline || Boolean(activeActionId) }} disabled={isOffline || Boolean(activeActionId)} onPress={() => setAvailabilityOpenKey(availabilityOpen ? '' : availabilityKey)} style={{ minHeight: 44, paddingHorizontal: 10, flexDirection: 'row', alignItems: 'center', gap: 6 }}><Text style={[styles.body, { color: colors.accentText, fontWeight: '700' }]}>{availabilityOpen ? 'Done' : 'Change'}</Text><ParentIcon color={colors.accentText} iconKey="action.open" size={20} /></Pressable> : null}
             </View>
-            {availabilityOpen ? <View style={styles.stack}><InvitationResponseControl label="Availability" activeActionId={activeActionId} colors={colors} invitation={attendanceInvitation} isOffline={isOffline} onRespond={onRespond} styles={styles} /><ParentCarpoolControl activeActionId={activeActionId} colors={colors} invitation={attendanceInvitation} isOffline={isOffline} onTransport={onTransport} styles={styles} /></View> : null}
+            {availabilityOpen ? <View style={styles.stack}><InvitationResponseControl label="Availability" activeActionId={activeActionId} colors={colors} invitation={attendanceInvitation} isOffline={isOffline} onRespond={onRespond} showChoicesInitially styles={styles} /><ParentCarpoolControl activeActionId={activeActionId} colors={colors} invitation={attendanceInvitation} isOffline={isOffline} onTransport={onTransport} styles={styles} /></View> : null}
             <View style={{ gap: 6 }}><Text style={styles.fieldLabel}>Match squad</Text><MatchStatusBadge colors={colors} status={getParentMatchSquadStatus(selectedMatch)} prefix="Match squad" styles={styles} /></View>
           </View> : null}
           {selectedMatch.notes ? <><Text style={styles.cardTitle}>Match notes</Text><Text style={styles.body}>{selectedMatch.notes}</Text></> : null}
