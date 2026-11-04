@@ -463,6 +463,14 @@ export async function linkFormationBoardToMatch({ boardId, matchDayId, user } = 
   }))
 }
 
+export async function submitMatchDayStartingSquad({ boardId, matchDayId, user } = {}) {
+  await prepareFormationBoardMutation(user)
+  return callFormationBoardRpc('submit_match_day_starting_squad', {
+    target_board_id: boardId,
+    target_match_day_id: matchDayId,
+  })
+}
+
 export async function publishFormationBoardMatchPlan({ boardId, matchDayId, user, versionId } = {}) {
   await prepareFormationBoardMutation(user)
   return normalizeFormationBoardMatchPublication(await callFormationBoardRpc('publish_formation_board_match_plan', {

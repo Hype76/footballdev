@@ -67,6 +67,7 @@ import {
   getMatchDay,
   getMatchDays,
   linkFormationBoardToMatch,
+  submitMatchDayStartingSquad,
   publishFormationBoardMatchPlan,
   publishFormationBoardVersion,
   RESOURCE_LIBRARY_CATEGORIES,
@@ -595,6 +596,7 @@ export function FormationBoardsPage() {
   const [publications, setPublications] = useState([])
   const [matchPublications, setMatchPublications] = useState([])
   const [selectedMatchId, setSelectedMatchId] = useState('')
+  const [submitStartingSquad, setSubmitStartingSquad] = useState(false)
   const [currentBoard, setCurrentBoard] = useState(null)
   const [publishedSnapshotVersion, setPublishedSnapshotVersion] = useState(null)
   const [snapshot, setSnapshot] = useState(null)
@@ -826,6 +828,7 @@ export function FormationBoardsPage() {
       setPublications(nextPublications)
       setMatchPublications(nextMatchPublications)
       setSelectedMatchId(matchId || freshBoard.linkedMatchDayId || '')
+      setSubmitStartingSquad(false)
       if (!snapshotVersion) loadDraftCandidate(freshBoard, nextSnapshot)
       else setDraftCandidate(null)
       const versionQuery = snapshotVersion ? `&version=${snapshotVersion.id}` : ''
@@ -954,6 +957,7 @@ export function FormationBoardsPage() {
     setPublications([])
     setMatchPublications([])
     setSelectedMatchId('')
+    setSubmitStartingSquad(false)
     setPortraitCompatibility(null)
     navigate('/resources/formation-boards', { replace: true })
     window.setTimeout(() => { allowNavigationRef.current = false }, 0)
@@ -1090,9 +1094,18 @@ export function FormationBoardsPage() {
     setErrorMessage('')
     try {
       const linkedBoard = await linkFormationBoardToMatch({ boardId: board.id, matchDayId: selectedMatchId, user })
+      if (submitStartingSquad) {
+        try {
+          await submitMatchDayStartingSquad({ boardId: linkedBoard.id, matchDayId: selectedMatchId, user })
+        } catch (submitError) {
+          setCurrentBoard(linkedBoard)
+          setErrorMessage(`Formation Board linked, but the starting squad was not submitted. ${submitError.message}`)
+          return
+        }
+      }
       setCurrentBoard(linkedBoard)
       await refreshBoards()
-      showToast({ title: 'Match linked', message: 'The saved plan is still private until you publish it to parents.' })
+      showToast({ title: submitStartingSquad ? 'Starting squad submitted' : 'Match linked', message: 'The saved plan is still private until you publish it to parents.' })
     } catch (error) {
       console.error(error)
       setErrorMessage(error.message || 'The Formation Board could not be linked to that match.')
@@ -1744,6 +1757,10 @@ export function FormationBoardsPage() {
                     </select>
                   </label>
                   {currentBoard?.linkedMatchDayId ? <p className="text-xs font-semibold text-[var(--text-muted)]">Currently linked to {formatMatchOption(matches.find((match) => match.id === currentBoard.linkedMatchDayId))}.</p> : null}
+                  <label className="flex min-h-11 items-center gap-3 border-t border-[var(--border-color)] py-2 text-sm font-semibold">
+                    <input type="checkbox" checked={submitStartingSquad} disabled={isPublishingMatchPlan} onChange={(event) => setSubmitStartingSquad(event.target.checked)} />
+                    <span>Submit Players on the pitch as the starting squad for playing-time stats. Optional.</span>
+                  </label>
                   <div className="grid gap-2">
                     <button type="button" disabled={!selectedMatchId || isSaving || isPublishingMatchPlan || pitchCapacity.isOverCapacity} onClick={() => void saveAndLinkMatch()} className={secondaryButtonClass}>{isSaving ? 'Saving...' : 'Save and link to match'}</button>
                     <button type="button" disabled={!selectedMatchId || isNewBoard || hasUnsavedChanges || currentBoard?.linkedMatchDayId !== selectedMatchId || isPublishingMatchPlan} onClick={() => void publishMatchPlan()} className={primaryButtonClass}>{isPublishingMatchPlan ? 'Working...' : latestSelectedMatchPublication && !latestSelectedMatchPublication.withdrawnAt ? 'Publish update to parents' : 'Publish to parents'}</button>

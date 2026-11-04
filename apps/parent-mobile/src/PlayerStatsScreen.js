@@ -19,6 +19,7 @@ export function PlayerStatsScreen({ connection, stats, themeTokens }) {
     <StatRow label="Drawn" value={record.drawn ?? 0} tokens={themeTokens} />
     <Text accessibilityRole="header" style={{ color: themeTokens.textPrimary, fontSize: 19, fontWeight: '700', marginTop: 14 }}>Player stats</Text>
     <StatRow label="Matches selected" value={personal.matches ?? 0} tokens={themeTokens} />
+    {personal.playingTimeMatches > 0 ? <StatRow label={`Recorded playing time (${personal.playingTimeMatches} matches)`} value={`${personal.playingMinutes ?? 0} min`} tokens={themeTokens} /> : null}
     <StatRow label="Goals" value={personal.goals ?? 0} tokens={themeTokens} />
     <StatRow label="Assists" value={personal.assists ?? 0} tokens={themeTokens} />
     <StatRow label="Player of the Match" value={personal.playerOfTheMatch ?? 0} tokens={themeTokens} />

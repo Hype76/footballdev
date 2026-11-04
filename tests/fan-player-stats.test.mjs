@@ -32,3 +32,26 @@ test('Goals, assists and Player of the Match use active goals and winning closed
   assert.equal(stats.personal.assists, 1)
   assert.equal(stats.personal.playerOfTheMatch, 1)
 })
+
+test('recorded playing time follows submitted starters and active substitutions', () => {
+  const completed = [{ ...matches[0], timer_elapsed_seconds: 46 * 60 }]
+  const startingSquads = [{ match_day_id: 'home-win', player_ids: [player.id] }]
+  const events = [
+    { match_day_id: 'home-win', event_type: 'substitution', team_side: 'club', minute: 20, scorer_player_id: player.id, assist_player_id: 'player-2', event_status: 'active' },
+    { match_day_id: 'home-win', event_type: 'substitution', team_side: 'club', minute: 35, scorer_player_id: 'player-2', assist_player_id: player.id, event_status: 'active' },
+    { match_day_id: 'home-win', event_type: 'substitution', team_side: 'club', minute: 40, scorer_player_id: player.id, assist_player_id: 'player-3', event_status: 'voided' },
+  ]
+  const stats = buildPlayerStats({ matches: completed, startingSquads, events, player })
+  assert.equal(stats.personal.playingMinutes, 31)
+  assert.equal(stats.personal.playingTimeMatches, 1)
+})
+
+test('playing time stays unavailable without a starting squad or a complete substitution identity', () => {
+  const completed = [{ ...matches[0], timer_elapsed_seconds: 45 * 60 }]
+  const noSquad = buildPlayerStats({ matches: completed, player })
+  assert.equal(noSquad.personal.playingMinutes, null)
+  const incomplete = buildPlayerStats({ matches: completed, player, startingSquads: [{ match_day_id: 'home-win', player_ids: [player.id] }], events: [
+    { match_day_id: 'home-win', event_type: 'substitution', team_side: 'club', minute: 20, scorer_player_id: null, assist_player_id: 'player-2' },
+  ] })
+  assert.equal(incomplete.personal.playingMinutes, null)
+})

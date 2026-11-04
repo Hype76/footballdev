@@ -85,6 +85,15 @@ export async function saveCoachMatchFormationBoard(user, match, board, draft, ti
   }))
 }
 
+export async function submitCoachMatchStartingSquad(user, match, board) {
+  assertFormationWrite(user)
+  if (!normalize(match?.id) || !normalize(board?.id) || board.linkedMatchDayId !== match.id) {
+    throw new Error('Save this Formation Board to the match before submitting its starting squad.')
+  }
+  if (!array(board.currentVersion?.placements).length) throw new Error('Put at least one Player on the pitch before submitting the starting squad.')
+  return rpc('submit_match_day_starting_squad', { target_match_day_id: match.id, target_board_id: board.id })
+}
+
 export async function linkCoachFormationBoard(user, boardId, matchDayId) {
   assertFormationWrite(user)
   return normalizeCoachFormationBoard(await rpc('link_formation_board_to_match', { target_board_id: boardId, target_match_day_id: matchDayId }))

@@ -34,6 +34,7 @@ import {
 import {
   getCoachFormationBoards,
   saveCoachMatchFormationBoard,
+  submitCoachMatchStartingSquad,
   getCoachFormationPresets,
   getCoachFormationPublications,
 } from '../../mobile-core/src/coachFormationBoardData'
@@ -327,6 +328,7 @@ export function CoachFormationBoard({ context, initialBoardId = '', match = null
   const [removalMode, setRemovalMode] = useState(false)
   const [removalIds, setRemovalIds] = useState([])
   const [shared, setShared] = useState(false)
+  const [submitStartingSquad, setSubmitStartingSquad] = useState(false)
   const shareScrollRef = useRef(null)
   const titleInputTop = useRef(0)
   const titleInputFocused = useRef(false)
@@ -405,6 +407,7 @@ export function CoachFormationBoard({ context, initialBoardId = '', match = null
     setLocalState(local ? 'saved' : 'idle')
     setMatchPublications(nextPublications.matchItems)
     setShared(local?.shared ?? Boolean(getActiveFormationPublication(nextPublications.matchItems, nextBoard.linkedMatchDayId)))
+    setSubmitStartingSquad(local?.submitStartingSquad === true)
     setPresets(nextPresets)
     setSelectedPlayerId('')
     setShowBoards(false)
@@ -436,6 +439,7 @@ export function CoachFormationBoard({ context, initialBoardId = '', match = null
     setSavedContentKey('')
     setMatchPublications([])
     setShared(false)
+    setSubmitStartingSquad(false)
     setQueuedRetryPending(false)
     setQueuedSaveAcknowledged(false)
     setError('')
@@ -456,7 +460,7 @@ export function CoachFormationBoard({ context, initialBoardId = '', match = null
       || (legacyPending?.matchDayId === currentMatch?.id && String(legacyPending.boardId || '') === restoredBoardId ? legacyPending : null)
     setQueuedRetryPending(Boolean(pendingSave))
     setQueuedSaveAcknowledged(Boolean(pendingSave?.acknowledged))
-    const restored = localDraft || (pendingSave ? { board: pendingSave.board || null, draft: pendingSave.draft, title: pendingSave.title, shared: pendingSave.shared } : null)
+    const restored = localDraft || (pendingSave ? { board: pendingSave.board || null, draft: pendingSave.draft, title: pendingSave.title, shared: pendingSave.shared, submitStartingSquad: pendingSave.submitStartingSquad } : null)
     if (restored?.draft || (cacheMatchesRoute && savedFormation?.draft)) {
       const cachedBoard = restored ? restored.board || null : savedFormation.board || null
       const cachedDraft = restored?.draft || savedFormation.draft
@@ -471,6 +475,7 @@ export function CoachFormationBoard({ context, initialBoardId = '', match = null
       setPresets(Array.isArray(savedFormation.presets) ? savedFormation.presets : [])
       setMatchPublications(Array.isArray(savedFormation.matchPublications) ? savedFormation.matchPublications : [])
       setShared(restored?.shared ?? Boolean(getActiveFormationPublication(savedFormation.matchPublications || [], currentMatch?.id)))
+      setSubmitStartingSquad(restored?.submitStartingSquad === true)
       setTitle(cachedTitle)
       setActiveSheet('')
       setRefreshPending(true)
@@ -535,6 +540,7 @@ export function CoachFormationBoard({ context, initialBoardId = '', match = null
       if (!editorChangedDuringRefresh) {
         setBoard(nextBoard)
         setShared(restored?.shared ?? pendingSave?.shared ?? Boolean(getActiveFormationPublication(nextPublications.matchItems, currentMatch?.id)))
+        setSubmitStartingSquad(restored?.submitStartingSquad ?? pendingSave?.submitStartingSquad ?? false)
         setDraft(nextDraft)
         const nextTitle = (nextBoard?.isLocked ? nextBoard.title : restored?.title || pendingSave?.title) || nextBoard?.title || (currentMatch?.id ? `${currentMatch.teamName} v ${currentMatch.opponent}` : 'Formation Board')
         setSavedContentKey(nextBoard ? formationContentKey(createMobileFormationDraft({ board: nextBoard }), nextBoard.title) : formationContentKey(createMobileFormationDraft({ gameFormat: nextDraft.gameFormat, presetKey: nextDraft.presetKey }), currentMatch?.id ? `${currentMatch.teamName} v ${currentMatch.opponent}` : 'Formation Board'))
@@ -621,6 +627,7 @@ export function CoachFormationBoard({ context, initialBoardId = '', match = null
         draft,
         title,
         shared,
+        submitStartingSquad,
         workflowStep: 'lineup',
         matchDayId: currentMatch?.id || '',
         savedAt: new Date().toISOString(),
@@ -636,7 +643,7 @@ export function CoachFormationBoard({ context, initialBoardId = '', match = null
     } finally {
       if (sequence === draftWriteSequence.current) setBusy(false)
     }
-  }, [board, currentDraftKey, draft, draftScope, hasEditAuthority, hasUnsavedChanges, onBack, routeScope, shared, title])
+  }, [board, currentDraftKey, draft, draftScope, hasEditAuthority, hasUnsavedChanges, onBack, routeScope, shared, submitStartingSquad, title])
 
   useEffect(() => {
     registerBackHandler?.(handleBack)
@@ -647,7 +654,7 @@ export function CoachFormationBoard({ context, initialBoardId = '', match = null
     if (!canEdit || loading || busy || !savedContentKey || draftScope !== routeScope) return
     const sequence = ++draftWriteSequence.current
     const entry = hasUnsavedChanges ? {
-      board, draft, title, shared, workflowStep: 'lineup', matchDayId: match?.id || '', savedAt: new Date().toISOString(),
+      board, draft, title, shared, submitStartingSquad, workflowStep: 'lineup', matchDayId: match?.id || '', savedAt: new Date().toISOString(),
     } : null
     if (entry) setLocalState('saving')
     void saveCoachFormationLocalDraft(user.id, context, currentDraftKey, entry).then(() => {
@@ -655,7 +662,7 @@ export function CoachFormationBoard({ context, initialBoardId = '', match = null
     }).catch(() => {
       if (sequence === draftWriteSequence.current) setLocalState('failed')
     })
-  }, [board, busy, canEdit, contentKey, context, currentDraftKey, draft, draftScope, hasUnsavedChanges, loading, match?.id, routeScope, savedContentKey, shared, title, user.id])
+  }, [board, busy, canEdit, contentKey, context, currentDraftKey, draft, draftScope, hasUnsavedChanges, loading, match?.id, routeScope, savedContentKey, shared, submitStartingSquad, title, user.id])
 
   const confirmDraftReplacement = (action) => {
     if (!hasUnsavedChanges || !canEdit) { void action(); return }
@@ -697,6 +704,7 @@ export function CoachFormationBoard({ context, initialBoardId = '', match = null
     setLocalState('idle')
     setMatchPublications([])
     setShared(false)
+    setSubmitStartingSquad(false)
     setSelectedPlayerId('')
     setShowBoards(false)
     setActiveSheet('')
@@ -752,6 +760,7 @@ export function CoachFormationBoard({ context, initialBoardId = '', match = null
     const saveDraft = queuedSave?.draft || draft
     const saveTitle = queuedSave?.title || title
     const saveShared = queuedSave ? queuedSave.shared === true : shared
+    const saveStartingSquad = queuedSave ? queuedSave.submitStartingSquad === true : submitStartingSquad
     if (saveBoard?.linkedMatchDayId && saveBoard.linkedMatchDayId !== match.id) throw new Error('This board belongs to another match.')
     const operation = loadSequence.current
     const requireActiveBoard = () => {
@@ -768,6 +777,7 @@ export function CoachFormationBoard({ context, initialBoardId = '', match = null
       && String(cachedPending?.boardId || '') === String(saveBoard?.id || '')
       && cachedPending?.draft
       && formationContentKey(cachedPending.draft, cachedPending.title) === formationContentKey(saveDraft, saveTitle)
+      && cachedPending.submitStartingSquad === saveStartingSquad
       ? cachedPending : null)
     const pendingSave = queuedSave || {
       board: saveBoard || null,
@@ -778,6 +788,7 @@ export function CoachFormationBoard({ context, initialBoardId = '', match = null
       matchDayId: match.id,
       queueKey: `${match.id}:${saveBoard?.id || 'new'}`,
       shared: saveShared,
+      submitStartingSquad: saveStartingSquad,
       startedAt: !saveBoard && previousPendingSave?.startedAt ? previousPendingSave.startedAt : new Date().toISOString(),
       title: normalize(saveTitle) || 'Formation Board',
     }
@@ -798,6 +809,10 @@ export function CoachFormationBoard({ context, initialBoardId = '', match = null
         requireActiveBoard()
         const acknowledgedPendingSave = { ...pendingSave, acknowledged: true, board: nextBoard, boardId: nextBoard.id, expectedVersionNumber: nextBoard.currentVersionNumber }
         await saveOfflineFormation({ nextBoard, pendingSave: acknowledgedPendingSave }).catch(() => {})
+      }
+      if (saveStartingSquad && !queuedSave?.startingSquadSubmitted) {
+        await submitCoachMatchStartingSquad(user, match, nextBoard)
+        await saveOfflineFormation({ nextBoard, pendingSave: { ...pendingSave, acknowledged: true, board: nextBoard, boardId: nextBoard.id, startingSquadSubmitted: true } }).catch(() => {})
       }
       // Retain a confirmed server identity even if refresh or local storage fails.
       setBoard(nextBoard)
@@ -863,7 +878,7 @@ export function CoachFormationBoard({ context, initialBoardId = '', match = null
     try {
       const nextBoard = await persistBoard()
       if (nextBoard.isLocked) setActiveSheet('')
-      setNotice(`${nextBoard.title} saved to this match. ${shared ? 'Visible to parents and players.' : 'Coaches only.'}`)
+      setNotice(`${nextBoard.title} saved to this match. ${submitStartingSquad ? 'Starting squad submitted. ' : ''}${shared ? 'Visible to parents and players.' : 'Coaches only.'}`)
     } catch (saveError) {
       if (saveError.code === 'formation_navigation_changed' || saveError.code === 'formation_save_queued') return
       setErrorRetry(saveError.code === 'formation_conflict' ? 'conflict' : 'save')
@@ -892,7 +907,7 @@ export function CoachFormationBoard({ context, initialBoardId = '', match = null
       setError('')
       const nextBoard = await persistBoardRef.current({ queuedEditorRevision, queuedSave: pendingSave })
       if (nextBoard.isLocked) setActiveSheet('')
-      setNotice(`${nextBoard.title} saved to this match. ${pendingSave.shared ? 'Visible to parents and players.' : 'Coaches only.'}`)
+      setNotice(`${nextBoard.title} saved to this match. ${pendingSave.submitStartingSquad ? 'Starting squad submitted. ' : ''}${pendingSave.shared ? 'Visible to parents and players.' : 'Coaches only.'}`)
     } catch (retryError) {
       if (retryError.code === 'formation_navigation_changed' || retryError.code === 'formation_save_queued' || isRetryableFormationSaveError(retryError)) return
       setErrorRetry(retryError.code === 'formation_conflict' ? 'conflict' : 'save')
@@ -1110,6 +1125,7 @@ export function CoachFormationBoard({ context, initialBoardId = '', match = null
               <TextInput editable={canEdit && !busy} accessibilityLabel="Formation plan title" maxLength={120} onBlur={() => { titleInputFocused.current = false }} onFocus={() => { titleInputFocused.current = true; revealTitleInput() }} onLayout={(event) => { titleInputTop.current = event.nativeEvent.layout.y }} onChangeText={setTitle} style={styles.input} value={title} />
               <Text style={styles.label}>Who can see this lineup?</Text>
               {[{ label: 'Coaches only', value: false }, { label: 'Parents and players', value: true }].map(({ label, value }) => <Pressable aria-checked={shared === value} accessibilityLabel={label} accessibilityRole="radio" accessibilityState={{ checked: shared === value, disabled: !canEdit || busy }} disabled={!canEdit || busy} key={label} onPress={() => setShared(value)} style={[styles.modalPlayer, (!canEdit || busy) && styles.actionDisabled]}><Text style={styles.label}>{label}</Text><MaterialIcons color={shared === value ? palette.accentText : palette.textSecondary} name={shared === value ? 'radio-button-checked' : 'radio-button-unchecked'} size={24} /></Pressable>)}
+              <Pressable accessibilityLabel="Submit as starting squad" accessibilityRole="switch" accessibilityState={{ checked: submitStartingSquad, disabled: !canEdit || busy }} disabled={!canEdit || busy} onPress={() => setSubmitStartingSquad((value) => !value)} style={[{ minHeight: 52, flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: palette.border }, (!canEdit || busy) && styles.actionDisabled]}><View style={{ flex: 1 }}><Text style={styles.label}>Submit as starting squad</Text><Text style={styles.body}>Optional. Players on the pitch will start the playing-time record when this match begins.</Text></View><MaterialIcons color={submitStartingSquad ? palette.accentText : palette.textSecondary} name={submitStartingSquad ? 'check-circle' : 'radio-button-unchecked'} size={24} /></Pressable>
               {error ? <Text accessibilityRole="alert" style={styles.body}>{error}</Text> : null}
               {queuedRetryPending ? <Text accessibilityLiveRegion="polite" style={styles.body}>{queuedSaveAcknowledged ? 'Saved to this match. Refreshing the saved lineup is pending. Keep this board open to retry the refresh automatically.' : 'Saved on this phone. Saving to the match has not been confirmed. Keep this board open to retry automatically, or tap Save to match to retry now.'}</Text> : null}
               {notice.startsWith(`${title} saved to this match.`) ? <Text accessibilityLiveRegion="polite" style={styles.body}>{notice}</Text> : null}
