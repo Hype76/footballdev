@@ -17,6 +17,16 @@ export function startLiveMatchFollowOnce(role, matchId, parentLinkId = null) {
   return startBarrier.start(role, matchId, () => startLiveMatchFollow(role, matchId, parentLinkId))
 }
 
+async function waitForIosToken(read, check) {
+  for (let attempt = 0; attempt < 120; attempt += 1) {
+    check()
+    const token = read()
+    if (token) return token
+    await new Promise(resolve => setTimeout(resolve, 500))
+  }
+  return ''
+}
+
 async function confirmedMatch(role, matchId, parentLinkId) {
   if (role === 'parent') {
     const { data, error } = await supabase.rpc('get_parent_portal_match_days', { parent_link_id_value: parentLinkId })
@@ -58,7 +68,10 @@ export async function readLiveMatchFollow(role, matchId) {
       return active
     },
     clear: async stale => {
-      if (Platform.OS === 'ios' && stale.activityId) await iosActivity?.endMatchActivity(stale.activityId).catch(() => {})
+      if (Platform.OS === 'ios') {
+        const activityId = stale.activityId || iosActivity?.getMatchActivityTokens()?.find(item => item.key === matchId)?.id
+        if (activityId) await iosActivity?.endMatchActivity(activityId).catch(() => {})
+      }
       if (Platform.OS === 'android') await hideLiveMatchNotification(matchId).catch(() => {})
       await AsyncStorage.removeItem(key)
     },
@@ -68,6 +81,8 @@ export async function readLiveMatchFollow(role, matchId) {
 async function startLiveMatchFollow(role, matchId, parentLinkId = null) {
   const generation = startBarrier.generation(role)
   let registeredFollowId = '', activityId = '', userId = ''
+  let createdActivity = false
+  let remoteFollowId = ''
   try {
     startBarrier.check(role, generation)
     const config = getMobileRuntimeConfig(role)
@@ -80,15 +95,15 @@ async function startLiveMatchFollow(role, matchId, parentLinkId = null) {
     const state = createLiveMatchState(match, Date.now())
     if (state.end) throw new Error('This match has ended.')
     const displayState = { ...state, badgeUrl: match.team_id && match.club_id ? await matchBadgeUrl(match) : '', appRole: role }
+    const saved = await readLiveMatchFollow(role, matchId)
+    if (saved?.rollbackPending) throw new Error('Clear the previous lock screen follow first.')
     let token = ''
     if (Platform.OS === 'ios') {
       if (!iosActivity?.activitiesEnabled()) throw new Error('Live Activities are off in iPhone settings.')
-      activityId = await iosActivity.startMatchActivity(matchId, displayState)
-      for (let attempt = 0; attempt < 120 && !token; attempt += 1) {
-        startBarrier.check(role, generation)
-        token = iosActivity.getMatchActivityToken(activityId) || ''
-        if (!token) await new Promise(resolve => setTimeout(resolve, 500))
-      }
+      const existing = iosActivity.getMatchActivityTokens()?.find(item => item.key === matchId)
+      if (existing) { activityId = existing.id; remoteFollowId = existing.followId || '' }
+      else { activityId = await iosActivity.startMatchActivity(matchId, displayState); createdActivity = true }
+      token = await waitForIosToken(() => iosActivity.getMatchActivityToken(activityId) || '', () => startBarrier.check(role, generation))
       if (!token) throw new Error('The iPhone could not start this live match. Try again.')
     } else if (Platform.OS === 'android') {
       const permission = await Notifications.getPermissionsAsync()
@@ -97,30 +112,32 @@ async function startLiveMatchFollow(role, matchId, parentLinkId = null) {
       token = (await Notifications.getExpoPushTokenAsync({ projectId: config.easProjectId })).data
     } else throw new Error('Live match is available on phones only.')
     startBarrier.check(role, generation)
-    const { data: followId, error } = await supabase.rpc('follow_live_match', {
-      match_day_id_value: matchId, app_role_value: role, platform_value: Platform.OS,
-      activity_token_value: token, parent_link_id_value: parentLinkId,
-    })
+    const { data: followId, error } = Platform.OS === 'ios' && remoteFollowId
+      ? await supabase.rpc('attach_live_match_activity', { follow_id_value: remoteFollowId, activity_token_value: token })
+      : await supabase.rpc('follow_live_match', {
+        match_day_id_value: matchId, app_role_value: role, platform_value: Platform.OS,
+        activity_token_value: token, parent_link_id_value: parentLinkId,
+      })
     if (error || !followId) throw error || new Error('Could not follow this match.')
-    registeredFollowId = followId
+    registeredFollowId = remoteFollowId || followId
     startBarrier.check(role, generation)
-    const saved = { followId, activityId, parentLinkId }
-    await AsyncStorage.setItem(keyFor(role, userId, matchId), JSON.stringify(saved))
+    const active = { followId: registeredFollowId, activityId, parentLinkId }
+    await AsyncStorage.setItem(keyFor(role, userId, matchId), JSON.stringify(active))
     startBarrier.check(role, generation)
     if (Platform.OS === 'android') await showLiveMatchNotification(matchId, displayState)
     startBarrier.check(role, generation)
-    return saved
+    return active
   } catch (error) {
     let revoked = false
-    if (registeredFollowId) {
+    if (registeredFollowId && !remoteFollowId) {
       try {
         const result = await supabase.rpc('stop_following_live_match', { follow_id_value: registeredFollowId })
         revoked = !result.error && result.data === true
       } catch { revoked = false }
     }
-    if (activityId) await iosActivity?.endMatchActivity(activityId).catch(() => {})
+    if (createdActivity && activityId) await iosActivity?.endMatchActivity(activityId).catch(() => {})
     if (Platform.OS === 'android') await hideLiveMatchNotification(matchId).catch(() => {})
-    if (userId) {
+    if (userId && !remoteFollowId) {
       const key = keyFor(role, userId, matchId)
       if (registeredFollowId && !revoked) {
         await AsyncStorage.setItem(key, JSON.stringify({ followId: registeredFollowId, activityId, parentLinkId, rollbackPending: true })).catch(() => {})
@@ -140,9 +157,44 @@ export async function stopLiveMatchFollow(role, matchId) {
   if (!saved) return
   const { error } = await supabase.rpc('stop_following_live_match', { follow_id_value: saved.followId })
   if (error) throw error
-  if (Platform.OS === 'ios' && saved.activityId) await iosActivity?.endMatchActivity(saved.activityId)
+  if (Platform.OS === 'ios') {
+    const activityId = saved.activityId || iosActivity?.getMatchActivityTokens()?.find(item => item.key === matchId)?.id
+    if (activityId) await iosActivity?.endMatchActivity(activityId)
+  }
   if (Platform.OS === 'android') await hideLiveMatchNotification(matchId)
   await AsyncStorage.removeItem(key)
+}
+
+export async function attachPendingIosMatchActivities(role) {
+  if (Platform.OS !== 'ios' || !iosActivity?.getMatchActivityTokens) return 0
+  const activities = iosActivity.getMatchActivityTokens()
+  if (!activities.some(item => item.followId && item.token)) return 0
+  const { data, error } = await supabase.auth.getUser()
+  if (error || !data?.user?.id) return 0
+  let attached = 0
+  for (const activity of activities.filter(item => item.followId && item.token)) {
+    const key = keyFor(role, data.user.id, activity.key)
+    let saved = null
+    try { saved = JSON.parse(await AsyncStorage.getItem(key) || 'null') } catch { /* Rebuild from the verified server follow. */ }
+    if (saved?.followId && saved.followId !== activity.followId) {
+      await iosActivity.endMatchActivity(activity.id).catch(() => {})
+      continue
+    }
+    if (saved?.activityId === activity.id) continue
+    const result = await supabase.rpc('attach_live_match_activity', {
+      follow_id_value: activity.followId, activity_token_value: activity.token,
+    })
+    if (result.error) continue
+    if (result.data !== true) {
+      await iosActivity.endMatchActivity(activity.id).catch(() => {})
+      if (saved?.followId === activity.followId) await AsyncStorage.removeItem(key)
+      continue
+    }
+    await AsyncStorage.setItem(key, JSON.stringify({ followId: activity.followId,
+      activityId: activity.id, parentLinkId: saved?.parentLinkId || null }))
+    attached += 1
+  }
+  return attached
 }
 
 export async function refreshLiveMatchNotification(role, matchId) {
@@ -166,6 +218,10 @@ export async function refreshLiveMatchNotification(role, matchId) {
 export async function revokeLiveMatchFollowsBeforeSignOut(role) {
   await startBarrier.beforeSignOut(role)
   try {
+    if (Platform.OS === 'ios') {
+      const revoked = await supabase.rpc('revoke_live_activity_start_subscriptions', { app_role_value: role })
+      if (revoked.error && !['42883', 'PGRST202'].includes(revoked.error.code)) throw revoked.error
+    }
     const allKeys = (await AsyncStorage.getAllKeys()).filter(key => key.startsWith(`fp.live-match.v1.${role}.`))
     if (!allKeys.length) return
     const { data, error } = await supabase.auth.getUser()

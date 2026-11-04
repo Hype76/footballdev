@@ -7,9 +7,40 @@ public class ReactNativeWidgetExtensionModule: Module {
   public func definition() -> ModuleDefinition {
     Name("ReactNativeWidgetExtension")
 
+    OnCreate {
+      guard #available(iOS 17.2, *) else { return }
+      Task {
+        for activity in Activity<MatchActivityAttributes>.activities {
+          Task { await Self.observeRemoteActivity(activity) }
+        }
+        for await activity in Activity<MatchActivityAttributes>.activityUpdates {
+          Task { await Self.observeRemoteActivity(activity) }
+        }
+      }
+    }
+
     Function("activitiesEnabled") { () -> Bool in
       if #available(iOS 16.2, *) { return ActivityAuthorizationInfo().areActivitiesEnabled }
       return false
+    }
+
+    Function("getPushToStartToken") { () -> String? in
+      guard #available(iOS 17.2, *), ActivityAuthorizationInfo().areActivitiesEnabled,
+            let token = Activity<MatchActivityAttributes>.pushToStartToken else { return nil }
+      return token.map { String(format: "%02x", $0) }.joined()
+    }
+
+    AsyncFunction("getMatchBadgeData") { (url: String) async -> String? in
+      return await Self.badgeData(url)?.base64EncodedString()
+    }
+
+    Function("getMatchActivityTokens") { () -> [[String: String]] in
+      guard #available(iOS 16.2, *) else { return [] }
+      return Activity<MatchActivityAttributes>.activities.map { activity in
+        let token = activity.pushToken.map { $0.map { String(format: "%02x", $0) }.joined() } ?? ""
+        return ["key": activity.attributes.activityKey, "id": activity.id, "token": token,
+          "followId": activity.attributes.followId ?? ""]
+      }
     }
 
     AsyncFunction("startMatchActivity") { (key: String, input: [String: Any]) async throws -> String in
@@ -17,7 +48,7 @@ public class ReactNativeWidgetExtensionModule: Module {
       guard ActivityAuthorizationInfo().areActivitiesEnabled else { throw NSError(domain: "LiveMatch", code: 2) }
       guard let state = Self.parse(input) else { throw NSError(domain: "LiveMatch", code: 3) }
       let badgeData = await Self.badgeData(input["badgeUrl"] as? String)
-      let attributes = MatchActivityAttributes(activityKey: key, badgeData: badgeData,
+      let attributes = MatchActivityAttributes(activityKey: key, followId: nil, handoffToken: nil, badgeData: badgeData,
         clubIsHome: input["clubIsHome"] as? Bool ?? true)
       let content = ActivityContent(state: state, staleDate: Date().addingTimeInterval(4 * 60 * 60))
       let activity = try Activity.request(attributes: attributes, content: content, pushType: .token)
@@ -42,6 +73,35 @@ public class ReactNativeWidgetExtensionModule: Module {
       for activity in Activity<MatchActivityAttributes>.activities {
         await activity.end(nil, dismissalPolicy: .immediate)
       }
+    }
+  }
+
+  @available(iOS 17.2, *)
+  private static func observeRemoteActivity(_ activity: Activity<MatchActivityAttributes>) async {
+    guard let followId = activity.attributes.followId,
+          let handoffToken = activity.attributes.handoffToken else { return }
+    if let token = activity.pushToken {
+      await sendRemoteToken(followId, handoffToken, token)
+    }
+    for await token in activity.pushTokenUpdates {
+      await sendRemoteToken(followId, handoffToken, token)
+    }
+  }
+
+  private static func sendRemoteToken(_ followId: String, _ handoffToken: String, _ token: Data) async {
+    guard let url = URL(string: "https://footballplayer.online/.netlify/functions/live-activity-token-handoff") else { return }
+    let payload = ["followId": followId, "handoffToken": handoffToken,
+      "activityToken": token.map { String(format: "%02x", $0) }.joined()]
+    guard let body = try? JSONSerialization.data(withJSONObject: payload) else { return }
+    for attempt in 0..<3 {
+      var request = URLRequest(url: url)
+      request.httpMethod = "POST"
+      request.httpBody = body
+      request.timeoutInterval = 6
+      request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+      if let (_, response) = try? await URLSession.shared.data(for: request),
+         (response as? HTTPURLResponse)?.statusCode == 200 { return }
+      if attempt < 2 { try? await Task.sleep(nanoseconds: UInt64(attempt + 1) * 1_000_000_000) }
     }
   }
 

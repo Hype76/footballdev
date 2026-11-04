@@ -57,6 +57,25 @@ export function createLiveActivityApnsRequest({ bundleId, activityToken, provide
   }
 }
 
+export function createLiveActivityStartRequest({ bundleId, startToken, providerToken, contentState, timestamp, staleDate, activityKey, followId = null, handoffToken, clubIsHome, badgeData = null }) {
+  if (typeof activityKey !== 'string' || !/^[0-9a-f-]{36}$/i.test(activityKey)
+    || (followId !== null && (typeof followId !== 'string' || !/^[0-9a-f-]{36}$/i.test(followId)))
+    || !/^[0-9a-f]{64}$/.test(handoffToken || '')
+    || typeof clubIsHome !== 'boolean' || (badgeData !== null && (typeof badgeData !== 'string' || badgeData.length > 3000))) {
+    throw new Error('live_activity_start_attributes_invalid')
+  }
+  const update = createLiveActivityApnsRequest({ bundleId, activityToken: startToken, providerToken,
+    contentState, timestamp, staleDate })
+  const payload = JSON.parse(update.body)
+  payload.aps.event = 'start'
+  payload.aps['attributes-type'] = 'MatchActivityAttributes'
+  payload.aps.attributes = { activityKey, followId, handoffToken, badgeData, clubIsHome }
+  payload.aps.alert = { title: 'Match started', body: `${contentState.homeName} v ${contentState.awayName}` }
+  const body = JSON.stringify(payload)
+  if (Buffer.byteLength(body, 'utf8') > 4096) throw new Error('live_activity_payload_too_large')
+  return { ...update, body }
+}
+
 // One request is intentionally bounded. Retry and token retirement belong to
 // the durable delivery queue, after its access check has been repeated.
 export function sendLiveActivityApns(request, { production = true, connect = connectHttp2, timeoutMs = 8000 } = {}) {

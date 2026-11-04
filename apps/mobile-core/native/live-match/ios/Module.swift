@@ -12,6 +12,24 @@ public class ReactNativeWidgetExtensionModule: Module {
       return false
     }
 
+    Function("getPushToStartToken") { () -> String? in
+      guard #available(iOS 17.2, *), ActivityAuthorizationInfo().areActivitiesEnabled,
+            let token = Activity<MatchActivityAttributes>.pushToStartToken else { return nil }
+      return token.map { String(format: "%02x", $0) }.joined()
+    }
+
+    AsyncFunction("getMatchBadgeData") { (url: String) async -> String? in
+      return await Self.badgeData(url)?.base64EncodedString()
+    }
+
+    Function("getMatchActivityTokens") { () -> [[String: String]] in
+      guard #available(iOS 16.2, *) else { return [] }
+      return Activity<MatchActivityAttributes>.activities.map { activity in
+        let token = activity.pushToken.map { $0.map { String(format: "%02x", $0) }.joined() } ?? ""
+        return ["key": activity.attributes.activityKey, "id": activity.id, "token": token]
+      }
+    }
+
     AsyncFunction("startMatchActivity") { (key: String, input: [String: Any]) async throws -> String in
       guard #available(iOS 16.2, *) else { throw NSError(domain: "LiveMatch", code: 1) }
       guard ActivityAuthorizationInfo().areActivitiesEnabled else { throw NSError(domain: "LiveMatch", code: 2) }
