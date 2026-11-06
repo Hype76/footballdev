@@ -43,6 +43,7 @@ import {
   Keyboard,
   KeyboardAvoidingView,
   Linking,
+  Modal,
   Platform,
   Pressable,
   RefreshControl,
@@ -228,11 +229,13 @@ function CoachHome() {
   const [quickActionRequest, setQuickActionRequest] = useState(null)
   const [isRegisteringPush, setIsRegisteringPush] = useState(false)
   const [selectedContextId, setSelectedContextId] = useState('')
+  const [isSwitchingContext, setIsSwitchingContext] = useState(false)
   const contextResolution = useMemo(
     () => resolveCoachStaffContext({ profile: user, requestedContextId: selectedContextId }),
     [selectedContextId, user],
   )
-  const activeContext = contextResolution.allowed ? contextResolution.context : null
+  const activeContext = contextResolution.allowed && selectedContextId === contextResolution.context?.id
+    ? contextResolution.context : null
   useLiveActivityStartSubscriptions('coach', (contextResolution.contexts || [])
     .filter(context => context.teamId && context.clubId)
     .map(context => ({ type: 'team', id: context.teamId, teamId: context.teamId,
@@ -286,7 +289,7 @@ function CoachHome() {
   )
   const themeContext = useMemo(() => createCoachThemeContext(themeModel), [themeModel])
   const { palette, styles } = themeContext
-  const contextOwnedByCurrentUser = Boolean(user?.id && contextReady && contextOwnerUserId === user.id)
+  const contextOwnedByCurrentUser = Boolean(user?.id && contextReady && contextOwnerUserId === user.id && activeContext)
   useEffect(() => {
     let cancelled = false
     if (!activeContext || !isMatchdayPlan(activeContext)) {
@@ -313,7 +316,7 @@ function CoachHome() {
   }, [activeContext, activeRoute, matchdayPlanConfig, moreRoute])
   useCoachMatchDayBackgroundSync({ user, contexts: contextResolution.contexts, enabled: contextOwnedByCurrentUser && activeRoute !== 'matchday' })
   useCoachDevelopmentSync({ user, contexts: contextResolution.contexts, enabled: contextOwnedByCurrentUser })
-  useCoachOfflinePreparation({ user: selectedMobileUser, context: activeContext, enabled: contextOwnedByCurrentUser && activeRoute !== 'matchday' })
+  useCoachOfflinePreparation({ user, contexts: contextResolution.contexts, activeContext, enabled: Boolean(user?.id && contextReady && contextOwnerUserId === user.id && activeRoute !== 'matchday') })
   const handleChatNotificationTargetHandled = useCallback(() => setChatNotificationTarget(null), [])
   const handleMatchDayTargetHandled = useCallback(() => setMatchDayTarget(null), [])
 
@@ -793,7 +796,7 @@ function CoachHome() {
 
   const handleQuickActionHandled = useCallback(() => setQuickActionRequest(null), [])
 
-  const openCoachTarget = useCallback((data) => {
+  const openCoachTarget = useCallback(async (data) => {
     const result = resolveCoachNotificationOpen(data, {
       activeContextId: activeContext?.id,
       contexts: contextResolution.contexts,
@@ -809,6 +812,21 @@ function CoachHome() {
       return false
     }
     if (targetContext.id !== activeContext?.id) {
+      try {
+        if (targetContext.clubId !== user.clubId) {
+          if (user.isOfflineProfile) {
+            setNotice('Connect before opening a different club.')
+            return false
+          }
+          const { error } = await coachSupabase.rpc('activate_own_club_membership', { target_club_id: targetContext.clubId })
+          if (error) throw error
+          await refreshUserProfile()
+        }
+        await writeCoachContextMarker(user.id, targetContext)
+      } catch {
+        setNotice('Could not open the other club. Try again online.')
+        return false
+      }
       resetContextDomainState()
       setSelectedContextId(targetContext.id)
     }
@@ -826,7 +844,7 @@ function CoachHome() {
         }
       : null)
     return true
-  }, [activeContext?.id, contextResolution.contexts, matchdayPlanConfig, resetContextDomainState])
+  }, [activeContext?.id, contextResolution.contexts, matchdayPlanConfig, refreshUserProfile, resetContextDomainState, user])
 
   useEffect(() => {
     let mounted = true
@@ -855,7 +873,7 @@ function CoachHome() {
       const available = Array.isArray(user?.coachContexts) ? user.coachContexts : []
       const nextContextId = available.some((context) => context.id === marker?.contextId)
         ? marker.contextId
-        : normalizeText(user?.activeCoachContextId || available[0]?.id)
+        : available.length === 1 ? available[0].id : ''
       setSelectedContextId(nextContextId)
       setContextOwnerUserId(user?.id || '')
       bootstrappedAuthorityRef.current = authorityScope
@@ -1016,21 +1034,36 @@ function CoachHome() {
     return () => subscription.remove()
   }, [activeRoute, moreRoute])
 
-  const selectContext = useCallback((contextId) => {
+  const selectContext = useCallback(async (contextId) => {
+    if (isSwitchingContext) return
     const nextContext = contextResolution.contexts?.find((context) => context.id === contextId)
     if (!nextContext) {
       setNotice('That Coach context is no longer available.')
       return
     }
-    const transition = createCoachContextTransition(activeContext, nextContext)
-    if (transition.clearDomainState) resetContextDomainState()
-    const currentDestination = moreRoute || activeRoute
-    const preserved = resolveCoachRoute(currentDestination, nextContext)
-    const target = preserved ? getCoachRouteState(preserved) : { activeRoute: 'home', moreRoute: '' }
-    setActiveRoute(target.activeRoute)
-    setMoreRoute(target.moreRoute)
-    setSelectedContextId(nextContext.id)
-  }, [activeContext, activeRoute, contextResolution.contexts, moreRoute, resetContextDomainState])
+    setIsSwitchingContext(true)
+    try {
+      if (nextContext.clubId !== user.clubId) {
+        if (user.isOfflineProfile) throw new Error('Connect before changing clubs.')
+        const { error } = await coachSupabase.rpc('activate_own_club_membership', { target_club_id: nextContext.clubId })
+        if (error) throw error
+      }
+      await writeCoachContextMarker(user.id, nextContext)
+      const transition = createCoachContextTransition(activeContext, nextContext)
+      if (transition.clearDomainState) resetContextDomainState()
+      const currentDestination = moreRoute || activeRoute
+      const preserved = resolveCoachRoute(currentDestination, nextContext)
+      const target = preserved ? getCoachRouteState(preserved) : { activeRoute: 'home', moreRoute: '' }
+      setActiveRoute(target.activeRoute)
+      setMoreRoute(target.moreRoute)
+      setSelectedContextId(nextContext.id)
+      if (nextContext.clubId !== user.clubId) await refreshUserProfile()
+    } catch (error) {
+      setNotice(error?.message || 'Could not change the Coach workspace. Try again online.')
+    } finally {
+      setIsSwitchingContext(false)
+    }
+  }, [activeContext, activeRoute, contextResolution.contexts, isSwitchingContext, moreRoute, refreshUserProfile, resetContextDomainState, user])
 
   const toggleTheme = useCallback(async (next) => {
     setThemePreference(next)
@@ -1055,7 +1088,7 @@ function CoachHome() {
       />
     )
   }
-  if (!contextOwnedByCurrentUser) return <LoadingScreen message="Resolving Coach access..." />
+  if (!contextReady || contextOwnerUserId !== user.id) return <LoadingScreen message="Resolving Coach access..." />
   if (!contextResolution.allowed) {
     return (
       <AccessScreen
@@ -1064,6 +1097,13 @@ function CoachHome() {
         title="Coach access unavailable"
       />
     )
+  }
+  if (!activeContext) {
+    return <CoachThemeContext.Provider value={themeContext}><SafeAreaView edges={['top', 'right', 'left']} style={styles.appShell}>
+      <View style={{ paddingHorizontal: 16, paddingTop: 28 }}><Text style={styles.contextOptionTitle}>Choose your team or club</Text><Text style={styles.contextOptionMeta}>Select a workspace to open. Your choice will be remembered on this phone.</Text></View>
+      <ContextSwitcher contexts={contextResolution.contexts} initial onSelect={selectContext} selectedContextId="" switching={isSwitchingContext} />
+      {notice ? <Notice message={notice} onDismiss={() => setNotice('')} /> : null}
+    </SafeAreaView></CoachThemeContext.Provider>
   }
 
   return (
@@ -1141,6 +1181,7 @@ function CoachHome() {
                 contexts={contextResolution.contexts}
                 onSelect={selectContext}
                 selectedContextId={activeContext.id}
+                switching={isSwitchingContext}
               />
             </View> : null}
             <View onLayout={(event) => { contentOriginRef.current = event.nativeEvent.layout.y }} style={[styles.content, isMatchInvitesRoute && { paddingHorizontal: 8, paddingTop: 4 }]}>
@@ -1726,33 +1767,46 @@ function NotificationStatusButton({ notificationState, notificationStateStatus, 
   )
 }
 
-function ContextSwitcher({ contexts, onSelect, selectedContextId }) {
-  const { styles } = useCoachTheme()
-  if (contexts.length < 2) return null
-  return (
-    <View style={styles.contextShell}>
-      <Text style={styles.contextLabel}>Active Coach context</Text>
-      <ScrollView contentContainerStyle={styles.contextList} horizontal showsHorizontalScrollIndicator={false}>
-        {contexts.map((context) => {
-          const selected = context.id === selectedContextId
-          return (
-            <Pressable
-              accessibilityHint="Changes the active Team or Club Coach context"
-              accessibilityLabel={`${context.teamName || context.clubName}, ${context.roleLabel}`}
-              accessibilityRole="button"
-              accessibilityState={{ selected }}
-              key={context.id}
-              onPress={() => onSelect(context.id)}
-              style={({ pressed }) => [styles.contextOption, selected && styles.contextOptionSelected, pressed && styles.pressed]}
-            >
-              <Text style={[styles.contextOptionTitle, selected && styles.contextOptionTitleSelected]}>{context.teamName || context.clubName}</Text>
-              <Text style={[styles.contextOptionMeta, selected && styles.contextOptionMetaSelected]}>{context.roleLabel}</Text>
-            </Pressable>
-          )
-        })}
-      </ScrollView>
-    </View>
-  )
+function ContextSwitcher({ contexts, initial = false, onSelect, selectedContextId, switching = false }) {
+  const { palette, styles } = useCoachTheme()
+  const [open, setOpen] = useState(false)
+  if (contexts.length < 2 && !initial) return null
+  const selected = contexts.find(context => context.id === selectedContextId)
+  const groups = contexts.reduce((result, context) => {
+    if (!result[context.clubId]) result[context.clubId] = []
+    result[context.clubId].push(context)
+    return result
+  }, {})
+  const options = <ScrollView style={{ flexGrow: 0 }} contentContainerStyle={{ paddingBottom: 24 }}>
+    {Object.entries(groups).map(([clubId, clubContexts]) => <View key={clubId}>
+      <Text style={[styles.contextLabel, { paddingTop: 18, paddingBottom: 6 }]}>{clubContexts[0]?.clubName || 'Club'}</Text>
+      {clubContexts.map(context => <Pressable
+        accessibilityLabel={`${context.teamName || 'Club admin'}, ${context.clubName}, ${context.roleLabel}`}
+        accessibilityRole="button"
+        accessibilityState={{ disabled: switching, selected: context.id === selectedContextId }}
+        disabled={switching}
+        key={context.id}
+        onPress={() => { setOpen(false); void onSelect(context.id) }}
+        style={({ pressed }) => [{ minHeight: 54, marginHorizontal: 16, paddingVertical: 10, borderBottomColor: palette.border, borderBottomWidth: 1, opacity: pressed ? 0.7 : 1 }]}
+      >
+        <Text style={styles.contextOptionTitle}>{context.teamName || 'Club admin'}</Text>
+        <Text style={styles.contextOptionMeta}>{context.roleLabel}{context.id === selectedContextId ? '  Selected' : ''}</Text>
+      </Pressable>)}
+    </View>)}
+  </ScrollView>
+  if (initial) return options
+  return <View style={styles.contextShell}>
+    <Pressable accessibilityLabel="Change team or club" accessibilityRole="button" onPress={() => setOpen(true)} style={{ minHeight: 48, paddingHorizontal: 16, paddingVertical: 8, justifyContent: 'center' }}>
+      <Text style={styles.contextOptionTitle}>{selected?.teamName || selected?.clubName || 'Choose team'}  <Text style={styles.contextOptionMeta}>Change team or club</Text></Text>
+    </Pressable>
+    <Modal animationType="slide" onRequestClose={() => setOpen(false)} visible={open}>
+      <SafeAreaView edges={['top', 'bottom']} style={[styles.appShell, { flex: 1 }]}>
+        <Pressable accessibilityRole="button" onPress={() => setOpen(false)} style={{ minHeight: 48, paddingHorizontal: 16, justifyContent: 'center' }}><Text style={styles.contextOptionTitle}>Close</Text></Pressable>
+        <Text style={[styles.contextOptionTitle, { paddingHorizontal: 16, paddingTop: 8 }]}>Change team or club</Text>
+        {options}
+      </SafeAreaView>
+    </Modal>
+  </View>
 }
 
 function PrimaryNavigation({ activeRoute, bottomInset, navigation, onNavigate, platform }) {

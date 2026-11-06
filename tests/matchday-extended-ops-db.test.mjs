@@ -6,6 +6,7 @@ import { PGlite } from '@electric-sql/pglite'
 
 const hardeningMigrationUrl = new URL('../supabase/migrations/20260722084618_fp_v1_gameday_prematch_parity_harden_03.sql', import.meta.url)
 const extendedMigrationUrl = new URL('../supabase/migrations/20260722195910_fp_v1_gameday_extended_ops_12a.sql', import.meta.url)
+const unfinishedShootoutMigrationUrl = new URL('../supabase/migrations/20261106102318_end_unfinished_shootout.sql', import.meta.url)
 const hardeningDbTestUrl = new URL('./matchday-parent-scorer-hardening-db.test.mjs', import.meta.url)
 
 const ids = {
@@ -50,6 +51,7 @@ test('disposable database validates extended lifecycle, authority, score separat
       returns table (id uuid) language sql stable as $$ select null::uuid where false; $$;
     `)
     await db.exec(hardeningMigration)
+    await db.exec("alter table public.match_days add column parent_visible boolean not null default false, add column parent_audience text not null default 'none'")
     await db.query('insert into public.clubs(id) values ($1)', [ids.club])
     await db.query('insert into public.teams(id, club_id) values ($1, $2)', [ids.team, ids.club])
     await db.query(
@@ -222,6 +224,32 @@ test('disposable database validates extended lifecycle, authority, score separat
     // Once a shootout is underway, the existing winner requirement still applies.
     await db.query("update public.match_days set status = 'penalties', timer_status = 'paused', current_match_phase = 'penalties', home_shootout_score = 0, away_shootout_score = 0 where id = $1", [ids.match])
     await expectDatabaseError(db.query("select public.set_match_day_timer_state($1, 'full_time')", [ids.match]), /clear winner/)
+
+    await db.exec(await readFile(unfinishedShootoutMigrationUrl, 'utf8'))
+    await setActor(db, ids.ordinaryParent)
+    await expectDatabaseError(db.query('select public.end_match_day_without_shootout_result($1)', [ids.match]), /coach or manager access/)
+    await setActor(db, ids.staff)
+    await db.query('select public.end_match_day_without_shootout_result($1)', [ids.match])
+    const abandonedShootout = (await db.query(
+      'select status, timer_status, current_match_phase, match_conclusion_rule, home_shootout_score, away_shootout_score, shootout_winner from public.match_days where id = $1',
+      [ids.match],
+    )).rows[0]
+    assert.deepEqual(abandonedShootout, {
+      status: 'full_time', timer_status: 'full_time', current_match_phase: 'full_time',
+      match_conclusion_rule: 'normal_time', home_shootout_score: 0, away_shootout_score: 0, shootout_winner: null,
+    })
+    assert.equal((await db.query("select count(*)::integer as count from public.match_day_shootout_kicks where match_day_id = $1 and event_status = 'active'", [ids.match])).rows[0].count, 0)
+    await expectDatabaseError(db.query('select public.end_match_day_without_shootout_result($1)', [ids.match]), /Only an active penalty shootout/)
+
+    await db.query("update public.match_days set status = 'scheduled', timer_status = 'not_started', parent_visible = false, parent_audience = 'none' where id = $1", [ids.match])
+    await setActor(db, ids.ordinaryParent)
+    await expectDatabaseError(db.query('select public.enable_match_day_parent_sharing($1)', [ids.match]), /coach or manager access/)
+    await setActor(db, ids.staff)
+    await db.query('select public.enable_match_day_parent_sharing($1)', [ids.match])
+    const parentSharing = (await db.query('select parent_visible, parent_audience from public.match_days where id = $1', [ids.match])).rows[0]
+    assert.deepEqual(parentSharing, { parent_visible: true, parent_audience: 'involved_players' })
+    await db.query('select public.enable_match_day_parent_sharing($1)', [ids.match])
+    assert.deepEqual((await db.query('select parent_visible, parent_audience from public.match_days where id = $1', [ids.match])).rows[0], parentSharing)
 
     for (const rule of ['normal_time', 'straight_to_penalties', 'extra_time', 'extra_time_then_penalties']) {
       for (const phase of ['normal_time_complete', 'extra_time_complete']) {

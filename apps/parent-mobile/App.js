@@ -76,6 +76,7 @@ import {
 import { getBiometricAvailability, getBiometricEnabled, setBiometricEnabled } from '../mobile-core/src/biometrics'
 import { getMobileRuntimeConfig } from '../mobile-core/src/config'
 import { useLiveActivityStartSubscriptions } from '../mobile-core/src/useLiveActivityStartSubscriptions'
+import { startLiveMatchFollowOnce } from '../mobile-core/src/liveMatchFollow'
 import { getMobileChatMessagesFingerprint } from '../mobile-core/src/mobileChatCore'
 import { runPrioritizedMobileLoads } from '../mobile-core/src/mobileLoadCoordinator'
 import { mobileResourceKey } from '../mobile-core/src/mobileResourceCache'
@@ -584,6 +585,17 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
     const journal = scorerOutboxes[match.id]
     return getVisibleParentScorerMatch(match, journal)
   })
+  useEffect(() => {
+    if (Platform.OS !== 'android' || !selectedMobileUser?.id || !selectedLink?.id) return
+    const liveMatches = resources.matches.items.filter((match) =>
+      !match.isFanView && ['extra_time', 'half_time', 'live', 'penalties', 'second_half'].includes(match.status))
+    for (const match of liveMatches) {
+      const preferenceKey = `fp.live-match.auto.v1.parent.${selectedMobileUser.id}.${match.id}`
+      void AsyncStorage.getItem(preferenceKey)
+        .then((preference) => preference === 'off' ? null : startLiveMatchFollowOnce('parent', match.id, selectedLink.id))
+        .catch((error) => console.warn('Parent live match follow could not start', error))
+    }
+  }, [resources.matches.items, selectedLink?.id, selectedMobileUser?.id])
   const visibleInvitationsWithMatchTimes = useMemo(
     () => enrichParentMatchInvitations(visibleInvitations, resources.matches.items),
     [resources.matches.items, visibleInvitations],
@@ -918,7 +930,7 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
         console.warn(error)
       }
     }
-    return { failed, items: refreshedItems, sync: reconciledSync }
+    return { failed, items: refreshedItems, matchesFresh: resultByName.matches?.status === 'fulfilled', sync: reconciledSync }
   }, [isOffline, parentLinks, selectedLink, selectedMobileUser, reconcileAttendance])
 
   const parentSyncScopeRef = useRef('')
@@ -1323,7 +1335,13 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
         if (currentDestination.targetId && !destination.targetId) {
           applyParentNotificationDestination({ tab: currentDestination.tab, targetId: '' })
           if (isInvitationAction) notificationResponseIdRef.current = responseId
-          setNotice({ message: 'That notification item is no longer available. The latest information for this section is shown.', tone: 'warning' })
+          const matchName = normalizeText(request.content?.title || notificationData?.teamName)
+          const message = currentDestination.tab === 'matchday'
+            ? result.matchesFresh
+              ? `${matchName || 'This match'} is not available for the selected player. Matchday shows their current fixtures.`
+              : `Could not check ${matchName || 'this match'} right now. Please refresh Matchday and try again.`
+            : 'This update is no longer available. The latest items for this section are shown.'
+          setNotice({ message, tone: 'warning' })
           return
         }
         if (destination.tab === 'messages') {

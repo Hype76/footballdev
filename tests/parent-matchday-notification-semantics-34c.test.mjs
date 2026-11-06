@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs'
 import { test } from 'node:test'
 
 import { buildParentMatchDayNotificationCopy } from '../netlify/functions/lib/_match-day-notification-copy.js'
+import { buildAndroidMatchStartMessage } from '../netlify/functions/lib/_match-day-native-message.js'
 import {
   loadCurrentParentNotificationData,
   resolveParentNotificationOpen,
@@ -21,6 +22,17 @@ const match = {
   status: 'live',
   teams: { name: 'FP TEST U16' },
 }
+
+test('Android match start requests a private background lock screen score', () => {
+  const device = { platform: 'android', expo_push_token: 'ExpoPushToken[android]', parent_link_id: 'parent-link' }
+  const message = buildAndroidMatchStartMessage(device, match.id)
+  assert.equal(message.title, undefined)
+  assert.equal(message.body, undefined)
+  assert.equal(message.data.matchDayId, match.id)
+  assert.equal(message.data.parentLinkId, device.parent_link_id)
+  assert.equal(message.data.delivery, 'live_match_start')
+  assert.equal(buildAndroidMatchStartMessage({ ...device, platform: 'ios' }, match.id), null)
+})
 
 const cases = [
   { type: 'live', title: 'Match started' },

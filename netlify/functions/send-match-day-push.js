@@ -11,7 +11,7 @@ import { writeParentNotificationInbox } from './lib/_parent-notification-inbox.j
 import { resolveMatchDayNotificationTeamName } from '../../src/lib/team-notification-display.js'
 import { sendCoachMatchReviewPush } from './send-coach-mobile-push.js'
 import { deliverCoachMatchReviewOnce } from './lib/_coach-match-review-delivery.js'
-import { buildMatchDayNativeMessage } from './lib/_match-day-native-message.js'
+import { buildAndroidMatchStartMessage, buildMatchDayNativeMessage } from './lib/_match-day-native-message.js'
 import { deliverLiveMatchChange } from './lib/_deliver-live-match-changes.js'
 
 function jsonResponse(statusCode, payload) {
@@ -229,7 +229,7 @@ async function getMobileDevices({ targetParentLinks }) {
 
   const { data, error } = await supabaseAdmin
     .from('parent_mobile_push_installations')
-    .select('installation_id, auth_user_id, expo_push_token, parent_link_id, detail_level')
+    .select('installation_id, auth_user_id, expo_push_token, parent_link_id, detail_level, platform')
     .eq('status', 'active')
     .eq('enabled', true)
     .neq('detail_level', 'off')
@@ -340,10 +340,24 @@ export async function handler(event) {
     const match = await getMatch(matchDayId)
     const profile = await getProfile(authUser, match, parentLinkId)
     await assertWorkspaceBillingAction({ clubId: match.club_id, profile })
-    const authorization = await authorizePush({ authUser, match, parentLinkId, type, eventId })
+    const authorization = await authorizePush({ authUser, match, parentLinkId,
+      type: type === 'live_clock_refresh' ? match.status : type, eventId })
 
     if (authorization.allowed !== true) {
       return failureResponse(403, 'You cannot send notifications for this match.')
+    }
+
+    if (type === 'live_clock_refresh') {
+      const result = await deliverLiveMatchChange(match.id, {
+        client: supabaseAdmin,
+        provider: {
+          teamId: process.env.LIVE_ACTIVITY_APPLE_TEAM_ID,
+          keyId: process.env.LIVE_ACTIVITY_APPLE_KEY_ID,
+          privateKey: process.env.LIVE_ACTIVITY_APPLE_PRIVATE_KEY,
+          production: process.env.LIVE_ACTIVITY_APNS_PRODUCTION === 'true',
+        },
+      })
+      return jsonResponse(result.failed ? 503 : 200, { success: result.failed === 0, ...result })
     }
 
     if (authorization.notificationType === 'coach_review') {
@@ -474,6 +488,10 @@ export async function deliverMatchDayNotification({ match, type, eventId = '', n
       title: nativePayload.title,
     })
     const mobileResult = await sendExpoPushMessages(mobileDevices.map(device => buildMatchDayNativeMessage({ device, notificationCopy, nativePayload })))
+    if (notificationCopy.notificationType === 'match_started') {
+      const androidStarts = mobileDevices.map(device => buildAndroidMatchStartMessage(device, match.id)).filter(Boolean)
+      if (androidStarts.length) await sendExpoPushMessages(androidStarts).catch(() => {})
+    }
     await revokeMobileDeviceTokens(mobileResult.invalidTokens || [])
   const fans = await sendFanMatchNotifications({
     client: supabaseAdmin,

@@ -1,6 +1,7 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons'
+import * as Notifications from 'expo-notifications'
 import { useEffect, useRef, useState } from 'react'
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native'
+import { ActivityIndicator, Alert, AppState, Pressable, StyleSheet, Text, View } from 'react-native'
 import { buildCoachMatchDaySquad } from '../../mobile-core/src/coachMatchDayCore'
 import { contrastSafeColor, themeForeground } from '../../mobile-core/src/themeContrast'
 import { CoachSquadTemplates } from './CoachSquadTemplates'
@@ -48,6 +49,24 @@ export function CoachSquadPanel({ actions, busy, match, onSetDecisions, onNotify
   const wasSent = (player) => Boolean(player.notifiedAt) || (results[player.id]?.revision === player.decisionRevision && results[player.id]?.sent === true)
   const available = squad.rows.filter((player) => player.canNotify && ['selected', 'not_selected'].includes(player.decision) && player.decisionRevision && !wasSent(player))
   const chosenPlayers = available.filter((player) => chosen[player.id] === player.decisionRevision)
+  const alertDeliveryProblem = (message) => {
+    if (AppState.currentState === 'active') Alert.alert('Squad notifications need attention', message)
+    else void Notifications.scheduleNotificationAsync({ content: { title: 'Squad notifications need attention', body: message }, trigger: null }).catch(() => {})
+  }
+  const selectAllAvailable = () => {
+    if (locked) return
+    const eligible = savedSquad.rows.filter(player => player.availability === 'available')
+    setDrafts(current => {
+      const next = { ...current }
+      for (const player of eligible) {
+        if (player.decision !== 'selected') next[player.id] = { player, decision: 'selected' }
+        else delete next[player.id]
+      }
+      return next
+    })
+    setChosen(current => ({ ...current, ...Object.fromEntries(eligible.filter(player => player.canNotify && player.decisionRevision && !wasSent(player)).map(player => [player.id, player.decisionRevision])) }))
+    setSummary('')
+  }
   const setDecision = (player, decision) => {
     if (locked || decidingRef.current) return
     const saved = savedSquad.rows.find((row) => row.id === player.id)
@@ -78,10 +97,10 @@ export function CoachSquadPanel({ actions, busy, match, onSetDecisions, onNotify
         setDrafts((current) => { const next = { ...current }; delete next[player.id]; return next })
         setChosen((current) => ({ ...current, [player.id]: chosen[player.id] !== 'skip' && saved.canNotify && saved.decisionRevision && !saved.notifiedAt ? saved.decisionRevision : '' }))
       }
-      setSummary(`${savedCount} ${savedCount === 1 ? 'selection' : 'selections'} saved. Send notifications when you are ready.`)
+      setSummary('')
       return [...chosenPlayers, ...savedRows]
     } catch {
-      setSummary(`${savedCount} saved. Remaining selections could not be confirmed and are still marked unsaved. Refresh the match before retrying, or discard the remaining changes.`)
+      alertDeliveryProblem(`${savedCount} selections saved. The remaining selections could not be confirmed. Refresh the match before retrying.`)
     } finally { decidingRef.current = false; setDeciding(false); setSaveProgress(null) }
   }
   const send = async (confirmedPlayers = null) => {
@@ -95,14 +114,26 @@ export function CoachSquadPanel({ actions, busy, match, onSetDecisions, onNotify
       setChosen((current) => Object.fromEntries(Object.entries(current).filter(([id]) => !byPlayer[id]?.sent)))
       const sentCount = outcomes.filter((item) => item.sent).length
       const failedCount = recipients.length - sentCount
-      setSummary(`Parents notified for ${sentCount} ${sentCount === 1 ? 'player' : 'players'}.${failedCount ? ` ${failedCount} could not be notified. See the details below.` : ''}`)
+      if (failedCount) alertDeliveryProblem(`${failedCount} parent notifications could not be confirmed. Review the squad before retrying.`)
     } catch {
-      setSummary('Notifications could not be confirmed. Try again; saved notifications will not be duplicated.')
+      alertDeliveryProblem('Notifications could not be confirmed. Try again; saved notifications will not be duplicated.')
     } finally { sendingRef.current = false; setSending(false) }
   }
   const saveAndNotify = async () => {
     const recipients = await save()
     if (recipients?.length) await send(recipients)
+  }
+  const confirmSend = () => {
+    const date = String(match.matchDate || '').slice(0, 10)
+    const matchDay = /^\d{4}-\d{2}-\d{2}$/.test(date) ? Date.parse(`${date}T12:00:00`) : NaN
+    const today = new Date()
+    const todayDay = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 12).getTime()
+    const days = Number.isFinite(matchDay) ? Math.round((matchDay - todayDay) / 86400000) : null
+    const when = days === null ? 'Date to be confirmed' : days === 0 ? 'This event is today' : days > 0 ? `This event is in ${days} ${days === 1 ? 'day' : 'days'}` : 'This event has passed'
+    Alert.alert('Send squad notifications', `${when}\n${match.teamName || 'Our team'} v ${match.opponent || 'Opponent'}\n\nSend notifications to the selected parents?`, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Send', onPress: () => { void (pendingCount ? saveAndNotify() : send()) } },
+    ])
   }
   const mainActionDisabled = locked || (!pendingCount && chosenPlayers.length === 0)
   const saveDisabled = locked || pendingCount === 0
@@ -123,10 +154,11 @@ export function CoachSquadPanel({ actions, busy, match, onSetDecisions, onNotify
       setSummary(missing ? `${missing} template players are no longer in this squad and were skipped. Review current availability before saving.` : 'Review current availability before saving your template selections.')
     }} /> : null}
     <View style={layout.toolbar}>
+      <Pressable accessibilityRole="button" disabled={locked || !savedSquad.rows.some(player => player.availability === 'available')} onPress={selectAllAvailable} style={layout.toolbarButton}><Text style={[styles.body, { color: palette.accentText }]}>Select all available</Text></Pressable>
       <Pressable accessibilityRole="button" disabled={locked || available.length === 0} onPress={() => { setChosen(Object.fromEntries(available.map((player) => [player.id, player.decisionRevision]))); setSummary('') }} style={layout.toolbarButton}><Text style={[styles.body, { color: palette.accentText, opacity: locked || !available.length ? 0.4 : 1 }]}>Tick all unsent</Text></Pressable>
       <Pressable accessibilityRole="button" disabled={locked || chosenPlayers.length === 0} onPress={() => { setChosen({}); setSummary('') }} style={layout.toolbarButton}><Text style={[styles.body, { color: palette.accentText, opacity: locked || !chosenPlayers.length ? 0.4 : 1 }]}>Clear</Text></Pressable>
     </View>
-    <Pressable accessibilityRole="button" disabled={mainActionDisabled} onPress={() => pendingCount ? saveAndNotify() : send()} style={[layout.send, { backgroundColor: palette.selected, opacity: mainActionDisabled ? 0.4 : 1 }]}><Text style={{ color: palette.selectedForeground, fontWeight: '800' }}>{sending ? 'Sending...' : pendingCount ? 'Save and send notifications' : `Send notifications (${chosenPlayers.length})`}</Text></Pressable>
+    <Pressable accessibilityRole="button" disabled={mainActionDisabled} onPress={confirmSend} style={[layout.send, { backgroundColor: palette.selected, opacity: mainActionDisabled ? 0.4 : 1 }]}><Text style={{ color: palette.selectedForeground, fontWeight: '800' }}>{pendingCount ? 'Save and send notifications' : `Send notifications (${chosenPlayers.length})`}</Text></Pressable>
     <Text accessibilityLiveRegion="polite" style={styles.body}>{pendingCount ? `${pendingCount} unsaved ${pendingCount === 1 ? 'change' : 'changes'}` : 'No unsaved changes'}</Text>
     <View style={layout.saveActions}>
       <Pressable accessibilityRole="button" disabled={saveDisabled} onPress={save} style={[layout.toolbarButton, { opacity: saveDisabled ? 0.4 : 1 }]}><Text style={{ color: palette.accentText, fontWeight: '700' }}>{`Save selections (${pendingCount})`}</Text></Pressable>
