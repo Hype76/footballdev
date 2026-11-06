@@ -559,7 +559,7 @@
   "implementationHashes": {
     "scripts/security-supply-chain-gate.mjs": "dcf722bc6cbf2015da4250ea60cbb81e34d3c5c64ec7bb6059671cbae5ab4207",
     "scripts/security-apply-reviewed-backports.mjs": "7f0e9de0add15a121a0f60f89f71656b503450010b8b9c8d4aaf58bc355fc5ec",
-    "scripts/security-verify-reviewed-backports.mjs": "5780c304c57b1481c859e945d6cca24331ef81d85fee9ff3eb0343851d6fd951",
+    "scripts/security-verify-reviewed-backports.mjs": "12d97737a7dd162499d3f877d37fe02bb8e889a41b836f7fa34d7015f872f2d2",
     "security/patches/braces-3.0.3.patch": "e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699",
     "security/patches/node-forge-1.4.0.patch": "2de065ac998bf58917a14d0935112d97ec2957ac41b5f06958d500934f188ed4",
     "security/patches/reviewed-source-manifest.json": "facb364bbac44a8276d082068e8ed8415ca89777d24f4c7a05ff370f71e5a54d",
@@ -576,7 +576,7 @@
     "security/backport-requalification.json": "95f1b5c782335dea22aee6223bbf1426cfe5f2e281dc30e5076f4c7ad0177a91",
     "scripts/security-maintained-release-gate.mjs": "73d668b0c10dbd6f05cac3c0dbcf5dea652152677a6542aeb4d8d166a4cd7781",
     "scripts/security-netlify-build.mjs": "addebe95880ca66b90fe784f68cc23a61d67cf9e4482f8af1ed87f98d54243f6",
-    "tests/security-maintained-source.test.mjs": "b052ab4434a54908e3a5e69e49c6aca2554e170e5566b84cb3bed0310f48730d",
+    "tests/security-maintained-source.test.mjs": "103b44fd4ef618c48d9c81c06788b6fdc57998e45f1d385b5c9f7f3ded68085d",
     "netlify.toml": "24355fc9ade642f0468a30288ad52230672cd58b0166a03b9cbca5ba668fca8d",
     "security/maintained-source-policy.json": "683f7c34cdeb85279137d61cf6e8e4d02880f554c33cd1103b0b7e614b1d79e7",
     "tests/security-m3-governance.test.mjs": "1e1134b46175e6b8a5fcfd853dc85ae0a74393bdb99cfddba6945de4c5114e20",
@@ -2033,7 +2033,7 @@
       "apps/parent-mobile/src/parentConnectivityCore.js": "bcb11a0761c67e6e08a04012a4188fa49172a33d6316d16f21905dd932461646",
       "tests/parent-chat-connectivity-20261030.test.mjs": "fcbcf04a1b3856616fde838992fa2da8c62768844ed664ab2cc3f345100bd9b8",
       "tests/v1-parent-reconnect-browser.mjs": "579f37ec8300489b7546b5569cbca108382b1992c6c1bdedfb0e28cf895e4fd8",
-      "tests/tooling-glob-minimatch-compatibility.test.mjs": "6e3f17413faa5d8f1535eada4f23900db3b76ff68c6885eeaad59d9d50f4bf94",
+      "tests/tooling-glob-minimatch-compatibility.test.mjs": "9e3ac1d9dcf57008b98be46fc81585b916b97ecbfcd45553fd64f18656166d09",
       "tests/coach-invites-cache-recovery.test.mjs": "b6b24577c93c548a34ebbdf2334eebb0b3d932ddfd53747c71215add780e7c7f",
       "tests/coach-invites-offline-warning-browser.test.mjs": "c0689d50d8b2fd94fd5630874ea0892c61e506da8c0561fba4bf506c04b5b084",
       "apps/mobile-core/src/parentCalendarCore.js": "1df93fb1f8437e46fdf238c68cc7295ec63d2b7aa637fb6814c2c7f492dfd0a5",
@@ -3599,7 +3599,7 @@
       "independentExactSourceAcceptanceRequired": true
     }
   },
-  "releasePreparationSha256": "cf30f76904ef02e0ba7ce59b585ce64b9d509e84e70854fe0f694b745f7eef95",
+  "releasePreparationSha256": "99a0b51c56974bce7792be4f28c29943297921943d7e47be4accc47ae5ea2cd6",
   "rootOnlyProposalSha256": "45c3b7352c7328c84982e114b7e87e09cf79514d02d102297ae75ec0925812eb",
   "remediationMode": "maintained-source-fixes",
   "officialCompatibilityDependencies": [
