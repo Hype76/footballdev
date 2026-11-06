@@ -7,11 +7,13 @@ import { chromium } from 'playwright'
 const modules = path.resolve('apps/coach-mobile/node_modules')
 const entry = `
 import React from 'react'; import {createRoot} from 'react-dom/client';
+import {Alert} from 'react-native';
 import {CoachSquadPanel} from './apps/coach-mobile/src/CoachSquadPanel.js';
 import {createCoachTheme} from './apps/coach-mobile/src/coachThemeCore.js';
-window.calls=[];window.notices=[];window.fail='';window.delay=20;
+window.calls=[];window.notices=[];window.confirmations=[];window.fail='';window.delay=20;
+Alert.alert=(title,message,actions)=>{window.confirmations.push({title,message});window.confirmSend=()=>actions?.find(action=>action.text==='Send')?.onPress?.()};
 const players=Array.from({length:7},(_,i)=>({id:String(i),playerName:i===6?'A long player name for mobile layout':'Player '+i}));
-const base={id:'fixture',squadDecisions:[],playerAvailability:[{playerId:'0',status:'available'},{playerId:'1',status:'unavailable'},{playerId:'2',status:'maybe'}],squadNotificationContacts:players.map(p=>({playerId:p.id,canNotify:p.id!=='2',hasContact:p.id!=='2',emailRecipientCount:p.id==='2'?0:1}))};
+const base={id:'fixture',teamName:'U17 Green',opponent:'Norwich City',squadDecisions:[],playerAvailability:[{playerId:'0',status:'available'},{playerId:'1',status:'unavailable'},{playerId:'2',status:'maybe'}],squadNotificationContacts:players.map(p=>({playerId:p.id,canNotify:p.id!=='2',hasContact:p.id!=='2',emailRecipientCount:p.id==='2'?0:1}))};
 function App(){const [match,setMatch]=React.useState(base),[busy,setBusy]=React.useState(false),[allowed,setAllowed]=React.useState(true),[visible,setVisible]=React.useState(true);const server=React.useRef(base);
 const palette=createCoachTheme({mode:'dark'}).tokens;
 window.refresh=()=>setMatch(m=>({...m}));window.allow=setAllowed;window.show=setVisible;window.loadNotified=()=>setMatch(m=>({...m,squadDecisions:m.squadDecisions.map(d=>({...d,notifiedAt:'now'}))}));
@@ -24,7 +26,7 @@ createRoot(document.getElementById('root')).render(<App/>);
 const result = await build({ stdin:{contents:entry,resolveDir:process.cwd(),loader:'jsx'},bundle:true,write:false,jsx:'automatic',loader:{'.js':'jsx'},
   alias:{react:path.join(modules,'react'),'react-dom':path.join(modules,'react-dom'),'react-native':path.join(modules,'react-native-web')},
   define:{'process.env.NODE_ENV':'"production"',__DEV__:'false',global:'globalThis'},
-  plugins:[{name:'icons',setup(builder){builder.onResolve({filter:/^@expo\/vector-icons\/MaterialIcons$/},()=>({path:'icons',namespace:'mock'}));builder.onLoad({filter:/.*/,namespace:'mock'},()=>({contents:'export default ({name,color})=><span data-icon={name} style={{color}} />;',loader:'jsx'}))}}] })
+  plugins:[{name:'icons',setup(builder){builder.onResolve({filter:/^@expo\/vector-icons\/MaterialIcons$/},()=>({path:'icons',namespace:'mock'}));builder.onResolve({filter:/^expo-notifications$/},()=>({path:'notifications',namespace:'mock'}));builder.onLoad({filter:/.*/,namespace:'mock'},args=>({contents:args.path==='notifications'?'export const scheduleNotificationAsync=async()=>null;':'export default ({name,color})=><span data-icon={name} style={{color}} />;',loader:'jsx'}))}}] })
 const browser=await chromium.launch({headless:true})
 try {
   const page=await browser.newPage({viewport:{width:320,height:850}})
@@ -52,6 +54,11 @@ try {
   assert.equal(await page.getByRole('button',{name:'Selected: Player 1',exact:true}).isDisabled(),false,'Unavailable players can still be selected')
   await page.getByRole('button',{name:'Discard changes',exact:true}).click()
   assert.deepEqual(await page.getByRole('button',{name:/^Choose:/}).allTextContents(),initialOrder,'Selection does not change availability ordering')
+  await page.getByRole('button',{name:'Select all available',exact:true}).click()
+  assert.equal(await page.getByRole('button',{name:'Selected: Player 0',exact:true}).count(),1,'Select all available includes available players')
+  assert.equal(await page.getByRole('button',{name:'Choose: Player 1',exact:true}).count(),1,'Select all available excludes unavailable players')
+  assert.equal(await page.getByRole('button',{name:'Choose: Player 2',exact:true}).count(),1,'Select all available excludes uncertain players')
+  await page.getByRole('button',{name:'Discard changes',exact:true}).click()
   assert.equal(await page.getByRole('button',{name:'Choose: Player 0',exact:true}).count(),1)
   assert.equal(await page.getByRole('button',{name:'Not selected: Player 0',exact:true}).count(),0,'Undecided players must not be marked not selected')
   const aligned = await Promise.all([0, 2].map(id => page.getByRole('button', {name: `Choose: Player ${id}`, exact: true}).boundingBox()))
@@ -75,13 +82,16 @@ try {
   await page.evaluate(()=>window.delay=150)
   await save()
   await page.getByText('Saving squad...', {exact:true}).waitFor()
-  await page.getByText('3 selections saved. Send notifications when you are ready.',{exact:true}).waitFor()
-  assert.equal(await firstRowPosition(),initialRowPosition,'Saving and its feedback must not move player controls')
+  await page.getByText('No unsaved changes',{exact:true}).waitFor()
+  assert.equal(await firstRowPosition(),initialRowPosition,'Saving must not move player controls')
   assert.equal((await page.evaluate(()=>window.calls)).length,1)
   assert.deepEqual(await page.evaluate(()=>window.notices),[],'Saving must not send messages')
   await page.getByRole('button',{name:'Send notifications (2)',exact:true}).first().click()
-  await page.getByText('Parents notified for 2 players.',{exact:true}).waitFor()
-  assert.equal(await firstRowPosition(),initialRowPosition,'Notification feedback must not move player controls')
+  assert.deepEqual(await page.evaluate(()=>window.notices),[],'The confirmation must precede sending')
+  assert.match((await page.evaluate(()=>window.confirmations.at(-1).message)),/U17 Green v Norwich City/)
+  await page.evaluate(()=>window.confirmSend())
+  await page.waitForFunction(()=>window.notices.length===1)
+  assert.equal(await firstRowPosition(),initialRowPosition,'Notification sending must not move player controls')
   assert.equal(await page.getByRole('button',{name:'Notified: Player 0',exact:true}).isDisabled(),true)
   await page.evaluate(()=>window.loadNotified())
   assert.equal(await page.getByRole('button',{name:'Notified: Player 1',exact:true}).isDisabled(),true,'Saved notification state must show Notified after refresh')
@@ -96,11 +106,11 @@ try {
   assert.equal(await firstRowPosition(),initialRowPosition,'Discarding drafts must not move the list')
   await mount();await choose(0);await choose(1);await choose(2)
   await page.evaluate(()=>window.fail='1');await save()
-  await page.getByText(/0 saved\. Remaining selections/).waitFor()
+  await page.waitForFunction(()=>window.confirmations.some(item=>item.title==='Squad notifications need attention'))
   await page.getByText('3 unsaved changes',{exact:true}).first().waitFor()
   assert.deepEqual(await page.evaluate(()=>window.calls.map(c=>c.map(p=>p.id))),[['0','1','2']],'A failed batch must remain atomic')
   await page.evaluate(()=>window.fail='');await save()
-  await page.getByText('3 selections saved. Send notifications when you are ready.',{exact:true}).waitFor()
+  await page.getByText('No unsaved changes',{exact:true}).waitFor()
   assert.deepEqual(await page.evaluate(()=>window.calls.map(c=>c.map(p=>p.id))),[['0','1','2'],['0','1','2']],'Retry the unchanged complete batch')
   await choose(0,false)
   await page.evaluate(()=>window.allow(false))
@@ -113,19 +123,22 @@ try {
   await mount(); await choose(0); await choose(1, false)
   await page.getByRole('checkbox',{name:'Notify: Player 1',exact:true}).click()
   await page.getByRole('button',{name:'Save and send notifications',exact:true}).first().click()
-  await page.getByText('Parents notified for 1 player.',{exact:true}).waitFor()
+  assert.deepEqual(await page.evaluate(()=>window.notices),[],'Combined action waits for confirmation')
+  await page.evaluate(()=>window.confirmSend())
+  await page.waitForFunction(()=>window.notices.length===1)
   assert.deepEqual(await page.evaluate(()=>window.calls.map(c=>c.map(p=>p.id))),[['0','1']])
   assert.deepEqual(await page.evaluate(()=>window.notices),[['0']],'Unchecked draft must not be notified')
   await mount(); await choose(0); await choose(1)
   await page.evaluate(()=>window.fail='1')
   await page.getByRole('button',{name:'Save and send notifications',exact:true}).first().click()
-  await page.getByText(/0 saved\. Remaining selections/).waitFor()
+  await page.evaluate(()=>window.confirmSend())
+  await page.waitForFunction(()=>window.confirmations.some(item=>item.title==='Squad notifications need attention'))
   assert.deepEqual(await page.evaluate(()=>window.notices),[],'An uncertain save must prevent the combined send')
   for (const mode of ['light', 'dark']) {
     const themed = await build({ stdin:{contents:entry.replace("mode:'dark'", `mode:'${mode}'`),resolveDir:process.cwd(),loader:'jsx'},bundle:true,write:false,jsx:'automatic',loader:{'.js':'jsx'},
       alias:{react:path.join(modules,'react'),'react-dom':path.join(modules,'react-dom'),'react-native':path.join(modules,'react-native-web')},
       define:{'process.env.NODE_ENV':'"production"',__DEV__:'false',global:'globalThis'},
-      plugins:[{name:'icons',setup(builder){builder.onResolve({filter:/^@expo\/vector-icons\/MaterialIcons$/},()=>({path:'icons',namespace:'mock'}));builder.onLoad({filter:/.*/,namespace:'mock'},()=>({contents:'export default ({name,color})=><span data-icon={name} style={{color}} />;',loader:'jsx'}))}}] })
+      plugins:[{name:'icons',setup(builder){builder.onResolve({filter:/^@expo\/vector-icons\/MaterialIcons$/},()=>({path:'icons',namespace:'mock'}));builder.onResolve({filter:/^expo-notifications$/},()=>({path:'notifications',namespace:'mock'}));builder.onLoad({filter:/.*/,namespace:'mock'},args=>({contents:args.path==='notifications'?'export const scheduleNotificationAsync=async()=>null;':'export default ({name,color})=><span data-icon={name} style={{color}} />;',loader:'jsx'}))}}] })
     await page.goto('http://localhost:9877/'); await page.addScriptTag({content:themed.outputFiles[0].text})
     await choose(0); await choose(1,false)
     const {createCoachTheme} = await import('../apps/coach-mobile/src/coachThemeCore.js')
@@ -154,7 +167,7 @@ try {
   const longSquad = await build({stdin:{contents:longSquadEntry,resolveDir:process.cwd(),loader:'jsx'},bundle:true,write:false,jsx:'automatic',loader:{'.js':'jsx'},
     alias:{react:path.join(modules,'react'),'react-dom':path.join(modules,'react-dom'),'react-native':path.join(modules,'react-native-web')},
     define:{'process.env.NODE_ENV':'"production"',__DEV__:'false',global:'globalThis'},
-    plugins:[{name:'icons',setup(builder){builder.onResolve({filter:/^@expo\/vector-icons\/MaterialIcons$/},()=>({path:'icons',namespace:'mock'}));builder.onLoad({filter:/.*/,namespace:'mock'},()=>({contents:'export default ({name,color})=><span data-icon={name} style={{color,width:20,height:20,display:"inline-block"}} />;',loader:'jsx'}))}}]})
+    plugins:[{name:'icons',setup(builder){builder.onResolve({filter:/^@expo\/vector-icons\/MaterialIcons$/},()=>({path:'icons',namespace:'mock'}));builder.onResolve({filter:/^expo-notifications$/},()=>({path:'notifications',namespace:'mock'}));builder.onLoad({filter:/.*/,namespace:'mock'},args=>({contents:args.path==='notifications'?'export const scheduleNotificationAsync=async()=>null;':'export default ({name,color})=><span data-icon={name} style={{color,width:20,height:20,display:"inline-block"}} />;',loader:'jsx'}))}}]})
   for (const width of [320,392]) {
     await page.setViewportSize({width,height:650})
     await page.goto('http://localhost:9877/');await page.addScriptTag({content:longSquad.outputFiles[0].text})

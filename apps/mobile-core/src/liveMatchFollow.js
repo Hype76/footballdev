@@ -97,6 +97,10 @@ async function startLiveMatchFollow(role, matchId, parentLinkId = null) {
     const displayState = { ...state, badgeUrl: match.team_id && match.club_id ? await matchBadgeUrl(match) : '', appRole: role }
     const saved = await readLiveMatchFollow(role, matchId)
     if (saved?.rollbackPending) throw new Error('Clear the previous lock screen follow first.')
+    if (saved) {
+      if (Platform.OS === 'android') await showLiveMatchNotification(matchId, displayState)
+      return saved
+    }
     let token = ''
     if (Platform.OS === 'ios') {
       if (!iosActivity?.activitiesEnabled()) throw new Error('Live Activities are off in iPhone settings.')

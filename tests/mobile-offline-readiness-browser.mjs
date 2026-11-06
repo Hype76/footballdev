@@ -5,13 +5,15 @@ import path from 'node:path'
 const modules = path.resolve('apps/coach-mobile/node_modules')
 const entry = `import React from 'react';import{createRoot}from'react-dom/client';import{useCoachOfflinePreparation}from'./apps/coach-mobile/src/useCoachOfflinePreparation.js';import{CoachOfflineReadiness}from'./apps/coach-mobile/src/CoachOfflineReadiness.js';
 window.saved={resources:{},journals:[],pending:2};window.fetches=[];window.fail=false;
-const context={id:'team',teamId:'team',clubId:'club'},user={id:'coach',activeTeamId:'team'};
+const context={id:'team',type:'team',role:'coach',teamId:'team',clubId:'club',clubStatus:'active',teamStatus:'active'},user={id:'coach',clubId:'club',activeTeamId:'team'};
 function App(){const[offline,setOffline]=React.useState(false);window.offline=setOffline;const activeUser=React.useMemo(()=>({...user,isOfflineProfile:offline}),[offline]);useCoachOfflinePreparation({user:activeUser,context,enabled:true});return <CoachOfflineReadiness user={{...user,isOfflineProfile:offline}} context={context} styles={{card:{padding:16,gap:12},bodyText:{fontSize:14},cardTitle:{fontSize:18},helperText:{fontSize:12}}}/>};createRoot(document.getElementById('root')).render(<App/>);`
 const mocks = [
   [/BrandLoader$/, 'export const BrandLoader=()=>null;'],
   [/coachCalendarData$/, 'export const getCoachCalendarResources=async()=>[{id:"event"}];'],
   [/coachPlayersData$/, 'export const getCoachPlayerList=async()=>[{id:"player"}];'],
   [/coachPhase31EData$/, 'export const getCoachDevelopmentWorkspace=async()=>({forms:[{id:"form"}]});'],
+  [/mobileResourceCache$/, 'export const readMobileResource=async(user,key,loader)=>loader();'],
+  [/matchdayPlanData$/, 'export const loadMatchdayPlanConfig=async()=>null;'],
   [/coachMatchDayData$/, `export const syncCoachMatchDayCommand=async()=>({}); export const getCoachMatchDayList=async()=>Array.from({length:10},(_,i)=>({id:'match'+i,matchDate:'2099-10-'+String(i+1).padStart(2,'0'),status:'scheduled'}));
     export const getCoachMatchDayDetail=async(u,id)=>{if(window.fail)throw Error('Connection interrupted');window.fetches.push(id);return{id,clubId:'club',teamId:'team'}};`],
   [/\/offline$/, `export const getPendingCoachMatchDays=async()=>[]; export const readCoachOfflineReadiness=async()=>window.saved; export const readCoachOfflineResources=async()=>window.saved;export const readCoachMatchDayOutbox=async(u,c,id)=>window.saved.journals.find(j=>j.baseMatch.id===id);

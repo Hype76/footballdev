@@ -80,7 +80,7 @@ import {MobileHeaderActivity} from './apps/mobile-core/src/MobileHeaderActivity.
 const refreshUserProfile=async()=>{};
 
 import React,{useRef,useMemo,useCallback,useEffect,useLayoutEffect,useState} from 'react';import {createRoot} from 'react-dom/client';
-import {View,Text,Image,Pressable,ScrollView,TextInput,Keyboard,KeyboardAvoidingView,RefreshControl,StyleSheet,Platform,AppState} from 'react-native';
+import {View,Text,Image,Pressable,ScrollView,TextInput,Keyboard,KeyboardAvoidingView,RefreshControl,StyleSheet,Platform,AppState,Modal,SafeAreaView} from 'react-native';
 const keyboardListeners=new Map();Platform.OS='ios';Keyboard.isVisible=()=>Boolean(window.keyboardY);Keyboard.metrics=()=>window.keyboardY?{screenY:window.keyboardY}:undefined;Keyboard.addListener=(name,fn)=>{const listeners=keyboardListeners.get(name)||new Set();listeners.add(fn);keyboardListeners.set(name,listeners);return{remove:()=>listeners.delete(fn)}};window.keyboardEvent=(name,y)=>{window.keyboardY=y;window.setHeight(y||850);keyboardListeners.get(name)?.forEach(fn=>fn({endCoordinates:{screenY:y}}))};
 import {createCoachTheme} from './apps/coach-mobile/src/coachThemeCore.js';
 import {getCoachBottomNavigationPadding} from './apps/coach-mobile/src/coachNavigationCore.js';
@@ -108,6 +108,7 @@ theme={...createCoachTheme({mode,context:{clubAccent:'#51bac4'}})};theme.palette
 const styles=theme.styles,palette=theme.palette;
 const contexts=[{id:'a',clubName:'FP TEST',teamName:'U17 Green',roleLabel:'Team Admin',paymentAccess:{state:'allowed'}},{id:'b',clubName:'FP TEST',teamName:'Spain',roleLabel:'Team Admin',paymentAccess:{state:'allowed'}}].slice(0,window.contextCount||2);
 const contextResolution={contexts},activeContext=contexts.find(c=>c.id===selected)||contexts[0],selectedMobileUser={roleLabel:'Team Admin'};
+const isSwitchingContext=false;
 const notificationState={},notificationStateStatus='ready',notice='',setNotice=()=>{},setNotificationSettingsFocusRequest=()=>{},navigation={primary:[{key:'home',label:'Home'},{key:'calendar',label:'Calendar'},{key:'matchday',label:'Match Day'},{key:'more',label:'More'}]};
 const contentScrollRef=useRef(null),contentOriginRef=useRef(0),pendingScrollRestoreRef=useRef(null);
 const [contentScrollable,setContentScrollable]=useState(true);
@@ -186,7 +187,7 @@ try {
       assert.equal(await scroll.evaluate(el=>el===window.previousScrollNode),false,'A tab change starts a fresh native scroll view rather than retaining the prior page geometry')
       assert.equal(await page.evaluate(()=>window.bounds===window.previousBounds),false,'The bounds controller belongs to the current page, not an earlier tab')
       assert.equal(await scroll.evaluate(el=>el.scrollTop),0,'Route changes return to the header')
-      if(contextCount===2){await page.getByRole('button',{name:'Spain, Team Admin',exact:true}).click();assert.equal(await scroll.evaluate(el=>el.scrollTop),0)}
+      if(contextCount===2){await page.getByRole('button',{name:'Change team or club',exact:true}).click();await page.getByRole('button',{name:'Spain, FP TEST, Team Admin',exact:true}).click();assert.equal(await scroll.evaluate(el=>el.scrollTop),0)}
       await page.evaluate(()=>window.focusSettings())
       await page.waitForTimeout(500)
       const anchor=await page.getByTestId('content-anchor').boundingBox()

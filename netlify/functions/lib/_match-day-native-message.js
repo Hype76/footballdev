@@ -12,3 +12,15 @@ export function buildMatchDayNativeMessage({ device, notificationCopy, nativePay
     sound: 'default',
   }
 }
+
+export function buildAndroidMatchStartMessage(device, matchDayId) {
+  if (device.platform !== 'android') return null
+  return {
+    to: device.expo_push_token,
+    priority: 'high',
+    ttl: 120,
+    badge: 0,
+    data: { app: 'parent', route: 'matchday', type: 'match_started', delivery: 'live_match_start',
+      matchDayId, parentLinkId: device.parent_link_id },
+  }
+}

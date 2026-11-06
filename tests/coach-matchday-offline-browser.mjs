@@ -9,7 +9,9 @@ const modules = path.join(rootDir, 'apps/coach-mobile/node_modules')
 const dataSource = await readFile('apps/mobile-core/src/coachMatchDayData.js', 'utf8')
 const names = [...dataSource.matchAll(/export (?:async )?function (\w+)/g)].map(match => match[1])
 const entry = `
-  import React from 'react'; import {createRoot} from 'react-dom/client'; import {View} from 'react-native';
+  import React from 'react'; import {createRoot} from 'react-dom/client'; import {View,Alert} from 'react-native';
+  const originalAlert=Alert.alert;window.squadConfirmation=null;
+  Alert.alert=(title,message,buttons,...rest)=>{if(title==='Send squad notifications'){window.squadConfirmation={message,send:buttons.find(button=>button.text==='Send')?.onPress};return}return originalAlert?.(title,message,buttons,...rest)};
   import {CoachMatchDayScreen} from './apps/coach-mobile/src/CoachMatchDayScreen.js';
   import {useCoachMatchDayBackgroundSync} from './apps/coach-mobile/src/useCoachMatchDayBackgroundSync.js';
   import {createCoachTheme} from './apps/coach-mobile/src/coachThemeCore.js';
@@ -313,7 +315,11 @@ try {
   await page.getByRole('button',{name:'Choose: Squad Alex',exact:true}).click()
   await page.getByRole('button',{name:'Choose: Squad Bailey',exact:true}).click()
   await page.getByRole('button',{name:'Save and send notifications',exact:true}).click()
-  await page.getByText('Parents notified for 2 players.',{exact:true}).waitFor({timeout:3000}).catch(async error=>{console.error('Notification endpoint calls:',await page.evaluate(()=>window.squadNotifyCalls||0));console.error((await page.locator('body').innerText()).slice(-1800));throw error})
+  await page.waitForFunction(()=>Boolean(window.squadConfirmation))
+  assert.match(await page.evaluate(()=>window.squadConfirmation.message),/U14 JPL 26\/27 v Visitors/)
+  assert.equal(await page.evaluate(()=>window.squadNotifyCalls||0),0,'No notification is sent before confirmation')
+  await page.evaluate(()=>window.squadConfirmation.send())
+  await page.waitForFunction(()=>window.squadNotifyCalls===1)
   assert.equal(await page.evaluate(()=>window.squadSaveCalls),1);
   assert.equal(await page.evaluate(()=>window.squadNotifyCalls),1,'The screen must call Notify after saving without waiting for a React render')
   await page.evaluate(()=>{

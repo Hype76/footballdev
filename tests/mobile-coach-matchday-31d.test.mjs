@@ -85,6 +85,7 @@ test('hidden and archived previous fixtures never reappear in mobile lists', () 
 test('timer actions derive from canonical lifecycle including reversible Full Time', () => {
   assert.deepEqual(getCoachMatchDayActions({ context, match: { ...baseMatch, status: 'scheduled', timerStatus: 'not_started' } }).timerActions.map((item) => item.action), ['start'])
   assert.deepEqual(getCoachMatchDayActions({ context, match: { ...baseMatch, status: 'full_time', timerStatus: 'full_time' } }).timerActions.map((item) => item.action), ['resume', 'conclude'])
+  assert.deepEqual(getCoachMatchDayActions({ context, match: { ...baseMatch, status: 'live', timerStatus: 'hydration' } }).timerActions.map((item) => item.action), ['resume', 'full_time'])
 })
 
 test('Start match is unavailable when the server confirms that the fixture date is not today', () => {

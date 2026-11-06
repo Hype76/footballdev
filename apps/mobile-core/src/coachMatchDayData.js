@@ -141,6 +141,41 @@ async function sendCoachFixtureInvitations(user, match, playerIds) {
   return result
 }
 
+export async function getCoachFixtureInvitedPlayerIds(user, match) {
+  assertCoachMatchDayAccess(user)
+  assertScope(user, match)
+  const result = await rpc('preview_event_player_changes', {
+    source_type_value: 'match-day', event_id_value: match.id, selected_player_ids_value: [],
+  })
+  return Array.isArray(result?.currentPlayerIds) ? result.currentPlayerIds : []
+}
+
+export async function addCoachFixtureParents(user, match, playerIds) {
+  await prepareMutation(user, match)
+  if (!['scheduled', 'scorer_request'].includes(normalize(match.status))) {
+    throw new Error('Parents can only be added before the fixture starts.')
+  }
+  const currentPlayerIds = await getCoachFixtureInvitedPlayerIds(user, match)
+  const addedIds = [...new Set((playerIds || []).map(normalize).filter(Boolean))]
+    .filter(id => !currentPlayerIds.includes(id))
+  if (!addedIds.length) throw new Error('Choose at least one new player to add.')
+  const selectedIds = [...currentPlayerIds, ...addedIds]
+  const preview = await rpc('preview_event_player_changes', {
+    source_type_value: 'match-day', event_id_value: match.id, selected_player_ids_value: selectedIds,
+  })
+  if ((preview?.removedPlayerIds || []).length || (preview?.addedPlayerIds || []).length !== addedIds.length) {
+    throw new Error('The fixture changed. Refresh invited players before saving.')
+  }
+  await rpc('enable_match_day_parent_sharing', {
+    match_day_id_value: match.id, selected_player_ids_value: selectedIds,
+    expected_player_ids_value: currentPlayerIds, request_token_value: requestId(),
+  })
+  let warning = ''
+  try { await sendCoachFixtureInvitations(user, { ...match, parentVisible: true }, addedIds) }
+  catch (error) { warning = normalize(error?.message) || 'Parents were added, but invitations could not be confirmed.' }
+  return { match: await getCoachMatchDayDetail(user, match.id), warning }
+}
+
 export async function createCoachMatchDayFixture(user, form, { calendarOnly = false, calendarTarget = '' } = {}) {
   assertCoachOperationalMutation(user, { minimumRank: 20, requiresTeam: true })
   const normalizedCalendarTarget = ['coach', 'squad'].includes(normalize(calendarTarget))
@@ -496,8 +531,20 @@ export async function runCoachMatchDayTimerAction(user, match, action) {
           ? 'extra_time'
           : value === 'start_penalties'
             ? 'penalties'
+          : ['pause', 'hydration', 'resume'].includes(value)
+            ? 'live_clock_refresh'
             : ''
   await sendCoachMatchDayPush(match, pushType)
+  return getCoachMatchDayDetail(user, match.id)
+}
+
+export async function endCoachMatchDayWithoutShootoutResult(user, match) {
+  await prepareMutation(user, match)
+  if (normalize(match?.currentMatchPhase) !== 'penalties' || normalize(match?.status) !== 'penalties') {
+    throw new Error('Refresh Match Day before ending this shootout.')
+  }
+  await rpc('end_match_day_without_shootout_result', { match_day_id_value: match.id })
+  await sendCoachMatchDayPush(match, 'full_time')
   return getCoachMatchDayDetail(user, match.id)
 }
 

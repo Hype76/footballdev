@@ -102,7 +102,7 @@ export function getParentScorerTimerActions(match = {}) {
     return [{
       action: 'resume',
       label: timerStatus === 'half_time' || status === 'half_time' ? 'Start second half' : 'Resume',
-    }]
+    }, ...(timerStatus === 'hydration' ? [{ action: getNormalTimeCompletionAction(match), label: getNormalTimeCompletionAction(match) === 'full_time' ? 'Full time' : 'End normal time' }] : [])]
   }
 
   if (lifecycleState === 'full_time') {

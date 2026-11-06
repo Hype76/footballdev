@@ -48,6 +48,21 @@ test('Android refresh sends only a scoped match identifier and stop flag', async
   assert.equal(sent[0][3], false)
 })
 
+test('hydration refresh freezes the iPhone clock at the saved match time', async () => {
+  const requests = []
+  const pausedMatch = { ...match, timer_status: 'hydration', timer_started_at: null,
+    timer_elapsed_seconds: 259 }
+  const result = await deliverLiveMatchChange(matchId, {
+    client: clientFor([{ app_role: 'parent', platform: 'ios', activity_token: 'ab'.repeat(32), access_allowed: true }], pausedMatch),
+    provider, now: () => Date.parse('2026-11-03T08:40:00Z'),
+    send: async request => { requests.push(request); return { accepted: true } },
+  })
+  assert.deepEqual(result, { delivered: 1, failed: 0 })
+  const state = JSON.parse(requests[0].body).aps['content-state']
+  assert.equal(state.running, false)
+  assert.equal(state.elapsedSeconds, 259)
+})
+
 test('full time keeps a final Android score but revoked access clears it', async () => {
   const sent = []
   await deliverLiveMatchChange(matchId, {

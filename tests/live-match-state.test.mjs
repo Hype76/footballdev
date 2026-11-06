@@ -34,6 +34,17 @@ test('pauses, shootouts, conclusion and cancellation do not present a running ti
   assert.deepEqual(createLiveMatchState({ ...fixture, status: 'cancelled' }, now), { end: true })
 })
 
+test('hydration break freezes both live activity clocks until play resumes', () => {
+  const hydration = createLiveMatchState({ ...fixture, status: 'live', currentMatchPhase: 'first_half',
+    timerStatus: 'hydration', timerElapsedSeconds: 259, timerStartedAt: null }, now)
+  assert.equal(hydration.elapsedSeconds, 259)
+  assert.equal(hydration.running, false)
+  const resumed = createLiveMatchState({ ...fixture, status: 'live', currentMatchPhase: 'first_half',
+    timerElapsedSeconds: 259, timerStartedAt: new Date(now - 5000).toISOString() }, now)
+  assert.equal(resumed.elapsedSeconds, 264)
+  assert.equal(resumed.running, true)
+})
+
 test('scheduled match score has no pre-match label or clock', () => {
   const state = createLiveMatchState({ ...fixture, status: 'scheduled', currentMatchPhase: 'pre_match', timerStatus: 'not_started', timerElapsedSeconds: 0 }, now)
   assert.equal(state.phase, '')

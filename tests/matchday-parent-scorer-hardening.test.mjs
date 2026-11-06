@@ -123,6 +123,7 @@ test("parent scorer application uses explicit timer RPC and Game Mode open is lo
 test("parent scorer lifecycle controls expose only deliberate actions for the current state", () => {
   const ready = { status: "scheduled", timerStatus: "not_started" };
   const running = { status: "live", timerStatus: "running" };
+  const hydration = { ...running, timerStatus: "hydration" };
   const halfTime = { status: "half_time", timerStatus: "half_time" };
   const fullTime = { status: "full_time", timerStatus: "full_time" };
   const concluded = { ...fullTime, concludedAt: "2026-07-22T10:00:00Z" };
@@ -138,6 +139,10 @@ test("parent scorer lifecycle controls expose only deliberate actions for the cu
   );
   assert.deepEqual(getParentScorerTimerActions(halfTime), [
     { action: "resume", label: "Start second half" },
+  ]);
+  assert.deepEqual(getParentScorerTimerActions(hydration), [
+    { action: "resume", label: "Resume" },
+    { action: "full_time", label: "Full time" },
   ]);
   assert.deepEqual(
     getParentScorerTimerActions(fullTime).map((item) => item.action),

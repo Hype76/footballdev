@@ -24,13 +24,15 @@ const entry = `
   createRoot(document.getElementById('root')).render(<CoachKeyboardFocusContext.Provider value={()=>{window.focusRequests++}}><App/></CoachKeyboardFocusContext.Provider>);
 `
 const mocks = [
-  [/^expo-notifications$/, `export const scheduleNotificationAsync=async()=>null;`],
+  [/^expo-notifications$/, `export const scheduleNotificationAsync=async()=>null;export const dismissNotificationAsync=async()=>null;`],
   [/coachCarpoolData$/, `let enabled=true; export const getCoachCarpoolDefault=async()=>enabled; export const setCoachCarpoolDefault=async(user,value)=>{enabled=value;return value};`],
   [/coachCalendarData(?:\.js)?$/, `export const prepareCoachMatchCancellationNotification=async()=>({preparationId:'prepared'});export const commitCoachCalendarChangeNotification=async()=>({recipientCount:0});`],
   [/coachMatchDayData(?:\.js)?$/, `
     import {validateCoachFixtureForm} from './apps/mobile-core/src/coachFixtureCore.js';
     export const getCoachMatchLocations=async()=>[];
     export const archiveCoachMatchLocation=async()=>{};
+    export const getCoachFixtureInvitedPlayerIds=async(user,match)=>match.selectedPlayerIds||[];
+    export const addCoachFixtureParents=async(user,match,playerIds)=>({match:{...match,parentVisible:true,selectedPlayerIds:[...(match.selectedPlayerIds||[]),...playerIds]},warning:''});
     export const createCoachMatchDayFixture=async(user,form)=>({id:'fixture',...validateCoachFixtureForm(form)});
     export const updateCoachMatchDayFixture=async(user,match,form)=>({id:match.id,...validateCoachFixtureForm({...form,parentVisible:false,selectedPlayerIds:[]})});
     export const cancelCoachMatchDayFixture=async(user,match)=>({...match,status:'cancelled'});
