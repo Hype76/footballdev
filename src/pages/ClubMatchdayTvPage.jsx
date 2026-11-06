@@ -91,9 +91,9 @@ function HomeFixtureRow({ match, now, clubLogo, showDate }) {
   </article>
 }
 
-function RoadTicker({ matches, clubLogo }) {
+function RoadTicker({ matches, clubLogo, showDate }) {
   const items = matches.map((match) => <span className="club-tv-road-item" key={match.id}>
-    <TeamBadge src="" muted />{match.opponent}<span>v</span><TeamBadge src={clubLogo} />{match.teamName}<strong>{match.kickoffTbc ? 'KO TBC' : `KO ${match.kickoff || 'TBC'}`}</strong>
+    <TeamBadge src="" muted />{match.opponent}<span>v</span><TeamBadge src={clubLogo} />{match.teamName}<strong>{showDate ? `${fixtureDayLabel(match.matchDate)} · ` : ''}{match.kickoffTbc ? 'KO TBC' : `KO ${match.kickoff || 'TBC'}`}</strong>
   </span>)
   return <div className="club-tv-road"><strong>ON THE ROAD</strong>{items.length ? <div className="club-tv-road-window"><div className="club-tv-road-track"><div>{items}</div><div aria-hidden="true">{items}</div></div></div> : <span className="club-tv-road-empty">No away fixtures today</span>}</div>
 }
@@ -218,10 +218,11 @@ function ClubDayDisplay({ user, date, setDate }) {
   const [error, setError] = useState('')
   const [denied, setDenied] = useState(false)
   const [capacity, setCapacity] = useState(TV_PAGE_SIZE)
+  const [homeCapacity, setHomeCapacity] = useState(6)
   const [viewportVersion, setViewportVersion] = useState(0)
   const hasMap = !denied && Boolean(preferences.showMap && preferences.map)
   const pageSize = Math.min(TV_PAGE_SIZE, capacity)
-  const homePageSize = 6
+  const homePageSize = homeCapacity
   const [now, setNow] = useState(Date.now)
   const [page, setPage] = useState(0)
   const [sponsorIndex, setSponsorIndex] = useState(0)
@@ -248,14 +249,18 @@ function ClubDayDisplay({ user, date, setDate }) {
   const goal = goals[0]
   useLayoutEffect(() => {
     if (!root.current || window.innerWidth <= 1000) return
-    const footer = root.current.querySelector('.club-tv-footer')
-    const rows = [...root.current.querySelectorAll('.club-tv-match')]
-    const bottom = footer?.getBoundingClientRect().top ?? Infinity
-    const fitting = rows.filter((row) => row.getBoundingClientRect().bottom <= bottom).length
-    if (rows.length && fitting < rows.length) setCapacity(Math.max(1, fitting))
-  }, [feed, currentPage, pageSize, hasMap, viewportVersion])
+    const fitRows = (panelSelector, rowSelector, setLimit) => {
+      const panel = root.current.querySelector(panelSelector)
+      const rows = [...panel?.querySelectorAll(rowSelector) || []]
+      const bottom = panel?.getBoundingClientRect().bottom ?? Infinity
+      const fitting = rows.filter(row => row.getBoundingClientRect().bottom <= bottom).length
+      if (rows.length && fitting < rows.length) setLimit(Math.max(1, fitting))
+    }
+    fitRows('.club-tv-fixtures', '.club-tv-match', setCapacity)
+    fitRows('.club-tv-home-panel', '.club-tv-home-row', setHomeCapacity)
+  }, [feed, currentPage, pageSize, homePageSize, hasMap, viewportVersion])
   useEffect(() => {
-    const resize = () => { setCapacity(TV_PAGE_SIZE); setViewportVersion((version) => version + 1) }
+    const resize = () => { setCapacity(TV_PAGE_SIZE); setHomeCapacity(6); setViewportVersion((version) => version + 1) }
     window.addEventListener('resize', resize)
     return () => window.removeEventListener('resize', resize)
   }, [])
@@ -348,7 +353,7 @@ function ClubDayDisplay({ user, date, setDate }) {
         {preferences.showPitchsideOrdering ? <section className="club-tv-ordering"><small>MATCHDAY PITCHSIDE</small><strong>Pitchside ordering</strong><span>Coming soon</span></section> : null}
       </aside>
     </div>
-    <RoadTicker matches={awayFixtures} clubLogo={club?.logoUrl || user.clubLogoUrl} />
+    <RoadTicker matches={awayFixtures} clubLogo={club?.logoUrl || user.clubLogoUrl} showDate={weekAhead} />
     <footer className="club-tv-footer"><div><span className="club-tv-live-dot" /> YOUR CLUB · EVERY TEAM <span className="club-tv-legend">● Goals <span className="club-tv-red">▮ Red cards</span> · Shirt numbers only</span></div><div className="club-tv-pages">Page {currentPage + 1} / {totalPages}{totalPages > 1 ? ` · ${paused ? 'Paused' : `Next in ${seconds}s`}` : ''}</div><BrandCredit /></footer>
     {!locked ? <nav className="club-tv-controls" aria-label="Display controls"><Link to="/coach">Back to Club Admin</Link><label>Match date <input aria-label="Match date" type="date" value={date} onChange={(event) => { if (event.target.value) setDate(event.target.value) }} /></label><button onClick={() => setDate(clubTvDate())}>Today</button><button disabled={totalPages <= 1} onClick={() => changePage(-1)} aria-label="Previous match page">←</button><button disabled={totalPages <= 1} onClick={() => setPaused(!paused)}>{paused ? 'Resume carousel' : 'Pause carousel'}</button><button disabled={totalPages <= 1} onClick={() => changePage(1)} aria-label="Next match page">→</button><button onClick={() => setSettings(true)}>Display settings</button><button onClick={fullScreen}>Full screen and lock</button>{fullscreenError ? <span role="status">{fullscreenError}</span> : null}</nav> : <div className="club-tv-lock-bar"><span>Display locked · Leaving full screen keeps Club Admin protected</span><button onClick={() => setUnlocking(true)}>Unlock Club Admin</button></div>}
     {unlocking ? <UnlockDisplay clubId={user.clubId} onClose={() => setUnlocking(false)} onUnlocked={async () => { setClubTvLocked(user, false); setLocked(false); setUnlocking(false); if (document.fullscreenElement) await document.exitFullscreen().catch(() => {}); navigate('/coach') }} /> : null}
