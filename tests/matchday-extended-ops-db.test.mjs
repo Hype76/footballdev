@@ -225,6 +225,32 @@ test('disposable database validates extended lifecycle, authority, score separat
     await db.query("update public.match_days set status = 'penalties', timer_status = 'paused', current_match_phase = 'penalties', home_shootout_score = 0, away_shootout_score = 0 where id = $1", [ids.match])
     await expectDatabaseError(db.query("select public.set_match_day_timer_state($1, 'full_time')", [ids.match]), /clear winner/)
 
+    await db.exec(`
+      create table public.test_fixture_players (
+        match_day_id uuid not null, player_id uuid not null,
+        primary key (match_day_id, player_id)
+      );
+      create function public.preview_event_player_changes(source_type_value text, event_id_value uuid, selected_player_ids_value uuid[])
+      returns jsonb language sql as $$
+        select jsonb_build_object(
+          'currentPlayerIds', coalesce((select jsonb_agg(player_id order by player_id) from public.test_fixture_players where match_day_id = event_id_value), '[]'::jsonb),
+          'addedPlayerIds', coalesce((select jsonb_agg(id order by id) from unnest(selected_player_ids_value) as chosen(id) where not exists (select 1 from public.test_fixture_players where match_day_id = event_id_value and player_id = chosen.id)), '[]'::jsonb),
+          'removedPlayerIds', '[]'::jsonb
+        );
+      $$;
+      create function public.apply_event_player_changes(source_type_value text, event_id_value uuid, selected_player_ids_value uuid[], communication_mode_value text, request_token_value uuid, confirm_selected_removals_value boolean, confirm_resend_all_value boolean)
+      returns jsonb language plpgsql as $$
+      begin
+        if current_setting('app.fail_fixture_players', true) = 'true' then
+          raise exception 'Fixture player save failed';
+        end if;
+        insert into public.test_fixture_players(match_day_id, player_id)
+        select event_id_value, id from unnest(selected_player_ids_value) as chosen(id)
+        on conflict do nothing;
+        return '{}'::jsonb;
+      end;
+      $$;
+    `)
     await db.exec(await readFile(unfinishedShootoutMigrationUrl, 'utf8'))
     await setActor(db, ids.ordinaryParent)
     await expectDatabaseError(db.query('select public.end_match_day_without_shootout_result($1)', [ids.match]), /coach or manager access/)
@@ -243,12 +269,19 @@ test('disposable database validates extended lifecycle, authority, score separat
 
     await db.query("update public.match_days set status = 'scheduled', timer_status = 'not_started', parent_visible = false, parent_audience = 'none' where id = $1", [ids.match])
     await setActor(db, ids.ordinaryParent)
-    await expectDatabaseError(db.query('select public.enable_match_day_parent_sharing($1)', [ids.match]), /coach or manager access/)
+    await expectDatabaseError(db.query('select public.enable_match_day_parent_sharing($1, $2::uuid[], $3::uuid[], $4)', [ids.match, [ids.player], [], ids.scorerLink]), /coach or manager access/)
     await setActor(db, ids.staff)
-    await db.query('select public.enable_match_day_parent_sharing($1)', [ids.match])
+    await db.query("select set_config('app.fail_fixture_players', 'true', false)")
+    await expectDatabaseError(db.query('select public.enable_match_day_parent_sharing($1, $2::uuid[], $3::uuid[], $4)', [ids.match, [ids.player], [], ids.scorerLink]), /Fixture player save failed/)
+    assert.deepEqual((await db.query('select parent_visible, parent_audience from public.match_days where id = $1', [ids.match])).rows[0], { parent_visible: false, parent_audience: 'none' })
+    assert.equal((await db.query('select count(*)::integer as count from public.test_fixture_players where match_day_id = $1', [ids.match])).rows[0].count, 0)
+    await db.query("select set_config('app.fail_fixture_players', 'false', false)")
+    await db.query('select public.enable_match_day_parent_sharing($1, $2::uuid[], $3::uuid[], $4)', [ids.match, [ids.player], [], ids.scorerLink])
     const parentSharing = (await db.query('select parent_visible, parent_audience from public.match_days where id = $1', [ids.match])).rows[0]
     assert.deepEqual(parentSharing, { parent_visible: true, parent_audience: 'involved_players' })
-    await db.query('select public.enable_match_day_parent_sharing($1)', [ids.match])
+    assert.equal((await db.query('select count(*)::integer as count from public.test_fixture_players where match_day_id = $1', [ids.match])).rows[0].count, 1)
+    await expectDatabaseError(db.query('select public.enable_match_day_parent_sharing($1, $2::uuid[], $3::uuid[], $4)', [ids.match, [ids.player], [], ids.scorerLink]), /fixture changed/i)
+    await db.query('select public.enable_match_day_parent_sharing($1, $2::uuid[], $3::uuid[], $4)', [ids.match, [ids.player], [ids.player], ids.scorerLink])
     assert.deepEqual((await db.query('select parent_visible, parent_audience from public.match_days where id = $1', [ids.match])).rows[0], parentSharing)
 
     for (const rule of ['normal_time', 'straight_to_penalties', 'extra_time', 'extra_time_then_penalties']) {

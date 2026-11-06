@@ -94,7 +94,12 @@ revoke all on function public.end_match_day_without_shootout_result(uuid) from p
 grant execute on function public.end_match_day_without_shootout_result(uuid) to authenticated, service_role;
 
 -- Enable sharing when parents are added after fixture creation.
-create or replace function public.enable_match_day_parent_sharing(match_day_id_value uuid)
+create or replace function public.enable_match_day_parent_sharing(
+  match_day_id_value uuid,
+  selected_player_ids_value uuid[],
+  expected_player_ids_value uuid[],
+  request_token_value uuid
+)
 returns jsonb
 language plpgsql
 security definer
@@ -104,6 +109,9 @@ declare
   match_row public.match_days%rowtype;
   updated_row public.match_days%rowtype;
   actor_id uuid := auth.uid();
+  preview jsonb;
+  actual_ids uuid[];
+  expected_ids uuid[];
 begin
   if actor_id is null then
     raise exception 'Login is required before sharing this fixture.';
@@ -119,10 +127,24 @@ begin
       and match_row.club_id is distinct from public.current_user_club_id()) then
     raise exception 'Current coach or manager access is required to add parents.';
   end if;
-  if match_row.parent_visible is true and match_row.parent_audience <> 'none' then
-    return jsonb_build_object('id', match_row.id, 'parentVisible', true,
-      'parentAudience', match_row.parent_audience);
+  if request_token_value is null then
+    raise exception 'A unique parent invitation request is required.';
   end if;
+  preview := public.preview_event_player_changes(
+    'match-day', match_row.id, selected_player_ids_value
+  );
+  select coalesce(array_agg(id::uuid order by id::uuid), '{}'::uuid[])
+  into actual_ids from jsonb_array_elements_text(preview -> 'currentPlayerIds') as current_ids(id);
+  select coalesce(array_agg(distinct id order by id), '{}'::uuid[])
+  into expected_ids from unnest(expected_player_ids_value) as expected_players(id);
+  if actual_ids is distinct from expected_ids
+    or jsonb_array_length(preview -> 'removedPlayerIds') > 0 then
+    raise exception 'The fixture changed. Refresh invited players before saving.';
+  end if;
+  perform public.apply_event_player_changes(
+    'match-day', match_row.id, selected_player_ids_value, 'none',
+    request_token_value, false, false
+  );
   update public.match_days
   set parent_visible = true, parent_audience = 'involved_players', updated_at = now()
   where id = match_row.id returning * into updated_row;
@@ -143,5 +165,5 @@ begin
 end;
 $$;
 
-revoke all on function public.enable_match_day_parent_sharing(uuid) from public, anon;
-grant execute on function public.enable_match_day_parent_sharing(uuid) to authenticated, service_role;
+revoke all on function public.enable_match_day_parent_sharing(uuid, uuid[], uuid[], uuid) from public, anon;
+grant execute on function public.enable_match_day_parent_sharing(uuid, uuid[], uuid[], uuid) to authenticated, service_role;

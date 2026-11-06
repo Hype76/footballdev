@@ -268,6 +268,7 @@ function CoachHome() {
   const previousHomeRouteRef = useRef('home')
   const bootstrappedAuthorityRef = useRef('')
   const notificationResponseIdRef = useRef('')
+  const notificationResponseInFlightRef = useRef('')
   const notificationRegistrationRef = useRef({ contextId: '', inFlight: false, lastRegistrationAt: 0 })
   const notificationStateRef = useRef(null)
   const latestBadgeCountRef = useRef(0)
@@ -814,13 +815,11 @@ function CoachHome() {
     if (targetContext.id !== activeContext?.id) {
       try {
         if (targetContext.clubId !== user.clubId) {
-          if (user.isOfflineProfile) {
-            setNotice('Connect before opening a different club.')
-            return false
+          if (!user.isOfflineProfile) {
+            const { error } = await coachSupabase.rpc('activate_own_club_membership', { target_club_id: targetContext.clubId })
+            if (error) throw error
+            await refreshUserProfile()
           }
-          const { error } = await coachSupabase.rpc('activate_own_club_membership', { target_club_id: targetContext.clubId })
-          if (error) throw error
-          await refreshUserProfile()
         }
         await writeCoachContextMarker(user.id, targetContext)
       } catch {
@@ -982,11 +981,17 @@ function CoachHome() {
     if (!contextOwnedByCurrentUser || contextResolution.contexts.length === 0) return
     const request = lastNotificationResponse?.notification?.request
     const responseId = normalizeText(request?.identifier)
-    if (!responseId || notificationResponseIdRef.current === responseId) return
+    if (!responseId || notificationResponseIdRef.current === responseId || notificationResponseInFlightRef.current === responseId) return
     const data = request?.content?.data
     if (!data) return
-    openCoachTarget(data)
-    notificationResponseIdRef.current = responseId
+    notificationResponseInFlightRef.current = responseId
+    void openCoachTarget(data).then((opened) => {
+      if (opened) notificationResponseIdRef.current = responseId
+    }).catch(() => {
+      setNotice('Could not open this Coach notification. Try again.')
+    }).finally(() => {
+      if (notificationResponseInFlightRef.current === responseId) notificationResponseInFlightRef.current = ''
+    })
   }, [contextOwnedByCurrentUser, contextResolution.contexts.length, lastNotificationResponse, openCoachTarget])
 
   useEffect(() => {
@@ -1044,9 +1049,10 @@ function CoachHome() {
     setIsSwitchingContext(true)
     try {
       if (nextContext.clubId !== user.clubId) {
-        if (user.isOfflineProfile) throw new Error('Connect before changing clubs.')
-        const { error } = await coachSupabase.rpc('activate_own_club_membership', { target_club_id: nextContext.clubId })
-        if (error) throw error
+        if (!user.isOfflineProfile) {
+          const { error } = await coachSupabase.rpc('activate_own_club_membership', { target_club_id: nextContext.clubId })
+          if (error) throw error
+        }
       }
       await writeCoachContextMarker(user.id, nextContext)
       const transition = createCoachContextTransition(activeContext, nextContext)
@@ -1057,7 +1063,7 @@ function CoachHome() {
       setActiveRoute(target.activeRoute)
       setMoreRoute(target.moreRoute)
       setSelectedContextId(nextContext.id)
-      if (nextContext.clubId !== user.clubId) await refreshUserProfile()
+      if (nextContext.clubId !== user.clubId && !user.isOfflineProfile) await refreshUserProfile()
     } catch (error) {
       setNotice(error?.message || 'Could not change the Coach workspace. Try again online.')
     } finally {

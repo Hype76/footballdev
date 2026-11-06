@@ -166,12 +166,9 @@ export async function addCoachFixtureParents(user, match, playerIds) {
   if ((preview?.removedPlayerIds || []).length || (preview?.addedPlayerIds || []).length !== addedIds.length) {
     throw new Error('The fixture changed. Refresh invited players before saving.')
   }
-  await rpc('enable_match_day_parent_sharing', { match_day_id_value: match.id })
-  await rpc('apply_event_player_changes', {
-    communication_mode_value: 'none', confirm_resend_all_value: false,
-    confirm_selected_removals_value: false, event_id_value: match.id,
-    request_token_value: requestId(), selected_player_ids_value: selectedIds,
-    source_type_value: 'match-day',
+  await rpc('enable_match_day_parent_sharing', {
+    match_day_id_value: match.id, selected_player_ids_value: selectedIds,
+    expected_player_ids_value: currentPlayerIds, request_token_value: requestId(),
   })
   let warning = ''
   try { await sendCoachFixtureInvitations(user, { ...match, parentVisible: true }, addedIds) }
