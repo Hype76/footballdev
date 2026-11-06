@@ -146,11 +146,15 @@ test('browser preferences reject executable image types and corrupt storage', ()
     assert.equal(readTvPreferences('test').map, '')
     assert.equal(readTvPreferences('test').bigGoal, false)
     assert.equal(readTvPreferences('test').appearance, 'light')
-    globalThis.localStorage = { getItem: () => JSON.stringify({ appearance: 'dark' }) }
+    assert.equal(readTvPreferences('test').showPitchsideOrdering, false)
+    globalThis.localStorage = { getItem: () => JSON.stringify({ appearance: 'dark', showPitchsideOrdering: true, sponsorAds: [{ image: 'data:image/svg+xml,<svg/>', name: 'Unsafe' }] }) }
     assert.equal(readTvPreferences('test').appearance, 'dark')
+    assert.equal(readTvPreferences('test').showPitchsideOrdering, true)
+    assert.deepEqual(readTvPreferences('test').sponsorAds, [])
     globalThis.localStorage = { getItem: () => '{broken' }
     assert.equal(readTvPreferences('test').bigGoal, true)
     assert.equal(readTvPreferences('test').appearance, 'light')
+    assert.equal(readTvPreferences('test').showPitchsideOrdering, false)
   } finally { globalThis.localStorage = original }
 })
 

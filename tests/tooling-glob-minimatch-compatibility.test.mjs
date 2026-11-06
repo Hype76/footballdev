@@ -58,7 +58,7 @@ test('official tooling updates preserve unrelated dependencies and the exact app
     const { overrides: oldOverrides, ...oldPackage } = before
     const { overrides, ...newPackage } = current
     assert.deepEqual(newPackage, oldPackage, `${scope} direct dependencies and scripts match the exact mobile feature additions`)
-    assert.deepEqual(overrides, { ...oldOverrides, minimatch: '11.0.4', 'glob@>=9.0.0 <=14.0.1': '14.0.3', ...(scope === '.' ? { '@eslint/config-array': '0.23.5' } : { 'test-exclude': '8.0.0', 'node-forge': '1.4.3' }) })
+    assert.deepEqual(overrides, { ...oldOverrides, minimatch: '11.0.5', 'glob@>=9.0.0 <=14.0.1': '14.0.4', ...(scope === '.' ? { '@eslint/config-array': '0.23.5' } : { 'test-exclude': '8.0.0', 'node-forge': '1.4.3' }) })
     const oldLock = previousLock.packages
     const newLock = JSON.parse(fs.readFileSync(`${prefix}package-lock.json`)).packages
     for (const file of new Set([...Object.keys(oldLock), ...Object.keys(newLock)])) {
@@ -80,31 +80,26 @@ test('official tooling updates preserve unrelated dependencies and the exact app
   }
 })
 
-test('minimatch 11.0.4 changes only the official package identity and supported Node range', () => {
-  const candidate = 'f05d42536d0893912c7c972f8363f304c6ba9384'
+test('the current glob and minimatch update changes only reviewed tooling packages', () => {
+  const candidate = '9ab4fe99cc751990976afc7a5041c5c6f6901147'
+  const changedPackages = new Set(['node_modules/glob', 'node_modules/minimatch', 'node_modules/@isaacs/nonrecursive-glob-match'])
   for (const scope of ['.', 'apps/coach-mobile', 'apps/parent-mobile']) {
     const prefix = scope === '.' ? '' : `${scope}/`
     const oldPackage = JSON.parse(execFileSync('git', ['show', `${candidate}:${prefix}package.json`], { encoding: 'utf8' }))
     const newPackage = JSON.parse(fs.readFileSync(`${prefix}package.json`))
     const oldLock = JSON.parse(execFileSync('git', ['show', `${candidate}:${prefix}package-lock.json`], { encoding: 'utf8', maxBuffer: 8 * 1024 * 1024 }))
-    if (scope === 'apps/coach-mobile') applyApprovedCoachNativeDelta(oldPackage, oldLock)
-    if (scope !== '.') applyLiveMatchDelta(oldPackage)
-    oldPackage.overrides.minimatch = '11.0.4'
-    if (scope !== '.') {
-      oldPackage.overrides['glob@>=9.0.0 <=14.0.1'] = '14.0.3'
-      oldPackage.overrides['test-exclude'] = '8.0.0'
-      oldPackage.overrides['node-forge'] = '1.4.3'
-    }
+    oldPackage.overrides.minimatch = '11.0.5'
+    oldPackage.overrides['glob@>=9.0.0 <=14.0.1'] = '14.0.4'
     assert.deepEqual(newPackage, oldPackage)
     const newLock = JSON.parse(fs.readFileSync(`${prefix}package-lock.json`))
-    const oldEntry = oldLock.packages['node_modules/minimatch']
-    Object.assign(oldEntry, { version: '11.0.4', resolved: 'https://registry.npmjs.org/minimatch/-/minimatch-11.0.4.tgz', integrity: 'sha512-/UJ1dEoVQTjPNDh6SGlUo+ueLMmoHTas4q+8yaAR/5t6nLAIiBDJtoYUh20IYleix7ehiQkgczb84PE3uzHkxg==' })
-    oldEntry.engines.node = '20 || >=22'
-    assert.deepEqual(newLock.packages['node_modules/minimatch'], oldEntry, `${scope}: official minimatch identity changed`)
-    assert.deepEqual(newLock.packages[''].dependencies, newPackage.dependencies, `${scope}: locked direct dependencies changed`)
+    assert.deepEqual(Object.keys(newLock.packages).sort(), Object.keys(oldLock.packages).sort(), `${scope}: dependency set changed`)
     for (const [name, entry] of Object.entries(newLock.packages)) {
-      if (name.endsWith('/glob')) assert.ok(['7.2.3', '14.0.3'].includes(entry.version), `${scope}: affected glob version at ${name}`)
+      if (!changedPackages.has(name)) assert.deepEqual(entry, oldLock.packages[name], `${scope}: unrelated dependency changed at ${name}`)
+      if (name.endsWith('/glob')) assert.ok(['7.2.3', '14.0.4'].includes(entry.version), `${scope}: affected glob version at ${name}`)
     }
+    assert.equal(newLock.packages['node_modules/glob'].version, '14.0.4')
+    assert.equal(newLock.packages['node_modules/minimatch'].version, '11.0.5')
+    assert.equal(newLock.packages['node_modules/@isaacs/nonrecursive-glob-match'].version, '1.1.0')
   }
 })
 
@@ -129,7 +124,7 @@ for (const scope of ['.', 'apps/coach-mobile', 'apps/parent-mobile']) {
           const files = await new Promise((resolve, reject) => glob('src/**/*.js', options, (error, result) => error ? reject(error) : resolve(result)))
           assert.deepEqual(normalize(files), expectedFiles)
         } else {
-          assert.equal(pkg.version, '14.0.3', 'Modern glob entrypoints must use the official fixed release')
+          assert.equal(pkg.version, '14.0.4', 'Modern glob entrypoints must use the official fixed release')
           assert.deepEqual(normalize(glob.globSync('src/**/*.js', options)), expectedFiles)
           assert.deepEqual(normalize(await glob.glob('src/**/*.js', options)), expectedFiles)
           const controller = new AbortController()
@@ -138,7 +133,7 @@ for (const scope of ['.', 'apps/coach-mobile', 'apps/parent-mobile']) {
         }
       }
       const minimatch = require('minimatch')
-      assert.equal(require('minimatch/package.json').version, '11.0.4')
+      assert.equal(require('minimatch/package.json').version, '11.0.5')
       assert.equal(minimatch.minimatch('src/index.js', 'src/**/*.js'), true)
       assert.equal(new minimatch.Minimatch('src/**/*.js').match('src/nested/player.js'), true)
       assert.equal(new minimatch.Minimatch('src/**/*.js').match('src/notes.txt'), false)

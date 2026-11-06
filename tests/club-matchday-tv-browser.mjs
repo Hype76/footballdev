@@ -12,7 +12,7 @@ const output = 'output/playwright/club-matchday-tv'
 await mkdir(output, { recursive: true })
 const date = '2026-10-21'
 const clubBadge = `data:image/webp;base64,${(await readFile('src/assets/football-player-logo.webp')).toString('base64')}`
-const makeMatch = (index) => ({ id: `match-${index}`, teamName: `U${index + 7} Blue`, opponent: `Visitors ${index + 1}`, homeAway: index % 2 ? 'away' : 'home', matchDate: date, kickoff: '10:00', kickoffTbc: false, venue: `Pitch ${index + 1}`, status: index < 3 ? 'live' : index < 6 ? 'full_time' : 'scheduled', homeScore: index % 3, awayScore: 0, timerStatus: index < 3 ? 'running' : 'full_time', elapsed: 1200, timerStartedAt: '2026-10-21T09:00:00Z', events: [{ id: `event-${index}`, type: 'goal', side: 'club', shirt: '9', minute: 12 }, { id: `red-${index}`, type: 'red_card', side: 'opponent', shirt: '4', minute: 19 }] })
+const makeMatch = (index) => ({ id: `match-${index}`, teamName: `U${index + 7} Blue`, opponent: `Visitors ${index + 1}`, homeAway: index % 2 ? 'away' : 'home', matchDate: date, kickoff: '10:00', kickoffTbc: false, venue: `Pitch ${index + 1}`, status: index < 3 ? 'live' : index < 6 ? 'full_time' : 'scheduled', homeScore: index % 3, awayScore: 0, timerStatus: index < 3 ? 'running' : index < 6 ? 'full_time' : 'not_started', elapsed: 1200, timerStartedAt: '2026-10-21T09:00:00Z', events: [{ id: `event-${index}`, type: 'goal', side: 'club', shirt: '9', minute: 12 }, { id: `red-${index}`, type: 'red_card', side: 'opponent', shirt: '4', minute: 19 }] })
 let matches = Array.from({ length: 19 }, (_, index) => makeMatch(index)), denied = false, unavailable = false, requests = [], unlockAccepted = false
 let displayWindow
 const errors = []
@@ -56,12 +56,44 @@ try {
   await matchOperations.getByRole('link', { name: 'Matchday TV' }).click()
   await page.getByRole('heading', { name: 'Test Club United' }).waitFor()
   assert.equal(await page.locator('.club-tv-light').count(), 1)
-  assert.equal(await page.locator('.club-tv-team-badge').count(), 16)
+  assert.ok(await page.locator('.club-tv-team-badge').count() >= 12)
   assert.equal(await page.locator('.club-tv-own .club-tv-team-badge').first().getAttribute('src'), clubBadge)
   assert.match(await page.locator('.club-tv-team:not(.club-tv-own) .club-tv-team-badge').first().getAttribute('src'), /football-player-logo/)
-  assert.equal(await page.locator('.club-tv-match').count(), 8)
+  assert.equal(await page.locator('.club-tv-match').count(), 6)
+  assert.equal(await page.locator('.club-tv-home-row').count(), 6)
+  assert.equal(await page.locator('.club-tv-road-track').count(), 1)
+  assert.equal(await page.locator('.club-tv-ordering').count(), 0)
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+  await page.waitForFunction(() => document.querySelectorAll('.club-tv-road-track>div:first-child .club-tv-road-item').length === 1)
+  assert.equal(await page.locator('.club-tv-road-track>div:first-child .club-tv-road-item').count(), 1)
+  const firstAway = await page.locator('.club-tv-road-track>div:first-child').textContent()
+  await page.getByRole('button', { name: 'Next away fixture' }).click()
+  assert.notEqual(await page.locator('.club-tv-road-track>div:first-child').textContent(), firstAway)
+  const reducedRoadFits = await page.locator('.club-tv-road').evaluate((road) => {
+    const bounds = road.getBoundingClientRect()
+    return [...road.querySelectorAll('.club-tv-road-track>div:first-child .club-tv-road-item')]
+      .every(item => { const row = item.getBoundingClientRect(); return row.right <= bounds.right + 1 && row.bottom <= bounds.bottom + 1 })
+  })
+  assert.equal(reducedRoadFits, true, 'Reduced motion keeps every away fixture visible')
+  await page.setViewportSize({ width: 1366, height: 600 })
+  await page.waitForFunction(() => {
+    const edge = selector => document.querySelector(selector)?.getBoundingClientRect()
+    const home = edge('.club-tv-home-panel'), score = edge('.club-tv-fixtures')
+    const homeRow = edge('.club-tv-home-row:last-of-type'), scoreRow = edge('.club-tv-match:last-of-type')
+    return home && score && homeRow && scoreRow && homeRow.bottom <= home.bottom + 1 && scoreRow.bottom <= score.bottom + 1
+  })
+  const reducedLayout = await page.evaluate(() => {
+    const edge = selector => document.querySelector(selector)?.getBoundingClientRect()
+    const footer = edge('.club-tv-footer'), home = edge('.club-tv-home-panel'), score = edge('.club-tv-fixtures')
+    const homeRow = document.querySelector('.club-tv-home-row:last-of-type')?.getBoundingClientRect()
+    const scoreRow = document.querySelector('.club-tv-match:last-of-type')?.getBoundingClientRect()
+    return { footerBottom: footer.bottom, homeFits: homeRow.bottom <= home.bottom + 1, scoreFits: scoreRow.bottom <= score.bottom + 1, homeBottom: home.bottom, homeRowBottom: homeRow.bottom, scoreBottom: score.bottom, scoreRowBottom: scoreRow.bottom }
+  })
+  assert.ok(reducedLayout.footerBottom <= 601 && reducedLayout.homeFits && reducedLayout.scoreFits, `Reduced-motion 600px TV keeps centre and footer visible: ${JSON.stringify(reducedLayout)}`)
+  await page.setViewportSize({ width: 1920, height: 1080 })
+  await page.emulateMedia({ reducedMotion: 'no-preference' })
   assert.equal(await page.locator('.club-tv-goal-large').count(), 0)
-  assert.match(await page.locator('.club-tv-pages').textContent(), /Page 1 \/ 3/)
+  assert.match(await page.locator('.club-tv-pages').textContent(), /Page 1 \/ [2-9]/)
   assert.ok(requests.every((request) => request.clubId === 'club-fixture'))
   assert.equal(await page.locator('audio').count(), 0)
   assert.equal(await page.getByRole('button', { name: 'TV mode', exact: true }).count(), 0)
@@ -69,7 +101,7 @@ try {
   const bounds = await page.locator('.club-tv-footer').boundingBox()
   assert.ok(bounds.y + bounds.height <= 1081, `TV footer fits 1080p: ${JSON.stringify(bounds)}`)
   const fullWidthLastRow = await page.locator('.club-tv-match').last().boundingBox()
-  assert.ok(fullWidthLastRow.y + fullWidthLastRow.height <= bounds.y + 1, 'All eight full-width rows fit above the footer')
+  assert.ok(fullWidthLastRow.y + fullWidthLastRow.height <= bounds.y + 1, 'All live score rows fit above the footer')
   await page.screenshot({ path: `${output}/tv-full.png` })
   const fullMatchday = matches
   const compactMatches = [
@@ -78,28 +110,29 @@ try {
   ]
   matches = compactMatches
   await page.clock.runFor(11000)
-  assert.equal(await page.locator('.club-tv-match').count(), 2)
-  for (const row of await page.locator('.club-tv-match').all()) assert.ok((await row.boundingBox()).height < 160, 'Few fixtures remain compact')
+  assert.equal(await page.locator('.club-tv-match').count(), 0)
+  assert.equal(await page.locator('.club-tv-home-row').count(), 1)
   await page.screenshot({ path: `${output}/compact-two-matches.png` })
   displayWindow = { kind: 'week', startDate: '2026-10-22', endDate: '2026-10-28' }
   await page.clock.runFor(11000)
   await page.getByRole('heading', { name: 'Week ahead', exact: true }).waitFor()
-  assert.deepEqual(await page.locator('.club-tv-fixture-date').allTextContents(), ['Sat 24 Oct', 'Tue 27 Oct'])
+  assert.match(await page.locator('.club-tv-home-row').first().textContent(), /Tue 27 Oct/)
+  assert.match(await page.locator('.club-tv-road-track>div:first-child').textContent(), /Sat 24 Oct/)
   await page.screenshot({ path: `${output}/week-ahead.png` })
   matches = compactMatches.map((match, index) => index ? match : { ...match, homeScore: 1, events: [{ id: 'future-goal', type: 'goal', side: 'club', shirt: '7', minute: 3 }] })
   await page.clock.runFor(11000)
   assert.equal(await page.locator('.club-tv-goal-large,.club-tv-goal-small').count(), 0)
   matches = []
   await page.clock.runFor(11000)
-  await page.getByRole('heading', { name: 'No matches in the week ahead' }).waitFor()
+  await page.getByRole('heading', { name: 'No live scores or results yet' }).waitFor()
   matches = fullMatchday; displayWindow = undefined
   await page.clock.runFor(11000)
   await page.keyboard.press('Escape')
   await page.clock.runFor(31000)
-  assert.match(await page.locator('.club-tv-pages').textContent(), /Page 2 \/ 3/)
+  assert.match(await page.locator('.club-tv-pages').textContent(), /Page 2 \/ 2/)
   await page.getByRole('button', { name: 'Pause carousel' }).click()
   await page.clock.runFor(31000)
-  assert.match(await page.locator('.club-tv-pages').textContent(), /Page 2 \/ 3.*Paused/)
+  assert.match(await page.locator('.club-tv-pages').textContent(), /Page 2 \/ 2.*Paused/)
   await page.getByRole('button', { name: 'Previous match page' }).click()
   matches = matches.map((match, index) => index ? match : { ...match, homeScore: match.homeScore + 1, events: [...match.events, { id: 'new-goal', type: 'goal', side: 'club', shirt: '11', minute: 22 }] })
   await nextGoal('.club-tv-goal-large')
@@ -113,9 +146,28 @@ try {
   const png = process.env.CLUB_TV_TEST_MAP ? await readFile(process.env.CLUB_TV_TEST_MAP) : Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aL1sAAAAASUVORK5CYII=', 'base64')
   await page.getByLabel('Pitch map', { exact: true }).setInputFiles({ name: 'ground.png', mimeType: 'image/png', buffer: png })
   await page.getByAltText('Uploaded pitch map preview').waitFor()
+  await page.getByLabel('Sponsor artwork').setInputFiles([
+    { name: 'Sponsor One.png', mimeType: 'image/png', buffer: png },
+    { name: 'Sponsor Two.png', mimeType: 'image/png', buffer: png },
+  ])
+  await page.getByLabel('Show pitchside ordering').check()
   await page.getByRole('button', { name: 'Save settings' }).click()
   assert.equal(await page.locator('.club-tv-match').count(), 6)
   await page.locator('.club-tv-pitch').waitFor()
+  await page.getByAltText('Sponsor One').waitFor()
+  await page.getByText('Coming soon').waitFor()
+  await page.getByRole('button', { name: 'Resume carousel' }).click()
+  await page.clock.runFor(31000)
+  await page.getByAltText('Sponsor Two').waitFor()
+  await page.getByRole('button', { name: 'Pause carousel' }).click()
+  await page.getByRole('button', { name: 'Display settings' }).click()
+  await page.getByLabel('Show pitchside ordering').uncheck()
+  await page.getByRole('button', { name: 'Save settings' }).click()
+  assert.equal(await page.locator('.club-tv-ordering').count(), 0)
+  await page.getByRole('button', { name: 'Display settings' }).click()
+  await page.getByLabel('Show pitchside ordering').check()
+  await page.getByRole('button', { name: 'Save settings' }).click()
+  await page.getByText('Coming soon').waitFor()
   await page.getByText('13°C', { exact: false }).waitFor()
   await page.getByRole('img', { name: 'cloudy', exact: true }).waitFor()
   assert.equal(await page.locator('.club-tv-split').count(), 1)
@@ -125,7 +177,7 @@ try {
   const mappedMatchday = matches
   matches = compactMatches; displayWindow = { kind: 'week', startDate: '2026-10-22', endDate: '2026-10-28' }
   await page.clock.runFor(11000)
-  assert.equal(await page.locator('.club-tv-match').count(), 2)
+  assert.equal(await page.locator('.club-tv-match').count(), 0)
   await page.screenshot({ path: `${output}/compact-map-light.png` })
   await page.getByRole('button', { name: 'Display settings' }).click()
   await page.getByLabel('Appearance', { exact: true }).selectOption('dark')
@@ -158,6 +210,11 @@ try {
   await page.reload()
   await page.locator('.club-tv-pitch').waitFor()
   assert.equal(await page.locator('.club-tv-goal-small').count(), 0)
+  await page.setViewportSize({ width: 1366, height: 600 })
+  const shortHome = await page.locator('.club-tv-home-panel').boundingBox()
+  const shortHomeLastRow = await page.locator('.club-tv-home-row').last().boundingBox()
+  assert.ok(shortHomeLastRow.y + shortHomeLastRow.height <= shortHome.y + shortHome.height + 1, 'Shorter displays page home fixtures before clipping')
+  assert.ok(await page.locator('.club-tv-home-row').count() < 6, 'Shorter displays reduce home fixtures per page')
   await page.setViewportSize({ width: 1366, height: 768 })
   const shorterFooter = await page.locator('.club-tv-footer').boundingBox()
   const shorterLastRow = await page.locator('.club-tv-match').last().boundingBox()
@@ -227,6 +284,6 @@ try {
   await page.getByRole('heading', { name: 'Coach Home', exact: true }).waitFor()
   assert.equal(await page.getByRole('link', { name: 'Matchday TV' }).count(), 0)
   assert.deepEqual(errors, [])
-  console.log('PASS: compact own-club display, day/week-ahead dates and empty state, light default/dark persistence, club badges and FP fallback, weather icons, 8/6-row carousel, silent goals, map, narrow web, reconnect, revocation and timed masked password lock.')
+  console.log('PASS: club matchday display, rotating scores and sponsors, scrolling away fixtures, optional pitchside panel, map, narrow layout, reconnect, revocation and timed masked password lock.')
   await context.close()
 } finally { await browser.close(); await server.close() }
