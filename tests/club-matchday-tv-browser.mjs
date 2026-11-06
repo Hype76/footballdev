@@ -64,12 +64,27 @@ try {
   assert.equal(await page.locator('.club-tv-road-track').count(), 1)
   assert.equal(await page.locator('.club-tv-ordering').count(), 0)
   await page.emulateMedia({ reducedMotion: 'reduce' })
+  await page.waitForFunction(() => document.querySelectorAll('.club-tv-road-track>div:first-child .club-tv-road-item').length === 1)
+  assert.equal(await page.locator('.club-tv-road-track>div:first-child .club-tv-road-item').count(), 1)
+  const firstAway = await page.locator('.club-tv-road-track>div:first-child').textContent()
+  await page.getByRole('button', { name: 'Next away fixture' }).click()
+  assert.notEqual(await page.locator('.club-tv-road-track>div:first-child').textContent(), firstAway)
   const reducedRoadFits = await page.locator('.club-tv-road').evaluate((road) => {
     const bounds = road.getBoundingClientRect()
     return [...road.querySelectorAll('.club-tv-road-track>div:first-child .club-tv-road-item')]
       .every(item => { const row = item.getBoundingClientRect(); return row.right <= bounds.right + 1 && row.bottom <= bounds.bottom + 1 })
   })
   assert.equal(reducedRoadFits, true, 'Reduced motion keeps every away fixture visible')
+  await page.setViewportSize({ width: 1366, height: 600 })
+  const reducedLayout = await page.evaluate(() => {
+    const edge = selector => document.querySelector(selector)?.getBoundingClientRect()
+    const footer = edge('.club-tv-footer'), home = edge('.club-tv-home-panel'), score = edge('.club-tv-fixtures')
+    const homeRow = document.querySelector('.club-tv-home-row:last-of-type')?.getBoundingClientRect()
+    const scoreRow = document.querySelector('.club-tv-match:last-of-type')?.getBoundingClientRect()
+    return { footerBottom: footer.bottom, homeFits: homeRow.bottom <= home.bottom + 1, scoreFits: scoreRow.bottom <= score.bottom + 1 }
+  })
+  assert.ok(reducedLayout.footerBottom <= 601 && reducedLayout.homeFits && reducedLayout.scoreFits, `Reduced-motion 600px TV keeps centre and footer visible: ${JSON.stringify(reducedLayout)}`)
+  await page.setViewportSize({ width: 1920, height: 1080 })
   await page.emulateMedia({ reducedMotion: 'no-preference' })
   assert.equal(await page.locator('.club-tv-goal-large').count(), 0)
   assert.match(await page.locator('.club-tv-pages').textContent(), /Page 1 \/ 2/)

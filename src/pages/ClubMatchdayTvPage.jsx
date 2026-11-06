@@ -91,11 +91,26 @@ function HomeFixtureRow({ match, now, clubLogo, showDate }) {
   </article>
 }
 
-function RoadTicker({ matches, clubLogo, showDate }) {
-  const items = matches.map((match) => <span className="club-tv-road-item" key={match.id}>
+function RoadTicker({ matches, clubLogo, showDate, paused }) {
+  const [reducedMotion, setReducedMotion] = useState(false)
+  const [index, setIndex] = useState(0)
+  useEffect(() => {
+    const media = window.matchMedia('(prefers-reduced-motion: reduce)')
+    const update = () => setReducedMotion(media.matches)
+    update()
+    media.addEventListener('change', update)
+    return () => media.removeEventListener('change', update)
+  }, [])
+  useEffect(() => {
+    if (!reducedMotion || paused || matches.length < 2) return undefined
+    const timer = setInterval(() => setIndex(current => (current + 1) % matches.length), TV_ROTATION_SECONDS * 1000)
+    return () => clearInterval(timer)
+  }, [matches.length, paused, reducedMotion])
+  const selected = reducedMotion && matches.length ? matches.slice(index % matches.length, (index % matches.length) + 1) : matches
+  const items = selected.map((match) => <span className="club-tv-road-item" key={match.id}>
     <TeamBadge src="" muted />{match.opponent}<span>v</span><TeamBadge src={clubLogo} />{match.teamName}<strong>{showDate ? `${fixtureDayLabel(match.matchDate)} · ` : ''}{match.kickoffTbc ? 'KO TBC' : `KO ${match.kickoff || 'TBC'}`}</strong>
   </span>)
-  return <div className="club-tv-road"><strong>ON THE ROAD</strong>{items.length ? <div className="club-tv-road-window"><div className="club-tv-road-track"><div>{items}</div><div aria-hidden="true">{items}</div></div></div> : <span className="club-tv-road-empty">No away fixtures today</span>}</div>
+  return <div className="club-tv-road"><strong>ON THE ROAD</strong>{items.length ? <div className="club-tv-road-window"><div className="club-tv-road-track"><div>{items}</div>{!reducedMotion ? <div aria-hidden="true">{items}</div> : null}</div></div> : <span className="club-tv-road-empty">No away fixtures today</span>}{reducedMotion && matches.length > 1 ? <span className="club-tv-road-controls"><button aria-label="Previous away fixture" onClick={() => setIndex(current => (current - 1 + matches.length) % matches.length)}>‹</button><span>{index % matches.length + 1} / {matches.length}</span><button aria-label="Next away fixture" onClick={() => setIndex(current => (current + 1) % matches.length)}>›</button></span> : null}</div>
 }
 
 function DisplaySettings({ preferences, onSave, onClose }) {
@@ -353,7 +368,7 @@ function ClubDayDisplay({ user, date, setDate }) {
         {preferences.showPitchsideOrdering ? <section className="club-tv-ordering"><small>MATCHDAY PITCHSIDE</small><strong>Pitchside ordering</strong><span>Coming soon</span></section> : null}
       </aside>
     </div>
-    <RoadTicker matches={awayFixtures} clubLogo={club?.logoUrl || user.clubLogoUrl} showDate={weekAhead} />
+    <RoadTicker matches={awayFixtures} clubLogo={club?.logoUrl || user.clubLogoUrl} showDate={weekAhead} paused={paused} />
     <footer className="club-tv-footer"><div><span className="club-tv-live-dot" /> YOUR CLUB · EVERY TEAM <span className="club-tv-legend">● Goals <span className="club-tv-red">▮ Red cards</span> · Shirt numbers only</span></div><div className="club-tv-pages">Page {currentPage + 1} / {totalPages}{totalPages > 1 ? ` · ${paused ? 'Paused' : `Next in ${seconds}s`}` : ''}</div><BrandCredit /></footer>
     {!locked ? <nav className="club-tv-controls" aria-label="Display controls"><Link to="/coach">Back to Club Admin</Link><label>Match date <input aria-label="Match date" type="date" value={date} onChange={(event) => { if (event.target.value) setDate(event.target.value) }} /></label><button onClick={() => setDate(clubTvDate())}>Today</button><button disabled={totalPages <= 1} onClick={() => changePage(-1)} aria-label="Previous match page">←</button><button disabled={totalPages <= 1} onClick={() => setPaused(!paused)}>{paused ? 'Resume carousel' : 'Pause carousel'}</button><button disabled={totalPages <= 1} onClick={() => changePage(1)} aria-label="Next match page">→</button><button onClick={() => setSettings(true)}>Display settings</button><button onClick={fullScreen}>Full screen and lock</button>{fullscreenError ? <span role="status">{fullscreenError}</span> : null}</nav> : <div className="club-tv-lock-bar"><span>Display locked · Leaving full screen keeps Club Admin protected</span><button onClick={() => setUnlocking(true)}>Unlock Club Admin</button></div>}
     {unlocking ? <UnlockDisplay clubId={user.clubId} onClose={() => setUnlocking(false)} onUnlocked={async () => { setClubTvLocked(user, false); setLocked(false); setUnlocking(false); if (document.fullscreenElement) await document.exitFullscreen().catch(() => {}); navigate('/coach') }} /> : null}
