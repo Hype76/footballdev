@@ -82,6 +82,22 @@ function MatchRow({ match, now, showDate, clubLogo }) {
   </article>
 }
 
+function HomeFixtureRow({ match, now, clubLogo, showDate }) {
+  const status = tvMatchStatus(match, now)
+  return <article className="club-tv-home-row">
+    <strong className="club-tv-home-time">{match.kickoffTbc ? 'TBC' : match.kickoff || 'TBC'}</strong>
+    <div className="club-tv-home-teams"><span><TeamBadge src={clubLogo} />{match.teamName}</span><small>{showDate ? `${fixtureDayLabel(match.matchDate)} · ` : ''}v {match.opponent}</small></div>
+    <span className="club-tv-home-pitch">{match.venue || (status.kind === 'live' ? status.label : 'Home')}</span>
+  </article>
+}
+
+function RoadTicker({ matches, clubLogo }) {
+  const items = matches.map((match) => <span className="club-tv-road-item" key={match.id}>
+    <TeamBadge src="" muted />{match.opponent}<span>v</span><TeamBadge src={clubLogo} />{match.teamName}<strong>{match.kickoffTbc ? 'KO TBC' : `KO ${match.kickoff || 'TBC'}`}</strong>
+  </span>)
+  return <div className="club-tv-road"><strong>ON THE ROAD</strong>{items.length ? <div className="club-tv-road-window"><div className="club-tv-road-track"><div>{items}</div><div aria-hidden="true">{items}</div></div></div> : <span className="club-tv-road-empty">No away fixtures today</span>}</div>
+}
+
 function DisplaySettings({ preferences, onSave, onClose }) {
   const dialog = useRef(null)
   const [draft, setDraft] = useState(preferences)
@@ -101,6 +117,27 @@ function DisplaySettings({ preferences, onSave, onClose }) {
       if (version === uploadVersion.current) { setDraft((current) => ({ ...current, map: data, showMap: true })); setError('') }
     } catch { setError('This image could not be opened. Try a smaller PNG, JPG or WebP.') }
   }
+  async function uploadSponsors(files) {
+    const incoming = [...files].slice(0, Math.max(0, 3 - draft.sponsorAds.length))
+    if (!incoming.length) return
+    if (incoming.some(file => !['image/png', 'image/jpeg', 'image/webp'].includes(file.type) || file.size > 500000)) {
+      setError('Each sponsor image must be PNG, JPG or WebP and under 500 KB.')
+      return
+    }
+    try {
+      const ads = await Promise.all(incoming.map(async file => {
+        const image = await new Promise((resolve, reject) => {
+          const reader = new FileReader()
+          reader.onload = () => resolve(reader.result)
+          reader.onerror = reject
+          reader.readAsDataURL(file)
+        })
+        return { image, name: file.name.replace(/\.[^.]+$/, '').slice(0, 80) }
+      }))
+      setDraft(current => ({ ...current, sponsorAds: [...current.sponsorAds, ...ads].slice(0, 3) }))
+      setError('')
+    } catch { setError('The sponsor images could not be opened.') }
+  }
   return <dialog ref={dialog} className="club-tv-settings" onCancel={onClose} aria-labelledby="club-tv-settings-title">
     <form onSubmit={(event) => { event.preventDefault(); try { onSave(draft) } catch { setError('Settings could not be saved. Try a smaller map or free some browser storage.') } }}>
       <h2 id="club-tv-settings-title">Display settings</h2>
@@ -113,6 +150,11 @@ function DisplaySettings({ preferences, onSave, onClose }) {
       <label>Pitch map <input type="file" accept="image/png,image/jpeg,image/webp" onChange={(event) => upload(event.target.files?.[0])} /></label>
       <small>PNG, JPG or WebP, up to 2 MB. The map stays beside the rotating scores.</small>
       {draft.map ? <><img className="club-tv-map-preview" src={draft.map} alt="Uploaded pitch map preview" /><label className="club-tv-check"><input type="checkbox" checked={draft.showMap} onChange={(event) => setDraft({ ...draft, showMap: event.target.checked })} /> Show map on half the display</label><button type="button" onClick={() => { uploadVersion.current++; setDraft({ ...draft, map: '' }) }}>Remove map</button></> : null}
+      <label>Sponsor artwork <input type="file" accept="image/png,image/jpeg,image/webp" multiple onChange={(event) => { void uploadSponsors(event.target.files || []) }} /></label>
+      <small>Add up to three sponsor adverts. Each image must be under 500 KB. They rotate on this club display.</small>
+      {draft.sponsorAds.map((ad, index) => <div className="club-tv-sponsor-edit" key={`${ad.name}:${index}`}><img src={ad.image} alt="Sponsor preview" /><input aria-label={`Sponsor ${index + 1} name`} maxLength={80} value={ad.name} onChange={(event) => setDraft(current => ({ ...current, sponsorAds: current.sponsorAds.map((item, itemIndex) => itemIndex === index ? { ...item, name: event.target.value } : item) }))} /><button type="button" onClick={() => setDraft(current => ({ ...current, sponsorAds: current.sponsorAds.filter((_, itemIndex) => itemIndex !== index) }))}>Remove</button></div>)}
+      <label className="club-tv-check"><input type="checkbox" checked={draft.showPitchsideOrdering} onChange={(event) => setDraft({ ...draft, showPitchsideOrdering: event.target.checked })} /> Show pitchside ordering</label>
+      <small>When enabled, the display says Coming soon until ordering is available.</small>
       {error ? <p role="alert">{error}</p> : null}
       <div className="club-tv-settings-actions"><button type="button" onClick={onClose}>Cancel</button><button type="submit">Save settings</button></div>
       <small>Forecast: <a href="https://api.met.no/" target="_blank" rel="noreferrer">MET Norway</a>, CC BY 4.0. Postcodes: <a href="https://postcodes.io/docs/licences/" target="_blank" rel="noreferrer">OS OpenData and ONS</a>. Contains OS data and National Statistics data © Crown copyright and database right {new Date().getFullYear()}. Contains Royal Mail data © Royal Mail copyright and database right {new Date().getFullYear()}.</small>
@@ -178,9 +220,11 @@ function ClubDayDisplay({ user, date, setDate }) {
   const [capacity, setCapacity] = useState(TV_PAGE_SIZE)
   const [viewportVersion, setViewportVersion] = useState(0)
   const hasMap = !denied && Boolean(preferences.showMap && preferences.map)
-  const pageSize = Math.min(hasMap ? 6 : TV_PAGE_SIZE, capacity)
+  const pageSize = Math.min(TV_PAGE_SIZE, capacity)
+  const homePageSize = 6
   const [now, setNow] = useState(Date.now)
   const [page, setPage] = useState(0)
+  const [sponsorIndex, setSponsorIndex] = useState(0)
   const [paused, setPaused] = useState(false)
   const [seconds, setSeconds] = useState(TV_ROTATION_SECONDS)
   const [settings, setSettings] = useState(false)
@@ -194,7 +238,12 @@ function ClubDayDisplay({ user, date, setDate }) {
     return () => clearTimeout(timeout)
   }, [unlocking])
   const root = useRef(null)
-  const totalPages = Math.max(1, Math.ceil((feed?.matches.length || 0) / pageSize))
+  const scores = (feed?.matches || []).filter(match => tvMatchStatus(match, now).kind !== 'upcoming')
+  const homeFixtures = (feed?.matches || []).filter(match => match.homeAway !== 'away')
+  const awayFixtures = (feed?.matches || []).filter(match => match.homeAway === 'away')
+  const scorePages = Math.max(1, Math.ceil(scores.length / pageSize))
+  const homePages = Math.max(1, Math.ceil(homeFixtures.length / homePageSize))
+  const totalPages = Math.max(scorePages, homePages)
   const currentPage = Math.min(page, totalPages - 1)
   const goal = goals[0]
   useLayoutEffect(() => {
@@ -253,6 +302,11 @@ function ClubDayDisplay({ user, date, setDate }) {
     previousSeconds.current = seconds
   }, [seconds, totalPages])
   useEffect(() => {
+    if (preferences.sponsorAds.length < 2) return undefined
+    const timer = setInterval(() => { if (!document.hidden && !paused) setSponsorIndex(current => (current + 1) % preferences.sponsorAds.length) }, TV_ROTATION_SECONDS * 1000)
+    return () => clearInterval(timer)
+  }, [paused, preferences.sponsorAds])
+  useEffect(() => {
     if (!goal) return
     const timer = setTimeout(() => setGoals((queue) => queue.slice(1)), 7000)
     return () => clearTimeout(timer)
@@ -275,11 +329,26 @@ function ClubDayDisplay({ user, date, setDate }) {
       <div className="club-tv-clock"><strong>{timeLabel(now)}</strong><span>{new Date(now).toLocaleDateString('en-GB', { timeZone: 'Europe/London', day: 'numeric', month: 'short' })} · UK time</span></div>
     </header>
     <div className="club-tv-day"><h2>{weekAhead ? 'Week ahead' : dayLabel(date)}</h2>{weekAhead ? <span className="club-tv-period">{fixtureDayLabel(feed.window.startDate)} to {fixtureDayLabel(feed.window.endDate)}</span> : null}<span>{feed?.matches.length ?? 0} matches · {feed?.matches.filter((match) => tvMatchStatus(match, now).kind === 'live').length ?? 0} live</span><span className={error ? 'club-tv-warning' : 'club-tv-feed-state'} role="status">{error ? `${error}${feed ? ` Last updated ${timeLabel(feed.refreshedAt)}.` : ''}` : feed ? `Scores updated ${timeLabel(feed.refreshedAt)}` : 'Connecting to your club…'}</span></div>
-    <div className="club-tv-content"><section className="club-tv-fixtures" aria-label="Your club matches">
-      <div className="club-tv-table-head"><span>MATCH STATUS</span><span>HOME</span><span>SCORE</span><span>AWAY</span></div>
-      {feed?.matches.slice(currentPage * pageSize, (currentPage + 1) * pageSize).map((match) => <MatchRow key={match.id} match={match} now={now} showDate={weekAhead} clubLogo={club?.logoUrl || user.clubLogoUrl} />)}
-      {!feed?.matches.length ? <div className="club-tv-empty"><h2>{denied ? 'Club access required' : feed ? weekAhead ? 'No matches in the week ahead' : 'No matches on this date' : error ? 'Unable to load matches' : 'Loading your club’s matches'}</h2><p>{denied ? 'Return to Club Admin and sign in to your active club workspace.' : feed ? weekAhead ? 'No club fixtures are scheduled for the next seven days. Matches added by your teams will appear here.' : 'Matches added by your teams in Match Day will appear here.' : 'The display will reconnect automatically.'}</p></div> : null}
-    </section>{hasMap ? <aside className="club-tv-pitch"><div><h2>Pitch map</h2><span>Find your pitch</span></div><img src={preferences.map} alt={`${club?.name || user.clubName || 'Club'} pitch map`} /></aside> : null}</div>
+    <div className="club-tv-content club-tv-centre">
+      <section className="club-tv-fixtures" aria-label="Live scores and results">
+        <div className="club-tv-section-head"><h2>Live scores &amp; results</h2><span>{scores.filter(match => tvMatchStatus(match, now).kind === 'live').length} LIVE</span></div>
+        <div className="club-tv-table-head"><span>STATUS</span><span>HOME</span><span>SCORE</span><span>AWAY</span></div>
+        {scores.slice((currentPage % scorePages) * pageSize, ((currentPage % scorePages) + 1) * pageSize).map(match => <MatchRow key={match.id} match={match} now={now} showDate={weekAhead} clubLogo={club?.logoUrl || user.clubLogoUrl} />)}
+        {!scores.length ? <div className="club-tv-empty"><h2>{denied ? 'Club access required' : feed ? 'No live scores or results yet' : error ? 'Unable to load matches' : 'Loading your club’s matches'}</h2><p>{feed ? 'Scores appear here when matches start.' : 'The display will reconnect automatically.'}</p></div> : null}
+      </section>
+      <section className="club-tv-home-panel" aria-label="At home today">
+        <div className="club-tv-section-head"><h2>{weekAhead ? 'At home this week' : 'At home today'}</h2><small>KICK-OFF &amp; PITCH GUIDE</small></div>
+        <div className="club-tv-home-head"><span>KO</span><span>TEAM / OPPOSITION</span><span>PITCH</span></div>
+        {homeFixtures.slice((currentPage % homePages) * homePageSize, ((currentPage % homePages) + 1) * homePageSize).map(match => <HomeFixtureRow key={match.id} match={match} now={now} showDate={weekAhead} clubLogo={club?.logoUrl || user.clubLogoUrl} />)}
+        {!homeFixtures.length ? <p className="club-tv-home-empty">No home fixtures {weekAhead ? 'this week' : 'today'}.</p> : null}
+      </section>
+      <aside className="club-tv-side-panel" aria-label="Club information">
+        <section className="club-tv-sponsor" aria-label="Club sponsors">{preferences.sponsorAds.length ? <><img src={preferences.sponsorAds[sponsorIndex % preferences.sponsorAds.length].image} alt={preferences.sponsorAds[sponsorIndex % preferences.sponsorAds.length].name || 'Club sponsor'} /><small>{preferences.sponsorAds[sponsorIndex % preferences.sponsorAds.length].name}</small></> : <><small>PROUD TO SUPPORT YOUR CLUB</small><strong>Your company could advertise here.</strong><span>Ask the Club Admin about matchday sponsorship.</span></>}</section>
+        {hasMap ? <section className="club-tv-pitch"><div><h2>Pitch map</h2><span>Find your pitch</span></div><img src={preferences.map} alt={`${club?.name || user.clubName || 'Club'} pitch map`} /></section> : null}
+        {preferences.showPitchsideOrdering ? <section className="club-tv-ordering"><small>MATCHDAY PITCHSIDE</small><strong>Pitchside ordering</strong><span>Coming soon</span></section> : null}
+      </aside>
+    </div>
+    <RoadTicker matches={awayFixtures} clubLogo={club?.logoUrl || user.clubLogoUrl} />
     <footer className="club-tv-footer"><div><span className="club-tv-live-dot" /> YOUR CLUB · EVERY TEAM <span className="club-tv-legend">● Goals <span className="club-tv-red">▮ Red cards</span> · Shirt numbers only</span></div><div className="club-tv-pages">Page {currentPage + 1} / {totalPages}{totalPages > 1 ? ` · ${paused ? 'Paused' : `Next in ${seconds}s`}` : ''}</div><BrandCredit /></footer>
     {!locked ? <nav className="club-tv-controls" aria-label="Display controls"><Link to="/coach">Back to Club Admin</Link><label>Match date <input aria-label="Match date" type="date" value={date} onChange={(event) => { if (event.target.value) setDate(event.target.value) }} /></label><button onClick={() => setDate(clubTvDate())}>Today</button><button disabled={totalPages <= 1} onClick={() => changePage(-1)} aria-label="Previous match page">←</button><button disabled={totalPages <= 1} onClick={() => setPaused(!paused)}>{paused ? 'Resume carousel' : 'Pause carousel'}</button><button disabled={totalPages <= 1} onClick={() => changePage(1)} aria-label="Next match page">→</button><button onClick={() => setSettings(true)}>Display settings</button><button onClick={fullScreen}>Full screen and lock</button>{fullscreenError ? <span role="status">{fullscreenError}</span> : null}</nav> : <div className="club-tv-lock-bar"><span>Display locked · Leaving full screen keeps Club Admin protected</span><button onClick={() => setUnlocking(true)}>Unlock Club Admin</button></div>}
     {unlocking ? <UnlockDisplay clubId={user.clubId} onClose={() => setUnlocking(false)} onUnlocked={async () => { setClubTvLocked(user, false); setLocked(false); setUnlocking(false); if (document.fullscreenElement) await document.exitFullscreen().catch(() => {}); navigate('/coach') }} /> : null}

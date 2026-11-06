@@ -97,6 +97,9 @@ export function readTvPreferences(key) {
   try {
     const saved = JSON.parse(localStorage.getItem(key) || '{}')
     const map = /^data:image\/(png|jpeg|webp);base64,[a-z0-9+/=]+$/i.test(saved.map ?? '') && saved.map.length < 2850000 ? saved.map : ''
-    return { appearance: saved.appearance === 'dark' ? 'dark' : 'light', bigGoal: saved.bigGoal !== false, showMap: saved.showMap !== false, weatherPostcode: text(saved.weatherPostcode).slice(0, 10), map }
-  } catch { return { appearance: 'light', bigGoal: true, showMap: true, weatherPostcode: '', map: '' } }
+    const sponsorAds = (Array.isArray(saved.sponsorAds) ? saved.sponsorAds : []).slice(0, 3)
+      .filter(ad => /^data:image\/(png|jpeg|webp);base64,[a-z0-9+/=]+$/i.test(ad?.image ?? '') && ad.image.length < 750000)
+      .map(ad => ({ image: ad.image, name: text(ad.name).slice(0, 80) }))
+    return { appearance: saved.appearance === 'dark' ? 'dark' : 'light', bigGoal: saved.bigGoal !== false, showMap: saved.showMap !== false, weatherPostcode: text(saved.weatherPostcode).slice(0, 10), map, sponsorAds, showPitchsideOrdering: saved.showPitchsideOrdering === true }
+  } catch { return { appearance: 'light', bigGoal: true, showMap: true, weatherPostcode: '', map: '', sponsorAds: [], showPitchsideOrdering: false } }
 }
