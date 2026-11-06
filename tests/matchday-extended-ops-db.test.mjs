@@ -16,6 +16,7 @@ const ids = {
   scorer: '30000000-0000-4000-8000-000000000002',
   ordinaryParent: '30000000-0000-4000-8000-000000000003',
   player: '40000000-0000-4000-8000-000000000001',
+  secondPlayer: '40000000-0000-4000-8000-000000000002',
   scorerLink: '50000000-0000-4000-8000-000000000001',
   match: '60000000-0000-4000-8000-000000000001',
   deletedMatch: '60000000-0000-4000-8000-000000000002',
@@ -100,8 +101,8 @@ test('disposable database validates extended lifecycle, authority, score separat
     )
     await db.query('insert into auth.users(id) values ($1), ($2), ($3)', [ids.staff, ids.scorer, ids.ordinaryParent])
     await db.query(
-      "insert into public.players(id, club_id, team_id, status) values ($1, $2, $3, 'active')",
-      [ids.player, ids.club, ids.team],
+      "insert into public.players(id, club_id, team_id, status) values ($1, $2, $3, 'active'), ($4, $2, $3, 'active')",
+      [ids.player, ids.club, ids.team, ids.secondPlayer],
     )
     await db.query(
       `insert into public.parent_player_links(id, club_id, team_id, player_id, auth_user_id, email, status)
@@ -283,6 +284,10 @@ test('disposable database validates extended lifecycle, authority, score separat
     await expectDatabaseError(db.query('select public.enable_match_day_parent_sharing($1, $2::uuid[], $3::uuid[], $4)', [ids.match, [ids.player], [], ids.scorerLink]), /fixture changed/i)
     await db.query('select public.enable_match_day_parent_sharing($1, $2::uuid[], $3::uuid[], $4)', [ids.match, [ids.player], [ids.player], ids.scorerLink])
     assert.deepEqual((await db.query('select parent_visible, parent_audience from public.match_days where id = $1', [ids.match])).rows[0], parentSharing)
+    await db.query("update public.match_days set parent_audience = 'all_team_parents' where id = $1", [ids.match])
+    await db.query('select public.enable_match_day_parent_sharing($1, $2::uuid[], $3::uuid[], $4)', [ids.match, [ids.player, ids.secondPlayer], [ids.player], ids.scorerLink])
+    assert.deepEqual((await db.query('select parent_visible, parent_audience from public.match_days where id = $1', [ids.match])).rows[0], { parent_visible: true, parent_audience: 'all_team_parents' })
+    assert.equal((await db.query('select count(*)::integer as count from public.test_fixture_players where match_day_id = $1', [ids.match])).rows[0].count, 2)
 
     for (const rule of ['normal_time', 'straight_to_penalties', 'extra_time', 'extra_time_then_penalties']) {
       for (const phase of ['normal_time_complete', 'extra_time_complete']) {

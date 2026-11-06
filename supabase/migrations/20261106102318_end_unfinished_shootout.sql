@@ -146,7 +146,13 @@ begin
     request_token_value, false, false
   );
   update public.match_days
-  set parent_visible = true, parent_audience = 'involved_players', updated_at = now()
+  set parent_visible = true,
+      parent_audience = case
+        when match_row.parent_visible is true and match_row.parent_audience <> 'none'
+          then match_row.parent_audience
+        else 'involved_players'
+      end,
+      updated_at = now()
   where id = match_row.id returning * into updated_row;
   insert into public.match_day_event_log (
     club_id, team_id, match_day_id, actor_user_id, actor_display_name,
