@@ -559,7 +559,7 @@
   "implementationHashes": {
     "scripts/security-supply-chain-gate.mjs": "dcf722bc6cbf2015da4250ea60cbb81e34d3c5c64ec7bb6059671cbae5ab4207",
     "scripts/security-apply-reviewed-backports.mjs": "7f0e9de0add15a121a0f60f89f71656b503450010b8b9c8d4aaf58bc355fc5ec",
-    "scripts/security-verify-reviewed-backports.mjs": "0da84f051de10dc94a8140bf351d961e090643d13ba239daa3ad58953604ed2c",
+    "scripts/security-verify-reviewed-backports.mjs": "352b5a410317761f062af102dfd8c8d1ed6bb87a697240ecb6c8548d38c0a461",
     "security/patches/braces-3.0.3.patch": "e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699",
     "security/patches/node-forge-1.4.0.patch": "2de065ac998bf58917a14d0935112d97ec2957ac41b5f06958d500934f188ed4",
     "security/patches/reviewed-source-manifest.json": "facb364bbac44a8276d082068e8ed8415ca89777d24f4c7a05ff370f71e5a54d",
@@ -2011,7 +2011,7 @@
       "supabase/migrations/20261030075557_matchday_finish_before_optional_phases.sql": "5f0e03b9d29dd5a295fc41b53ec16aa5d0afd9becc002b9f9dd04003b2904fd7",
       "tests/device-theme-browser.mjs": "fa5e99fc628c2ca796a84470ca29533379fac14da50ab26acb4044e6771b61c0",
       "tests/device-theme-preference.test.mjs": "5ddb8456d9a0a11513acddc66b3c2f8817a7ac41546d3c0a435b6f64ac0a55a0",
-      "tests/matchday-extended-ops-db.test.mjs": "2d9034270c793deef094ee23eec72cbc22c70b980849a1d4511090c84d89de89",
+      "tests/matchday-extended-ops-db.test.mjs": "b63ce8efe1bbac9469e1faf1d36a144532818790b65142e0e28e50a73858362b",
       "tests/matchday-extended-ops.test.mjs": "9287102044e2086c025fa1e3f69b682a35048e677a864387bf8f3b50e8a6906d",
       "tests/mobile-ota-runtime.test.mjs": "417f7d5117610785b095350574d1f2fa7b8b8828088c274e7ae6ea967ccc88e6",
       "tests/mobile-resource-loading-performance.test.mjs": "ff15cd3836b2fcff53ec4be7e42fb5c48d1a54c93c019e04e118c1a522c4eed1",
@@ -2153,7 +2153,7 @@
       "apps/coach-mobile/src/useCoachOfflinePreparation.js": "7e402c0462f73f361084b0d0c597bd7b767fbc45bea8e82db0616baf9289d393",
       "netlify/functions/lib/_match-day-native-message.js": "7b25c47095de495c750e1f1982c515a7ceaebc5548dbb6d73dd98b2299da595c",
       "src/lib/matchday-lifecycle.js": "ff586df269d21d837d9275524fa6fa3dce7ce416ee270c698ce83f7af89f6e7e",
-      "supabase/migrations/20261106102318_end_unfinished_shootout.sql": "887150c47faa6834c5b5d5ca988761aaa42965899e674601f51f521a30504292",
+      "supabase/migrations/20261106102318_end_unfinished_shootout.sql": "0afa163f9a0a05fed49bf6c810ca4539e9625f8705fa392727cb0b2e38b1a9a1",
       "tests/matchday-parent-scorer-hardening.test.mjs": "59868a3d8a4a75b74827e3fd7fb3f66764830dd9c75ca53d9ab39a61ec92e2e8",
       "tests/parent-matchday-notification-semantics-34c.test.mjs": "0206a26653d8d3aa231cb79e37ba5392f9ee0f572005f57c635b1af5725d391f"
     },
@@ -3605,7 +3605,7 @@
       "independentExactSourceAcceptanceRequired": true
     }
   },
-  "releasePreparationSha256": "d2573b6700ce836141306cbfa5fb3f9719d0e378a312b0c0ee3bdde1659faa33",
+  "releasePreparationSha256": "cff4ad607d8b0da30d62836ece3f8a6970efa04e7d9d55164d169c327a166d94",
   "rootOnlyProposalSha256": "45c3b7352c7328c84982e114b7e87e09cf79514d02d102297ae75ec0925812eb",
   "remediationMode": "maintained-source-fixes",
   "officialCompatibilityDependencies": [

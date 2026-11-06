@@ -163,7 +163,7 @@ begin
     coalesce(nullif(public.current_user_role(), ''), 'staff'),
     'match_day_updated', 'Fixture shared with parents',
     jsonb_build_object('parentVisible', match_row.parent_visible, 'parentAudience', match_row.parent_audience),
-    jsonb_build_object('parentVisible', true, 'parentAudience', 'involved_players'),
+    jsonb_build_object('parentVisible', true, 'parentAudience', updated_row.parent_audience),
     jsonb_build_object('source', 'coach_mobile_fixture_edit')
   );
   return jsonb_build_object('id', updated_row.id, 'parentVisible', true,

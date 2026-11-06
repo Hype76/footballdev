@@ -288,6 +288,7 @@ test('disposable database validates extended lifecycle, authority, score separat
     await db.query('select public.enable_match_day_parent_sharing($1, $2::uuid[], $3::uuid[], $4)', [ids.match, [ids.player, ids.secondPlayer], [ids.player], ids.scorerLink])
     assert.deepEqual((await db.query('select parent_visible, parent_audience from public.match_days where id = $1', [ids.match])).rows[0], { parent_visible: true, parent_audience: 'all_team_parents' })
     assert.equal((await db.query('select count(*)::integer as count from public.test_fixture_players where match_day_id = $1', [ids.match])).rows[0].count, 2)
+    assert.equal((await db.query("select count(*)::integer as count from public.match_day_event_log where match_day_id = $1 and event_label = 'Fixture shared with parents' and new_value ->> 'parentAudience' = 'all_team_parents'", [ids.match])).rows[0].count, 1)
 
     for (const rule of ['normal_time', 'straight_to_penalties', 'extra_time', 'extra_time_then_penalties']) {
       for (const phase of ['normal_time_complete', 'extra_time_complete']) {
