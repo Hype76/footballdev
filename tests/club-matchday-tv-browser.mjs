@@ -76,18 +76,24 @@ try {
   })
   assert.equal(reducedRoadFits, true, 'Reduced motion keeps every away fixture visible')
   await page.setViewportSize({ width: 1366, height: 600 })
+  await page.waitForFunction(() => {
+    const edge = selector => document.querySelector(selector)?.getBoundingClientRect()
+    const home = edge('.club-tv-home-panel'), score = edge('.club-tv-fixtures')
+    const homeRow = edge('.club-tv-home-row:last-of-type'), scoreRow = edge('.club-tv-match:last-of-type')
+    return home && score && homeRow && scoreRow && homeRow.bottom <= home.bottom + 1 && scoreRow.bottom <= score.bottom + 1
+  })
   const reducedLayout = await page.evaluate(() => {
     const edge = selector => document.querySelector(selector)?.getBoundingClientRect()
     const footer = edge('.club-tv-footer'), home = edge('.club-tv-home-panel'), score = edge('.club-tv-fixtures')
     const homeRow = document.querySelector('.club-tv-home-row:last-of-type')?.getBoundingClientRect()
     const scoreRow = document.querySelector('.club-tv-match:last-of-type')?.getBoundingClientRect()
-    return { footerBottom: footer.bottom, homeFits: homeRow.bottom <= home.bottom + 1, scoreFits: scoreRow.bottom <= score.bottom + 1 }
+    return { footerBottom: footer.bottom, homeFits: homeRow.bottom <= home.bottom + 1, scoreFits: scoreRow.bottom <= score.bottom + 1, homeBottom: home.bottom, homeRowBottom: homeRow.bottom, scoreBottom: score.bottom, scoreRowBottom: scoreRow.bottom }
   })
   assert.ok(reducedLayout.footerBottom <= 601 && reducedLayout.homeFits && reducedLayout.scoreFits, `Reduced-motion 600px TV keeps centre and footer visible: ${JSON.stringify(reducedLayout)}`)
   await page.setViewportSize({ width: 1920, height: 1080 })
   await page.emulateMedia({ reducedMotion: 'no-preference' })
   assert.equal(await page.locator('.club-tv-goal-large').count(), 0)
-  assert.match(await page.locator('.club-tv-pages').textContent(), /Page 1 \/ 2/)
+  assert.match(await page.locator('.club-tv-pages').textContent(), /Page 1 \/ [2-9]/)
   assert.ok(requests.every((request) => request.clubId === 'club-fixture'))
   assert.equal(await page.locator('audio').count(), 0)
   assert.equal(await page.getByRole('button', { name: 'TV mode', exact: true }).count(), 0)

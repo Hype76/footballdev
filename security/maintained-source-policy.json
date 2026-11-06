@@ -216,15 +216,15 @@
     "upstreamLatest": {
       "glob": {
         "name": "glob",
-        "version": "14.0.3",
-        "registryIntegrity": "sha512-A1vjIwC3qpdCso45Iw127gnp7sPhqgY8lUQhDrArIs+GbmfaaVPFuoyy7WyLT9EPZCRZ7j7aLdwUhQmHWesEow==",
-        "gitHead": "fc93fd5dab2bd40ea02681e8a1f027dacca216ce"
+        "version": "14.0.4",
+        "registryIntegrity": "sha512-mMiwNKoJZ4HAIRVJxotO6LsNRReA30gQwP9E2/p94tfLv+jygCNpKDjhhSL6OLY6LE371EZm5EAf7RpYuUqlsw==",
+        "gitHead": "f26bdacd642324afde39e201c9b63d1496384ced"
       },
       "minimatch": {
         "name": "minimatch",
-        "version": "11.0.4",
-        "registryIntegrity": "sha512-/UJ1dEoVQTjPNDh6SGlUo+ueLMmoHTas4q+8yaAR/5t6nLAIiBDJtoYUh20IYleix7ehiQkgczb84PE3uzHkxg==",
-        "gitHead": "f24eba95d759c794f9f2529a650b6f9418544228"
+        "version": "11.0.5",
+        "registryIntegrity": "sha512-snPlVppFcYWfLLFQGhDxUyBcHNtMlWmn3jtj7pEaO+DP8pqL0IvAzXhMYmn1z9ASNtgmwLBdFxSf4tMUB0OTKA==",
+        "gitHead": "ea0a4a6fd1dbe385fa910032221a1f47ce93a334"
       }
     },
     "advisoryAcceptanceAllowed": false,
