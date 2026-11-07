@@ -3,7 +3,7 @@ import { AppState } from 'react-native'
 import { MobilePasswordRecovery } from './MobilePasswordRecovery'
 import { authenticateWithBiometrics, getBiometricEnabled, setBiometricEnabled } from './biometrics'
 import { getMobileRuntimeConfig } from './config'
-import { revokeLiveMatchFollowsBeforeSignOut } from './liveMatchFollow'
+import { clearLiveMatchOnSignOut, revokeLiveMatchFollowsBeforeSignOut } from './liveMatchFollow'
 import { revokeNativePushDevice } from './notifications'
 import { fetchMobileProfile } from './profile'
 import { mobileResourceCache } from './mobileResourceCache'
@@ -40,6 +40,31 @@ function isAuthoritativeProfileFailure(error) {
     || message.includes('not authorised')
     || message.includes('not authorized')
     || message.includes('permission denied')
+}
+
+function isLiveMatchSessionUnavailable(error) {
+  const code = String(error?.code || '').trim()
+  const name = String(error?.name || '').trim()
+  const message = String(error?.message || '').trim().toLowerCase()
+  return Number(error?.status || error?.statusCode || 0) === 401
+    || name === 'AuthSessionMissingError'
+    || message === 'auth session missing!'
+    || message === 'sign in to stop live match updates.'
+    || (code === '42501' && (
+      message.includes('permission denied for function revoke_live_activity_start_subscriptions')
+      || message.includes('sign in to stop live activities')
+    ))
+}
+
+async function stopLiveMatchFollowsForSignOut(appRole) {
+  try {
+    await revokeLiveMatchFollowsBeforeSignOut(appRole)
+  } catch (error) {
+    if (!isLiveMatchSessionUnavailable(error)) throw error
+    // The server no longer accepts this session. End displays on this phone
+    // and let the local sign-out clear its saved credentials.
+    await clearLiveMatchOnSignOut(appRole)
+  }
 }
 
 async function disableBiometricsForApp(appRole) {
@@ -404,7 +429,7 @@ export function AuthProvider({
 
     try {
       await withStartupTimeout(async () => {
-        await revokeLiveMatchFollowsBeforeSignOut(appRole)
+        await stopLiveMatchFollowsForSignOut(appRole)
         await supabase.auth.signOut({ scope: 'local' }).catch(() => {})
         await clearMobileSessionStorage()
         if (offlineProfileStore?.clear) await offlineProfileStore.clear()
@@ -422,7 +447,12 @@ export function AuthProvider({
   }, [appRole, offlineProfileStore, onResetLocalData])
 
   const signOut = useCallback(async () => {
-    await revokeLiveMatchFollowsBeforeSignOut(appRole)
+    try {
+      await stopLiveMatchFollowsForSignOut(appRole)
+    } catch (error) {
+      setAuthError('Live match updates could not be stopped. Check your connection and try logging out again.')
+      throw error
+    }
     profileGenerationRef.current += 1
     mobileResourceCache.clear()
     setIsLocked(false)

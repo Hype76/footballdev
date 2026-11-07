@@ -11,7 +11,8 @@ const mocks = {
   './MobilePasswordRecovery': 'export const MobilePasswordRecovery=()=>null',
   './biometrics': 'export const getBiometricEnabled=async()=>{window.biometricCalls=(window.biometricCalls||0)+1;return Boolean(window.biometricEnabled)}; export const setBiometricEnabled=async()=>{}; export const authenticateWithBiometrics=async()=>{}',
   './config': 'export const getMobileRuntimeConfig=()=>({isUsable:true})',
-  './liveMatchFollow': 'export const revokeLiveMatchFollowsBeforeSignOut=async()=>{}',
+  './liveMatchFollow': `export const revokeLiveMatchFollowsBeforeSignOut=async()=>{window.liveRevokeCalls=(window.liveRevokeCalls||0)+1;if(window.liveRevokeFailure)throw Object.assign(new Error(window.liveRevokeFailure.message),window.liveRevokeFailure)};
+    export const clearLiveMatchOnSignOut=async()=>{window.localLiveClearCalls=(window.localLiveClearCalls||0)+1}`,
   './notifications': 'export const revokeNativePushDevice=async()=>{}',
   './profile': `export async function fetchMobileProfile(user) { window.profileCalls++; if(window.insideAuthCallback) throw Error('profile called inside auth lock'); if(window.profileError) throw Object.assign(Error(window.profileError),{code:window.profileCode,status:window.profileStatus}); if(window.deferProfile) return new Promise(resolve=>{window.resolveProfile=()=>resolve({id:user.id,role:'coach'})}); if(window.hangProfile) return new Promise(()=>{}); return {id:user.id, role:'parent_portal'} }`,
   './supabase': `export const supabase={auth:window.mockAuth}; export const clearMobileSessionStorage=async()=>{window.sessionClearCalls=(window.sessionClearCalls||0)+1}; export const getAccessToken=async()=>''; export const isSupabaseConfigured=true; export const mobileConfigError=''; export const mobileSessionStorageError=''; export const readSavedMobileSession=async()=>{if(window.savedSessionError) throw Error(window.savedSessionError); return window.savedSession||null}`,
@@ -222,5 +223,36 @@ try {
   assert.equal(await late.evaluate(() => window.authState.user), null, 'Late profile completion cannot restore access after sign-in recovery')
   assert.equal(await late.evaluate(() => window.authState.session), null)
   await late.close()
+  for (const [role, failure, expected] of [
+    ['coach', { code: '42501', message: 'permission denied for function revoke_live_activity_start_subscriptions' }, 'success'],
+    ['parent', { code: '42501', message: 'Sign in to stop Live Activities.' }, 'success'],
+    ['coach', { message: 'Sign in to stop live match updates.' }, 'success'],
+    ['parent', { name: 'AuthSessionMissingError', message: 'Auth session missing!' }, 'success'],
+    ['coach', { code: 'PGRST500', message: 'Server temporarily unavailable' }, 'failure'],
+  ]) {
+    const logout = await browser.newPage()
+    await logout.setContent('<div id="root"></div>')
+    await logout.evaluate(({ role, failure }) => {
+      window.testRole = role; window.profileCalls = 0; window.historyStates = []
+      window.liveRevokeFailure = failure
+      window.savedSession = { user: { id: 'saved-user' }, access_token: 'synthetic-only', refresh_token: 'synthetic-only' }
+      window.mockAuth = {
+        startAutoRefresh() {}, stopAutoRefresh() {},
+        getSession: async () => ({ data: { session: window.savedSession } }),
+        signOut: async () => { window.serverSignOutCalls = (window.serverSignOutCalls || 0) + 1; window.authEvent('SIGNED_OUT', null); return { error: null } },
+        onAuthStateChange(fn) { window.authEvent = fn; return { data: { subscription: { unsubscribe() {} } } } },
+      }
+    }, { role, failure })
+    await logout.addScriptTag({ content: result.outputFiles[0].text })
+    await logout.waitForFunction(() => window.authState?.startupState === 'READY_SIGNED_IN')
+    await logout.evaluate(() => { window.authState.signOut().then(() => { window.logoutResult = 'success' }).catch(() => { window.logoutResult = 'failure' }) })
+    await logout.waitForFunction(() => Boolean(window.logoutResult))
+    assert.equal(await logout.evaluate(() => window.logoutResult), expected)
+    assert.equal(await logout.evaluate(() => window.liveRevokeCalls), 1)
+    assert.equal(await logout.evaluate(() => window.localLiveClearCalls || 0), expected === 'success' ? 1 : 0)
+    assert.equal(await logout.evaluate(() => window.serverSignOutCalls || 0), expected === 'success' ? 1 : 0)
+    assert.equal(await logout.evaluate(() => window.authState.session?.user?.id || null), expected === 'success' ? null : 'saved-user')
+    await logout.close()
+  }
   console.log('PASS: actual AuthProvider handles login, refresh, account switching, non-destructive sign-in recovery, biometric relocking, late profiles and sign-out without auth-lock calls.')
 } finally { await browser.close() }
