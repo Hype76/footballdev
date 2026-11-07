@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto'
 import { readdir, readFile } from 'node:fs/promises'
 import path from 'node:path'
 import process from 'node:process'
-import { matchesHardeningMigrationScope, matchesCompleteV1MigrationScope } from './v1-hardening-migration-scope.mjs'
+import { matchesHardeningMigrationScope, matchesCompleteV1MigrationScope, matchesIncidentRecoveryMigrationScope } from './v1-hardening-migration-scope.mjs'
 
 const migrationDirectory = path.join(process.cwd(), 'supabase', 'migrations')
 const reconciliationManifestPath = path.join(process.cwd(), 'scripts', 'migration-reconciliation-manifest.json')
@@ -143,7 +143,8 @@ try {
       source: await readFile(migrationPath, 'utf8'),
     })))
     if (matchesCompleteV1MigrationScope(base, entries) && mainTip !== base) failures.push('Combined V1 migration scope requires the verified unchanged origin/main tip')
-    if (!matchesHardeningMigrationScope(base, entries) && !matchesCompleteV1MigrationScope(base, entries)) await validateReconciliationManifest(base, changed)
+    if (matchesIncidentRecoveryMigrationScope(base, entries) && mainTip !== base) failures.push('Incident recovery migration scope requires the verified unchanged origin/main tip')
+    if (!matchesHardeningMigrationScope(base, entries) && !matchesCompleteV1MigrationScope(base, entries) && !matchesIncidentRecoveryMigrationScope(base, entries)) await validateReconciliationManifest(base, changed)
   }
 } catch {
   failures.push('Could not establish the origin/main migration allowlist base')

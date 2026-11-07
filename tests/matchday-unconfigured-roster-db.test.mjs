@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import { PGlite } from '@electric-sql/pglite'
 import { mergeMatchDayCommandSnapshot } from '../apps/mobile-core/src/matchDayOutboxCore.js'
+import { mergeParentScorerAcknowledgement } from '../apps/parent-mobile/src/parentScorerOutboxCore.js'
 
 const uuid = (kind, n = 1) => `${kind}0000000-0000-4000-8000-${String(n).padStart(12, '0')}`
 const club = uuid(1), team = uuid(2), actor = uuid(3), staff = uuid(3, 2), link = uuid(5), fixture = uuid(6)
@@ -74,6 +75,7 @@ async function database() {
   const coachJournal = await readFile(new URL('../supabase/migrations/20260907112202_coach_match_day_offline_commands.sql', import.meta.url), 'utf8')
   await db.exec(coachJournal.slice(0,coachJournal.indexOf('create or replace function')))
   await db.exec(await readFile(new URL('../supabase/migrations/20261004153000_matchday_unconfigured_participant_roster.sql', import.meta.url), 'utf8'))
+  await db.exec(await readFile(new URL('../supabase/migrations/20261107151218_coach_match_day_command_no_wait.sql', import.meta.url), 'utf8'))
   const followup = await readFile(new URL('../supabase/migrations/20261012142553_matchday_substitution_and_handover_notifications.sql', import.meta.url), 'utf8')
   await db.exec(followup.slice(0, followup.indexOf('create or replace function public.claim_parent_scorer_command_notifications')))
   return db
@@ -406,8 +408,8 @@ test('actual Parent queued correction adapter routes IDs to v2 journal, returns 
         args.command_id_value,args.match_day_id_value,args.parent_link_id_value,args.kind_value,JSON.stringify(args.payload_value),
         args.captured_at_value,args.expected_updated_at_value,args.previous_command_id_value])).rows[0].result
     }
-    const apply=new Function('requireSelectedLink','scorerRpc','getMobileRuntimeConfig','getAccessToken','fetchJsonWithTimeout','joinApiPath','mergeMatchDayCommandSnapshot','normalizeParentMatchDay',code+';return applyParentScorerCommand')(
-      ()=>({id:link,clubId:club,teamId:team}),rpc,()=>({apiBaseUrl:''}),async()=>'',()=>{throw new Error('No network allowed')},()=>'',mergeMatchDayCommandSnapshot,value=>({...value,clubId:value.club_id??value.clubId,teamId:value.team_id??value.teamId}))
+    const apply=new Function('requireSelectedLink','scorerRpc','getMobileRuntimeConfig','getAccessToken','fetchJsonWithTimeout','joinApiPath','mergeMatchDayCommandSnapshot','mergeParentScorerAcknowledgement','normalizeParentMatchDay',code+';return applyParentScorerCommand')(
+      ()=>({id:link,clubId:club,teamId:team}),rpc,()=>({apiBaseUrl:''}),async()=>'',()=>{throw new Error('No network allowed')},()=>'',mergeMatchDayCommandSnapshot,mergeParentScorerAcknowledgement,value=>({...value,clubId:value.club_id??value.clubId,teamId:value.team_id??value.teamId}))
     const revision=async()=> (await db.query('select now()::text captured,updated_at::text revision from match_days')).rows[0]
     let stamp=await revision()
     let command={id:uuid(7,2),matchId:fixture,kind:'correct-goal',capturedAt:stamp.captured,expectedUpdatedAt:stamp.revision,
