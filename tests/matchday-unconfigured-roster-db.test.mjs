@@ -75,7 +75,7 @@ async function database() {
   const coachJournal = await readFile(new URL('../supabase/migrations/20260907112202_coach_match_day_offline_commands.sql', import.meta.url), 'utf8')
   await db.exec(coachJournal.slice(0,coachJournal.indexOf('create or replace function')))
   await db.exec(await readFile(new URL('../supabase/migrations/20261004153000_matchday_unconfigured_participant_roster.sql', import.meta.url), 'utf8'))
-  await db.exec(await readFile(new URL('../supabase/migrations/20261107151218_coach_match_day_command_no_wait.sql', import.meta.url), 'utf8'))
+  await db.exec(await readFile(new URL('../supabase/migrations/20261107193737_coach_match_day_command_no_wait.sql', import.meta.url), 'utf8'))
   const followup = await readFile(new URL('../supabase/migrations/20261012142553_matchday_substitution_and_handover_notifications.sql', import.meta.url), 'utf8')
   await db.exec(followup.slice(0, followup.indexOf('create or replace function public.claim_parent_scorer_command_notifications')))
   return db

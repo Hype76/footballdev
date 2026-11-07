@@ -6,8 +6,8 @@ import path from 'node:path'
 import test from 'node:test'
 import { hardeningMigrationScope, matchesHardeningMigrationScope, completeV1MigrationScope, matchesCompleteV1MigrationScope, incidentRecoveryMigrationScope, matchesIncidentRecoveryMigrationScope } from '../scripts/v1-hardening-migration-scope.mjs'
 
-test('held no-wait migration preserves both command bodies apart from the contested row lock', () => {
- const candidate = readFileSync('supabase/migrations/20261107151218_coach_match_day_command_no_wait.sql', 'utf8').replaceAll('\r\n', '\n')
+test('no-wait migration preserves both command bodies apart from the contested row lock', () => {
+ const candidate = readFileSync('supabase/migrations/20261107193737_coach_match_day_command_no_wait.sql', 'utf8').replaceAll('\r\n', '\n')
  const inputs = [
   ['supabase/migrations/20260907112202_coach_match_day_offline_commands.sql', 'apply_coach_match_day_command'],
   ['supabase/migrations/20261004153000_matchday_unconfigured_participant_roster.sql', 'apply_coach_match_day_command_v2'],
@@ -28,7 +28,7 @@ test('held no-wait migration preserves both command bodies apart from the contes
  }
 })
 
-test('incident recovery gate accepts only the recorded production migrations and held candidate', () => {
+test('incident recovery gate accepts only the recorded production migrations', () => {
  const entries = Object.keys(incidentRecoveryMigrationScope.hashes).sort().map(path => ({ path, status: 'A', source: readFileSync(path, 'utf8') }))
  assert.equal(matchesIncidentRecoveryMigrationScope(incidentRecoveryMigrationScope.base, entries), true)
  assert.equal(matchesIncidentRecoveryMigrationScope('wrong-base', entries), false)
