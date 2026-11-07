@@ -9,7 +9,7 @@ const mocks = {
   MobilePasswordRecovery: 'export const MobilePasswordRecovery=()=>null',
   biometrics: 'export const getBiometricEnabled=async()=>true; export const setBiometricEnabled=async()=>{}; export const authenticateWithBiometrics=async()=>{}',
   config: `export const getMobileRuntimeConfig=()=>({isUsable:true,isProduction:false,supabaseUrl:'https://ndohkecigwlwayghsopw.supabase.co'})`,
-  liveMatchFollow: 'export const revokeLiveMatchFollowsBeforeSignOut=async()=>{}',
+  liveMatchFollow: 'export const revokeLiveMatchFollowsBeforeSignOut=async()=>{};export const clearLiveMatchOnSignOut=async()=>{}',
   notifications: 'export const revokeNativePushDevice=async()=>{}',
   parentPortalData: 'export const applyParentScorerCommand=async()=>{throw Error("offline sync unavailable")}',
   profile: `export async function fetchMobileProfile(user) { window.profileCalls++; if(window.networkDown) throw new TypeError('Network request failed'); return {...window.profile,id:user.id} }`,

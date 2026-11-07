@@ -189,16 +189,19 @@ function LoginScreen() {
 
 function CoachHome() {
   const { authError, isProfileLoading, refreshUserProfile, signOut, user } = useMobileAuth()
+  const requestSignOut = () => void signOut().catch(() => {
+    Alert.alert('Could not log out', 'Live match updates could not be stopped. Check your connection and try again.')
+  })
   const signOutWithPendingCheck = async () => {
     let count
     try { count = (await countPendingCoachMatchDayActions(user.id)) + (await countPendingCoachDevelopmentDrafts(user.id)) }
     catch { count = null }
-    if (count === 0) return signOut()
+    if (count === 0) return requestSignOut()
     Alert.alert('Saved work on this phone', count === null
       ? 'Saved actions could not be checked. Signing out clears this device. Keep signed in if you have actions waiting to sync.'
       : `${count} saved items are waiting to sync. Signing out will remove them from this device.`, [
       { text: 'Keep signed in', style: 'cancel' },
-      { text: 'Sign out and discard', style: 'destructive', onPress: () => void signOut() },
+      { text: 'Sign out and discard', style: 'destructive', onPress: requestSignOut },
     ])
   }
   const safeAreaInsets = useSafeAreaInsets()
