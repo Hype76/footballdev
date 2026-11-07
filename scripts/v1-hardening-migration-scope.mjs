@@ -38,13 +38,14 @@ export function matchesCompleteV1MigrationScope(base, entries) {
     && createHash('sha256').update(source.replaceAll('\r\n', '\n')).digest('hex') === completeV1MigrationScope.hashes[path])
 }
 
-// Exact production recovery ledger. This validates source history only.
+// Recorded production recovery plus the held no-wait candidate. Source validation only.
 export const incidentRecoveryMigrationScope = {
   base: '93fa55993f530d7b002946148b39d4f0ef8c5f1a',
   hashes: {
     'supabase/migrations/20261107112041_bound_coach_match_day_command_lock_wait.sql': 'd350ba584c4a0a4800d96b75ad69a760f5a9edc91cc677c06802dcc5153883b5',
     'supabase/migrations/20261107113701_pause_coach_match_day_lock_wait_guard_until_approved.sql': '61e3c79ee497bd75b954aab59960e1aaf7e74911ee2440c4cc43471d6cd56534',
     'supabase/migrations/20261107113724_restore_coach_match_day_lock_wait_guard.sql': '2d8e239abbb01c9def3ac884927844232281a9b399f364547dc883a7f88e62f6',
+    'supabase/migrations/20261107151218_coach_match_day_command_no_wait.sql': '1979f6f966a1655834f6e0736200503fb505998b83e77758e1248ba8062687c3',
   },
 }
 

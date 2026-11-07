@@ -6,7 +6,29 @@ import path from 'node:path'
 import test from 'node:test'
 import { hardeningMigrationScope, matchesHardeningMigrationScope, completeV1MigrationScope, matchesCompleteV1MigrationScope, incidentRecoveryMigrationScope, matchesIncidentRecoveryMigrationScope } from '../scripts/v1-hardening-migration-scope.mjs'
 
-test('incident recovery gate accepts only the recorded production migrations', () => {
+test('held no-wait migration preserves both command bodies apart from the contested row lock', () => {
+ const candidate = readFileSync('supabase/migrations/20261107151218_coach_match_day_command_no_wait.sql', 'utf8').replaceAll('\r\n', '\n')
+ const inputs = [
+  ['supabase/migrations/20260907112202_coach_match_day_offline_commands.sql', 'apply_coach_match_day_command'],
+  ['supabase/migrations/20261004153000_matchday_unconfigured_participant_roster.sql', 'apply_coach_match_day_command_v2'],
+ ]
+ const body = (source, name) => {
+  const start = source.indexOf('create or replace function public.' + name + '(')
+  assert.ok(start >= 0)
+  const opening = source.indexOf('as $$', start)
+  const closing = source.indexOf('$$;', opening + 5)
+  assert.ok(opening > start && closing > opening)
+  return source.slice(opening + 5, closing)
+ }
+ const originalLock = 'select * into m from public.match_days where id = match_day_id_value for update;'
+ for (const [file, name] of inputs) {
+  const original = body(readFileSync(file, 'utf8').replaceAll('\r\n', '\n'), name)
+  assert.equal(original.split(originalLock).length, 2)
+  assert.equal(body(candidate, name), original.replace(originalLock, originalLock.replace('for update;', 'for update nowait;')))
+ }
+})
+
+test('incident recovery gate accepts only the recorded production migrations and held candidate', () => {
  const entries = Object.keys(incidentRecoveryMigrationScope.hashes).sort().map(path => ({ path, status: 'A', source: readFileSync(path, 'utf8') }))
  assert.equal(matchesIncidentRecoveryMigrationScope(incidentRecoveryMigrationScope.base, entries), true)
  assert.equal(matchesIncidentRecoveryMigrationScope('wrong-base', entries), false)
