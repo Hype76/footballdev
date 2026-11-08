@@ -16,6 +16,10 @@ export function hasCompleteCoachAvailabilitySnapshot(value, kind = 'match') {
 }
 
 export function compactCoachAvailabilitySnapshot(value, bounded, boundRow) {
+  // The live loader can derive `all` from these lists. Persisting it repeats
+  // every invite in the encrypted copy and can exceed older phones' cache cap.
+  const withoutDuplicateRows = { ...bounded }
+  delete withoutDuplicateRows.all
   const match = collapseCoachInvitesByPlayer(value.match).map(boundRow)
   const trainingGroups = new Map()
   for (const row of value.training || []) {
@@ -29,12 +33,11 @@ export function compactCoachAvailabilitySnapshot(value, bounded, boundRow) {
   // coachOfflineCore still enforces the unchanged encrypted document byte cap:
   // a snapshot that cannot fit fails atomically and retains the previous copy.
   return {
-    ...bounded,
+    ...withoutDuplicateRows,
     availabilityCacheVersion: value.availabilityCacheVersion === 0 ? 0 : COACH_AVAILABILITY_CACHE_VERSION,
     match,
     training,
     trainingCoaches: (value.trainingCoaches || []).map(boundRow),
-    all: [...match, ...training, ...(bounded.calendar || [])],
   }
 }
 

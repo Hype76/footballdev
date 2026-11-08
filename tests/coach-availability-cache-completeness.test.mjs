@@ -17,6 +17,7 @@ function videoPattern() {
 
 test('actual saved-resource round trip preserves the video counts beyond 180 raw requests', () => {
   const live = videoPattern()
+  live.all = [...live.match, ...live.training]
   assert.equal(live.match.length, 380)
   assert.deepEqual([counts(live).available, counts(live).awaiting], [12, 4])
   const old = { ...live, match: live.match.slice(0, 180) }
@@ -26,6 +27,7 @@ test('actual saved-resource round trip preserves the video counts beyond 180 raw
     document = setCoachOfflineResources(document, context, { 'phase31e:invites': live })
     document = JSON.parse(JSON.stringify(document))
     const saved = getCoachOfflineResources(document, context).resources['phase31e:invites']
+    assert.equal(Object.hasOwn(saved, 'all'), false, 'Derived invite rows are not duplicated in the encrypted copy')
     assert.equal(saved.availabilityCacheVersion, 1)
     assert.equal(saved.match.length, 368, 'Only duplicate event/player requests are removed')
     assert.deepEqual([counts(saved).available, counts(saved).awaiting], [12, 4])

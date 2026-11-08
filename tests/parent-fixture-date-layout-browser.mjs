@@ -34,7 +34,9 @@ import{getParentMatchAvailability,getParentMatchSquadStatus}from'./apps/parent-m
 import{formatParentProductDateTime,formatParentProductTime}from'./apps/mobile-core/src/parentDateTimeCore.js';
 import{getMatchDayDisplayName}from'./src/lib/matchday-display.js';
 import{getMatchDayShirtChoiceLabel}from'./src/lib/matchday-model.js';
-const ParentIcon=()=> <View style={{width:34,height:34}}/>;
+import {MatchTeamsLine} from './apps/mobile-core/src/MatchTeamsLine.js';
+import {resolveParentMobileBranding} from './apps/mobile-core/src/parentThemeCore.js';
+const ParentIcon=({size=22})=> <View style={{width:size,height:size}}/>;
 const MatchResultIcon=()=>null,getParentMatchResult=()=>null;
 const HomeStatusBadges=()=>null,getParentMatchStatusBadges=()=>[];
 const getParentMatchAttendanceInvitation=()=>null;
@@ -43,7 +45,7 @@ const formatTime=value=>formatParentProductTime(value);
 let currentTheme;const useParentTheme=()=>currentTheme;
 ${extract(app, ['MatchPreviewCard', 'Badge', 'createParentAppPalette', 'createParentAppStyles', 'formatDateOnly'])}
 ${extract(portal, ['MatchCard', 'MatchStatusBadge', 'scoreVisible', 'colorsFor', 'usePortalStyles', 'formatDate'])}
-const fixture={id:'fixture',matchDate:'2026-10-24',teamName:'Synthetic U14',opponent:'Synthetic opposition',homeAway:'away',kickoffTime:'10:30',shirtChoice:'home',homeScore:0,awayScore:0};
+const fixture={id:'fixture',matchDate:'2026-10-24',teamName:'Cambourne Town FC',opponent:'Peterborough Junior Blues U14',homeAway:'away',kickoffTime:'10:30',shirtChoice:'home',homeScore:0,awayScore:0};
 const variants=[['scheduled','scheduled',false],['request','scorer_request',false],['live','live',false],['cancelled','cancelled',false],['finished','full_time',false],['fan','scheduled',true]];
 function App(){const[mode,setMode]=useState('light');window.mode=setMode;const theme=createParentMobileTheme({mode});
 currentTheme={palette:createParentAppPalette(theme.tokens),styles:createParentAppStyles(theme.tokens)};
@@ -57,7 +59,7 @@ createRoot(document.getElementById('root')).render(<App/>);
 `
 const result = await build({
   stdin: { contents: entry, resolveDir: root, loader: 'jsx' }, bundle: true, write: false,
-  jsx: 'automatic', loader: { '.js': 'jsx' }, platform: 'browser', conditions: ['browser'],
+  jsx: 'automatic', loader: { '.js': 'jsx', '.png': 'dataurl' }, platform: 'browser', conditions: ['browser'],
   mainFields: ['browser', 'module', 'main'], nodePaths: [modules],
   alias: { react: path.join(modules, 'react'), 'react-dom': path.join(modules, 'react-dom'), 'react-native': path.join(modules, 'react-native-web') },
   define: { 'process.env.NODE_ENV': '"production"', __DEV__: 'false', global: 'globalThis' },
@@ -100,6 +102,7 @@ try {
     }
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `No overflow: ${mode} ${width}`)
     await page.screenshot({ path: `${output}/${mode}-${width}.png`, fullPage: true })
+    if (width === 320) await page.getByTestId('list-scheduled').screenshot({ path: `${output}/scheduled-${mode}-${width}.png` })
   }
   await page.getByTestId('list-scheduled').getByRole('button').click()
   assert.equal(await page.evaluate(() => window.opened), 'scheduled')

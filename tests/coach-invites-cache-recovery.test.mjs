@@ -10,6 +10,9 @@ const screenSource = await readFile(new URL('../apps/coach-mobile/src/CoachPhase
 const offlineSource = await readFile(new URL('../apps/coach-mobile/src/offline.js', import.meta.url), 'utf8')
 const ast = parse(screenSource, { sourceType: 'module', plugins: ['jsx'] })
 const screen = ast.program.body.find(node => node.type === 'ExportNamedDeclaration' && node.declaration?.id?.name === 'CoachPhase31EScreen').declaration
+const warningDecisionNode = ast.program.body.find(node => node.type === 'FunctionDeclaration' && node.id?.name === 'coachInvitesOfflineWarningMessage')
+assert.ok(warningDecisionNode)
+const coachInvitesOfflineWarningMessage = vm.runInNewContext(`(${screenSource.slice(warningDecisionNode.start, warningDecisionNode.end)})`)
 const callback = screen.body.body.find(node => node.type === 'VariableDeclaration' && node.declarations[0].id.name === 'load').declarations[0].init.arguments[0]
 const offlineAst = parse(offlineSource, { sourceType: 'module' })
 const declarations = ['normalize', 'sanitizeCoachBranding', 'sanitizeCoachContext', 'sanitizeCoachProfile', 'createCoachOfflineResourceSaver', 'saveCoachOfflineResourcesWithProfile'].map(name => {
@@ -89,8 +92,19 @@ test('actual write failure retains live data, protected drafts and a visible inl
   assert.ok(h.state.offlineWarning.message)
   assert.deepEqual(h.document(), original)
   const jsx = screenSource.slice(screen.body.start, screen.body.end)
-  assert.match(jsx, /<CoachOfflineCopyWarning\s+message=\{offlineWarning\.message\}/)
+  assert.match(jsx, /coachInvitesOfflineWarningMessage\(\{ data, dataScope, offlineWarning, stale \}\)/)
   assert.doesNotMatch(jsx, /<MobileFailureNotice[^>]*message=\{offlineWarning/)
+})
+
+test('current online invitations explain an offline save failure accurately, while recovery failures remain visible', () => {
+  const state = { data: snapshot, dataScope: 'team:test', stale: false }
+  const warning = message => ({ ...state, offlineWarning: { scope: state.dataScope, message } })
+  assert.match(coachInvitesOfflineWarningMessage(warning('Offline copy unavailable. Reference: CACHE.')), /Invites are current, but the latest offline copy could not be saved/)
+  assert.equal(coachInvitesOfflineWarningMessage({ ...warning('Offline copy unavailable. Reference: CACHE.'), stale: true }), 'Offline copy unavailable. Reference: CACHE.')
+  assert.equal(coachInvitesOfflineWarningMessage(warning('Saved offline work needs recovery. Reference: RECOVERY.')), 'Saved offline work needs recovery. Reference: RECOVERY.')
+  assert.equal(coachInvitesOfflineWarningMessage(warning('Offline copy unavailable. Reference: DEVICE.')), 'Offline copy unavailable. Reference: DEVICE.')
+  assert.equal(coachInvitesOfflineWarningMessage({ ...warning('Offline copy unavailable. Reference: CACHE.'), data: null }), 'Offline copy unavailable. Reference: CACHE.')
+  assert.equal(coachInvitesOfflineWarningMessage({ ...warning('Offline copy unavailable. Reference: CACHE.'), dataScope: 'other-team' }), '')
 })
 
 test('Invites shows a warning and does not create a document when storage returns null', async () => {

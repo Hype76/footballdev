@@ -718,9 +718,11 @@ function MatchCard({ colors, invitations, link, match, onOpen, styles }) {
     <View style={styles.card}>
       {!match.isFanView && !isCompleted ? <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}><MatchStatusBadge compact colors={colors} status={getParentMatchAvailability(match, invitation, link)} prefix="Availability" styles={styles} /><MatchStatusBadge compact colors={colors} status={getParentMatchSquadStatus(match)} prefix="Match squad" styles={styles} /></View> : null}
       <Pressable accessibilityHint="Opens Match Day" accessibilityRole="button" onPress={() => onOpen(match)} style={styles.compactRow}>
-        <ParentIcon color={colors.text} iconKey="football" size={34} />
-        <View style={styles.compactCopy}><View style={styles.row}>{match.status !== 'scheduled' || match.isFanView ? <Text style={styles.pill}>{getParentMatchStatusLabel(match)}</Text> : null}<Text style={[styles.meta, styles.fixtureDate]}>{formatDate(match.matchDate)}</Text></View><MatchTeamsLine match={match} clubLogoUrl={resolveParentMobileBranding(link).clubLogoUrl} compact textStyle={styles.cardTitle} /><Text style={styles.meta}>{match.kickoffTimeTbc ? 'Time TBC' : formatParentProductTime(match.kickoffTime)} | {getMatchDayShirtChoiceLabel(match.shirtChoice)}</Text></View>
-        {scoreVisible(match) ? <Text style={styles.score}>{match.homeScore} - {match.awayScore}</Text> : <ParentIcon color={colors.accentText} iconKey="action.open" size={22} />}
+        <View style={styles.compactCopy}>
+          <View style={styles.row}><ParentIcon color={colors.text} iconKey="football" size={22} />{match.status !== 'scheduled' || match.isFanView ? <Text style={styles.pill}>{getParentMatchStatusLabel(match)}</Text> : null}<Text style={[styles.meta, styles.fixtureDate]}>{formatDate(match.matchDate)}</Text></View>
+          <MatchTeamsLine match={match} clubLogoUrl={resolveParentMobileBranding(link).clubLogoUrl} compact stacked textStyle={styles.cardTitle} />
+          <View style={styles.row}><Text style={[styles.meta, { flex: 1 }]}>{match.kickoffTimeTbc ? 'Time TBC' : formatParentProductTime(match.kickoffTime)} | {getMatchDayShirtChoiceLabel(match.shirtChoice)}</Text>{scoreVisible(match) ? <Text style={styles.score}>{match.homeScore} - {match.awayScore}</Text> : <ParentIcon color={colors.accentText} iconKey="action.open" size={22} />}</View>
+        </View>
       </Pressable>
       {match.arrivalTime ? <Text style={styles.meta}>Arrive {formatParentProductTime(match.arrivalTime)}</Text> : null}
     </View>
