@@ -39,8 +39,10 @@ export function getMatchDayDisplayParts(match = {}) {
 
 export function getMatchDayDisplayName(match = {}) {
   const title = normalizeText(match.title)
-  if (title && !/^match(?:\s+v(?:s\.?)?\b|$)/i.test(title)) return title
   const { firstTeam, secondTeam } = getMatchDayDisplayParts(match)
+  const reversedAwayTitle = normalizeText(match.homeAway ?? match.home_away).toLowerCase() === 'away'
+    && title.toLowerCase() === `${secondTeam} v ${firstTeam}`.toLowerCase()
+  if (title && !reversedAwayTitle && !/^match(?:\s+v(?:s\.?)?\b|$)/i.test(title)) return title
   return `${firstTeam} v ${secondTeam}`
 }
 
