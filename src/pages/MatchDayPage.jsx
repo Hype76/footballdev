@@ -3105,9 +3105,7 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
     const selectionMode = squadSelection.mode
     const normalizedCalendarTarget = ['coach', 'squad'].includes(calendarTarget) ? calendarTarget : ''
     const calendarOnly = Boolean(normalizedCalendarTarget)
-    const squadCalendarPlayerIds = fixturePlayers
-      .filter((player) => String(player.section || '').trim().toLowerCase() === 'squad')
-      .map((player) => player.id)
+    const eligibleCalendarPlayerIds = fixturePlayers.map((player) => player.id)
     const submittedForm = normalizedCalendarTarget === 'coach'
       ? { ...form, parentAudience: 'none', parentVisible: false }
       : normalizedCalendarTarget === 'squad'
@@ -3119,8 +3117,8 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
       return
     }
 
-    if (normalizedCalendarTarget === 'squad' && squadCalendarPlayerIds.length === 0) {
-      setErrorMessage('Add at least one active Squad player before sharing this fixture with squad calendars.')
+    if (normalizedCalendarTarget === 'squad' && eligibleCalendarPlayerIds.length === 0) {
+      setErrorMessage('Add at least one eligible player before sharing this fixture with player calendars.')
       return
     }
 
@@ -3178,7 +3176,7 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
             eventId: createdMatch.id,
             eventSource: 'match-day',
             includeTrialPlayers: false,
-            playerIds: squadCalendarPlayerIds,
+            playerIds: eligibleCalendarPlayerIds,
             selectionMode: 'manual',
             user,
           })
@@ -3235,13 +3233,13 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
       showToast({
         title: calendarScopeWarning ? 'Fixture partly added' : 'Fixture created',
         message: calendarScopeWarning
-          ? `The fixture was added to Coach calendars, but squad calendars could not be updated: ${calendarScopeWarning}`
+          ? `The fixture was added to Coach calendars, but player calendars could not be updated: ${calendarScopeWarning}`
           : availabilityWarning
           ? `The fixture was saved, but availability requests could not be sent: ${availabilityWarning}`
           : normalizedCalendarTarget === 'coach'
             ? 'The fixture was added to Coach calendars. No squad requests or notifications were sent.'
           : normalizedCalendarTarget === 'squad'
-            ? 'The fixture was added to Coach and squad calendars. No availability requests or notifications were sent.'
+            ? 'The fixture was added to Coach and player calendars. No availability requests or notifications were sent.'
           : canSendAvailabilityRequests
             ? `${result.queuedCount ?? result.sentCount ?? 0} availability request notification${(result.queuedCount ?? result.sentCount ?? 0) === 1 ? '' : 's'} scheduled. ${result.missingContactCount ?? 0} players need contact details.`
             : 'The fixture was saved. Availability sending is enabled only on production or approved live runtimes.',
@@ -8032,7 +8030,7 @@ function FixtureSquadSelectionModal({
 }) {
   const selectedIds = new Set(selectedPlayerIds)
   const selectedCount = selectedIds.size
-  const squadPlayerCount = players.filter((player) => String(player.section || '').trim().toLowerCase() === 'squad').length
+  const eligiblePlayerCount = players.length
   const { viewportStyle } = useFixtureModalViewportStyle()
 
   return (
@@ -8141,8 +8139,8 @@ function FixtureSquadSelectionModal({
           <button type="button" onPointerDown={blurActiveFixtureControl} onClick={onCoachCalendars} disabled={isSaving} className={secondaryButtonClass}>
             {isSaving ? 'Creating...' : 'Add to Coach calendars'}
           </button>
-          <button type="button" onPointerDown={blurActiveFixtureControl} onClick={onSquadCalendars} disabled={isSaving || squadPlayerCount === 0} className={secondaryButtonClass}>
-            {isSaving ? 'Creating...' : 'Add to squad calendars'}
+          <button type="button" onPointerDown={blurActiveFixtureControl} onClick={onSquadCalendars} disabled={isSaving || eligiblePlayerCount === 0} className={secondaryButtonClass}>
+            {isSaving ? 'Creating...' : 'Add to player calendars'}
           </button>
           <button type="button" onPointerDown={blurActiveFixtureControl} onClick={onConfirm} disabled={isSaving || selectedCount === 0} className={primaryButtonClass}>
             {isSaving ? 'Creating...' : parentVisible ? 'Create fixture and request availability' : 'Create fixture'}

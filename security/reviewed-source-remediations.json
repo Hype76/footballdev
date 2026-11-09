@@ -559,7 +559,7 @@
   "implementationHashes": {
     "scripts/security-supply-chain-gate.mjs": "dcf722bc6cbf2015da4250ea60cbb81e34d3c5c64ec7bb6059671cbae5ab4207",
     "scripts/security-apply-reviewed-backports.mjs": "7f0e9de0add15a121a0f60f89f71656b503450010b8b9c8d4aaf58bc355fc5ec",
-    "scripts/security-verify-reviewed-backports.mjs": "839c1fb65937e6fee08b14529975b0ab7f66be8c9c91ffde1350962cdad5c38a",
+    "scripts/security-verify-reviewed-backports.mjs": "f9daeb8ba4acb9b702c51fd31695913fb20a7da30a02518366b6a0e3396a6e70",
     "security/patches/braces-3.0.3.patch": "e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699",
     "security/patches/node-forge-1.4.0.patch": "2de065ac998bf58917a14d0935112d97ec2957ac41b5f06958d500934f188ed4",
     "security/patches/reviewed-source-manifest.json": "facb364bbac44a8276d082068e8ed8415ca89777d24f4c7a05ff370f71e5a54d",
@@ -1358,7 +1358,7 @@
       "apps/coach-mobile/src/CoachDevelopmentTemplateBuilder.js": "976c1e91e9b86eff4621bac8e58e06022e83c8c50f08b21dc389dec9b79dbdb9",
       "apps/coach-mobile/src/CoachFixtureForm.js": "c962c860e04029ff1b9630123d36d5bceafa01ebe107a49a1351f55188a98772",
       "apps/coach-mobile/src/CoachKeyboardFocusContext.js": "2e24114b3755cd8b56ab5099019c0663ad6d24418a66e0a48fa06ca07e22d015",
-      "apps/coach-mobile/src/CoachMatchDayScreen.js": "bc3addd5adf31e87fe0be768a6312e8f726e78f52cb7cd1a95bd1c3bdc1c0ca6",
+      "apps/coach-mobile/src/CoachMatchDayScreen.js": "7f7a269c5aad01f6d981974d553c4a2f71b564f6555be9fef58e857b0d869b13",
       "apps/coach-mobile/src/CoachMatchInviteTable.js": "70d854eb08b25770af0717fd38efb67c10a25a1bdf27583fb03017e0e0c0d57e",
       "apps/coach-mobile/src/CoachNativeTeamBrandingEditor.js": "bd7b007e1ddbd407f187bb417b53bc31916b9ab490e465e18af0ae5d0354a4cd",
       "apps/coach-mobile/src/CoachOperationalScreens.js": "3be1c011741d0dfa5fb238ab5196bf727b294f00a10990b66e62f596877434f5",
@@ -1598,7 +1598,7 @@
       "src/pages/CreateEvaluationPage.jsx": "8782e61cb7fd045a08094ae0b35f9f8ba832da9e039252a8babad6be62b5d876",
       "src/pages/GdprPage.jsx": "cbf41bb59f783f135a554d00ade8057b38907413355f35ec6ece6d4906e060f8",
       "src/pages/LoginPage.jsx": "e62bf27f34ba0b3ea8b341944c484ff836df7200dc6743b3323ed345374e1753",
-      "src/pages/MatchDayPage.jsx": "fd352b463c3ab459ff18f4965223963d5b68d8ceceac78161aaf22e8a9cc87fd",
+      "src/pages/MatchDayPage.jsx": "ba6130714856e58c493b925940bfa26cddc1ef4f4c6f09a7cda6579505373074",
       "src/pages/PublicFeaturesPage.jsx": "190e73137dfda127b67c574137d4179920d6c93e615f07d2240519bbc05a2c93",
       "src/pages/PublicLandingPage.jsx": "089f9b406b471fc2e72ede30006dccdf053eb9f3afde8270143e1e37de5cd505",
       "src/pages/PublicParentPortalLoginPage.jsx": "2edabdd3d325fad12cb07f84bbb9fcfd04dcd420c2a97cfce359f9247b5423aa",
@@ -1714,8 +1714,8 @@
       "tests/first-250-branding-postgres.mjs": "7f52a617c3cba72b62e265354409bba0719408dcf901210174e33234389b61f0",
       "tests/first-250-branding.test.mjs": "8afb6518aa8440f52407f0d2352508efd233615e73f71a803df6cfcf21f42eb1",
       "tests/first250-counter-browser.mjs": "c97115814eceffc7d5d4caf7f2fdeda0b4ea19566eee2b8774121dec72ef5217",
-      "tests/fixture-create-edit-feedback-128.test.mjs": "342ab1ba444fd48246536077b66f6fbc8f009f7b40f69b4adcaef09de02d714a",
-      "tests/fixture-save-calendar-targets-129.test.mjs": "5f3bc14558a6dea9474563a78e2a0ac7e97c19e4d00b27bce889f7cbf7a969fb",
+      "tests/fixture-create-edit-feedback-128.test.mjs": "f41870cf55da4d895d52cda777d9232c8ab4e01922f26f86595f50b05e6b4e25",
+      "tests/fixture-save-calendar-targets-129.test.mjs": "b5fab54cfe1965481184ac30d511efc8bb452234f886d67a1fbbccb829ee7e14",
       "tests/fixtures/v1-attendance/mobile-attendance-original-rpcs.fixture.sql": "5420a2aa4008c0d8537c21afa1d3d217d708f52052365c159b161fd8fe31638d",
       "tests/fixtures/v1-attendance/mobile-attendance-original-schema.fixture.sql": "6cd084f442b9aa76a3100fd3567146aace3d8c75484c9e99a6887b421953c288",
       "tests/fixtures/v1-development/DevelopmentOfflineEditor.fixture.txt": "c4ddf21d90477ec1d38db6ce52b015917d49ba95b620eac9188d9961d5bf0502",
@@ -2196,7 +2196,8 @@
       "tests/parent-linking-squad-player-status-120.test.mjs": "e33a703257ce8a381bce3c57fb808b66935aeea96d0b636a22f52fd9d05d54dd",
       "tests/parent-portal-invite-resurface.test.mjs": "46e6ec9fd8b8f308ee16922895fef7865ff5ccd8703bca98f36bfda132ea2dff",
       "tests/player-types-112-pglite.test.mjs": "fd695eeb3152a9506a8f10a0b2f778c88c5cd7d3eaca52aa22fc9d93b552afcd",
-      "tests/player-types-112.test.mjs": "f623694755d3394dcc17307d383269c46518e39e44ff1d5e43976afe0ff88e89"
+      "tests/player-types-112.test.mjs": "f623694755d3394dcc17307d383269c46518e39e44ff1d5e43976afe0ff88e89",
+      "tests/matchday-fixture-workflow.test.mjs": "2fb06b1d8c2038f8b6663788157dedba69fd61c9ba25ed850467acd2cb262e2a"
     },
     "externalTrustInputs": [
       "FOOTBALL_REVIEW_RECEIPT_BASE64",
@@ -3646,7 +3647,7 @@
       "independentExactSourceAcceptanceRequired": true
     }
   },
-  "releasePreparationSha256": "2258e6481e7e57d6be51a373c2bcef7e4404f920e9e8700cbadc073cbbe1f376",
+  "releasePreparationSha256": "255884c509a704c9e9b66a5ac9971885986bd11c75851e090e71badb519d2654",
   "rootOnlyProposalSha256": "45c3b7352c7328c84982e114b7e87e09cf79514d02d102297ae75ec0925812eb",
   "remediationMode": "maintained-source-fixes",
   "officialCompatibilityDependencies": [

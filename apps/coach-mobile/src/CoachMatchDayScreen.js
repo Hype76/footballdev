@@ -1058,12 +1058,12 @@ function CoachMatchDayScoped({ context, matchDayTarget, onMatchDayTargetHandled,
     setFixtureFormOpen(false)
     onRequestScrollTop?.()
     setNotice(result.calendarScopeWarning
-      ? `The fixture was added to Coach calendars, but squad calendars could not be updated: ${result.calendarScopeWarning}`
+      ? `The fixture was added to Coach calendars, but player calendars could not be updated: ${result.calendarScopeWarning}`
       : result.invitationWarning || result.preferencesWarning || result.auditWarning
         || (result.calendarTarget === 'coach'
-          ? 'Fixture added to Coach calendars. No squad requests or notifications were sent.'
+          ? 'Fixture added to Coach calendars. No player requests or notifications were sent.'
           : result.calendarTarget === 'squad'
-            ? 'Fixture added to Coach and squad calendars. No availability requests or notifications were sent.'
+            ? 'Fixture added to Coach and player calendars. No availability requests or notifications were sent.'
             : 'Fixture created. Match Day controls are ready.'))
     const summary = normalizeCoachMatchDay(result.match)
     selectedMatchId.current = summary.id
