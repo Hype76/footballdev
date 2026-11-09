@@ -1322,7 +1322,7 @@ function InvitesDomain({ data: serverData, context, load: loadDomain, onAvailabi
     ? selectedInvites[0]
     : null
   const selectedRemovedInvite = selectedAvailabilityInvite && isCoachInviteParticipationRemoved(selectedAvailabilityInvite)
-  const availablePlayers = getCoachPlayersWithoutAvailabilityRequest(data.players, data.match, matchId)
+  const availablePlayers = getCoachPlayersWithoutAvailabilityRequest(data.players, data.match, matchId, selectedMatch?.fixtureType)
   const matchRequestPlayerCount = selectedMatchInvites.length
   const selectedCanBeResent = canResendSelectedCoachInvites(selectedInvites)
   const [followUp, setFollowUp] = useState(null)

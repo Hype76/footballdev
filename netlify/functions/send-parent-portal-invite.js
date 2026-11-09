@@ -141,8 +141,8 @@ async function getInviteLink(linkId) {
 
   const playerSection = String(data.players?.section ?? '').trim().toLowerCase()
   const playerStatus = String(data.players?.status ?? 'active').trim().toLowerCase()
-  if (!['trial', 'squad'].includes(playerSection) || playerStatus === 'archived' || data.players?.archived_at) {
-    throw Object.assign(new Error('Family portal invites can only be sent for active Trial or Squad players.'), { statusCode: 403 })
+  if (!playerSection || playerStatus === 'archived' || data.players?.archived_at) {
+    throw Object.assign(new Error('Family portal invites require an active player.'), { statusCode: 403 })
   }
 
   return data

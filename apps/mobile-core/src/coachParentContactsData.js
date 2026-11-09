@@ -24,7 +24,7 @@ async function getCurrentPlayer(user, playerId) {
   const { data, error } = await supabase.from('players').select('id,section,status,parent_contacts,parent_email')
     .eq('id', playerId).eq('club_id', user.clubId).eq('team_id', user.activeTeamId).single()
   if (error) throw error
-  if (!isParentPortalInviteEligiblePlayer(data)) throw new Error('Parent access can only be managed for active Trial or Squad players.')
+  if (!isParentPortalInviteEligiblePlayer(data)) throw new Error('Parent access requires an active player.')
   return data
 }
 

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { PlayerDetailsSection } from '../components/players/PlayerDetailsSection.jsx'
+import { useClubPlayerTypes } from '../hooks/players/useClubPlayerTypes.js'
 import { PlayerAssignedResources } from '../components/players/PlayerAssignedResources.jsx'
 import { PlayerChatSection } from '../components/players/PlayerChatSection.jsx'
 import { PlayerEvaluationsHistory } from '../components/players/PlayerEvaluationsHistory.jsx'
@@ -151,6 +152,7 @@ export function PlayerProfile() {
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const { user } = useAuth()
+  const playerTypes = useClubPlayerTypes(user?.clubId)
   const canMovePlayersToTrial = canUseUiFeature(user, CAPABILITIES.trialPlayers)
   const canViewDevelopment = canUseUiFeature(user, CAPABILITIES.basicDevelopmentRecords)
   const isDemoAccount = isDemoUser(user)
@@ -1642,7 +1644,7 @@ export function PlayerProfile() {
     const email = normalizeParentPortalInviteEmail(contact?.email)
 
     if (!isParentPortalInviteEligiblePlayer(player)) {
-      setErrorMessage('Parent portal invites can only be sent for active Trial or Squad players.')
+      setErrorMessage('Parent portal invites require an active player.')
       return
     }
 
@@ -2041,6 +2043,7 @@ export function PlayerProfile() {
 
       {activeProfileSection === 'details' ? (
         <PlayerDetailsSection
+        playerTypes={playerTypes}
         directEmailSendingId={emailSendingId}
         editingPlayerId={editingPlayerId}
         getDirectEmailTemplateOptions={getDirectEmailTemplateOptions}

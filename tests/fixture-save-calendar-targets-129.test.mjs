@@ -27,29 +27,30 @@ test('synthetic history identifiers are not sent to UUID-backed response evidenc
   assert.equal(isEventResponseSourceId(''), false)
 })
 
-test('web and Coach app calendar actions keep communications off and sync squad scope', async () => {
+test('web and Coach app calendar actions keep communications off and sync eligible players', async () => {
   const [web, coachForm, coachData] = await Promise.all([
     source('../src/pages/MatchDayPage.jsx'),
     source('../apps/coach-mobile/src/CoachFixtureForm.js'),
     source('../apps/mobile-core/src/coachMatchDayData.js'),
   ])
 
-  for (const label of ['Add to Coach calendars', 'Add to squad calendars']) {
+  for (const label of ['Add to Coach calendars', 'Add to player calendars']) {
     assert.match(web, new RegExp(label))
     assert.match(coachForm, new RegExp(label))
   }
 
   assert.match(web, /normalizedCalendarTarget === 'coach'[\s\S]*parentAudience: 'none', parentVisible: false/)
   assert.match(web, /normalizedCalendarTarget === 'squad'[\s\S]*parentAudience: 'involved_players', parentVisible: true/)
-  assert.match(web, /const squadCalendarPlayerIds = fixturePlayers[\s\S]*section[\s\S]*=== 'squad'[\s\S]*\.map\(\(player\) => player\.id\)/)
-  assert.match(web, /syncCalendarEventParentScope\(\{[\s\S]*eventSource: 'match-day'[\s\S]*includeTrialPlayers: false[\s\S]*playerIds: squadCalendarPlayerIds[\s\S]*selectionMode: 'manual'/)
+  assert.match(web, /const eligibleCalendarPlayerIds = fixturePlayers\.map\(\(player\) => player\.id\)/)
+  assert.match(web, /const eligiblePlayerCount = players\.length/)
+  assert.match(web, /syncCalendarEventParentScope\(\{[\s\S]*eventSource: 'match-day'[\s\S]*includeTrialPlayers: false[\s\S]*playerIds: eligibleCalendarPlayerIds[\s\S]*selectionMode: 'manual'/)
   assert.match(web, /const canSendAvailabilityRequests = !calendarOnly/)
   assert.match(web, /canSendAvailabilityRequests = !calendarOnly[\s\S]*?&& allowsCommunication/)
 
   assert.match(coachData, /normalizedCalendarTarget === 'coach'[\s\S]*parentAudience: 'none', parentVisible: false/)
   assert.match(coachData, /normalizedCalendarTarget === 'squad'[\s\S]*parentAudience: 'involved_players', parentVisible: true/)
   assert.match(coachData, /sync_calendar_event_parent_scope_v2/)
-  assert.match(coachForm, /calendarTarget === 'squad'[\s\S]*squadCalendarPlayerIds/)
+  assert.match(coachForm, /calendarTarget === 'squad'[\s\S]*calendarPlayerIds/)
   assert.match(coachData, /player_ids_value: fixture\.selectedPlayerIds/)
   assert.match(coachData, /selection_mode_value: 'manual'/)
   assert.match(coachData, /if \(fixture\.parentVisible && !normalizedCalendarTarget\)/)

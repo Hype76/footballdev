@@ -1,4 +1,3 @@
-import { EVALUATION_SECTIONS } from '../../lib/supabase.js'
 import { AVAILABLE_PLAYER_PAGE_SIZE, formatSessionDate, formatSessionType } from '../../lib/session-page-utils.js'
 import { Pagination } from '../ui/Pagination.jsx'
 import { SectionCard } from '../ui/SectionCard.jsx'
@@ -12,6 +11,7 @@ const secondaryButtonClass = 'inline-flex min-h-11 items-center justify-center r
 export function CoachOptionsSection({
   activePlayerSection,
   activePlayerTeam,
+  playerTypes,
   canDeleteSessions,
   combinedSessions,
   filteredPlayers,
@@ -80,7 +80,7 @@ export function CoachOptionsSection({
                 onChange={onSectionChange}
                 className={inputClass}
               >
-                {EVALUATION_SECTIONS.map((section) => (
+                {playerTypes.map((section) => (
                   <option key={section} value={section}>
                     {section}
                   </option>

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { AddPlayerFormSection } from '../components/players/AddPlayerFormSection.jsx'
+import { useClubPlayerTypes } from '../hooks/players/useClubPlayerTypes.js'
 import { ConfirmModal } from '../components/ui/ConfirmModal.jsx'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { useToast } from '../components/ui/toast-context.js'
@@ -41,6 +42,7 @@ function getPlayerPortalContacts(player) {
 
 export function AddPlayerPage() {
   const { user } = useAuth()
+  const playerTypes = useClubPlayerTypes(user?.clubId)
   const { showToast } = useToast()
   const activeTeamScope = user?.activeTeamId || user?.activeTeamName || 'all'
   const canCreatePlayers = canUseUiFeature(user, CAPABILITIES.players)
@@ -405,6 +407,7 @@ export function AddPlayerPage() {
       ) : null}
 
       <AddPlayerFormSection
+        playerTypes={playerTypes}
         availableTeams={availableTeams}
         canAddMorePlayers={canAddMorePlayers}
         contactGroups={contactGroups}
@@ -451,7 +454,7 @@ export function AddPlayerPage() {
               <span className="block">Send Parent app invite</span>
               <span className="mt-1 block text-xs font-semibold leading-5 text-[#4b5f55]">
                 {getPlayerPortalContacts(parentPortalInviteTarget).length > 0
-                  ? 'Send the same secure Parent app access used for Trial and Squad players.'
+                  ? 'Send secure Parent app access for this player.'
                   : 'Add a parent email to this player before sending Parent app access.'}
               </span>
             </span>

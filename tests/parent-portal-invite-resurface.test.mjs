@@ -60,7 +60,7 @@ test('saved parent emails render the inline parent portal invite action', async 
   assert.match(source, /parentPortalInviteSendingKey === sendingKey \? 'Sending\.\.\.' : inviteAction\.label/)
 })
 
-test('explicit resend path reuses pending parent links and keeps active Trial or Squad guard', async () => {
+test('explicit resend path reuses pending parent links and keeps active player guard', async () => {
   const [domainSource, profileSource, functionSource] = await Promise.all([
     readFile(parentPortalDomainUrl, 'utf8'),
     readFile(playerProfileUrl, 'utf8'),
@@ -69,7 +69,7 @@ test('explicit resend path reuses pending parent links and keeps active Trial or
 
   assert.match(domainSource, /includeSentPending = false/)
   assert.match(domainSource, /row\.status === 'pending' && \(includeSentPending \|\| !row\.invite_sent_at\)/)
-  assert.match(domainSource, /Family portal links can only be sent for active Trial or Squad players\./)
+  assert.match(domainSource, /Family portal links require an active player\./)
   assert.match(profileSource, /includeSentPending: true/)
-  assert.match(functionSource, /Family portal invites can only be sent for active Trial or Squad players\./)
+  assert.match(functionSource, /Family portal invites require an active player\./)
 })

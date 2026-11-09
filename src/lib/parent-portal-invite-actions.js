@@ -15,7 +15,7 @@ export function isParentPortalInviteEligiblePlayer(player) {
   const section = String(player?.section ?? '').trim().toLowerCase()
   const status = String(player?.status ?? 'active').trim().toLowerCase()
 
-  return ['trial', 'squad'].includes(section) && status !== 'archived'
+  return Boolean(section) && status !== 'archived' && !player?.archivedAt && !player?.archived_at
 }
 
 export function getParentPortalInviteActionForContact({

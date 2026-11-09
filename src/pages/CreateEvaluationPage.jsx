@@ -94,7 +94,6 @@ import {
   writeSessionAssessmentProgress,
 } from '../hooks/evaluations/evaluationFormUtils.js'
 import {
-  EVALUATION_SECTIONS,
   PLAYER_CONTACT_TYPES,
   archivePlayer,
   buildFeedbackFormSnapshot,
@@ -118,6 +117,7 @@ import {
   withRequestTimeout,
   writeViewCache,
 } from '../lib/supabase.js'
+import { useClubPlayerTypes } from '../hooks/players/useClubPlayerTypes.js'
 
 const DEFAULT_FEEDBACK_FORM_ID = '__default_development_form__'
 
@@ -140,11 +140,11 @@ function normalizeAssessmentSearch(value) {
 }
 
 function getPlayerSectionLabel(section) {
-  return String(section ?? '').trim() === 'Trial' ? 'Trial player' : 'Squad player'
+  return `${String(section ?? '').trim() || 'Player'} player`
 }
 
 function getPlayerSectionKey(section) {
-  return String(section ?? '').trim() === 'Trial' ? 'trial' : 'squad'
+  return String(section ?? '').trim().toLowerCase()
 }
 
 function formatPrivateDraftSavedAt(value) {
@@ -200,25 +200,6 @@ function getPrivateDraftBannerCopy(status, draftInfo) {
     message: `This Development Record draft is saved privately for your Coach account.${lastSavedMessage}`,
   }
 }
-
-const ASSESSMENT_PLAYER_FILTERS = [
-  { value: 'all', label: 'All' },
-  { value: 'squad', label: 'Squad players' },
-  { value: 'trial', label: 'Trial players' },
-]
-
-const ASSESSMENT_PLAYER_SECTIONS = [
-  {
-    value: 'squad',
-    title: 'Squad players',
-    emptyMessage: 'No squad players are available for this team.',
-  },
-  {
-    value: 'trial',
-    title: 'Trial players',
-    emptyMessage: 'No trial players are available for this team.',
-  },
-]
 
 function PlayerPickerCard({ activeTeamName, onSelectPlayer, player }) {
   const sectionKey = getPlayerSectionKey(player.section)
@@ -301,17 +282,31 @@ function AssessmentPlayerPicker({
       const leftSection = getPlayerSectionKey(left.section)
       const rightSection = getPlayerSectionKey(right.section)
       if (leftSection !== rightSection) {
-        return leftSection === 'squad' ? -1 : 1
+        if (leftSection === 'squad') return -1
+        if (rightSection === 'squad') return 1
+        if (leftSection === 'trial') return -1
+        if (rightSection === 'trial') return 1
+        return leftSection.localeCompare(rightSection)
       }
 
       return String(left.playerName ?? '').localeCompare(String(right.playerName ?? ''))
     })
+  const playerGroupsBySection = [...new Map(sortedPlayers.map((player) => [
+    getPlayerSectionKey(player.section), String(player.section || 'Player').trim(),
+  ])).entries()].map(([value, name]) => ({
+    value,
+    title: `${name} players`,
+    emptyMessage: `No ${name.toLowerCase()} players are available for this team.`,
+  }))
+  const playerFilters = [{ value: 'all', label: 'All' },
+    ...playerGroupsBySection.map((section) => ({ value: section.value, label: section.title }))]
   const sectionCounts = sortedPlayers.reduce(
     (counts, player) => {
-      counts[getPlayerSectionKey(player.section)] += 1
+      const section = getPlayerSectionKey(player.section)
+      counts[section] = (counts[section] || 0) + 1
       return counts
     },
-    { squad: 0, trial: 0 },
+    {},
   )
   const filteredPlayers = sortedPlayers
     .filter((player) => activeFilter === 'all' || getPlayerSectionKey(player.section) === activeFilter)
@@ -326,11 +321,11 @@ function AssessmentPlayerPicker({
         player.section,
       ].some((value) => normalizeAssessmentSearch(value).includes(normalizedSearch))
     })
-  const playerGroups = ASSESSMENT_PLAYER_SECTIONS.map((section) => ({
+  const playerGroups = playerGroupsBySection.map((section) => ({
     ...section,
     players: filteredPlayers.filter((player) => getPlayerSectionKey(player.section) === section.value),
   }))
-  const activeFilterEmptyMessage = ASSESSMENT_PLAYER_SECTIONS.find((section) => section.value === activeFilter)?.emptyMessage
+  const activeFilterEmptyMessage = playerGroupsBySection.find((section) => section.value === activeFilter)?.emptyMessage
   const visibleGroups = activeFilter === 'all'
     ? playerGroups.filter((group) => group.players.length > 0)
     : playerGroups.filter((group) => group.value === activeFilter)
@@ -341,13 +336,13 @@ function AssessmentPlayerPicker({
         <p className="text-xs font-black uppercase tracking-[0.16em] text-[#047857]">Select player</p>
         <h2 className="mt-2 text-2xl font-black tracking-tight text-[#101828]">Choose who this assessment is for.</h2>
         <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[#4b5f55]">
-          Select a squad or trial player from {activeTeamName || 'the current team'} before opening the assessment form.
+          Select a player from {activeTeamName || 'the current team'} before opening the assessment form.
         </p>
       </div>
 
       <div className="space-y-4 px-5 py-5 sm:px-6">
         <div className="flex flex-wrap gap-2">
-          {ASSESSMENT_PLAYER_FILTERS.map((filter) => {
+          {playerFilters.map((filter) => {
             const isActive = activeFilter === filter.value
             const count = filter.value === 'all' ? players.length : sectionCounts[filter.value]
             const countLabel = `${count} ${count === 1 ? 'player' : 'players'}`
@@ -614,6 +609,7 @@ export function CreateEvaluationPage() {
   const { showToast } = useToast()
   const [searchParams, setSearchParams] = useSearchParams()
   const userScopeKey = user ? `${user.id}:${user.clubId || 'platform'}:${user.role}:${user.roleRank}` : ''
+  const evaluationSections = useClubPlayerTypes(user?.clubId)
   const canUseParentEmail = canUseUiFeature(user, CAPABILITIES.parentEmails)
   const hasDevelopmentPdfAccess =
     isDevelopmentPdfClientEnabled(import.meta.env) &&
@@ -628,7 +624,7 @@ export function CreateEvaluationPage() {
     String(searchParams.get('choosePlayer') ?? '').trim() === '1' &&
     !requestedAssessmentPlayer
   const hasInvalidAssessmentSection =
-    Boolean(requestedAssessmentSection) && !EVALUATION_SECTIONS.includes(requestedAssessmentSection)
+    Boolean(requestedAssessmentSection) && (requestedAssessmentSection.length > 40 || requestedAssessmentSection.length < 2)
   const hasIncompleteSessionAssessmentLink = Boolean(requestedAssessmentSessionId) && !requestedAssessmentPlayer
   const activeTeamScope = user?.activeTeamId || user?.activeTeamName || 'all'
   const teamsCacheKey = user ? `assessment-teams:${user.id}:${user.clubId || 'platform'}:${activeTeamScope}` : ''
@@ -898,7 +894,7 @@ export function CreateEvaluationPage() {
     const nextFormData = createInitialFormData(user, {
       playerName: requestedPlayerName,
       team: requestedTeam,
-      section: EVALUATION_SECTIONS.includes(requestedSection) ? requestedSection : 'Trial',
+      section: requestedSection.length >= 2 && requestedSection.length <= 40 ? requestedSection : 'Trial',
       session: requestedSession,
       coachName: user.name || '',
     })
@@ -1588,7 +1584,7 @@ export function CreateEvaluationPage() {
         (template) => {
           const sectionAvailability = Array.isArray(template.sectionAvailability)
             ? template.sectionAvailability
-            : EVALUATION_SECTIONS
+            : evaluationSections
 
           return (
             normalizeEmailTemplateAudience(template.audience) === contactAudience &&
@@ -1597,7 +1593,7 @@ export function CreateEvaluationPage() {
           )
         },
       ),
-    [contactAudience, emailTemplates, formData.section],
+    [contactAudience, emailTemplates, evaluationSections, formData.section],
   )
   const selectedEmailTemplateKey = availableEmailTemplates.some((template) => template.key === emailTemplateKey)
     ? emailTemplateKey
@@ -2125,7 +2121,7 @@ export function CreateEvaluationPage() {
     nextSearchParams.delete('choosePlayer')
     nextSearchParams.set('player', player.playerName || '')
     nextSearchParams.set('team', player.team || user?.activeTeamName || '')
-    nextSearchParams.set('section', EVALUATION_SECTIONS.includes(player.section) ? player.section : 'Squad')
+    nextSearchParams.set('section', player.section || 'Squad')
 
     if (player.id) {
       nextSearchParams.set('playerId', player.id)
@@ -2782,7 +2778,7 @@ export function CreateEvaluationPage() {
         setFormData(
           createPostAssessmentFormData({
             currentSection: formData.section,
-            evaluationSections: EVALUATION_SECTIONS,
+            evaluationSections,
             postAssessmentNavigation,
             user,
           }),
@@ -3114,7 +3110,7 @@ export function CreateEvaluationPage() {
                 contactLabel={contactLabel}
                 contactNoun={contactNoun}
                 contactNounPlural={contactNounPlural}
-                evaluationSections={EVALUATION_SECTIONS}
+                evaluationSections={evaluationSections}
                 formData={formData}
                 onFieldChange={handleFieldChange}
                 onToggleParentContact={handleToggleParentContact}

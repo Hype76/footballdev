@@ -17,6 +17,8 @@ function isChatAuthorityError(error) {
 const groupOrder = [
   { key: PARENT_CHAT_ROOM_TYPES.parentStaff, label: 'Chat with Coaches' },
   { key: PARENT_CHAT_ROOM_TYPES.team, label: 'Team Chat' },
+  { key: PARENT_CHAT_ROOM_TYPES.teamTraining, label: 'Training-only Chat' },
+  { key: PARENT_CHAT_ROOM_TYPES.teamMatch, label: 'Match-only Chat' },
   { key: PARENT_CHAT_ROOM_TYPES.matchSquad, label: 'Match Chats' },
 ]
 
@@ -72,6 +74,10 @@ function getRoomHeading(room) {
     return room.teamName ? `${room.teamName} Team Chat` : 'Team Chat'
   }
 
+  if (room.type === PARENT_CHAT_ROOM_TYPES.teamTraining || room.type === PARENT_CHAT_ROOM_TYPES.teamMatch) {
+    return room.title
+  }
+
   return room.opponent ? `Match Squad: ${room.opponent}` : 'Match Squad Chat'
 }
 
@@ -82,7 +88,7 @@ function getRoomContext(room) {
     return [room.playerName || children, room.teamName].filter(Boolean).join(', ')
   }
 
-  if (room.type === PARENT_CHAT_ROOM_TYPES.team) {
+  if ([PARENT_CHAT_ROOM_TYPES.team, PARENT_CHAT_ROOM_TYPES.teamTraining, PARENT_CHAT_ROOM_TYPES.teamMatch].includes(room.type)) {
     return [room.teamName, children].filter(Boolean).join(', ')
   }
 
@@ -94,7 +100,7 @@ function getRoomEmptyCopy(room) {
     return 'No messages yet. Use this room for practical questions about your player and team.'
   }
 
-  if (room.type === PARENT_CHAT_ROOM_TYPES.team) {
+  if ([PARENT_CHAT_ROOM_TYPES.team, PARENT_CHAT_ROOM_TYPES.teamTraining, PARENT_CHAT_ROOM_TYPES.teamMatch].includes(room.type)) {
     return 'No messages yet. Team updates shared here stay inside footballplayer.online.'
   }
 

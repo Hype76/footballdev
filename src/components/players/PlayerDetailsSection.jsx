@@ -1,5 +1,5 @@
 import {
-  EVALUATION_SECTIONS,
+  PLAYER_SECTIONS,
   PLAYER_CONTACT_TYPES,
   normalizeParentContacts,
 } from '../../lib/supabase.js'
@@ -19,6 +19,7 @@ const smallLabelClass = 'mb-2 block text-xs font-black uppercase tracking-[0.14e
 const secondaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg border border-[#d7e5dc] bg-white px-4 py-3 text-sm font-black text-[#101828] transition hover:bg-[#ecfdf5] disabled:cursor-not-allowed disabled:opacity-60'
 
 export function PlayerDetailsSection({
+  playerTypes = PLAYER_SECTIONS,
   canMovePlayersToTrial = true,
   directEmailSendingId,
   editingPlayerId,
@@ -51,7 +52,7 @@ export function PlayerDetailsSection({
   parentPortalLinksByPlayerId = {},
   playerDrafts,
   playerDetailsEmptyState = {
-    action: 'Add the player to Trial or Squad so this profile has one saved football record to manage.',
+    action: 'Add the player to a team player type so this profile has one saved football record to manage.',
     body: 'This profile was opened from development history. Team, parent contacts, positions, and section rules need a saved player record.',
     eyebrow: 'Profile setup',
     title: 'Saved player details are not attached yet.',
@@ -92,6 +93,7 @@ export function PlayerDetailsSection({
               <div key={player.id} className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4 shadow-sm shadow-[#047857]/10">
                 {isEditing ? (
                   <PlayerDetailsEditor
+                    playerTypes={playerTypes}
                     draft={draft}
                     isSavingPlayer={isSavingPlayer}
                     onAddParentContact={() => onAddParentContact(player.id)}
@@ -141,6 +143,7 @@ export function PlayerDetailsSection({
 }
 
 function PlayerDetailsEditor({
+  playerTypes,
   draft,
   isSavingPlayer,
   onAddParentContact,
@@ -172,7 +175,7 @@ function PlayerDetailsEditor({
           onChange={(event) => onPlayerDraftChange('section', event.target.value)}
           className={fieldClass}
         >
-          {EVALUATION_SECTIONS.map((section) => (
+          {[...new Set([...playerTypes, draft.section])].map((section) => (
             <option key={section} value={section}>
               {section}
             </option>

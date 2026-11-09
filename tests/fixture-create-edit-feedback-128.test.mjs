@@ -114,7 +114,7 @@ test('Coach fixture choices render as accessible club-colour buttons', async () 
   assert.match(coachTheme, /accent:\s*hasClubAccent\s*\?\s*clubAccent\s*:\s*hasTeamAccent/)
 })
 
-test('web and app fixture creation expose recipient, Coach-calendar, and squad-calendar actions', async () => {
+test('web and app fixture creation expose recipient, Coach-calendar, and eligible-player-calendar actions', async () => {
   const [web, coachForm, coachData] = await Promise.all([
     source('../src/pages/MatchDayPage.jsx'),
     source('../apps/coach-mobile/src/CoachFixtureForm.js'),
@@ -124,13 +124,13 @@ test('web and app fixture creation expose recipient, Coach-calendar, and squad-c
     assert.match(web, new RegExp(label))
     assert.match(coachForm, new RegExp(label))
   }
-  for (const label of ['Add to Coach calendars', 'Add to squad calendars']) {
+  for (const label of ['Add to Coach calendars', 'Add to player calendars']) {
     assert.match(web, new RegExp(label))
     assert.match(coachForm, new RegExp(label))
   }
   assert.match(web, /calendarTarget/)
   assert.match(web, /syncCalendarEventParentScope/)
-  assert.match(web, /playerIds: squadCalendarPlayerIds/)
+  assert.match(web, /playerIds: eligibleCalendarPlayerIds/)
   assert.match(web, /selectionMode: 'manual'/)
   assert.match(web, /No availability requests or notifications were sent/)
   assert.match(coachData, /calendarTarget/)

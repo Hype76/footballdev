@@ -1,7 +1,5 @@
-import {
-  EVALUATION_SECTIONS,
-  supabase,
-} from '../supabase-client.js'
+import { supabase } from '../supabase-client.js'
+import { getClubPlayerTypes } from './club-player-types.js'
 import {
   clearViewCaches,
   invalidateMemoryCacheByPrefix,
@@ -190,6 +188,9 @@ export async function createEvaluation(data) {
   }
 
   if (data.clubId && data.playerName && data.section) {
+    const validSections = (await getClubPlayerTypes(data.clubId)).map((type) => type.name)
+    if (!validSections.includes(data.section)) throw new Error('Choose a current player type before saving the development record.')
+    const playerSection = data.section
     const selectedPlayer = await resolveSelectedEvaluationPlayer({
       clubId: data.clubId,
       playerId: data.playerId,
@@ -207,7 +208,7 @@ export async function createEvaluation(data) {
       await assertPlayerLimitForUpsert({
         user: evaluationUser,
         clubId: data.clubId,
-        section: EVALUATION_SECTIONS.includes(data.section) ? data.section : 'Trial',
+        section: playerSection,
         playerName: data.playerName,
         team: data.team,
         teamId: linkedTeamId || data.teamId,
@@ -218,7 +219,7 @@ export async function createEvaluation(data) {
       club_id: data.clubId,
       team_id: linkedTeamId || data.teamId || null,
       player_name: normalizeWords(data.playerName),
-      section: EVALUATION_SECTIONS.includes(data.section) ? data.section : 'Trial',
+      section: playerSection,
       team: String(data.team ?? '').trim(),
       parent_name: String(data.parentName ?? '').trim(),
       parent_email: String(data.parentEmail ?? '').trim(),

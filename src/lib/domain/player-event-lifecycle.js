@@ -5,6 +5,7 @@ import {
   previewEventPlayerChanges,
 } from './event-player-management.js'
 import { getMatchDays } from './match-day.js'
+import { canPlayerJoinFixture, canPlayerJoinSession } from '../player-participation.js'
 
 function normalizeText(value) {
   return String(value ?? '').trim()
@@ -66,10 +67,14 @@ export async function addPlayerToFutureTeamEvents({
   ])
   const sources = [
     ...calendarEvents
-      .filter((event) => normalizeText(event.teamId) === teamId && isFutureCalendarEvent(event))
+      .filter((event) => normalizeText(event.teamId) === teamId
+        && isFutureCalendarEvent(event)
+        && canPlayerJoinSession(player, event.eventType))
       .map((event) => ({ eventId: event.id, sourceType: 'calendar', startsAt: event.startsAt })),
     ...matchDays
-      .filter((match) => normalizeText(match.teamId) === teamId && isFutureMatchDay(match))
+      .filter((match) => normalizeText(match.teamId) === teamId
+        && isFutureMatchDay(match)
+        && canPlayerJoinFixture(player, match.fixtureType))
       .map((match) => ({ eventId: match.id, sourceType: 'match-day', startsAt: match.matchDate })),
   ].sort((left, right) => normalizeText(left.startsAt).localeCompare(normalizeText(right.startsAt)))
 

@@ -1,3 +1,5 @@
+import { canPlayerJoinFixture } from '../../../src/lib/player-participation.js'
+
 export const COACH_PHASE_31E_DOMAINS = Object.freeze([
   'development',
   'resources',
@@ -680,7 +682,7 @@ export function collapseCoachInvitesByPlayer(rows = []) {
   return Object.freeze([...invitesByPlayer.values()])
 }
 
-export function getCoachPlayersWithoutAvailabilityRequest(players = [], invites = [], eventId = '') {
+export function getCoachPlayersWithoutAvailabilityRequest(players = [], invites = [], eventId = '', fixtureType = '') {
   const normalizedEventId = normalize(eventId)
   const requestedPlayerIds = new Set(
     collapseCoachInvitesByPlayer(invites)
@@ -688,7 +690,7 @@ export function getCoachPlayersWithoutAvailabilityRequest(players = [], invites 
       .map((invite) => normalize(invite?.playerId))
       .filter(Boolean),
   )
-  return Object.freeze((Array.isArray(players) ? players : []).filter((player) => !requestedPlayerIds.has(normalize(player?.id))))
+  return Object.freeze((Array.isArray(players) ? players : []).filter((player) => (!fixtureType || canPlayerJoinFixture(player, fixtureType)) && !requestedPlayerIds.has(normalize(player?.id))))
 }
 
 export function toggleCoachInvitePlayerSelection(selectedPlayerIds = [], playerId = '') {

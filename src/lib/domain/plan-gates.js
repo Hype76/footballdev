@@ -1,4 +1,4 @@
-import { EVALUATION_SECTIONS, supabase } from '../supabase-client.js'
+import { supabase } from '../supabase-client.js'
 import {
   canAddStaffAccessEmail,
   createFeatureUpgradeMessage,
@@ -86,7 +86,7 @@ export async function findExistingPlayer({ clubId, section, playerName, team = '
   const normalizedPlayerName = normalizeWords(playerName)
   const normalizedTeam = String(team ?? '').trim()
   const normalizedTeamId = String(teamId ?? '').trim()
-  const normalizedSection = EVALUATION_SECTIONS.includes(section) ? section : ''
+  const normalizedSection = String(section ?? '').trim()
 
   if (!clubId || !normalizedPlayerName) {
     return null

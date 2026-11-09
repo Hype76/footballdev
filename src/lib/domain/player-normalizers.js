@@ -1,4 +1,3 @@
-import { EVALUATION_SECTIONS } from '../supabase-client.js'
 import { normalizePersonName } from '../person-name.js'
 import {
   normalizeParentContacts,
@@ -89,7 +88,7 @@ export function mapPlayerToRow(player, user) {
     team_id: player.teamId || user?.activeTeamId || null,
     player_name: normalizePersonName(player.playerName),
     shirt_number: String(player.shirtNumber ?? player.shirt_number ?? '').trim(),
-    section: EVALUATION_SECTIONS.includes(player.section) ? player.section : 'Trial',
+    section: String(player.section ?? '').trim() || 'Trial',
     team: String(player.team ?? '').trim(),
     positions,
     contact_type: normalizePlayerContactType(player.contactType ?? player.contact_type ?? (player.isAdult || player.is_adult ? 'self' : 'parent')),

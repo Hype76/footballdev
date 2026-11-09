@@ -5,6 +5,7 @@ import { getPaginatedItems } from '../components/ui/pagination-utils.js'
 import { useToast } from '../components/ui/toast-context.js'
 import { TeamRemovalModal } from '../components/players/TeamRemovalModal.jsx'
 import { PlayersListSection } from '../components/players/PlayersListSection.jsx'
+import { useClubPlayerTypes } from '../hooks/players/useClubPlayerTypes.js'
 import { PlayerStatsCards } from '../components/players/PlayerStatsCards.jsx'
 import { canCreateEvaluation, canManageTeamSettings, useAuth } from '../lib/auth.js'
 import { CAPABILITIES } from '../lib/paywall-access.js'
@@ -15,7 +16,6 @@ import {
   getPlayerKey,
 } from '../hooks/players/playersPageUtils.js'
 import {
-  EVALUATION_SECTIONS,
   getEvaluations,
   getPlayers,
   movePlayerToTrial,
@@ -34,7 +34,7 @@ const playerRegisterRules = [
   },
   {
     label: 'Section matters',
-    body: 'Trial and Squad control where the player appears in sessions, parent invites, and match day.',
+    body: 'Player type rules control where the player appears in sessions, parent invites, and match day.',
   },
   {
     label: 'Open before changing',
@@ -50,13 +50,14 @@ export function PlayersPage({
   headerTitle = 'Keep player records clear before adding sessions, notes, or match activity.',
 }) {
   const { user } = useAuth()
+  const playerTypes = useClubPlayerTypes(user?.clubId)
   const { showToast } = useToast()
   const [searchParams, setSearchParams] = useSearchParams()
   const requestedViewFilter = searchParams.get('view') || defaultView
   const requestedSection = searchParams.get('section') || 'All'
   const requestedPlayerKey = searchParams.get('player') || ''
   const isValidViewFilter = ['all', 'evaluated', 'scored'].includes(requestedViewFilter)
-  const isValidSectionFilter = requestedSection === 'All' || EVALUATION_SECTIONS.includes(requestedSection)
+  const isValidSectionFilter = requestedSection === 'All' || playerTypes.includes(requestedSection)
   const viewFilter = isValidViewFilter ? requestedViewFilter : defaultView
   const urlSection = isValidSectionFilter ? requestedSection : 'All'
   const activeTeamScope = user?.activeTeamId || user?.activeTeamName || 'all'
@@ -496,6 +497,7 @@ export function PlayersPage({
       />}
 
       <PlayersListSection
+        playerTypes={playerTypes}
         actionLoadingKey={actionLoadingKey}
         compactMode={compactMode}
         filteredPlayers={filteredPlayers}

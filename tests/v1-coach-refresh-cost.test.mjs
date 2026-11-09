@@ -2,19 +2,20 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import test from 'node:test'
 import { isMatchDayParticipantRosterCurrent, mergeMatchDayParticipantEventIdentities, normalizeMatchDayParticipantRoster } from '../apps/mobile-core/src/matchDayParticipantRoster.js'
+import { attachPlayerTypeRules, normalizeClubPlayerType } from '../src/lib/player-participation.js'
 
 function section(file, start, end) {
   const source = readFileSync(file, 'utf8'), from = source.indexOf(start), to = source.indexOf(end, from)
   assert.ok(from >= 0 && to > from)
   return source.slice(from, to).replaceAll('export ', '')
 }
-test('instrumented live Coach refresh adds one authorised roster read to the authority and presentation path', async () => {
+test('instrumented live Coach refresh includes authorised roster and player type rules reads', async () => {
   const calls = []
   const match = { id: 'match', teamId: 'team', status: 'live', matchDate: new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/London' }) }
-  const query = new Proxy({}, { get: (_target, name) => name === 'then'
-    ? (resolve) => { calls.push('match_days'); resolve({ data: [match] }) }
-    : () => query })
-  const supabase = { from: () => query, rpc: async (name) => {
+  const query = (table) => new Proxy({}, { get: (_target, name) => name === 'then'
+    ? (resolve) => { calls.push(table); resolve({ data: table === 'match_days' ? [match] : [] }) }
+    : () => query(table) })
+  const supabase = { from: (table) => query(table), rpc: async (name) => {
     calls.push(name)
     return { data: name === 'get_staff_match_day_detail' ? match : name === 'get_match_day_event_participants' ? { matchId: 'match', teamId: 'team', players: [], substitutionPlayers: [] } : [] }
   } }
@@ -23,7 +24,7 @@ test('instrumented live Coach refresh adds one authorised roster read to the aut
     isMatchDayParticipantRosterCurrent, mergeMatchDayParticipantEventIdentities, normalizeMatchDayParticipantRoster,
     assertCoachMatchDayAccess: () => {}, assertCoachOperationalRead: () => {},
     normalize: (value) => String(value || '').trim(), normalizeCoachMatchDay: (value) => value,
-    normalizePlayerForUser: (value) => value,
+    normalizePlayerForUser: (value) => value, attachPlayerTypeRules, normalizeClubPlayerType,
     getMobileRuntimeConfig: () => ({ apiBaseUrl: 'https://fixture.invalid' }), getAccessToken: async () => 'synthetic',
     joinApiPath: (base, path) => `${base}/${path}`,
     fetchJsonWithTimeout: async () => { calls.push('volunteer eligibility'); return { ok: true, result: { success: true, eligibility: [] } } },
@@ -40,8 +41,8 @@ test('instrumented live Coach refresh adds one authorised roster read to the aut
   assert.equal(detail.status, 'live')
   assert.deepEqual(detail.eventParticipants, [])
   assert.deepEqual(detail.substitutionParticipants, [])
-  assert.deepEqual(calls.sort(), ['match_days','get_match_day_presentation_states','get_team_players','get_team_parent_app_installation_status','get_staff_match_day_detail','get_match_day_event_participants','volunteer eligibility'].sort())
-  assert.equal(calls.length * 4, 28, 'four 15-second refreshes use 28 reads per minute before retries')
+  assert.deepEqual(calls.sort(), ['match_days','club_player_types','get_match_day_presentation_states','get_team_players','get_team_parent_app_installation_status','get_staff_match_day_detail','get_match_day_event_participants','volunteer eligibility'].sort())
+  assert.equal(calls.length * 4, 32, 'four 15-second refreshes use 32 reads per minute before retries')
   const original = supabase.rpc
   supabase.rpc = (name,args) => name === 'get_match_day_event_participants' ? {data:{matchId:'match',teamId:'team',players:[]}} : original(name,args)
   await assert.rejects(api.getCoachMatchDayDetail(user,'match'), /could not be verified/)

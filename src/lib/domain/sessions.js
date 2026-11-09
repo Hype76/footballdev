@@ -1,4 +1,5 @@
 import { supabase } from '../supabase-client.js'
+import { canPlayerJoinSession } from '../player-participation.js'
 import {
   clearViewCaches,
   getCachedResource,
@@ -150,6 +151,7 @@ export async function createAssessmentSession({ user, session }) {
     .insert({
       club_id: user.clubId,
       team_id: teamId,
+      section: String(session.section || 'Trial').trim(),
       team: teamName,
       opponent: sessionOpponentName,
       session_type: sessionType,
@@ -545,6 +547,17 @@ export async function addPlayersToAssessmentSession({ user, sessionId, players }
 
   if (normalizedPlayers.length === 0) {
     return getAssessmentSessionPlayers({ user, sessionId })
+  }
+
+  const { data: session, error: sessionError } = await supabase
+    .from('assessment_sessions')
+    .select('session_type, club_id')
+    .eq('id', sessionId)
+    .eq('club_id', user.clubId)
+    .single()
+  if (sessionError) throw sessionError
+  if (normalizedPlayers.some((player) => !canPlayerJoinSession(player, session.session_type))) {
+    throw new Error('One or more players cannot be added to this session type.')
   }
 
   const { data, error } = await supabase

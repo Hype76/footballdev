@@ -1,4 +1,5 @@
 import { formatUkDate } from './date-format.js'
+import { canPlayerJoinSession } from './player-participation.js'
 
 export const SESSION_PLAYER_PAGE_SIZE = 8
 export const AVAILABLE_PLAYER_PAGE_SIZE = 10
@@ -329,13 +330,13 @@ export function getAssessmentCountForSession(evaluations, selectedSession) {
 }
 
 export function getFilteredSessionPlayers({
-  activePlayerSection,
   activePlayerTeam,
   activePlayerTeamId,
   players,
+  sessionType = '',
 }) {
   const normalizedActiveTeam = normalizeTeamName(activePlayerTeam)
-  const sectionPlayers = players.filter((player) => player.section === activePlayerSection)
+  const sectionPlayers = players.filter((player) => canPlayerJoinSession(player, sessionType))
   const teamMatchedPlayers = sectionPlayers.filter((player) => {
     const playerTeamId = String(player.teamId ?? '').trim()
     const playerTeam = normalizeTeamName(player.team)
