@@ -90,7 +90,8 @@ begin
   if tg_op = 'UPDATE' and old.is_default then
     raise exception 'Default player types cannot be changed.';
   end if;
-  if tg_op = 'DELETE' and old.is_default then
+  if tg_op = 'DELETE' and old.is_default
+    and exists (select 1 from public.clubs where id = old.club_id) then
     raise exception 'Default player types cannot be deleted.';
   end if;
   if tg_op = 'UPDATE' and new.is_default then
@@ -157,6 +158,39 @@ alter table public.players add constraint players_section_check
 alter table public.players add constraint players_club_section_key
   foreign key (club_id, section) references public.club_player_types (club_id, name)
   on update cascade on delete restrict;
+
+-- An installed 1.1.1 Coach app reads unfamiliar types as Trial. Reject its
+-- implicit downgrade when it saves an otherwise unrelated player edit.
+create function public.guard_legacy_player_type_downgrade() returns trigger
+language plpgsql security invoker set search_path = '' as $function$
+declare client_info text := '';
+begin
+  if old.section not in ('Trial', 'Squad')
+    and new.section in ('Trial', 'Squad')
+    and old.section is distinct from new.section
+    and auth.uid() is not null
+    and current_user <> 'service_role' then
+    begin
+      client_info := lower(btrim(coalesce(
+        (nullif(current_setting('request.headers', true), '')::jsonb ->> 'x-client-info'),
+        ''
+      )));
+    exception when others then client_info := '';
+    end;
+    if client_info not in (
+      'footballplayer-coach-full-contact-editor/2',
+      'footballplayer-player-type-editor/1'
+    ) then
+      raise exception 'Update the Coach app before changing this player type.' using errcode = '23514';
+    end if;
+  end if;
+  return new;
+end;
+$function$;
+revoke all on function public.guard_legacy_player_type_downgrade() from public, anon, authenticated;
+create trigger guard_legacy_player_type_downgrade_before_update
+  before update of section on public.players
+  for each row execute function public.guard_legacy_player_type_downgrade();
 alter table public.evaluations drop constraint evaluations_section_check;
 alter table public.evaluations add constraint evaluations_section_check
   check (section = btrim(section) and char_length(section) between 2 and 40);

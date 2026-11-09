@@ -2018,6 +2018,7 @@ export async function updatePlayer({ user, playerId, player }) {
     .eq('club_id', user.clubId)
     .select('*')
     .single()
+    .setHeader('x-client-info', 'footballplayer-player-type-editor/1')
 
   if (error) {
     console.error(error)
@@ -2080,6 +2081,7 @@ export async function promotePlayerToSquad({ user, playerId }) {
     .eq('club_id', user.clubId)
     .select('*')
     .single()
+    .setHeader('x-client-info', 'footballplayer-player-type-editor/1')
 
   if (promoteError) {
     console.error(promoteError)
@@ -2141,6 +2143,7 @@ export async function movePlayerToTrial({ user, playerId }) {
     .eq('club_id', user.clubId)
     .select('*')
     .single()
+    .setHeader('x-client-info', 'footballplayer-player-type-editor/1')
 
   if (moveError) {
     console.error(moveError)

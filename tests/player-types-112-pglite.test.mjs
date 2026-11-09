@@ -29,7 +29,8 @@ test('player type migration seeds defaults, accepts custom types and protects as
       grant select on public.users to authenticated;
       create table public.teams (id uuid primary key, club_id uuid, name text);
       create table public.players (
-        id uuid primary key, club_id uuid not null, team_id uuid, section text not null,
+        id uuid primary key, club_id uuid not null references public.clubs(id) on delete cascade,
+        team_id uuid, section text not null,
         status text default 'active', archived_at timestamptz,
         constraint players_section_check check (section in ('Trial', 'Squad'))
       );
@@ -122,6 +123,10 @@ test('player type migration seeds defaults, accepts custom types and protects as
       db.query('update public.club_player_types set can_training = false where club_id = $1 and name = $2', [clubId, 'Trial']),
       /Default player types cannot be changed/,
     )
+    await assert.rejects(
+      db.query('delete from public.club_player_types where club_id = $1 and name = $2', [clubId, 'Trial']),
+      /Default player types cannot be deleted/,
+    )
 
     const trainingPlayer = '30000000-0000-4000-8000-000000000002'
     const matchPlayer = '30000000-0000-4000-8000-000000000003'
@@ -152,6 +157,15 @@ test('player type migration seeds defaults, accepts custom types and protects as
     await db.query('insert into public.users values ($1, $3, $4, $5), ($2, $3, $6, $5)', [
       adminId, coachId, clubId, 'admin', 'active', 'coach',
     ])
+    await db.query("select set_config('test.uid', $1, false)", [coachId])
+    await assert.rejects(
+      db.query("update public.players set section = 'Trial' where id = $1", [matchPlayer]),
+      /Update the Coach app before changing this player type/,
+    )
+    await db.query("select set_config('request.headers', $1, false)", ['{"x-client-info":"footballplayer-coach-full-contact-editor/2"}'])
+    await db.query("update public.players set section = 'Trial' where id = $1", [matchPlayer])
+    await db.query("update public.players set section = 'Match-only' where id = $1", [matchPlayer])
+    await db.query("select set_config('request.headers', $1, false)", ['{}'])
     await db.query("select set_config('test.uid', $1, false)", [coachId])
     await db.exec('set role authenticated')
     const coachTypes = await db.query('select name from public.club_player_types where club_id = $1', [clubId])
@@ -185,6 +199,14 @@ test('player type migration seeds defaults, accepts custom types and protects as
       ])
       assert.deepEqual(Object.values(access.rows[0]), expected)
     }
+    const removedClub = '10000000-0000-4000-8000-000000000099'
+    await db.query('insert into public.clubs values ($1)', [removedClub])
+    await db.query('insert into public.players (id, club_id, team_id, section) values ($1, $2, $3, $4)', [
+      '30000000-0000-4000-8000-000000000099', removedClub, teamId, 'Squad',
+    ])
+    await db.query('delete from public.clubs where id = $1', [removedClub])
+    const removedTypes = await db.query('select count(*)::integer as total from public.club_player_types where club_id = $1', [removedClub])
+    assert.equal(removedTypes.rows[0].total, 0)
   } finally {
     await db.close()
   }

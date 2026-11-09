@@ -203,7 +203,7 @@ export async function saveCoachPlayer(user, form, existingPlayer = null) {
   }
   // This editor submits every contact. The legacy native client marker merges
   // omitted contacts back in to protect older single-contact app versions.
-  const { data, error } = await query.select('*').single().setHeader('x-client-info', 'footballplayer-coach-full-contact-editor/1')
+  const { data, error } = await query.select('*').single().setHeader('x-client-info', 'footballplayer-coach-full-contact-editor/2')
   if (error) throw error
   await recordCoachOperationalAudit({
     action,
