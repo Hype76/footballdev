@@ -559,7 +559,7 @@
   "implementationHashes": {
     "scripts/security-supply-chain-gate.mjs": "dcf722bc6cbf2015da4250ea60cbb81e34d3c5c64ec7bb6059671cbae5ab4207",
     "scripts/security-apply-reviewed-backports.mjs": "7f0e9de0add15a121a0f60f89f71656b503450010b8b9c8d4aaf58bc355fc5ec",
-    "scripts/security-verify-reviewed-backports.mjs": "3ba00bc8688c466ee6698fe51664f971e03924243707d6413d1c29a71e1bbd04",
+    "scripts/security-verify-reviewed-backports.mjs": "a666e87904f561ad22d5a3c6bee368073927c37ec947afdd61160d5746732c52",
     "security/patches/braces-3.0.3.patch": "e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699",
     "security/patches/node-forge-1.4.0.patch": "2de065ac998bf58917a14d0935112d97ec2957ac41b5f06958d500934f188ed4",
     "security/patches/reviewed-source-manifest.json": "facb364bbac44a8276d082068e8ed8415ca89777d24f4c7a05ff370f71e5a54d",
@@ -2162,7 +2162,9 @@
       "supabase/migrations/20261107113701_pause_coach_match_day_lock_wait_guard_until_approved.sql": "61e3c79ee497bd75b954aab59960e1aaf7e74911ee2440c4cc43471d6cd56534",
       "supabase/migrations/20261107113724_restore_coach_match_day_lock_wait_guard.sql": "2d8e239abbb01c9def3ac884927844232281a9b399f364547dc883a7f88e62f6",
       "tests/matchday-offline-commands-db.test.mjs": "d5978e772fd4ebf5d6e240126f7266f9aa566774e5cc73b39797cf478a4afd47",
-      "supabase/migrations/20261107193737_coach_match_day_command_no_wait.sql": "1979f6f966a1655834f6e0736200503fb505998b83e77758e1248ba8062687c3"
+      "supabase/migrations/20261107193737_coach_match_day_command_no_wait.sql": "1979f6f966a1655834f6e0736200503fb505998b83e77758e1248ba8062687c3",
+      "src/lib/matchday-display.js": "ae96a0731f77b1f55d063f0406c22cae6367e37f02db4ac638343211be39f5e3",
+      "tests/fan-results-score-order.test.mjs": "590b1dff1971e868cedb75b6f93c2e61d284597795d2f7bcb306eb99fee603e3"
     },
     "externalTrustInputs": [
       "FOOTBALL_REVIEW_RECEIPT_BASE64",
@@ -3610,9 +3612,14 @@
       },
       "nativeDirectDependenciesChanged": false,
       "independentExactSourceAcceptanceRequired": true
+    },
+    "fanResultOrdering20261109": {
+      "scope": "Correct the reversed legacy title of a completed away fixture in Fans Game Day while preserving home and away score ownership, custom titles and existing native inputs.",
+      "independentExactSourceAcceptanceRequired": true,
+      "nativeInputsChanged": false
     }
   },
-  "releasePreparationSha256": "0baab00570dd5be99467ee702cce1c867c1681171dd380c57605f047950ae050",
+  "releasePreparationSha256": "7301861640403bc1ccfa27dbe6409f95a6f1952d944c7bd7d6919084362b8268",
   "rootOnlyProposalSha256": "45c3b7352c7328c84982e114b7e87e09cf79514d02d102297ae75ec0925812eb",
   "remediationMode": "maintained-source-fixes",
   "officialCompatibilityDependencies": [
