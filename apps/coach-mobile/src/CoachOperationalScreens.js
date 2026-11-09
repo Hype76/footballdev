@@ -49,7 +49,7 @@ import {
   formatCoachParentAppInstallationStatus,
   getCoachPlayerMutationPolicy,
 } from '../../mobile-core/src/coachPlayersCore'
-import { getCoachPlayerDetail, getCoachPlayerList, saveCoachPlayer } from '../../mobile-core/src/coachPlayersData'
+import { getCoachClubPlayerTypes, getCoachPlayerDetail, getCoachPlayerList, saveCoachPlayer } from '../../mobile-core/src/coachPlayersData'
 import { getCoachParentLinks, revokeCoachParentAccess, sendCoachParentInvite } from '../../mobile-core/src/coachParentContactsData'
 import { sendNewMatchdayParentInvites } from '../../mobile-core/src/coachParentAutoInvite'
 import { getCoachParentInviteStatus } from '../../mobile-core/src/coachParentInviteStatus'
@@ -75,6 +75,7 @@ import { withMobileAsyncTimeout } from '../../mobile-core/src/http'
 import { useConfirmedConnectionIssue, useConfirmedConnectionMessage } from '../../mobile-core/src/useConfirmedConnectionIssue'
 import { getMobileIconName } from '../../mobile-core/src/mobileIconSystem'
 import { CAPABILITIES, getFeatureAccess } from '../../../src/lib/paywall-access.js'
+import { PLAYER_SECTIONS, canPlayerJoinSession } from '../../../src/lib/player-participation.js'
 
 const message = getCoachFriendlyError
 
@@ -837,7 +838,7 @@ function CoachCalendarScoped({ calendarTarget, context, contexts, onNavigate, on
           {form.parentVisible && form.parentAudience === 'involved_players' ? (
             <View style={styles.stack}>
               <Text style={styles.fieldLabel}>Involved Players</Text>
-              {players.map((player) => {
+              {players.filter((player) => canPlayerJoinSession(player, form.eventType)).map((player) => {
                 const selectedPlayer = form.involvedPlayerIds.includes(player.id)
                 return <Button key={player.id} label={`${selectedPlayer ? 'Remove' : 'Add'} ${player.playerName}`} onPress={() => setForm({ ...form, involvedPlayerIds: selectedPlayer ? form.involvedPlayerIds.filter((id) => id !== player.id) : [...form.involvedPlayerIds, player.id] })} secondary styles={styles} />
               })}
@@ -884,6 +885,15 @@ export function CoachPlayersScreen(props) {
 function CoachPlayersScoped({ context, onNavigate, onQuickActionHandled, onRequestScrollTop, palette, quickAction, user }) {
   const styles = useDomainStyles(palette)
   const [players, setPlayers] = useState([])
+  const [playerTypeNames, setPlayerTypeNames] = useState(PLAYER_SECTIONS)
+  useEffect(() => {
+    let active = true
+    getCoachClubPlayerTypes(user).then((types) => {
+      if (active) setPlayerTypeNames(types.map((type) => type.name))
+    }).catch((error) => console.error('Player types could not be loaded.', error))
+    return () => { active = false }
+  }, [user])
+  const availablePlayerTypes = [...new Set([...playerTypeNames, ...players.map((player) => player.section)])]
   const [focusedPlayer, setFocusedPlayer] = useState(null)
   const [openingPlayerId, setOpeningPlayerId] = useState('')
   const playerRequest = useRef(0)
@@ -1085,14 +1095,14 @@ function CoachPlayersScoped({ context, onNavigate, onQuickActionHandled, onReque
       {cacheWarning ? <Text style={styles.warningText}>{cacheWarning}</Text> : null}
       {!focusedPlayer && !form ? <>
       <Field label="Search Players" onChangeText={setQuery} styles={styles} value={query} />
-      <Chips onChange={setSection} options={[{ label: 'All', value: 'all' }, ...(policy.canCreateTrial ? [{ label: 'Trial', value: 'Trial' }] : []), { label: 'Squad', value: 'Squad' }]} styles={styles} value={section} />
+      <Chips onChange={setSection} options={[{ label: 'All', value: 'all' }, ...availablePlayerTypes.filter((value) => policy.canCreateTrial || value !== 'Trial').map((value) => ({ label: value, value }))]} styles={styles} value={section} />
       {policy.canCreate && !form ? <Button iconKey="action.add-player" label="Add Player" onPress={() => { setDetail(null); setForm(coachPlayerFormFromPlayer(null, policy)) }} styles={styles} /> : null}
       </> : null}
       {form ? (
         <View style={styles.stack}>
           <Text style={styles.cardTitle}>{detail ? 'Edit Player' : 'Add Player'}</Text>
           <Field label="Player name" onChangeText={(value) => setForm({ ...form, playerName: value })} styles={styles} value={form.playerName} />
-          <Chips onChange={(value) => setForm({ ...form, section: value })} options={[...(policy.canCreateTrial ? [{ label: 'Trial', value: 'Trial' }] : []), { label: 'Squad', value: 'Squad' }]} styles={styles} value={form.section} />
+          <Chips onChange={(value) => setForm({ ...form, section: value })} options={[...new Set([...availablePlayerTypes, form.section])].filter((value) => policy.canCreateTrial || value !== 'Trial').map((value) => ({ label: value, value }))} styles={styles} value={form.section} />
           <Field label="Shirt number" onChangeText={(value) => setForm({ ...form, shirtNumber: value })} styles={styles} value={form.shirtNumber} />
           <Field label="Positions, separated by commas" onChangeText={(value) => setForm({ ...form, positions: value })} styles={styles} value={form.positions} />
           <Chips onChange={(value) => setForm({ ...form, contactType: value })} options={[{ label: 'Parent contact', value: 'parent' }, { label: 'Adult Player', value: 'self' }]} styles={styles} value={form.contactType} />
@@ -1430,7 +1440,7 @@ function CoachSessionsScoped({ context, onNavigate, onQuickActionHandled, palett
           <View style={styles.row}><Text style={styles.fieldLabel}>Ask parents to respond</Text><Switch accessibilityLabel="Ask parents to respond" onValueChange={(value) => setTrainingForm({ ...trainingForm, notifyParents: value || trainingForm.notifyParents, parentVisible: value || trainingForm.notifyParents, requestTrainingAvailability: value })} value={trainingForm.requestTrainingAvailability} /></View>
           {trainingForm.requestTrainingAvailability ? <View style={styles.stack}><Text style={styles.fieldLabel}>Send availability request</Text><Chips onChange={(value) => setTrainingForm({ ...trainingForm, trainingAvailabilitySendDaysBefore: value })} options={[0, 1, 2, 3, 7].map((value) => ({ label: value === 0 ? 'At the session start' : `${value} ${value === 1 ? 'day' : 'days'} before`, value }))} styles={styles} value={trainingForm.trainingAvailabilitySendDaysBefore} /><Text style={styles.meta}>This schedules the availability request. Automatic reminders for unanswered requests are controlled by the team admin in Settings.</Text></View> : null}
           {(trainingForm.notifyParents || trainingForm.requestTrainingAvailability) ? <Chips onChange={(value) => setTrainingForm({ ...trainingForm, parentAudience: value })} options={[{ label: 'Team parents', value: 'all_team_parents' }, { label: 'Selected Players', value: 'involved_players' }]} styles={styles} value={trainingForm.parentAudience} /> : null}
-          {(trainingForm.notifyParents || trainingForm.requestTrainingAvailability) && trainingForm.parentAudience === 'involved_players' ? <View style={styles.stack}><Text style={styles.fieldLabel}>Choose Players</Text>{players.map((player) => { const selectedPlayer = trainingForm.involvedPlayerIds.includes(player.id); return <Button key={player.id} label={`${selectedPlayer ? 'Remove' : 'Add'} ${player.playerName}`} onPress={() => setTrainingForm({ ...trainingForm, involvedPlayerIds: selectedPlayer ? trainingForm.involvedPlayerIds.filter((id) => id !== player.id) : [...trainingForm.involvedPlayerIds, player.id] })} secondary styles={styles} /> })}</View> : null}
+          {(trainingForm.notifyParents || trainingForm.requestTrainingAvailability) && trainingForm.parentAudience === 'involved_players' ? <View style={styles.stack}><Text style={styles.fieldLabel}>Choose Players</Text>{players.filter((player) => canPlayerJoinSession(player, 'training')).map((player) => { const selectedPlayer = trainingForm.involvedPlayerIds.includes(player.id); return <Button key={player.id} label={`${selectedPlayer ? 'Remove' : 'Add'} ${player.playerName}`} onPress={() => setTrainingForm({ ...trainingForm, involvedPlayerIds: selectedPlayer ? trainingForm.involvedPlayerIds.filter((id) => id !== player.id) : [...trainingForm.involvedPlayerIds, player.id] })} secondary styles={styles} /> })}</View> : null}
           <Button disabled={saving || stale} label={saving ? 'Saving...' : 'Save training session'} onPress={saveTraining} styles={styles} />
           <Button label="Cancel" onPress={() => setTrainingForm(null)} secondary styles={styles} />
         </View>
@@ -1462,7 +1472,7 @@ function CoachSessionsScoped({ context, onNavigate, onQuickActionHandled, palett
           <Text style={styles.body}>{detail.session.notes || 'No Session notes.'}</Text>
           <Text style={styles.cardTitle}>Session Players</Text>
           {detail.players.length ? detail.players.map((sessionPlayer) => <SessionPlayerNotes disabled={saving || !policy.canUpdatePlayerNotes} key={sessionPlayer.id} onSave={(notes) => saveNotes(sessionPlayer, notes)} sessionPlayer={sessionPlayer} styles={styles} />) : <Text style={styles.body}>No Players added yet.</Text>}
-          {policy.canAddPlayers ? <><Text style={styles.cardTitle}>Add Players</Text>{players.filter((player) => !detail.players.some((row) => row.playerId === player.id)).map((player) => <Button disabled={saving} key={player.id} label={`Add ${player.playerName}`} onPress={() => addPlayer(player)} secondary styles={styles} />)}</> : null}
+          {policy.canAddPlayers ? <><Text style={styles.cardTitle}>Add Players</Text>{players.filter((player) => canPlayerJoinSession(player, detail.session.sessionType) && !detail.players.some((row) => row.playerId === player.id)).map((player) => <Button disabled={saving} key={player.id} label={`Add ${player.playerName}`} onPress={() => addPlayer(player)} secondary styles={styles} />)}</> : null}
           {policy.canEdit ? <Button label="Edit Session" onPress={() => setForm(coachSessionFormFromSession(detail.session))} styles={styles} /> : null}
           {policy.canComplete ? <Button disabled={saving} label="Complete Session" onPress={complete} styles={styles} /> : null}
           <View style={styles.filterRow}><Button label="Open Players" onPress={() => onNavigate('players')} secondary styles={styles} /><Button label="Open Development" onPress={() => onNavigate('development')} secondary styles={styles} /></View>

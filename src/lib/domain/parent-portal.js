@@ -403,10 +403,9 @@ export async function createParentPortalInvites({ user, player, contacts, includ
     throw new Error('Choose a player before creating parent links.')
   }
 
-  const playerSection = String(player.section ?? '').trim().toLowerCase()
   const playerStatus = String(player.status ?? 'active').trim().toLowerCase()
-  if (!['trial', 'squad'].includes(playerSection) || playerStatus === 'archived') {
-    throw new Error('Family portal links can only be sent for active Trial or Squad players.')
+  if (!String(player.section ?? '').trim() || playerStatus === 'archived' || player.archivedAt || player.archived_at) {
+    throw new Error('Family portal links require an active player.')
   }
 
   const normalizedContacts = (contacts ?? [])
@@ -530,7 +529,7 @@ export async function createParentPortalInvitesForPlayers({ user, players }) {
   }
 
   const eligiblePlayers = (players ?? []).filter(
-    (player) => ['trial', 'squad'].includes(String(player?.section ?? '').trim().toLowerCase())
+    (player) => Boolean(String(player?.section ?? '').trim())
       && String(player?.status ?? 'active').trim().toLowerCase() !== 'archived',
   )
 

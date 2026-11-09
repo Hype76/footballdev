@@ -31,6 +31,8 @@ export function isParentInvitationOptionSelected(invitation = {}, optionValue = 
 export function getParentChatRoomTypeLabel(value) {
   const type = normalizeText(value).toLowerCase()
   if (type === 'parent_staff') return 'Parent coach'
+  if (type === 'team_training') return 'Training-only'
+  if (type === 'team_match') return 'Match-only'
   const text = type.replaceAll('_', ' ')
   return text ? `${text.charAt(0).toUpperCase()}${text.slice(1)}` : ''
 }
@@ -156,7 +158,7 @@ export function getParentInvitationCounts(rows = [], now = new Date()) {
 }
 
 export function getParentChatRoomContext(room = {}) {
-  if (normalizeText(room.type) === 'team') {
+  if (['team', 'team_training', 'team_match'].includes(normalizeText(room.type))) {
     return `${normalizeText(room.teamName) || 'Team'} | Parents and Team Coaches`
   }
   const matchLabel = room.opponent ? getMatchDayDisplayName(room) : room.teamName || room.clubName || ''

@@ -3,6 +3,7 @@ import { Navigate } from 'react-router-dom'
 import fallbackLogo from '../assets/football-player-logo.webp'
 import { ClubProfileSettingsSection } from '../components/club-settings/ClubProfileSettingsSection.jsx'
 import { ClubKitsSection } from '../components/club-settings/ClubKitsSection.jsx'
+import { ClubPlayerTypesSection } from '../components/club-settings/ClubPlayerTypesSection.jsx'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { useToast } from '../components/ui/toast-context.js'
 import { canManageClubLogo, canManageClubSettings, useAuth } from '../lib/auth.js'
@@ -332,6 +333,7 @@ export function ClubSettingsPage() {
       ) : null}
 
       <ClubKitsSection key={user.clubId} user={user} />
+      <ClubPlayerTypesSection key={`player-types:${user.clubId}`} user={user} />
       <ClubProfileSettingsSection
         canChangeClubLogo={canChangeClubLogo}
         canUseBasicBranding={canUseBasicBranding}

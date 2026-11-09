@@ -5,7 +5,7 @@ import test from 'node:test'
 const parentPortalDomainUrl = new URL('../src/lib/domain/parent-portal.js', import.meta.url)
 const parentLinkingPageUrl = new URL('../src/pages/ParentLinkingPage.jsx', import.meta.url)
 
-test('Parent Invites includes every active Trial and Squad player', async () => {
+test('Parent Invites includes every active player type', async () => {
   const [domain, page] = await Promise.all([
     readFile(parentPortalDomainUrl, 'utf8'),
     readFile(parentLinkingPageUrl, 'utf8'),
@@ -16,5 +16,5 @@ test('Parent Invites includes every active Trial and Squad player', async () => 
   assert.match(loader, /return getPlayers\(\{ user \}\)/)
   assert.doesNotMatch(loader, /status:\s*'active'/)
   assert.match(page, /filter\(isEligiblePlayer\)/)
-  assert.match(page, /\['trial', 'squad'\]\.includes\(section\)/)
+  assert.match(page, /Boolean\(section\) && status !== 'archived'/)
 })

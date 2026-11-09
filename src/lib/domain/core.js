@@ -1,4 +1,5 @@
 import { normalizeFanProfileLink } from '../fans.js'
+import { attachPlayerTypeRules, getClubPlayerTypes } from './club-player-types.js'
 import { loadTeamBrandingDisplay } from '../team-branding-display.js'
 import {
   CLUB_LOGOS_BUCKET,
@@ -1159,6 +1160,7 @@ export async function getPlayers({ user, section, playerId, playerName, teamId, 
   const cacheKey = `players:${user.clubId}:${section || 'all'}:${playerCacheScope}:${teamCacheScope}:${status || 'current'}:${includeArchived ? 'with-archived' : 'without-archived'}`
 
   return getCachedResource(cacheKey, async () => {
+    const playerTypes = await getClubPlayerTypes(user.clubId)
     const activeMembershipTeamId = normalizedTeamId || (!normalizedPlayerId ? user.activeTeamId : '')
 
     if (activeMembershipTeamId && !includeArchived && status !== 'archived') {
@@ -1198,11 +1200,11 @@ export async function getPlayers({ user, section, playerId, playerName, teamId, 
       }
 
       if (!membershipPlayersError) {
-        return (membershipPlayers ?? [])
+        return attachPlayerTypeRules((membershipPlayers ?? [])
           .map(normalizePlayerRow)
           .filter((player) => !section || player.section === section)
           .filter((player) => !status || player.status === status)
-          .filter((player) => !playerName || player.playerName === playerName)
+          .filter((player) => !playerName || player.playerName === playerName), playerTypes)
       }
 
       if (!['42883', 'PGRST202'].includes(membershipPlayersError.code)) {
@@ -1249,7 +1251,7 @@ export async function getPlayers({ user, section, playerId, playerName, teamId, 
       throw error
     }
 
-    return (data ?? []).map(normalizePlayerRow)
+    return attachPlayerTypeRules((data ?? []).map(normalizePlayerRow), playerTypes)
   })
 }
 

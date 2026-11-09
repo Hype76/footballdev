@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import './auth-redirect-error.js'
+export { PLAYER_SECTIONS } from './player-participation.js'
 
 const fallbackSupabaseUrl = 'https://placeholder.supabase.co'
 const fallbackSupabaseAnonKey = 'placeholder-anon-key'

@@ -55,7 +55,8 @@ test('Coach Match Day returns to visible content after creating or cancelling a 
   ])
 
   assert.match(form, /setForm\(\(current\) => initializeCoachFixtureForm\(current,/)
-  assert.match(form, /const submittedForm = \{[\s\S]*selectedPlayerIds: calendarTarget === 'squad'\s*\? squadCalendarPlayerIds\s*: \[\.\.\.form\.selectedPlayerIds\]/)
+  assert.match(form, /const calendarPlayerIds = eligiblePlayers\.map\(\(player\) => player\.id\)/)
+  assert.match(form, /selectedPlayerIds: calendarTarget === 'squad'\s*\? calendarPlayerIds\s*: form\.selectedPlayerIds\.filter/)
   assert.match(form, /Your Team notification name/)
   assert.match(form, /getCoachTeamNotificationDisplayName/)
   assert.match(app, /ref=\{contentScrollRef\}/)

@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { EVALUATION_SECTIONS } from '../../lib/supabase.js'
+import { PLAYER_SECTIONS } from '../../lib/supabase.js'
 import { buildPlayerProfilePath, formatPlayerDate, getPlayerKey } from '../../hooks/players/playersPageUtils.js'
 import { Pagination } from '../ui/Pagination.jsx'
 import { PlayerStatePanel } from './PlayerStatePanel.jsx'
@@ -10,6 +10,7 @@ const eyebrowClass = 'text-xs font-black uppercase tracking-[0.14em] text-[#4b5f
 const secondaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg border border-[#d7e5dc] bg-white px-4 py-3 text-sm font-black text-[#101828] shadow-sm shadow-[#101828]/5 transition hover:border-[#047857] hover:bg-[#ecfdf5] disabled:cursor-not-allowed disabled:opacity-60'
 
 export function PlayersListSection({
+  playerTypes = PLAYER_SECTIONS,
   actionLoadingKey,
   canMovePlayersToTrial = true,
   compactMode = false,
@@ -45,7 +46,7 @@ export function PlayersListSection({
           }
         : {
             action: 'Clear the search or add the first player.',
-            body: 'Players appear here after they are added to Trial or Squad. Search and filters can also hide existing records.',
+            body: 'Players appear here after they are added to the team. Search and filters can also hide existing records.',
             title: 'No player records match this search.',
           }
 
@@ -105,7 +106,7 @@ export function PlayersListSection({
             className={fieldClass}
           >
             <option value="All">All</option>
-            {EVALUATION_SECTIONS.map((section) => (
+            {playerTypes.map((section) => (
               <option key={section} value={section}>
                 {section}
               </option>

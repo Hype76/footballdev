@@ -1,4 +1,5 @@
 import { CAPABILITIES } from '../../../src/lib/paywall-access.js'
+import { canPlayerJoinSession } from '../../../src/lib/player-participation.js'
 import {
   buildCoachSessionPayload,
   normalizeCoachSession,
@@ -132,7 +133,7 @@ export async function completeCoachSession(user, session) {
 export async function addCoachSessionPlayers(user, session, players) {
   assertCoachOperationalMutation(user, { requiresTeam: true })
   if (!session?.id || session.status !== 'open') throw new Error('Choose an open Session.')
-  const rows = (players || []).filter((player) => player?.id && player.teamId === user.activeTeamId)
+  const rows = (players || []).filter((player) => player?.id && player.teamId === user.activeTeamId && canPlayerJoinSession(player, session.sessionType))
   if (rows.length === 0) return []
   const { data, error } = await supabase
     .from('assessment_session_players')

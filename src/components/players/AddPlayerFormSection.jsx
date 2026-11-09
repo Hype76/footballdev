@@ -1,5 +1,5 @@
-import { EVALUATION_SECTIONS } from '../../lib/supabase.js'
 import { CONTACT_TYPE_OPTIONS } from '../../hooks/players/addPlayerUtils.js'
+import { PLAYER_SECTIONS } from '../../lib/player-participation.js'
 import { PlayerStatePanel } from './PlayerStatePanel.jsx'
 
 const fieldClass = 'min-h-12 w-full rounded-lg border border-[#d7e5dc] bg-white px-4 py-3 text-sm font-bold text-[#101828] outline-none transition placeholder:text-[#66756c] focus:border-[#047857] focus:ring-2 focus:ring-[#d7e5dc]'
@@ -7,6 +7,7 @@ const labelClass = 'mb-2 block text-sm font-black text-[#101828]'
 const secondaryButtonClass = 'inline-flex items-center justify-center rounded-lg border border-[#d7e5dc] bg-white text-sm font-black text-[#101828] shadow-sm shadow-[#047857]/10 transition hover:border-[#047857] hover:bg-[#f7faf8] disabled:cursor-not-allowed disabled:opacity-60'
 
 export function AddPlayerFormSection({
+  playerTypes = PLAYER_SECTIONS,
   availableTeams,
   allowTrialPlayers = true,
   canAddMorePlayers,
@@ -40,7 +41,7 @@ export function AddPlayerFormSection({
             </p>
           </div>
             <span className="inline-flex min-h-10 w-fit items-center rounded-lg border border-[#d7e5dc] bg-white px-4 text-sm font-black text-[#101828]">
-            {allowTrialPlayers ? 'Trial or Squad' : 'Squad'}
+            Player types
           </span>
         </div>
       </div>
@@ -49,7 +50,7 @@ export function AddPlayerFormSection({
         <div className="m-5 sm:m-6">
           <PlayerStatePanel
             action="This usually takes a moment."
-            body="The player form needs the team list before a player can be saved into Trial or Squad."
+            body="The player form needs the team list before a player can be saved."
             eyebrow="Loading player setup"
             title="Checking teams and player capacity."
           />
@@ -134,7 +135,7 @@ export function AddPlayerFormSection({
               onChange={onChange}
               className={fieldClass}
             >
-              {EVALUATION_SECTIONS.filter((section) => allowTrialPlayers || section !== 'Trial').map((section) => (
+              {playerTypes.filter((section) => allowTrialPlayers || section !== 'Trial').map((section) => (
                 <option key={section} value={section}>
                   {section}
                 </option>

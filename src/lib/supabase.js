@@ -1,6 +1,7 @@
 export {
   CLUB_LOGOS_BUCKET,
   EVALUATION_SECTIONS,
+  PLAYER_SECTIONS,
   MAX_LOGO_FILE_SIZE_BYTES,
   REQUEST_TIMEOUT_MS,
   supabase,
@@ -13,6 +14,8 @@ export {
   withRequestTimeout,
   writeViewCache,
 } from './cache.js'
+
+export { deleteClubPlayerType, getClubPlayerTypes, saveClubPlayerType } from './domain/club-player-types.js'
 
 export {
   formatParentContactEmails,

@@ -14,7 +14,7 @@ export function getWholeSquadScopePlayerIds(invitePlayers = [], { includeTrialPl
   return uniqueIds((Array.isArray(invitePlayers) ? invitePlayers : [])
     .filter((player) => {
       const section = normalizeSection(player?.section)
-      return section === 'squad' || (includeTrialPlayers && section === 'trial')
+      return (section !== 'trial' && section !== '') || (includeTrialPlayers && section === 'trial')
     })
     .map((player) => player?.id))
 }

@@ -1,4 +1,5 @@
 import { CAPABILITIES } from '../../../src/lib/paywall-access.js'
+import { normalizeClubPlayerType, attachPlayerTypeRules } from '../../../src/lib/player-participation.js'
 import {
   buildCoachPlayerPayload,
   getCoachPlayerSensitiveFieldPolicy,
@@ -56,22 +57,31 @@ async function getCoachParentAppInstallationStatus(user) {
 
 export async function getCoachPlayerList(user) {
   assertCoachOperationalRead(user, { requiresTeam: true })
-  const [playerRows, installationRows] = await Promise.all([
+  const [playerRows, installationRows, playerTypes] = await Promise.all([
     getCoachPlayerRows(user),
     getCoachParentAppInstallationStatus(user),
+    getCoachClubPlayerTypes(user),
   ])
   const statusAvailable = Array.isArray(installationRows)
   const installationByPlayer = new Map(
     (installationRows || []).map((row) => [normalize(row.player_id ?? row.playerId), row]),
   )
-  return playerRows.map((row) => {
+  return attachPlayerTypeRules(playerRows.map((row) => {
     const installation = installationByPlayer.get(normalize(row.id)) || {}
-    return normalizePlayerForUser({
+    return {
       ...row,
       ...installation,
       parent_app_installation_status_available: statusAvailable && Boolean(installation.player_id ?? installation.playerId),
-    }, user)
-  })
+      section: row.section || 'Trial',
+    }
+  }), playerTypes).map((row) => normalizePlayerForUser(row, user))
+}
+
+export async function getCoachClubPlayerTypes(user) {
+  const { data, error } = await supabase.from('club_player_types')
+    .select('*').eq('club_id', user.clubId).order('name')
+  if (error) throw error
+  return (data || []).map(normalizeClubPlayerType)
 }
 
 export async function getCoachPlayerDetail(user, playerId) {

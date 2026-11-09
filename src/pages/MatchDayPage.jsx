@@ -20,6 +20,7 @@ import {
 } from '../lib/matchday-communication-safety.js'
 import { sendMatchDayPushNotification } from '../lib/push-notifications.js'
 import { getMatchDayDisplayName, getMatchDayDisplayParts, getMatchDayDisplayScore } from '../lib/matchday-display.js'
+import { canPlayerJoinFixture } from '../lib/player-participation.js'
 import { loadMatchDayAutoSelectDefault, readMatchDayAutoSelectDefault, rememberMatchDayAutoSelectDefault } from '../lib/matchday-auto-select-default.js'
 import {
   commitCalendarChangeNotification,
@@ -2410,6 +2411,7 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
   const fixturePlayers = useMemo(
     () =>
       squadPlayers.filter((player) => {
+        if (!canPlayerJoinFixture(player, form.fixtureType)) return false
         if (!selectedFixtureTeamId && !selectedFixtureTeamName) {
           return true
         }
@@ -2417,7 +2419,7 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
         return String(player.teamId || '') === String(selectedFixtureTeamId)
           || String(player.team || '').trim().toLowerCase() === String(selectedFixtureTeamName || '').trim().toLowerCase()
       }),
-    [selectedFixtureTeamId, selectedFixtureTeamName, squadPlayers],
+    [form.fixtureType, selectedFixtureTeamId, selectedFixtureTeamName, squadPlayers],
   )
 
   useModalPageScrollLock(

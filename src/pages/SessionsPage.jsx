@@ -44,6 +44,8 @@ import {
   writeStoredSessionWorkspace,
 } from '../lib/session-page-utils.js'
 import { buildFootballCalendarEvents } from '../lib/football-calendar-events.js'
+import { canPlayerJoinFixture, canPlayerJoinSession } from '../lib/player-participation.js'
+import { useClubPlayerTypes } from '../hooks/players/useClubPlayerTypes.js'
 import { getCalendarPollResults, isCalendarPollClosed } from '../lib/calendar-poll-results.js'
 import {
   commitCalendarChangeNotification,
@@ -980,7 +982,7 @@ function getFormFromCalendarEvent(event, invites = []) {
   return getDefaultCalendarForm(event?.date)
 }
 
-function getCalendarInvitePlayers(players, teamId) {
+function getCalendarInvitePlayers(players, teamId, eventType = 'general') {
   const normalizedTeamId = String(teamId ?? '').trim()
 
   if (!normalizedTeamId) {
@@ -990,6 +992,9 @@ function getCalendarInvitePlayers(players, teamId) {
   return (players ?? [])
     .filter((player) => String(player.status ?? 'active') !== 'archived')
     .filter((player) => String(player.teamId ?? '').trim() === normalizedTeamId)
+    .filter((player) => eventType === 'training' ? canPlayerJoinSession(player, 'training')
+      : eventType === 'match' ? canPlayerJoinFixture(player, 'league')
+        : eventType === 'tournament' ? canPlayerJoinFixture(player, 'cup') : true)
     .sort((left, right) =>
       String(left.section ?? '').localeCompare(String(right.section ?? '')) ||
       String(left.playerName ?? '').localeCompare(String(right.playerName ?? '')),
@@ -1092,6 +1097,7 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
   const [sessionPlayers, setSessionPlayers] = useState([])
   const [sessionVoiceNotes, setSessionVoiceNotes] = useState([])
   const [sessionForm, setSessionForm] = useState(createInitialSessionForm)
+  const playerTypes = useClubPlayerTypes(user?.clubId)
   const [selectedSessionId, setSelectedSessionId] = useState(() => String(storedSessionWorkspace.selectedSessionId ?? ''))
   const [selectedPlayerIds, setSelectedPlayerIds] = useState(() =>
     Array.isArray(storedSessionWorkspace.selectedPlayerIds) ? storedSessionWorkspace.selectedPlayerIds : [],
@@ -1178,8 +1184,8 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
     [assessmentReminders, calendarItems, canShowPollsInCalendar, combinedSessions, evaluations, isClubWideCalendar, matchDays, polls],
   )
   const calendarInvitePlayers = useMemo(
-    () => getCalendarInvitePlayers(players, getSafeCalendarTeamId(user, calendarForm.teamId)),
-    [calendarForm.teamId, players, user],
+    () => getCalendarInvitePlayers(players, getSafeCalendarTeamId(user, calendarForm.teamId), calendarForm.eventType),
+    [calendarForm.teamId, calendarForm.eventType, players, user],
   )
   const selectedCalendarInvitePlayers = useMemo(
     () => buildSelectedInvitePlayers(calendarForm, calendarInvitePlayers),
@@ -2005,12 +2011,12 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
 
   const filteredPlayers = useMemo(
     () => getFilteredSessionPlayers({
-      activePlayerSection,
       activePlayerTeam,
       activePlayerTeamId,
       players,
+      sessionType: selectedSession?.sessionType || sessionForm.sessionType,
     }),
-    [activePlayerSection, activePlayerTeam, activePlayerTeamId, players],
+    [activePlayerTeam, activePlayerTeamId, players, selectedSession?.sessionType, sessionForm.sessionType],
   )
   const paginatedFilteredPlayers = useMemo(
     () => getPaginatedItems(filteredPlayers, availablePlayerPage, AVAILABLE_PLAYER_PAGE_SIZE),
@@ -4849,6 +4855,7 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
         <div className="mt-4 space-y-4">
           <CreateSessionSection
             form={sessionForm}
+            playerTypes={playerTypes}
             isLoading={isLoading}
             isSaving={isSaving}
             onChange={handleSessionFormChange}
@@ -4875,6 +4882,7 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
           <CoachOptionsSection
             activePlayerSection={activePlayerSection}
             activePlayerTeam={activePlayerTeam}
+            playerTypes={playerTypes}
             canDeleteSessions={canDeleteSessions}
             combinedSessions={combinedSessions}
             filteredPlayers={filteredPlayers}
@@ -6277,7 +6285,7 @@ function CalendarEventModal({
   const deleteButtonDisabled = isBusy || (showRepeatDeleteScope && !['this_event', 'this_and_future', 'entire_series'].includes(form.deleteRepeatScope))
   const hasMobileSecondaryActions = Boolean((event && editableSource && (!isEditing || canDeleteEvent)) || canRemoveDevelopmentCalendarEntry)
   const canBuildFormation = Boolean(event?.sourceType === 'match-day' && event?.sourceId && onBuildFormation)
-  const squadPlayers = invitePlayers.filter((player) => String(player.section ?? '').trim().toLowerCase() === 'squad')
+  const squadPlayers = invitePlayers.filter((player) => String(player.section ?? '').trim().toLowerCase() !== 'trial')
   const trialPlayers = invitePlayers.filter((player) => String(player.section ?? '').trim().toLowerCase() === 'trial')
   const invitedPlayerIds = new Set(Array.isArray(form.invitedPlayerIds) ? form.invitedPlayerIds.map(String) : [])
   const wholeSquadSelectionState = getWholeSquadSelectionState({
@@ -7124,7 +7132,7 @@ function CalendarEventModal({
                           disabled={isBusy || squadPlayers.length === 0}
                           className="h-5 w-5 accent-[#047857]"
                         />
-                        Whole squad
+                        All eligible players
                       </label>
                       <label className="flex min-h-12 items-center gap-3 rounded-lg border border-[#d7e5dc] bg-white px-3 py-3 text-sm font-black text-[#101828]">
                         <input

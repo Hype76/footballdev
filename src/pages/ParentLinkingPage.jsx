@@ -29,7 +29,7 @@ function getPlayerContacts(player) {
 function isEligiblePlayer(player) {
   const section = String(player?.section ?? '').trim().toLowerCase()
   const status = String(player?.status ?? 'active').trim().toLowerCase()
-  return ['trial', 'squad'].includes(section) && status !== 'archived'
+  return Boolean(section) && status !== 'archived' && !player?.archivedAt && !player?.archived_at
 }
 
 const labelClass = 'mb-2 block text-sm font-black text-[#101828]'
@@ -44,8 +44,8 @@ const panelClass = 'rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4 shadow-s
 
 const parentAccessRules = [
   {
-    label: 'Trial and Squad players',
-    body: 'Parent app access can start during a Trial and stays attached to the same player record after promotion.',
+    label: 'All active player types',
+    body: 'Parent app access stays attached to the player record when their type changes.',
   },
   {
     label: 'One login per parent',
@@ -281,7 +281,7 @@ export function ParentLinkingPage() {
                 Give every parent the right player record.
               </h1>
               <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-[#4b5f55]">
-                Invite saved parent emails, keep access tied to Trial and Squad players, and remove links when a family should no longer see a player.
+                Invite saved parent emails, keep access tied to active players, and remove links when a family should no longer see a player.
               </p>
               <div className="mt-5 grid gap-3 md:grid-cols-3">
                 {parentAccessRules.map((item) => (
@@ -297,7 +297,7 @@ export function ParentLinkingPage() {
             <div>
               <p className="text-xs font-black uppercase tracking-[0.16em] text-[#4b5f55]">Access state</p>
               <p className="mt-2 text-2xl font-black tracking-tight text-[#101828]">
-                {players.length} Trial and Squad players available
+                {players.length} active players available
               </p>
               <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">
                 {playersWithContacts.length} have parent emails ready for invite.
@@ -338,14 +338,14 @@ export function ParentLinkingPage() {
               <p className={eyebrowClass}>Parent invites</p>
               <h2 className="mt-2 text-2xl font-black tracking-tight text-[#101828]">Send and control guardian access</h2>
               <p className={`mt-2 max-w-3xl ${bodyTextClass}`}>
-                Choose one Trial or Squad player and selected saved contacts, or invite every eligible parent email in the current team.
+                Choose a player and selected saved contacts, or invite every eligible parent email in the current team.
               </p>
             </div>
             <button
               type="button"
               onClick={handleInviteAll}
               disabled={isLoading || isSending || players.length === 0}
-              title={isSending ? 'Please wait while parent invites are sent.' : players.length === 0 ? 'Create a Trial or Squad player before sending parent invites.' : undefined}
+              title={isSending ? 'Please wait while parent invites are sent.' : players.length === 0 ? 'Create an active player before sending parent invites.' : undefined}
               className={`${primaryButtonClass} w-full sm:w-auto`}
             >
               {isSending ? 'Sending...' : 'Invite all guardians'}
@@ -356,17 +356,17 @@ export function ParentLinkingPage() {
         <div className="px-5 py-5 sm:px-6">
           {isLoading ? (
             <ParentAccessStatePanel
-              action="Keep this page open while Trial and Squad players, contacts, and existing links are checked."
+              action="Keep this page open while players, contacts, and existing links are checked."
               body="The invite controls need the current team, player list, saved parent emails, and active Parent app links before access can be changed."
               eyebrow="Loading parent access"
               title="Checking who can be invited."
             />
           ) : players.length === 0 ? (
               <ParentAccessStatePanel
-                action="Add a Trial or Squad player with a parent email, then return here to invite the family."
-                body="Parent app access is available to active Trial and Squad players in the current team."
+                action="Add an active player with a parent email, then return here to invite the family."
+                body="Parent app access is available to active players in the current team."
                 eyebrow="Setup required"
-                title="No Trial or Squad players are ready for Parent app access."
+                title="No active players are ready for Parent app access."
             />
           ) : (
             <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(280px,0.8fr)]">

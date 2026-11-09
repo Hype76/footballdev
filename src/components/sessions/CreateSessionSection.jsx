@@ -1,4 +1,3 @@
-import { EVALUATION_SECTIONS } from '../../lib/supabase.js'
 import { SectionCard } from '../ui/SectionCard.jsx'
 import { SessionStatePanel } from './SessionStatePanel.jsx'
 
@@ -12,6 +11,7 @@ export function CreateSessionSection({
   isSaving,
   onChange,
   onSubmit,
+  playerTypes,
   teams,
 }) {
   return (
@@ -103,7 +103,7 @@ export function CreateSessionSection({
               onChange={onChange}
               className={inputClass}
             >
-              {EVALUATION_SECTIONS.map((section) => (
+              {playerTypes.map((section) => (
                 <option key={section} value={section}>
                   {section}
                 </option>

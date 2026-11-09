@@ -109,7 +109,6 @@ test('Coach action sheets expose linked fields, optional opponent labels, inline
   assert.match(livePanel, /Assist shirt number \(Optional\)/)
   assert.match(livePanel, /prefix="player"/)
   assert.match(livePanel, /prefix="playerOn"/)
-  assert.match(livePanel, /No selected active team players are available/)
   assert.match(livePanel, /label: 'Coach', value: 'coach'/)
   assert.match(livePanel, /label: 'Other', value: 'other'/)
   assert.match(livePanel, /actionError/)

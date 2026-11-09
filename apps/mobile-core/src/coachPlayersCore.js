@@ -1,7 +1,8 @@
 import { normalizePersonName } from '../../../src/lib/person-name.js'
+import { PLAYER_SECTIONS } from '../../../src/lib/player-participation.js'
 import { CAPABILITIES, getFeatureAccess } from '../../../src/lib/paywall-access.js'
 
-export const COACH_PLAYER_SECTIONS = Object.freeze(['Trial', 'Squad'])
+export const COACH_PLAYER_SECTIONS = PLAYER_SECTIONS
 export const COACH_PLAYER_CONTACT_TYPES = Object.freeze(['parent', 'self'])
 
 function normalize(value) {
@@ -88,7 +89,8 @@ export function normalizeCoachPlayer(row, { canViewContacts = true } = {}) {
     parentAppInstalledContactCount: parentAppInstallation.installedCount,
     playerName: normalizePersonName(row.player_name ?? row.playerName) || 'Unnamed player',
     positions: (Array.isArray(row.positions) ? row.positions : []).map(normalizePosition).filter(Boolean),
-    section: COACH_PLAYER_SECTIONS.includes(normalize(row.section)) ? normalize(row.section) : 'Trial',
+    section: normalize(row.section) || 'Trial',
+    playerTypeRules: row.playerTypeRules || null,
     shirtNumber: normalize(row.shirt_number ?? row.shirtNumber),
     status: normalize(row.status || 'active').toLowerCase() || 'active',
     team: normalize(row.team),
@@ -171,7 +173,7 @@ export function buildCoachPlayerPayload({ context, form }) {
   const teamId = normalize(context?.activeTeamId || context?.teamId)
   const teamName = normalize(context?.activeTeamName || context?.teamName)
   if (!context?.clubId || !teamId) throw new Error('Choose an active Team context.')
-  const section = COACH_PLAYER_SECTIONS.includes(form?.section) ? form.section : 'Trial'
+  const section = normalize(form?.section) || 'Trial'
   const contactType = COACH_PLAYER_CONTACT_TYPES.includes(normalize(form?.contactType).toLowerCase())
     ? normalize(form.contactType).toLowerCase()
     : 'parent'

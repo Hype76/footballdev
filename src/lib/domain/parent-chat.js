@@ -5,6 +5,8 @@ import { blockDemoMutation } from './demo-guards.js'
 export const PARENT_CHAT_ROOM_TYPES = Object.freeze({
   parentStaff: 'parent_staff',
   team: 'team',
+  teamTraining: 'team_training',
+  teamMatch: 'team_match',
   matchSquad: 'match_squad',
 })
 
