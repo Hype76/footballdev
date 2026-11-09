@@ -559,7 +559,7 @@
   "implementationHashes": {
     "scripts/security-supply-chain-gate.mjs": "dcf722bc6cbf2015da4250ea60cbb81e34d3c5c64ec7bb6059671cbae5ab4207",
     "scripts/security-apply-reviewed-backports.mjs": "7f0e9de0add15a121a0f60f89f71656b503450010b8b9c8d4aaf58bc355fc5ec",
-    "scripts/security-verify-reviewed-backports.mjs": "6cdc78b710686e5ca5e24334989033ce708a9fd60d569f6937b28ed3bee4c3cf",
+    "scripts/security-verify-reviewed-backports.mjs": "477d27d25e70e91acaf07a73b7f765fb094545779f62d3937cc095dc2ab78b51",
     "security/patches/braces-3.0.3.patch": "e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699",
     "security/patches/node-forge-1.4.0.patch": "2de065ac998bf58917a14d0935112d97ec2957ac41b5f06958d500934f188ed4",
     "security/patches/reviewed-source-manifest.json": "facb364bbac44a8276d082068e8ed8415ca89777d24f4c7a05ff370f71e5a54d",
@@ -1594,6 +1594,7 @@
       "src/pages/ClubSignupPage.jsx": "10239b673a1ae5d60fe72e5262710f99a0c20921434b98ed4838a027afc4b0d0",
       "src/pages/CoachAppHandoffPage.jsx": "397d8e8df449c4ac84b661e938fe6c53f2f6fccc8d4440fa1989a3c8e9576456",
       "src/pages/CoachAppUpgradePage.jsx": "5254bc67fe9927cf5ab311421b24c24b8af9c6cf6b99dc11edfb8e833baa7b9a",
+      "src/pages/CoachHomePage.jsx": "28c022b3c0cce0356a281c5d2ceef971ced77c3047f41634afbe6a7ded282bce",
       "src/pages/CoachResourceUploadPage.jsx": "fa81f4c6470e5f4676c157fa99dc3c76f87948e6294ee5af40b937d320a0edff",
       "src/pages/CreateEvaluationPage.jsx": "8782e61cb7fd045a08094ae0b35f9f8ba832da9e039252a8babad6be62b5d876",
       "src/pages/GdprPage.jsx": "cbf41bb59f783f135a554d00ade8057b38907413355f35ec6ece6d4906e060f8",
@@ -1640,7 +1641,7 @@
       "tests/attendance-migration-contract.mjs": "5da866fa3575c537494dde373f67f5fd1dcc140ba2123bef18a609e8362a3478",
       "tests/attendance-outbox.test.mjs": "925e1e9fb88962003f317d98fbf417fdb4df3f41f349433ec89c351a84c338e6",
       "tests/attendance-ui-handlers.test.mjs": "6ae81d707ed49745f08054d636820044be3af14986d4f120efebba0b3d814d95",
-      "tests/auth-access-browser.mjs": "82b5efe4ff2837ffaa4b85061df33fe8dc93e886ee6abe48d0713dc69878d766",
+      "tests/auth-access-browser.mjs": "bf96a47e4e0790b4952eb7083a3098cebb0e2fcfd8ecd22369e803caffbab4b1",
       "tests/auth-email-app-role.test.mjs": "926c7bfba5dd3142eefbed6a8d6f328f98196aaed8b7cbd9fafc63e7292dc2ee",
       "tests/authority-containment-pglite.test.mjs": "afc188143fa2ddcfff9a3c0d1aebdac7be6872e3c31801b72babdff85e6921b3",
       "tests/billing-cancel-browser.mjs": "7f12abcbe958dbe1b9260896d097c001704c5a6e4d90f3587f329669ad402bbb",
@@ -3647,7 +3648,7 @@
       "independentExactSourceAcceptanceRequired": true
     }
   },
-  "releasePreparationSha256": "55577abb0596a8ddd9251ebca48f342f7c741ad44c0e7a95a6684b661188aba9",
+  "releasePreparationSha256": "5e0a33f865e516e9ba045417cd4bf0e1070147487931976e7c718da7b7fd6e79",
   "rootOnlyProposalSha256": "45c3b7352c7328c84982e114b7e87e09cf79514d02d102297ae75ec0925812eb",
   "remediationMode": "maintained-source-fixes",
   "officialCompatibilityDependencies": [

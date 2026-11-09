@@ -1629,6 +1629,21 @@ try {
     await context.close()
   })
 
+  await runScenario('club admin team Home refreshes without Match Day access', async () => {
+    const context = await browser.newContext()
+    const { page } = await preparePage(context)
+    await signIn(page, 'club.fixture@footballplayer.test')
+    await page.waitForURL('**/coach', { timeout: 15000 })
+    await page.getByLabel('Access view').selectOption({ label: 'Team: U12 Fixture Team' })
+    await page.getByRole('heading', { name: 'No upcoming event scheduled', exact: true }).waitFor()
+    await page.waitForFunction(() => {
+      const keys = Object.keys(sessionStorage)
+      return keys.some((key) => key.startsWith('view-cache:coach-home:') && key.endsWith(':team-u12'))
+    })
+    assert.equal(await page.getByText('Some coach data could not be refreshed.', { exact: false }).count(), 0)
+    await context.close()
+  })
+
   for (const viewport of [
     { name: 'desktop', options: { viewport: { width: 1440, height: 900 } } },
     { name: 'mobile', options: { isMobile: true, viewport: { width: 390, height: 844 } } },
