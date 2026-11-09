@@ -559,7 +559,7 @@
   "implementationHashes": {
     "scripts/security-supply-chain-gate.mjs": "dcf722bc6cbf2015da4250ea60cbb81e34d3c5c64ec7bb6059671cbae5ab4207",
     "scripts/security-apply-reviewed-backports.mjs": "7f0e9de0add15a121a0f60f89f71656b503450010b8b9c8d4aaf58bc355fc5ec",
-    "scripts/security-verify-reviewed-backports.mjs": "f9daeb8ba4acb9b702c51fd31695913fb20a7da30a02518366b6a0e3396a6e70",
+    "scripts/security-verify-reviewed-backports.mjs": "b9fd5fa1d2c860e74651430db257aaf861e67392be38c95d8dd26510324fb1b9",
     "security/patches/braces-3.0.3.patch": "e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699",
     "security/patches/node-forge-1.4.0.patch": "2de065ac998bf58917a14d0935112d97ec2957ac41b5f06958d500934f188ed4",
     "security/patches/reviewed-source-manifest.json": "facb364bbac44a8276d082068e8ed8415ca89777d24f4c7a05ff370f71e5a54d",
@@ -1680,7 +1680,7 @@
       "tests/coach-more-menu-browser.mjs": "e6d4ea6c73762d2f72e83cc24e164ebc932baec812af56613a45a5ebb898be23",
       "tests/coach-offline-storage.test.mjs": "5eef91d8c4fa3a89ae3b446092f77c656e9452a86a364fb04c5c7f2cdfacb80a",
       "tests/coach-partners-promotion-browser.mjs": "351201e0f915d7263305f9c650aabb4e76cd912fbc39e86bb70be97accd50a1d",
-      "tests/coach-player-profile-browser.mjs": "d68aa373336e11e8964cc0c57241737105baec76bee6884d06fd0161029ac383",
+      "tests/coach-player-profile-browser.mjs": "4da7c8e2a1db08b7e8f828f2a5e23fc2270273aa4eba64ea5c080b3b01c7fb65",
       "tests/coach-renewal.test.mjs": "ac1492e9eeaf53a8a59e334f0377567cfdcccc10e8890556d9e38841c5a462e3",
       "tests/coach-resource-upload-browser.mjs": "2e5a937eaaedd6328cbf17de23daeadc48b3cde3c5fd0356833953e5ca93825f",
       "tests/coach-resource-upload-handoff.test.mjs": "c5a5735c5c69b2ac6bacde849cfd2709d276d47a4ff121ea99aa1e2aa442fb3f",
@@ -1734,7 +1734,7 @@
       "tests/match-available-auto-selection.test.mjs": "86a2906f8dc1ee1863f815693981ffb9f35f35e29e743cc1c24d9198918e96f1",
       "tests/match-day-participation-renewal.test.mjs": "7b16ef552fc9946cc3d544ecf1c4176fa728cbd16b63970ccb6e11fbd17417d3",
       "tests/matchday-assist-mobile-notifications-99.test.mjs": "8beacc126241e72c246b9ef15fdc70fa79e796f8b9a8db40c2a98aeab5dc54ed",
-      "tests/matchday-calendar-fixture-browser.mjs": "e9f7d8509e97fddd8e61413d87fff735e7eea52d43e8967fe5192749dd41d27f",
+      "tests/matchday-calendar-fixture-browser.mjs": "d91584fa47f37a7469e60c75175d39ca96ca4c1020674cd3cc41ee68c68bd4a4",
       "tests/matchday-calendar-fixture-create.test.mjs": "a4359a36bf5cb825266cd29239a85892a226d992083b6622a354c5f2afe30793",
       "tests/matchday-fixture-controls-db.test.mjs": "81a31255b048b63cbcd328727bf85721c96c1d04545db756d53ecfb089223e4c",
       "tests/matchday-gamemode-modal-controls.test.mjs": "874afe9e99b387155ad76be543eaaaeb9d4071eca2ff9235f013e240293261fd",
@@ -2020,7 +2020,7 @@
       "apps/mobile-core/src/coachPhase31FCore.js": "6add45c1cb045078f82867ab6e43847a6dc48d545d997100c643aba2aaf773fa",
       "apps/mobile-core/src/parentOfflineCore.js": "4ba477dafd6d3db3d1c4df07bb1efe4dbfc113136f573460bac5efb1d1fbb841",
       "tests/coach-formation-screen-loading-browser.mjs": "ea3fe1bc8e692e69c3970a7f18cf1720113baa1fd41dcaabfa43bb2aa8ff90d3",
-      "tests/coach-sessions-cache-warning-browser.mjs": "4432396b152b81cb29dc1b210666e26c6b71c66861f94f048c2ab54199d476c9",
+      "tests/coach-sessions-cache-warning-browser.mjs": "a5b67fca4844fab379c10a692fc335e99dac2ec78d1a6d5203f2a39458eeb319",
       "tests/coach-sessions-load-cache-boundary.test.mjs": "ae6f2019f9b01d8adfbe68718a7ad6bf1c23c7034737b8771e5650eda20b6fab",
       "apps/mobile-core/src/coachAvailabilityCache.js": "54f25f9e6d2ee510b429d7b4470a860f1a33638d2e48ef0b475035d43d848a13",
       "apps/parent-mobile/src/parentRefreshCore.js": "aca2b814c63297da8946cd879487f005d3cdc8bf65897fc045190bb39d4baa85",
@@ -3647,7 +3647,7 @@
       "independentExactSourceAcceptanceRequired": true
     }
   },
-  "releasePreparationSha256": "255884c509a704c9e9b66a5ac9971885986bd11c75851e090e71badb519d2654",
+  "releasePreparationSha256": "8741fbf9e139e428a1cbc16255a53286d7dba2b5336ec67deec983b8f2a70fbf",
   "rootOnlyProposalSha256": "45c3b7352c7328c84982e114b7e87e09cf79514d02d102297ae75ec0925812eb",
   "remediationMode": "maintained-source-fixes",
   "officialCompatibilityDependencies": [

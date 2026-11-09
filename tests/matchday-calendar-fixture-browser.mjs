@@ -67,7 +67,7 @@ createRoot(document.getElementById('root')).render(<App/>);
 const mocks = [
   [/coachCarpoolData$/, `export const getCoachCarpoolDefault=async()=>false;export const setCoachCarpoolDefault=async()=>false;`],
   [/coachCalendarData(?:\.js)?$/, `export const prepareCoachMatchCancellationNotification=async()=>({});export const commitCoachCalendarChangeNotification=async()=>({});`],
-  [/coachMatchDayData(?:\.js)?$/, `import {validateCoachFixtureForm} from './apps/mobile-core/src/coachFixtureCore.js';export const getCoachMatchLocations=async()=>[];export const archiveCoachMatchLocation=async()=>{};export const createCoachMatchDayFixture=async(_u,form)=>({match:{id:'fixture',...validateCoachFixtureForm(form)}});export const updateCoachMatchDayFixture=async()=>{};export const cancelCoachMatchDayFixture=async()=>{};`],
+  [/coachMatchDayData(?:\.js)?$/, `import {validateCoachFixtureForm} from './apps/mobile-core/src/coachFixtureCore.js';export const getCoachMatchLocations=async()=>[];export const archiveCoachMatchLocation=async()=>{};export const createCoachMatchDayFixture=async(_u,form)=>({match:{id:'fixture',...validateCoachFixtureForm(form)}});export const updateCoachMatchDayFixture=async()=>{};export const cancelCoachMatchDayFixture=async()=>{};export const addCoachFixtureParents=async()=>({match:{}});export const getCoachFixtureInvitedPlayerIds=async()=>[];`],
   [/coachFixturePreferences$/, `export const readCoachFixturePreferences=async()=>({duration:90});export const writeCoachFixturePreferences=async()=>{};`],
   [/coachTeamNotificationData$/, `export const getCoachTeamNotificationDisplayName=async()=> 'FP TEST';export const getCoachOwnTeamFixturePreferences=async()=>({found:false});export const saveCoachOwnTeamFixturePreferences=async()=>{};`],
   [/CoachDateTimeField$/, `export const CoachDateTimeField=({label,onChange,value})=><input aria-label={label} value={value} onChange={e=>onChange(e.target.value)}/>;`],
@@ -102,6 +102,7 @@ try {
     await page.getByText('Add a venue before creating this fixture.',{exact:true}).waitFor()
     assert.equal(await page.evaluate(()=>window.saved),null)
     await page.getByLabel('Venue',{exact:true}).fill('FP TEST Ground')
+    await page.getByRole('switch',{name:'Share with parents'}).click()
     await page.getByRole('button',{name:'Create fixture and request availability',exact:true}).click()
     await page.waitForFunction(()=>window.saved?.match?.id==='fixture')
     assert.equal(await page.evaluate(()=>window.saved.match.opponent),'FP TEST Visitors')

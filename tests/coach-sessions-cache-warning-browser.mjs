@@ -29,6 +29,7 @@ import {filterCoachSessions,getCoachSessionMutationPolicy} from './apps/mobile-c
 import {coachCalendarFormFromEvent,filterCoachCalendarEvents,formatCoachCalendarEventDateTime} from './apps/mobile-core/src/coachCalendarCore.js'
 import {getCoachOfflineSaveWarning} from './apps/coach-mobile/src/coachOfflineErrors.js'
 import {formatUkDate} from './src/lib/date-format.js'
+import {canPlayerJoinSession} from './src/lib/player-participation.js'
 import {getCoachFormationAuthorityScope} from './apps/coach-mobile/src/coachFormationEntryCore.js'
 const getCoachFriendlyError=error=>error?.message||'Unknown error'
 const message=getCoachFriendlyError
