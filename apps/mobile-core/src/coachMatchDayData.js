@@ -644,13 +644,13 @@ export async function correctCoachMatchDayGoal(user, match, event, goal, reason 
   return getCoachMatchDayDetail(user, match.id)
 }
 
-export async function saveCoachConcludedMatchEvent(user, match, { changeId, details, eventId, operation }) {
+export async function saveCoachConcludedMatchEvent(user, match, { changeId, details, eventId, expectedUpdatedAt, operation }) {
   await prepareMutation(user, match, 30)
   await rpc('save_coach_concluded_match_event', {
     change_id: changeId,
     details,
     event_id: eventId || null,
-    expected_updated_at: match.updatedAt,
+    expected_updated_at: expectedUpdatedAt,
     match_id: match.id,
     operation,
   })

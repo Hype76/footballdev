@@ -613,6 +613,7 @@ function ConcludedTimeline({ busy, canEdit, match, onSave, players, styles }) {
     setError('')
     setDraft({
       changeId: createCoachMatchDayCommandId(),
+      expectedUpdatedAt: match.updatedAt,
       operation,
       eventId: event?.id || '',
       details: operation === 'score'

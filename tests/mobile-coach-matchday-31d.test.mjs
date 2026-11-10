@@ -200,7 +200,7 @@ test('Match Day live operations and fixture edits use canonical RPC mutations', 
   assert.equal((source.match(/\.from\('match_days'\)\.update\(/g) || []).length, 0)
   assert.match(source, /rpc\('update_match_day_fixture_for_team'/)
   assert.match(source, /export async function updateCoachMatchDayFixture[\s\S]*?!isCoachFixtureEditable\(match\)/)
-  assert.match(source, /rpc\('save_coach_concluded_match_event',[\s\S]*?expected_updated_at: match\.updatedAt/)
+  assert.match(source, /rpc\('save_coach_concluded_match_event',[\s\S]*?expected_updated_at: expectedUpdatedAt/)
   assert.doesNotMatch(source, /fixtureUpdate\.concludedEdit/)
   assert.doesNotMatch(source, /\.from\('match_day_events'\)[\s\S]{0,300}\.insert\(/)
   assert.match(source, /\['admin', 'parent_portal', 'adult_player', 'super_admin'\]/)

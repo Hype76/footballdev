@@ -253,8 +253,10 @@ try {
         await page.getByLabel('Scorer',{exact:true}).fill('Historical scorer');
         await page.getByLabel('Assist (optional)',{exact:true}).fill('Historical assist');
         await page.getByLabel('Reason for the correction',{exact:true}).fill('Missed in the original report');
+        const versionWhenOpened = await page.evaluate(()=>window.server.updatedAt);
         await page.getByRole('button',{name:'Save correction',exact:true}).click();
         await page.getByText(/Historical scorer, assisted by Historical assist/).waitFor();
+        assert.equal(await page.evaluate(()=>window.correction.expectedUpdatedAt),versionWhenOpened);
         await page.getByRole('button',{name:'Edit event',exact:true}).click();
         await page.getByLabel('Scorer',{exact:true}).fill('Corrected scorer');
         await page.getByLabel('Reason for the correction',{exact:true}).fill('Confirmed with the team');
