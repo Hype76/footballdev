@@ -6,7 +6,7 @@ import { build } from 'esbuild'
 import { chromium } from 'playwright'
 
 if (!process.env.FORMATION_ASYNC_SCENARIO) {
-  for (const scenario of ['race', 'scope', 'cache', 'cache-missing', 'restored-authority', 'restored-revoked', 'restored-denied', 'stable', 'loading-back', 'back', 'back-offline', 'fast-save', 'fast-save-no-storage', 'readonly', 'panels', 'multiple', 'queue-resume', 'conflict', 'ack-refresh', 'queue-switch', 'new-board-isolation']) {
+  for (const scenario of ['race', 'scope', 'cache', 'cache-missing', 'restored-authority', 'restored-revoked', 'restored-denied', 'stable', 'loading-back', 'back', 'back-offline', 'fast-save', 'fast-save-no-storage', 'readonly', 'panels', 'multiple', 'queue-resume', 'recover-audience', 'conflict', 'ack-refresh', 'queue-switch', 'new-board-isolation']) {
     const result = spawnSync(process.execPath, [fileURLToPath(import.meta.url)], {
       env: { ...process.env, FORMATION_ASYNC_SCENARIO: scenario },
       encoding: 'utf8',
@@ -116,7 +116,7 @@ const dataMock = `
   export const getCoachFormationPublications = async (user, boardId) => {
     const state = globalThis.__formationTest
     state.publicationCalls += 1
-    if (state.mode === 'multiple' && state.lastShared && state.serverBoard?.id === boardId) return [{ board_version_id: state.serverBoard.currentVersionId, match_day_id: 'match-a' }]
+    if (['multiple', 'recover-audience'].includes(state.mode) && state.lastShared && state.serverBoard?.id === boardId) return [{ board_version_id: state.serverBoard.currentVersionId, match_day_id: 'match-a' }]
     return []
   }
   export const getCoachFormationResourcePublications = async () => []
@@ -167,6 +167,7 @@ const dataMock = `
     state.serverBoard = {
       isLocked: state.mode === 'ack-refresh',
       ...(currentBoard || board('board-created-' + state.saveCalls, title || 'Created board', match?.id || '')),
+      createdAt: new Date().toISOString(),
       linkedMatchDayId: match?.id || currentBoard?.linkedMatchDayId || '',
       title: title || currentBoard?.title || 'Created board',
       currentVersionId: 'board-created-v2',
@@ -179,6 +180,7 @@ const dataMock = `
       const index = existing.findIndex(item => item.id === state.serverBoard.id)
       state.serverBoards = index >= 0 ? existing.map((item, itemIndex) => itemIndex === index ? state.serverBoard : item) : [...existing, state.serverBoard]
     }
+    if (state.mode === 'recover-audience' && state.saveCalls === 1) throw new Error('Network request failed')
     return state.serverBoard
   }
 `
@@ -525,6 +527,23 @@ try {
         console.log('PASS: version conflict stays actionable without retrying the save')
       }
       assert.deepEqual(errors, [])
+    } else if (process.env.FORMATION_ASYNC_SCENARIO === 'recover-audience') {
+      await page.getByRole('radio', { name: 'Parents and players', exact: true }).click()
+      await page.getByRole('button', { name: 'Save to match', exact: true }).click()
+      await page.getByText(/^Saved on this phone\. Saving to the match has not been confirmed\./).waitFor()
+      await page.getByRole('radio', { name: 'Coaches only', exact: true }).click()
+      await page.getByRole('button', { name: 'Save to match', exact: true }).click()
+      await page.getByRole('dialog', { name: 'share options', exact: true }).waitFor({ state: 'hidden' })
+      await page.getByRole('button', { name: 'Save', exact: true }).click()
+      await page.getByText(/Visible to parents and players\. Save again to apply your new sharing choice\./).waitFor()
+      assert.equal(await page.evaluate(() => window.__formationTest.saveCalls), 1)
+      await page.getByRole('button', { name: 'Save to match', exact: true }).click()
+      await page.getByRole('dialog', { name: 'share options', exact: true }).waitFor({ state: 'hidden' })
+      const { lastSavedBoardId, lastShared, saveCalls } = await page.evaluate(() => window.__formationTest)
+      assert.equal(saveCalls, 2)
+      assert.equal(lastSavedBoardId, 'board-created-1')
+      assert.equal(lastShared, false)
+      console.log('PASS: recovery reports the confirmed audience and keeps a later sharing choice for the existing board')
     } else if (process.env.FORMATION_ASYNC_SCENARIO === 'ack-refresh') {
       await page.getByRole('switch', { name: 'Submit as starting squad', exact: true }).click()
       await page.getByRole('button', { name: 'Save to match', exact: true }).click()
