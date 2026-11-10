@@ -100,20 +100,23 @@ const currentFeedbackStoreAndroid = `${profile}:${platform}` === 'store-live:and
   && promotionReference === 'FP-MOBILE-SIMON-FEEDBACK-55'
 const currentLiveMatchStoreAndroid = `${profile}:${platform}` === 'store-live:android'
   && ['FP-MOBILE-LIVE-MATCH-112-20261103', 'FP-MOBILE-500MB-LIVE-CLOCK-112-20261103'].includes(promotionReference)
+const satelliteParityPrivateBuild = profile === 'store-live'
+  && ['android', 'ios'].includes(platform)
+  && promotionReference === 'FP-MOBILE-SATELLITE-PARITY-112-20261110'
 
 if (!app) {
   console.error('Unknown mobile app role. Expected coach or parent.')
   process.exit(1)
 }
 
-if (!allowedBuilds.has(`${profile}:${platform}`) && !masterStoreAndroid && !currentInternalIos && !currentCoachStoreAndroid && !currentFeedbackStoreAndroid && !currentLiveMatchStoreAndroid) {
+if (!allowedBuilds.has(`${profile}:${platform}`) && !masterStoreAndroid && !currentInternalIos && !currentCoachStoreAndroid && !currentFeedbackStoreAndroid && !currentLiveMatchStoreAndroid && !satelliteParityPrivateBuild) {
   console.error('Unknown mobile build profile and platform combination.')
   process.exit(1)
 }
 
-const productionReferenceAuthorised = appRole === 'parent'
+const productionReferenceAuthorised = satelliteParityPrivateBuild || (appRole === 'parent'
   ? authorisedParentProductionReferences.has(promotionReference)
-  : authorisedCoachProductionReferences.has(promotionReference)
+  : authorisedCoachProductionReferences.has(promotionReference))
 
 if (productionBuilds.has(`${profile}:${platform}`) && !productionReferenceAuthorised) {
   console.error('Production mobile build not authorised for this app and reference.')

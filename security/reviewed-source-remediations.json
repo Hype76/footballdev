@@ -559,7 +559,7 @@
   "implementationHashes": {
     "scripts/security-supply-chain-gate.mjs": "dcf722bc6cbf2015da4250ea60cbb81e34d3c5c64ec7bb6059671cbae5ab4207",
     "scripts/security-apply-reviewed-backports.mjs": "7f0e9de0add15a121a0f60f89f71656b503450010b8b9c8d4aaf58bc355fc5ec",
-    "scripts/security-verify-reviewed-backports.mjs": "8af5dc03983841d21a6ea36f81e05aa3d51cb9574c572e11d15c64fd7e7dfeff",
+    "scripts/security-verify-reviewed-backports.mjs": "52b251d5b439143d63ffc4d3e205af130515537afc4cbce8b0aa0534cbf5b908",
     "security/patches/braces-3.0.3.patch": "e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699",
     "security/patches/node-forge-1.4.0.patch": "2de065ac998bf58917a14d0935112d97ec2957ac41b5f06958d500934f188ed4",
     "security/patches/reviewed-source-manifest.json": "facb364bbac44a8276d082068e8ed8415ca89777d24f4c7a05ff370f71e5a54d",
@@ -1975,8 +1975,8 @@
       "apps/parent-mobile/src/backgroundInvitationActionCore.js": "aeb0c94849fa4f5bf14ec3d2044d3e90d5c8593ef937674210538f97ce638ab6",
       "apps/parent-mobile/src/backgroundInvitationActions.js": "61054ff2a595a776c414e29dbe5368d52e82b248691859770ab9d63ecc620e88",
       "apps/parent-mobile/src/notifications.js": "2156564ac140986bd192fee03e15ab01fcad958d2d2b52af659d3bde426de0b7",
-      "apps/scripts/mobile-build-guard.mjs": "df4003af10b5864af340729af8e38ad73ec0a8fc4bf19a082b075899317f921a",
-      "apps/scripts/mobile-submit-guard.mjs": "d49f4eb123674bf0e64fce0e9937040231529700c5e620de6b48135e3ffd296a",
+      "apps/scripts/mobile-build-guard.mjs": "0c2f7e711558e10b93b7f584abeac333ff16d0b912e84318bfd0af9bbe423ea1",
+      "apps/scripts/mobile-submit-guard.mjs": "1712093232f459f9e10fd714862bc42193fc5ef508f43236f3f49d9683dfe5bb",
       "netlify/functions/coach-calendar-feed.js": "c4892389b1ec528dd184c332fe958aba171bdf26ddf48468f845b29f0e15ef6d",
       "netlify/functions/lib/_coach-calendar-authority.js": "83e7672eba964646a72418c5c1a3da544f7feb742a0ea2252b57a1cedbeb3db3",
       "supabase/migrations/20261027140215_coach_calendar_subscriptions.sql": "1f5639bba6c274334cdb20b92b2ac64c952771eafb0d94d67119d8d3a1737572",
@@ -1988,7 +1988,7 @@
       "apps/coach-mobile/eas.json": "dcf971cf093907cb6848b9a4f6e2b31c52bbe77b732219ba7eb3bcb2ac331a8b",
       "apps/parent-mobile/eas.json": "d46790827da53d2bf493c5de62642025b047dac85ff50212cc36271cc2c6411c",
       "apps/scripts/mobile-qa-upload-core.mjs": "cc8aa1fc8444339b00426f15a7157e90bc43a39a2bd9e25f4eddd77d44a3027d",
-      "tests/mobile-qa-upload-guard.test.mjs": "06e07b448b690654b799d0e1d15bfdc0bf710da6968439e81eb0d41c51e26099",
+      "tests/mobile-qa-upload-guard.test.mjs": "005f3958c20df4c13e99d8b344c8c3ea27f80a478ba915c8ec84925c9e951622",
       "apps/scripts/mobile-eas-toolchain.mjs": "979ed9ac704747c74869dbc69edbc4d6bc10a9b7f174069bb9136df94df0bebd",
       "tests/mobile-chat-notify-performance-58.test.mjs": "db7372001502ca93e5a7abb49b5ccc0bd7599b18a66ad7dd187287d67158d98d",
       "tests/mobile-corrective-70.test.mjs": "09cc5d9b51cdd1eed18737f9b72c211656dfcd875a5dab53a5223bccc8eb35e5",
@@ -3657,7 +3657,7 @@
       "independentExactSourceAcceptanceRequired": true
     }
   },
-  "releasePreparationSha256": "6e40e7234aa9a9b0bcdfded8bcb466484a33da1d6b78bd9fca072e1a3abaa5f2",
+  "releasePreparationSha256": "3252343ab8aff3d693840dc2c13509ee02a638c78b8d792617751b1d709d17c1",
   "rootOnlyProposalSha256": "45c3b7352c7328c84982e114b7e87e09cf79514d02d102297ae75ec0925812eb",
   "remediationMode": "maintained-source-fixes",
   "officialCompatibilityDependencies": [

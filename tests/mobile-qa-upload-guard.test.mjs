@@ -36,3 +36,29 @@ test('QA upload flag cannot unlock public release or skip explicit internal-uplo
     assert.ok(`${result.stdout}${result.stderr}`.includes(expectedMessage))
   }
 })
+
+test('1.1.2 satellite parity authorises private builds and uploads without opening public submission', () => {
+  const env = {
+    ...process.env,
+    MOBILE_PRODUCTION_PROMOTION_REFERENCE: 'FP-MOBILE-SATELLITE-PARITY-112-20261110',
+    MOBILE_NATIVE_BUILD_CONFIRMED: 'false',
+    MOBILE_SUBMISSION_CONFIRMED: 'true',
+    MOBILE_QA_UPLOAD_CONFIRMED: 'false',
+    MOBILE_SUBMISSION_BUILD_ID: '11111111-1111-4111-8111-111111111111',
+  }
+  for (const app of ['coach', 'parent']) {
+    for (const platform of ['ios', 'android']) {
+      const build = spawnSync(process.execPath, ['apps/scripts/mobile-build-guard.mjs', app, 'store-live', platform], { env, encoding: 'utf8' })
+      assert.equal(build.status, 1)
+      assert.match(build.stderr, /MOBILE_NATIVE_BUILD_CONFIRMED=true/)
+
+      const upload = spawnSync(process.execPath, ['apps/scripts/mobile-submit-guard.mjs', app, platform, 'store-qa'], { env, encoding: 'utf8' })
+      assert.equal(upload.status, 1)
+      assert.match(upload.stderr, /MOBILE_QA_UPLOAD_CONFIRMED=true/)
+
+      const publicSubmit = spawnSync(process.execPath, ['apps/scripts/mobile-submit-guard.mjs', app, platform, 'store-live'], { env, encoding: 'utf8' })
+      assert.equal(publicSubmit.status, 1)
+      assert.match(publicSubmit.stderr, /production_build_not_authorised/)
+    }
+  }
+})
