@@ -6,7 +6,7 @@ import { build } from 'esbuild'
 import { chromium } from 'playwright'
 
 if (!process.env.FORMATION_ASYNC_SCENARIO) {
-  for (const scenario of ['race', 'scope', 'cache', 'cache-missing', 'restored-authority', 'restored-revoked', 'restored-denied', 'stable', 'loading-back', 'back', 'back-offline', 'retry', 'retry-no-storage', 'readonly', 'panels', 'multiple', 'queue-resume', 'conflict', 'ack-refresh', 'queue-switch', 'new-board-isolation']) {
+  for (const scenario of ['race', 'scope', 'cache', 'cache-missing', 'restored-authority', 'restored-revoked', 'restored-denied', 'stable', 'loading-back', 'back', 'back-offline', 'fast-save', 'fast-save-no-storage', 'readonly', 'panels', 'multiple', 'queue-resume', 'recover-audience', 'conflict', 'ack-refresh', 'queue-switch', 'new-board-isolation']) {
     const result = spawnSync(process.execPath, [fileURLToPath(import.meta.url)], {
       env: { ...process.env, FORMATION_ASYNC_SCENARIO: scenario },
       encoding: 'utf8',
@@ -34,9 +34,11 @@ const entry = `
     boardCalls: 0,
     boardResolvers: {},
     createCalls: 0,
+    formationWrites: 0,
     localDraftCalls: 0,
     lastLocalDraft: null,
     presetCalls: 0,
+    publicationCalls: 0,
     saveCalls: 0,
     startingSquadCalls: 0,
     lastShared: false,
@@ -70,7 +72,7 @@ const entry = `
       {scenario === 'stable' ? <button type="button" onClick={() => setRevision(current => current + 1)}>Equivalent parent refresh {revision}</button> : null}
       {scenario === 'back' || scenario === 'back-offline' || scenario === 'loading-back' ? <button type="button" onClick={() => backHandler.current?.()}>Native workspace back</button> : null}
       {scenario === 'back-offline' ? <button type="button" onClick={() => setStale(true)}>Lose connection</button> : null}
-      {scenario === 'queue-resume' || scenario === 'ack-refresh' || scenario === 'retry' ? <button type="button" onClick={() => { Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'visible' }); document.dispatchEvent(new Event('visibilitychange')) }}>Resume connection</button> : null}
+      {scenario === 'queue-resume' || scenario === 'ack-refresh' ? <button type="button" onClick={() => { Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'visible' }); document.dispatchEvent(new Event('visibilitychange')) }}>Resume connection</button> : null}
       {visible ? <CoachFormationBoard
         context={{ id: scopeId === 'a' ? 'club-context-a' : 'club-context-b', authorityId: scopeId === 'a' ? 'authority-a' : 'authority-b', authoritySource: 'team_staff', clubId: 'club-1', teamId: scopeId === 'a' ? 'team-1' : 'team-2', role: 'coach', roleRank: 30, hasActivePlanAccess: true }}
         match={scenario === 'race' || scenario === 'queue-switch' ? match : matches.a}
@@ -113,13 +115,19 @@ const dataMock = `
   }
   export const getCoachFormationPublications = async (user, boardId) => {
     const state = globalThis.__formationTest
-    if (state.mode === 'multiple' && state.lastShared && state.serverBoard?.id === boardId) return [{ board_version_id: state.serverBoard.currentVersionId, match_day_id: 'match-a' }]
+    state.publicationCalls += 1
+    if (['multiple', 'recover-audience'].includes(state.mode) && state.lastShared && state.serverBoard?.id === boardId) return [{ board_version_id: state.serverBoard.currentVersionId, match_day_id: 'match-a' }]
     return []
   }
   export const getCoachFormationResourcePublications = async () => []
   export const linkCoachFormationBoard = async (user, currentBoard, matchId) => ({ ...currentBoard, linkedMatchDayId: matchId })
   export const publishCoachFormationBoard = async () => { globalThis.__formationTest.publishCalls += 1; return {} }
-  export const submitCoachMatchStartingSquad = async () => { globalThis.__formationTest.startingSquadCalls += 1; return {} }
+  export const submitCoachMatchStartingSquad = async () => {
+    const state = globalThis.__formationTest
+    state.startingSquadCalls += 1
+    if (state.mode === 'ack-refresh' && state.startingSquadCalls === 1) throw new Error('Network request failed')
+    return {}
+  }
   export const publishCoachFormationResource = async () => ({})
   export const withdrawCoachFormationBoard = async () => ({})
 
@@ -136,10 +144,7 @@ const dataMock = `
       throw new Error('Network request failed')
     }
     if (state.mode === 'ack-refresh' && state.refreshFailed) return state.serverBoard ? [state.serverBoard] : []
-    if ((state.mode === 'retry' || state.mode === 'retry-no-storage') && call === 2 && !state.refreshFailed) {
-      state.refreshFailed = true
-      throw new Error('refresh failed')
-    }
+    if (state.mode.startsWith('fast-save') && call > 1) return new Promise(resolve => { state.boardResolvers[call] = resolve })
     if (state.mode === 'multiple') {
       if (!state.serverBoards) state.serverBoards = [board('board-a', 'Board A', 'match-a'), board('board-b', 'Board B', 'match-a'), board('board-c', 'Board C', 'match-b')]
       return state.serverBoards
@@ -162,6 +167,7 @@ const dataMock = `
     state.serverBoard = {
       isLocked: state.mode === 'ack-refresh',
       ...(currentBoard || board('board-created-' + state.saveCalls, title || 'Created board', match?.id || '')),
+      createdAt: new Date().toISOString(),
       linkedMatchDayId: match?.id || currentBoard?.linkedMatchDayId || '',
       title: title || currentBoard?.title || 'Created board',
       currentVersionId: 'board-created-v2',
@@ -174,6 +180,7 @@ const dataMock = `
       const index = existing.findIndex(item => item.id === state.serverBoard.id)
       state.serverBoards = index >= 0 ? existing.map((item, itemIndex) => itemIndex === index ? state.serverBoard : item) : [...existing, state.serverBoard]
     }
+    if (state.mode === 'recover-audience' && state.saveCalls === 1) throw new Error('Network request failed')
     return state.serverBoard
   }
 `
@@ -200,25 +207,28 @@ const offlineMock = `
   }
   export const readCoachOfflineResources = async () => current()
   export const saveCoachOfflineResources = async (user, context, resources) => {
-    if (window.__formationTest.mode === 'retry-no-storage') throw new Error('Device storage unavailable')
+    if (window.__formationTest.mode === 'fast-save-no-storage') throw new Error('Device storage unavailable')
+    window.__formationTest.formationWrites += 1
     const value = current()
     const previousFormation = value.resources.formation || {}
-    const incomingFormation = resources.formation
+    const { clearDraftKey, ...incomingFormation } = resources.formation
+    const localDrafts = { ...(previousFormation.localDrafts || {}) }
+    if (clearDraftKey) delete localDrafts[clearDraftKey]
     if (incomingFormation?.pendingSaveChanges) {
       const pendingSaves = { ...(previousFormation.pendingSaves || {}) }
       Object.entries(incomingFormation.pendingSaveChanges).forEach(([pendingKey, pendingSave]) => {
         if (pendingSave === null) delete pendingSaves[pendingKey]
         else pendingSaves[pendingKey] = pendingSave
       })
-      stored = { resources: { ...value.resources, ...resources, formation: { ...incomingFormation, pendingSaveChanges: undefined, pendingSaves, localDrafts: previousFormation.localDrafts || {}, pendingSave: incomingFormation.pendingSave === undefined ? previousFormation.pendingSave : incomingFormation.pendingSave } } }
+      stored = { resources: { ...value.resources, ...resources, formation: { ...incomingFormation, pendingSaveChanges: undefined, pendingSaves, localDrafts, pendingSave: incomingFormation.pendingSave === undefined ? previousFormation.pendingSave : incomingFormation.pendingSave } } }
     } else {
-      stored = { resources: { ...value.resources, ...resources, formation: { ...incomingFormation, pendingSaves: incomingFormation.pendingSaves === undefined ? (previousFormation.pendingSaves || {}) : incomingFormation.pendingSaves, localDrafts: previousFormation.localDrafts || {}, pendingSave: incomingFormation.pendingSave === undefined ? previousFormation.pendingSave : incomingFormation.pendingSave } } }
+      stored = { resources: { ...value.resources, ...resources, formation: { ...incomingFormation, pendingSaves: incomingFormation.pendingSaves === undefined ? (previousFormation.pendingSaves || {}) : incomingFormation.pendingSaves, localDrafts, pendingSave: incomingFormation.pendingSave === undefined ? previousFormation.pendingSave : incomingFormation.pendingSave } } }
     }
     window.__formationTest.lastOfflineFormation = stored.resources.formation
     return stored
   }
   export const saveCoachFormationLocalDraft = async (user, context, key, entry) => {
-    if (window.__formationTest.mode === 'retry-no-storage') throw new Error('Device storage unavailable')
+    if (window.__formationTest.mode === 'fast-save-no-storage') throw new Error('Device storage unavailable')
     window.__formationTest.localDraftCalls += 1
     window.__formationTest.lastLocalDraft = entry
     const value = current()
@@ -517,17 +527,36 @@ try {
         console.log('PASS: version conflict stays actionable without retrying the save')
       }
       assert.deepEqual(errors, [])
-    } else if (process.env.FORMATION_ASYNC_SCENARIO === 'ack-refresh') {
+    } else if (process.env.FORMATION_ASYNC_SCENARIO === 'recover-audience') {
+      await page.getByRole('radio', { name: 'Parents and players', exact: true }).click()
       await page.getByRole('button', { name: 'Save to match', exact: true }).click()
-      await page.waitForFunction(() => window.__formationTest.saveCalls === 1)
+      await page.getByText(/^Saved on this phone\. Saving to the match has not been confirmed\./).waitFor()
+      await page.getByRole('radio', { name: 'Coaches only', exact: true }).click()
+      await page.getByRole('button', { name: 'Save to match', exact: true }).click()
       await page.getByRole('dialog', { name: 'share options', exact: true }).waitFor({ state: 'hidden' })
+      await page.getByRole('button', { name: 'Save', exact: true }).click()
+      await page.getByText(/Visible to parents and players\. Save again to apply your new sharing choice\./).waitFor()
+      assert.equal(await page.evaluate(() => window.__formationTest.saveCalls), 1)
+      await page.getByRole('button', { name: 'Save to match', exact: true }).click()
+      await page.getByRole('dialog', { name: 'share options', exact: true }).waitFor({ state: 'hidden' })
+      const { lastSavedBoardId, lastShared, saveCalls } = await page.evaluate(() => window.__formationTest)
+      assert.equal(saveCalls, 2)
+      assert.equal(lastSavedBoardId, 'board-created-1')
+      assert.equal(lastShared, false)
+      console.log('PASS: recovery reports the confirmed audience and keeps a later sharing choice for the existing board')
+    } else if (process.env.FORMATION_ASYNC_SCENARIO === 'ack-refresh') {
+      await page.getByRole('switch', { name: 'Submit as starting squad', exact: true }).click()
+      await page.getByRole('button', { name: 'Save to match', exact: true }).click()
+      await page.getByText(/^Saved to this match\. Refreshing the saved lineup is pending\./).waitFor()
+      await page.getByRole('button', { name: 'Close options', exact: true }).click()
+      await page.getByRole('button', { name: 'Resume connection', exact: true }).click()
       await page.waitForFunction(() => window.__formationTest.refreshFailed)
       assert.equal(await page.getByText(/^Saved on this phone\./).count(), 0, 'A confirmed server save must never be described as phone-only')
       await page.getByRole('button', { name: 'Resume connection', exact: true }).dblclick()
-      await page.waitForTimeout(250)
+      await page.waitForFunction(() => Object.keys(window.__formationTest.lastOfflineFormation?.pendingSaves || {}).length === 0)
       assert.equal(await page.evaluate(() => window.__formationTest.saveCalls), 1, 'Refresh failure after acknowledgement must not issue a second RPC')
-      assert.equal(await page.evaluate(() => Object.keys(window.__formationTest.lastOfflineFormation?.pendingSaves || {}).length), 0, 'Reconciled acknowledged save clears the pending map')
-      console.log('PASS: acknowledged save reconciles after refresh failure without duplicating the RPC')
+      assert.equal(await page.evaluate(() => window.__formationTest.startingSquadCalls), 2, 'Only the interrupted squad submission is retried')
+      console.log('PASS: acknowledged save resumes the interrupted squad submission and reconciles a failed refresh without duplicating the save')
     } else if (process.env.FORMATION_ASYNC_SCENARIO === 'queue-switch') {
       await page.getByRole('button', { name: 'Save to match', exact: true }).click()
       await page.getByText('Saved on this phone. Saving to the match has not been confirmed. Keep this board open to retry automatically, or tap Save to match to retry now.', { exact: true }).waitFor()
@@ -550,42 +579,31 @@ try {
       assert.equal(Object.keys(formation?.pendingSaves || {}).some(key => key.startsWith('match-a:')), true)
       console.log('PASS: new-board failure keeps offline identity scoped to the active match')
     }
-    if (!['queue-resume', 'conflict', 'ack-refresh', 'queue-switch', 'new-board-isolation'].includes(process.env.FORMATION_ASYNC_SCENARIO)) {
-    if (process.env.FORMATION_ASYNC_SCENARIO === 'retry') {
+    if (process.env.FORMATION_ASYNC_SCENARIO.startsWith('fast-save')) {
+      const shared = process.env.FORMATION_ASYNC_SCENARIO === 'fast-save'
       await page.getByLabel('Formation plan title', { exact: true }).fill('Starting lineup')
-      await page.getByRole('dialog', { name: 'share options', exact: true }).waitFor()
-      await page.getByRole('dialog', { name: 'share options', exact: true }).getByText('Save to match', { exact: true }).first().waitFor()
-      await page.waitForTimeout(600)
-      await page.screenshot({ path: path.join(rootDir, 'outputs', 'match-formations', 'save-to-match-preview.png') })
-    }
-    if (process.env.FORMATION_ASYNC_SCENARIO === 'retry') {
-      await page.getByRole('radio', { name: 'Parents and players', exact: true }).click()
-      await page.getByRole('switch', { name: 'Submit as starting squad', exact: true }).click()
-    }
-    await page.getByRole('button', { name: 'Save to match', exact: true }).click()
-    await page.waitForFunction(() => window.__formationTest.saveCalls === 1)
-    await page.waitForTimeout(120)
-    await page.getByRole('dialog', { name: 'share options', exact: true }).waitFor({ state: 'hidden' })
-    if (process.env.FORMATION_ASYNC_SCENARIO === 'retry-no-storage') await page.getByText('Saved to this match, but the latest lineup could not be refreshed. refresh failed', { exact: true }).waitFor()
-    if (process.env.FORMATION_ASYNC_SCENARIO === 'retry') {
-      await page.getByRole('button', { name: 'Resume connection', exact: true }).dblclick()
-      await page.waitForTimeout(250)
-      assert.equal(await page.evaluate(() => window.__formationTest.saveCalls), 1, 'Acknowledged retry must not issue a second RPC')
-      assert.equal(await page.evaluate(() => window.__formationTest.lastMatchId), 'match-a')
-      assert.equal(await page.evaluate(() => window.__formationTest.lastShared), true)
-      assert.equal(await page.evaluate(() => window.__formationTest.startingSquadCalls), 1)
-    } else {
-      await page.getByRole('button', { name: 'Retry save', exact: true }).click()
-      await page.waitForFunction(() => window.__formationTest.saveCalls === 2)
-      assert.equal(await page.evaluate(() => window.__formationTest.lastMatchId), 'match-a')
-      assert.equal(await page.evaluate(() => window.__formationTest.lastShared), false)
-    }
-    if (process.env.FORMATION_ASYNC_SCENARIO !== 'retry-no-storage') {
-      await page.getByRole('button', { name: 'Save', exact: true }).click()
-      await page.getByRole('dialog', { name: 'share options', exact: true }).waitFor()
-      await page.getByRole('button', { name: 'Close options', exact: true }).click()
-    }
-    console.log(`PASS: create success followed by refresh failure retries the existing board (${process.env.FORMATION_ASYNC_SCENARIO})`)
+      if (shared) await page.getByRole('radio', { name: 'Parents and players', exact: true }).click()
+      const writesBeforeSave = await page.evaluate(() => window.__formationTest.formationWrites)
+      await page.getByRole('button', { name: 'Save to match', exact: true }).click()
+      await page.getByRole('dialog', { name: 'share options', exact: true }).waitFor({ state: 'hidden' })
+      const savedLineups = page.getByRole('button', { name: 'Saved lineups (1)', exact: true })
+      await savedLineups.click({ timeout: 3000 })
+      const status = shared ? 'Visible to parents and players' : 'Saved to match | Coaches only'
+      await page.getByText(`${status} | 1 on pitch | 0 Subs`, { exact: true }).waitFor()
+      const calls = await page.evaluate(() => {
+        const { boardCalls, publicationCalls, saveCalls, startingSquadCalls, lastShared } = window.__formationTest
+        return { boardCalls, publicationCalls, saveCalls, startingSquadCalls, lastShared }
+      })
+      assert.deepEqual(calls, { boardCalls: 1, publicationCalls: 0, saveCalls: 1, startingSquadCalls: 0, lastShared: shared })
+      if (shared) {
+        const { formationWrites, lastOfflineFormation } = await page.evaluate(() => window.__formationTest)
+        assert.equal(formationWrites - writesBeforeSave, 2, 'Only the pending save and the completed save need cache writes')
+        assert.deepEqual(lastOfflineFormation.pendingSaves, {})
+        assert.deepEqual(lastOfflineFormation.localDrafts, {})
+        assert.equal(lastOfflineFormation.matchPublications[0].board_version_id, lastOfflineFormation.board.currentVersionId)
+      }
+      await page.getByText('Starting lineup', { exact: true }).waitFor()
+      console.log(`PASS: confirmed save updates the editor and saved lineups without a team-list or publication reload (${process.env.FORMATION_ASYNC_SCENARIO})`)
     }
   }
   assert.deepEqual(errors, [])

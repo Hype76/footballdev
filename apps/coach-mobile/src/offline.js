@@ -259,8 +259,10 @@ export async function saveCoachFormationLocalDraft(userId, context, key, entry) 
   return store.update(userId, (document) => {
     assertOutboxContext(document, userId, context)
     const previous = getCoachOfflineResources(document, context)?.resources?.formation
+    const clearPending = !entry && key === formationDraftKey(previous?.board?.id, previous?.matchDayId)
+    if (!entry && !Object.hasOwn(previous?.localDrafts || {}, key) && !(clearPending && previous?.pendingSave)) return document
     const formation = updateFormationLocalDraft(previous, key, entry)
-    if (!entry && key === formationDraftKey(previous?.board?.id, previous?.matchDayId)) formation.pendingSave = null
+    if (clearPending) formation.pendingSave = null
     return setCoachOfflineResources(document, context, {
       formation,
     })
@@ -297,8 +299,11 @@ async function saveCoachOfflineResourcesWithProfile(userId, contextId, resources
       ...resources,
       formation: {
         ...resources.formation,
+        clearDraftKey: undefined,
         pendingSaveChanges: undefined,
-        localDrafts: previousFormation?.localDrafts || {},
+        localDrafts: resources.formation.clearDraftKey
+          ? updateFormationLocalDraft(previousFormation, resources.formation.clearDraftKey, null).localDrafts
+          : previousFormation?.localDrafts || {},
         pendingSave: resources.formation.pendingSave === undefined ? previousFormation?.pendingSave : resources.formation.pendingSave,
         pendingSaves: resources.formation.pendingSaveChanges
           ? mergeFormationPendingSaves(previousFormation?.pendingSaves, resources.formation.pendingSaveChanges)
