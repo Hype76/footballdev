@@ -7,6 +7,8 @@ import { isMatchDayParticipantRosterCurrent, mergeMatchDayParticipantEventIdenti
 import { validateFinalMatchReportNotes } from '../../../src/lib/matchday-final-report.js'
 import { validateMatchDayEventUndoInput } from '../../../src/lib/matchday-event-undo.js'
 import { validateCoachFixtureForm } from './coachFixtureCore.js'
+import { isCoachFixtureEditable } from './coachFixtureEditCore.js'
+import { COACH_MATCH_DAY_PAGE_SIZE } from './coachMatchDayCore.js'
 import { settleCoachFixtureAudit } from './coachFixtureAuditCore.js'
 import { getMobileRuntimeConfig } from './config'
 import { fetchJsonWithTimeout, joinApiPath } from './http'
@@ -113,9 +115,14 @@ function assertCoachMatchDayAccess(user) {
   }
 }
 
-export async function getCoachMatchDayList(user) {
+export async function getCoachMatchDayList(user, offset = 0) {
   assertCoachMatchDayAccess(user)
-  const { data, error } = await scoped(supabase.from('match_days').select(LIST_SELECT).eq('club_id', user.clubId).is('deleted_at', null).order('match_date', { ascending: false, nullsFirst: false }).order('created_at', { ascending: false }).limit(80), user)
+  const query = supabase.from('match_days').select(LIST_SELECT).eq('club_id', user.clubId).is('deleted_at', null)
+    .order('match_date', { ascending: false, nullsFirst: false })
+    .order('created_at', { ascending: false })
+    .order('id')
+    .range(offset, offset + COACH_MATCH_DAY_PAGE_SIZE - 1)
+  const { data, error } = await scoped(query, user)
   if (error) throw error
   const matches = (data || []).map((row) => normalizeCoachMatchDay({ ...row, clubName: user.clubName }))
   const ids = matches.map((match) => match.id)
@@ -362,11 +369,12 @@ export function buildCoachFixtureUpdatePayload(form = {}, fixture = {}, location
 
 export async function updateCoachMatchDayFixture(user, match, form) {
   await prepareMutation(user, match)
-  if (!['scheduled', 'scorer_request', 'postponed'].includes(normalize(match.status))) {
-    throw new Error('Fixture details can only be edited before the match starts.')
+  if (!isCoachFixtureEditable(match)) {
+    throw new Error('Edit fixture details before kick-off or after the match is concluded.')
   }
-  const fixture = validateCoachFixtureForm({ ...form, parentVisible: false, selectedPlayerIds: [] })
-  if (fixture.rememberNotificationTeamName) {
+  const concludedFixture = Boolean(match.concludedAt)
+  const fixture = validateCoachFixtureForm({ ...form, parentVisible: false, selectedPlayerIds: [] }, { concludedFixture })
+  if (!concludedFixture && fixture.rememberNotificationTeamName) {
     await saveCoachTeamNotificationDisplayName(user, user.activeTeamId, fixture.notificationTeamName)
   }
   const { data: locationId, error: locationError } = await supabase.rpc('upsert_match_location_for_team', {
@@ -376,7 +384,11 @@ export async function updateCoachMatchDayFixture(user, match, form) {
     p_team_id: user.activeTeamId,
   })
   if (locationError) throw locationError
-  const fixtureUpdate = buildCoachFixtureUpdatePayload(form, fixture, locationId)
+  const fixtureUpdate = buildCoachFixtureUpdatePayload(concludedFixture ? {} : form, fixture, locationId)
+  if (concludedFixture) {
+    fixtureUpdate.concludedEdit = true
+    fixtureUpdate.expectedUpdatedAt = match.updatedAt
+  }
   const { data, error } = await supabase.rpc('update_match_day_fixture_for_team', {
     p_fixture: fixtureUpdate,
     p_match_day_id: match.id,
@@ -384,6 +396,16 @@ export async function updateCoachMatchDayFixture(user, match, form) {
   })
   if (error) throw error
   return normalizeCoachMatchDay({ ...data, clubName: user.clubName })
+}
+
+export async function deleteCoachMatchDayFixture(user, match) {
+  await prepareMutation(user, match, 30)
+  const result = await rpc('delete_match_day_fixture_for_team', {
+    p_match_day_id: match.id,
+    p_team_id: user.activeTeamId,
+  })
+  if (result?.deleted !== true) throw new Error('Match deletion could not be confirmed. Refresh Game Day before retrying.')
+  return result
 }
 
 export async function removeCoachCancelledFixture(user, matchDayId, isCurrent = () => true) {

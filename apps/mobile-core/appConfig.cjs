@@ -82,6 +82,10 @@ function createMobileExpoConfig({
         bundleIdentifier,
         buildNumber: '1',
         supportsTablet: false,
+        entitlements: {
+          // The separate app-optimized certification requires satellite performance testing first.
+          'com.apple.developer.networking.carrier-constrained.appcategory': ['sports-8019'],
+        },
         infoPlist: {
           NSFaceIDUsageDescription: faceIdPermission,
           ITSAppUsesNonExemptEncryption: false,
@@ -101,6 +105,10 @@ function createMobileExpoConfig({
           'android.permission.READ_MEDIA_IMAGES',
           'android.permission.READ_MEDIA_VIDEO',
           'android.permission.RECORD_AUDIO',
+          ...(appRole === 'coach' ? [
+            'android.permission.READ_EXTERNAL_STORAGE',
+            'android.permission.WRITE_EXTERNAL_STORAGE',
+          ] : []),
         ],
         permissions: [
           'POST_NOTIFICATIONS',
@@ -130,6 +138,7 @@ function createMobileExpoConfig({
           },
         ],
         'expo-secure-store',
+        '../mobile-core/plugins/withSatellite.cjs',
         ...plugins,
       ],
       extra: {

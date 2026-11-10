@@ -15,8 +15,17 @@ function config(text, env = {}, version = '1.1.0') {
   return JSON.parse(JSON.stringify(context.module.exports.createMobileExpoConfig({ appRole: 'coach', name: 'Coach', version })))
 }
 
-test('native build defaults remain identical and OTA runtime requires explicit production confirmation', () => {
-  assert.deepEqual(config(source), config(baseline))
+test('native defaults include satellite settings and OTA runtime requires explicit production confirmation', () => {
+  const expected = config(baseline)
+  expected.expo.ios.entitlements = {
+    ...expected.expo.ios.entitlements,
+    'com.apple.developer.networking.carrier-constrained.appcategory': ['sports-8019'],
+  }
+  const satellitePlugin = '../mobile-core/plugins/withSatellite.cjs'
+  expected.expo.plugins = [...expected.expo.plugins.filter(plugin => plugin !== satellitePlugin), satellitePlugin]
+  const pickerStoragePermissions = ['android.permission.READ_EXTERNAL_STORAGE', 'android.permission.WRITE_EXTERNAL_STORAGE']
+  expected.expo.android.blockedPermissions = [...new Set([...expected.expo.android.blockedPermissions, ...pickerStoragePermissions])]
+  assert.deepEqual(config(source), expected)
   const approved = { MOBILE_OTA_RUNTIME_VERSION: '1.1.1', MOBILE_OTA_UPDATE_CONFIRMED: 'true', EXPO_PUBLIC_BUILD_PROFILE: 'store-live' }
   assert.equal(config(source, approved).expo.runtimeVersion, '1.1.1')
   assert.deepEqual(config(source, approved, '1.1.2').expo.runtimeVersion, { policy: 'appVersion' })

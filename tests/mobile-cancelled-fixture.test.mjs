@@ -1,9 +1,8 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { readFileSync } from 'node:fs'
+import { canRemoveCoachCancelledFixture } from '../apps/mobile-core/src/coachFixtureEditCore.js'
 
-const source = readFileSync(new URL('../apps/mobile-core/src/coachFixtureEditCore.js', import.meta.url), 'utf8')
-const { canRemoveCoachCancelledFixture } = await import(`data:text/javascript;base64,${Buffer.from(source).toString('base64')}`)
 const context = { teamId: 'team', role: 'head_manager', roleRank: 70, paymentAccess: { canMutate: true } }
 const fixture = { teamId: 'team', status: 'cancelled', sourceType: 'match_day', sourceId: 'fixture' }
 test('cancelled fixture removal is limited to the active authorised team and Manager or Team Admin', () => {

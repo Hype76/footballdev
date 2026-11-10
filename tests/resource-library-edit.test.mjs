@@ -2,15 +2,18 @@ import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import test from 'node:test'
 import { canManageResourceLibrary } from '../src/lib/auth-permissions.js'
+import { RESOURCE_LIBRARY_BUCKET, validateResourceLibraryFile } from '../src/lib/resource-library-upload.js'
 
-const source = (await readFile(new URL('../src/lib/domain/resource-library.js', import.meta.url),'utf8')).replace(/^import .*\r?\n/gm,'').replace(/export /g,'')
+const source = (await readFile(new URL('../src/lib/domain/resource-library.js', import.meta.url),'utf8'))
+  .replace(/^(?:import |export \{).*\r?\n/gm,'')
+  .replace(/export /g,'')
 const user = {id:'manager',clubId:'club',activeTeamId:'team',role:'manager',roleRank:50,planKey:'small_club',planStatus:'active'}
 const resource = {id:'resource',clubId:'club',teamId:'team',title:'Old',resourceType:'file',updatedAt:'2026-09-17T10:00:00Z',originalFilename:'old.pdf',links:[{id:'kept',parentVisible:true}]}
 function harness({uploadError=null,rpcError=null}={}) {
   const calls=[]
   const api = {storage:{from:bucket=>({upload:async(path,file,options)=>{calls.push({upload:{bucket,path,file,options}});return {error:uploadError}}})},
     rpc:async(name,args)=>{calls.push({rpc:{name,args}});return {error:rpcError,data:{id:resource.id,club_id:'club',team_id:'team',title:args.title_value,description:args.description_value,category:args.category_value,updated_at:'2026-09-17T11:00:00Z',original_filename:args.replacement_file?.original_filename||'old.pdf'}}}}
-  const edit = new Function('supabase','canManageResourceLibrary','blockDemoMutation','invalidateMemoryCacheByPrefix','clearViewCaches','createAuditLog',`${source}; return updateResourceLibraryItem`)(api,canManageResourceLibrary,async()=>{},key=>calls.push({invalidate:key}),()=>{},async()=>{})
+  const edit = new Function('supabase','canManageResourceLibrary','blockDemoMutation','invalidateMemoryCacheByPrefix','clearViewCaches','createAuditLog','RESOURCE_LIBRARY_BUCKET','validateResourceLibraryFile',`${source}; return updateResourceLibraryItem`)(api,canManageResourceLibrary,async()=>{},key=>calls.push({invalidate:key}),()=>{},async()=>{},RESOURCE_LIBRARY_BUCKET,validateResourceLibraryFile)
   return {edit,calls}
 }
 test('metadata edit uses original id and concurrency token, keeps links, and does not upload',async()=>{

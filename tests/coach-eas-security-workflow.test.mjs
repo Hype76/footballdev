@@ -15,6 +15,7 @@ const config = JSON.parse(readFileSync('apps/coach-mobile/eas.json', 'utf8'))
 test('remote gate accepts only the exact Coach cloud build identity and toolchain', () => {
   const env = { EAS_BUILD: 'true', EAS_BUILD_RUNNER: 'eas-build', EAS_BUILD_PROJECT_ID: '347965b1-f32f-47b1-8c86-7aa910fe2cb5', EAS_BUILD_PROFILE: 'store-live', FP_COACH_QA_SCOPE: 'FP-COACH-OFFLINE-15MB-20261102', EAS_BUILD_ID: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', EAS_BUILD_GIT_COMMIT_HASH: 'a'.repeat(40), EAS_BUILD_PLATFORM: 'android' }
   assert.doesNotThrow(() => assertEasIdentity(env, '22.17.0'))
+  assert.doesNotThrow(() => assertEasIdentity({ ...env, FP_COACH_QA_SCOPE: 'FP-MOBILE-SATELLITE-PARITY-112-20261110' }, '22.17.0'))
   for (const change of [{ EAS_BUILD: 'false' }, { EAS_BUILD_RUNNER: 'local-build-plugin' }, { EAS_BUILD_PROJECT_ID: 'other' }, { EAS_BUILD_PROFILE: 'development' }, { FP_COACH_QA_SCOPE: 'other' }, { EAS_BUILD_PLATFORM: 'web' }, { EAS_BUILD_GIT_COMMIT_HASH: 'bad' }]) assert.throws(() => assertEasIdentity({ ...env, ...change }, '22.17.0'))
   assert.throws(() => assertEasIdentity(env, '22.21.0'))
 })

@@ -20,7 +20,7 @@ test('instrumented live Coach refresh includes authorised roster and player type
     return { data: name === 'get_staff_match_day_detail' ? match : name === 'get_match_day_event_participants' ? { matchId: 'match', teamId: 'team', players: [], substitutionPlayers: [] } : [] }
   } }
   const dependencies = {
-    supabase, LIST_SELECT: 'fixture columns', scoped: (value) => value,
+    supabase, LIST_SELECT: 'fixture columns', COACH_MATCH_DAY_PAGE_SIZE: 80, scoped: (value) => value,
     isMatchDayParticipantRosterCurrent, mergeMatchDayParticipantEventIdentities, normalizeMatchDayParticipantRoster,
     assertCoachMatchDayAccess: () => {}, assertCoachOperationalRead: () => {},
     normalize: (value) => String(value || '').trim(), normalizeCoachMatchDay: (value) => value,

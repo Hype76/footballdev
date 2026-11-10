@@ -49,7 +49,10 @@ export function assertEasIdentity(env, nodeVersion = process.versions.node) {
   assert.equal(env.EAS_BUILD_RUNNER, 'eas-build')
   assert.equal(env.EAS_BUILD_PROJECT_ID, '347965b1-f32f-47b1-8c86-7aa910fe2cb5')
   assert.equal(env.EAS_BUILD_PROFILE, 'store-live')
-  assert.equal(env.FP_COACH_QA_SCOPE, 'FP-COACH-OFFLINE-15MB-20261102')
+  assert.ok([
+    'FP-COACH-OFFLINE-15MB-20261102',
+    'FP-MOBILE-SATELLITE-PARITY-112-20261110',
+  ].includes(env.FP_COACH_QA_SCOPE), 'Unapproved Coach private build scope')
   assert.equal(nodeVersion, '22.17.0', 'Coach test builds require the pinned Node version')
   assert.match(env.EAS_BUILD_ID || '', /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i)
   assert.match(env.EAS_BUILD_GIT_COMMIT_HASH || '', /^[0-9a-f]{40}$/)

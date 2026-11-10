@@ -80,6 +80,7 @@ if ((profile === 'store-live' && !authorisedProductionSubmission)
   || (qaUpload && promotionReference !== 'FP-MOBILE-CALENDAR-BACKGROUND-ACTIONS-271026'
     && promotionReference !== 'FP-MOBILE-LIVE-MATCH-112-20261103'
     && promotionReference !== 'FP-MOBILE-500MB-LIVE-CLOCK-112-20261103'
+    && promotionReference !== 'FP-MOBILE-SATELLITE-PARITY-112-20261110'
     && !(appRole === 'coach' && promotionReference === 'FP-COACH-OFFLINE-15MB-20261102'))) {
   console.error(platform === 'ios'
     ? 'Production iOS submission not authorised for this app and reference.'
