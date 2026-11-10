@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises'
 import { test } from 'node:test'
 
 const pageUrl = new URL('../src/pages/ResourceLibraryPage.jsx', import.meta.url)
-const domainUrl = new URL('../src/lib/domain/resource-library.js', import.meta.url)
+const uploadUrl = new URL('../src/lib/resource-library-upload.js', import.meta.url)
 const migrationUrl = new URL('../supabase/migrations/20260828111801_resource_library_gif_multi_upload.sql', import.meta.url)
 
 test('Team Resources provides drag and drop, multi-select, review, removal, and retry-safe progress', async () => {
@@ -24,7 +24,7 @@ test('Team Resources provides drag and drop, multi-select, review, removal, and 
 })
 
 test('GIF validation is exact and failed row creation removes the unlinked storage object', async () => {
-  const domain = await readFile(domainUrl, 'utf8')
+  const domain = await readFile(uploadUrl, 'utf8')
 
   assert.match(domain, /RESOURCE_LIBRARY_ALLOWED_MIME_TYPES[\s\S]*'image\/gif'/)
   assert.match(domain, /\['gif', 'image\/gif'\]/)
