@@ -247,6 +247,12 @@ try {
       {id:'three',opponent:'Haverhill U14',availabilityStatus:'unavailable',squadDecisionState:'not_selected'},
       {id:'four',opponent:'Godmanchester U14',availabilityStatus:'',squadDecisionState:'undecided',demoInvitationState:'expired'},
     ]);window.list(true) })
+    const teamLine = page.getByLabel('Peterborough Junior Blues U14 versus Cambourne Town FC', { exact: true }).first()
+    await teamLine.waitFor()
+    for (const name of ['Peterborough Junior Blues U14', 'Cambourne Town FC']) {
+      const teamName = teamLine.getByText(name, { exact: true })
+      assert.equal(await teamName.evaluate(element => getComputedStyle(element).whiteSpace), 'nowrap', `${name} stays on one line at ${width}px`)
+    }
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth))
     const longBadges = await Promise.all(['Availability: Needs response', 'Match squad: Not announced yet'].map(label => page.getByLabel(label,{exact:true}).first().boundingBox()))
     assert.ok(Math.abs(longBadges[0].y-longBadges[1].y)<2, 'long status chips remain beside each other')

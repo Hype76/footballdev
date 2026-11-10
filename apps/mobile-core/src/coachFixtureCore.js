@@ -113,13 +113,15 @@ export function updateCoachFixtureArrivalPreset(form, arrivalPreset) {
   }
 }
 
-export function validateCoachFixtureForm(form = {}, { requireSelectedPlayers = true } = {}) {
+export function validateCoachFixtureForm(form = {}, { requireSelectedPlayers = true, concludedFixture = false } = {}) {
   const opponent = normalize(form.opponent)
   if (!opponent) throw new Error('Add the opponent.')
-  const fixtureType = assertValidMatchDayFixtureType(form.fixtureType)
+  const fixtureType = concludedFixture && !normalize(form.fixtureType) ? '' : assertValidMatchDayFixtureType(form.fixtureType)
   const matchDate = normalizeCoachCalendarFormDate(form.matchDate)
   if (!matchDate) throw new Error('Choose a valid match date.')
-  if (matchDate < getDateInTimeZone()) throw new Error('Choose today or a future match date.')
+  const today = getDateInTimeZone()
+  if (!concludedFixture && matchDate < today) throw new Error('Choose today or a future match date.')
+  if (concludedFixture && matchDate > today) throw new Error('A concluded match date cannot be in the future.')
   const kickoffTimeTbc = form.kickoffTimeTbc === true
   const kickoffTime = kickoffTimeTbc ? '' : normalizeFixtureTime(form.kickoffTime)
   if (!kickoffTimeTbc && !/^([01]\d|2[0-3]):[0-5]\d$/.test(kickoffTime)) throw new Error('Choose a kick-off time in HH:mm format, for example 10:45.')

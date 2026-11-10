@@ -13,6 +13,31 @@ const baseline = 'a891ce5fea782b6f17052a1cee4c65c271717447'
 const toolingPackages = new Set(['glob', 'minimatch', 'path-scurry', 'test-exclude', '@eslint/config-array', '@eslint/object-schema', '@isaacs/nonrecursive-glob-match', '@isaacs/cliui', 'balanced-match', 'brace-expansion', 'concat-map', 'foreground-child', 'jackspeak', 'package-json-from-dist'])
 const liveMatchPackages = new Set(['expo-task-manager', 'football-player-live-match', 'react-native-widget-extension', 'unimodules-app-loader', '@expo/config-plugins', '@expo/config-types', '@expo/plist', '@expo/require-utils', 'semver', 'xcode', 'argparse', 'sprintf-js'])
 
+function applyApprovedCoachFileTools(pkg, lock) {
+  const packages = [
+    ['expo-document-picker', '14.0.8', '3tyQKpPqWWFlI8p9RiMX1+T1Zge5mEKeBuXWp1h8PEItFMUDSiOJbQ112sfdC6Hxt8wSxreV9bCRl/NgBdt+fA=='],
+    ['expo-image-loader', '6.0.0', 'nKs/xnOGw6ACb4g26xceBD57FKLFkSwEUTDXEDF3Gtcu3MqF3ZIYd3YM+sSb1/z9AKV1dYT7rMSGVNgsveXLIQ=='],
+    ['expo-image-picker', '17.0.11', '/apkoyukDvsCHHb9fzP+F34A1uQqSzUtYH/2P/xJACNEwq+mwEXjXvVU8bzlJq6ih0Qo1+tpVivIa7B9kYSwOQ=='],
+    ['expo-sharing', '14.0.8', 'A1pPr2iBrxypFDCWVAESk532HK+db7MFXbvO2sCV9ienaFXAk7lIBm6bkqgE6vzRd9O3RGdEGzYx80cYlc089Q=='],
+  ]
+  for (const [name, version, integrity] of packages) {
+    if (name !== 'expo-image-loader') {
+      pkg.dependencies[name] = version
+      lock.packages[''].dependencies[name] = version
+    }
+    const lockPath = `node_modules/${name}`
+    assert.equal(lock.packages[lockPath], undefined)
+    lock.packages[lockPath] = {
+      version,
+      resolved: `https://registry.npmjs.org/${name}/-/${name}-${version}.tgz`,
+      integrity: `sha512-${integrity}`,
+      license: 'MIT',
+      ...(name === 'expo-image-picker' ? { dependencies: { 'expo-image-loader': '~6.0.0' } } : {}),
+      peerDependencies: { expo: '*' },
+    }
+  }
+}
+
 function applyLiveMatchDelta(pkg) {
   if (pkg.name === 'parent-mobile') {
     pkg.version = '1.1.2'
@@ -52,7 +77,10 @@ test('official tooling updates preserve unrelated dependencies and the exact app
     const previous = file => JSON.parse(execFileSync('git', ['show', `${baseline}:${prefix}${file}`], { encoding: 'utf8', maxBuffer: 8 * 1024 * 1024 }))
     const before = previous('package.json')
     const previousLock = previous('package-lock.json')
-    if (scope === 'apps/coach-mobile') applyApprovedCoachNativeDelta(before, previousLock)
+    if (scope === 'apps/coach-mobile') {
+      applyApprovedCoachNativeDelta(before, previousLock)
+      applyApprovedCoachFileTools(before, previousLock)
+    }
     if (scope !== '.') applyLiveMatchDelta(before)
     const current = JSON.parse(fs.readFileSync(`${prefix}package.json`))
     const { overrides: oldOverrides, ...oldPackage } = before
@@ -88,6 +116,7 @@ test('the current glob and minimatch update changes only reviewed tooling packag
     const oldPackage = JSON.parse(execFileSync('git', ['show', `${candidate}:${prefix}package.json`], { encoding: 'utf8' }))
     const newPackage = JSON.parse(fs.readFileSync(`${prefix}package.json`))
     const oldLock = JSON.parse(execFileSync('git', ['show', `${candidate}:${prefix}package-lock.json`], { encoding: 'utf8', maxBuffer: 8 * 1024 * 1024 }))
+    if (scope === 'apps/coach-mobile') applyApprovedCoachFileTools(oldPackage, oldLock)
     oldPackage.overrides.minimatch = '11.0.5'
     oldPackage.overrides['glob@>=9.0.0 <=14.0.1'] = '14.0.4'
     assert.deepEqual(newPackage, oldPackage)

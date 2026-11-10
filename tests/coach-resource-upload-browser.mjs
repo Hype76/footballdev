@@ -14,19 +14,23 @@ const output = path.join(root, 'output/coach-resource-upload')
 await mkdir(output, { recursive: true })
 const resourcePage = (await readFile('src/pages/ResourceLibraryPage.jsx', 'utf8')).replace(/^import[\s\S]*?from ['"][^'"]+['"]\r?\n/gm, '').replace('export function ResourceLibraryPage', 'function ActualResourceLibraryPage')
 const resourceDomain = await readFile('src/lib/domain/resource-library.js', 'utf8')
-const validation = resourceDomain.slice(resourceDomain.indexOf('export const RESOURCE_LIBRARY_BUCKET'), resourceDomain.indexOf('function assertResourceLibraryAccess')).replaceAll('export ', '')
+const resourceFormHelpers = [
+  resourceDomain.slice(resourceDomain.indexOf('export const RESOURCE_LIBRARY_SHARE_DESCRIPTION_MAX_LENGTH'), resourceDomain.indexOf('function normalizeText')),
+  resourceDomain.slice(resourceDomain.indexOf('export function formatResourceLibraryFileSize'), resourceDomain.indexOf('function assertResourceLibraryAccess')),
+].join('\n').replaceAll('export ', '')
 const actualUploader = `
   import React,{useEffect,useMemo,useRef,useState} from 'react';
   import {ResourceEditor} from './src/components/resources/ResourceEditor.jsx';
   import {getResourceDisplayTitle,sortResourcesNewestFirst} from './src/lib/resource-date-presentation.js';
   import {formatUkDateTime} from './src/lib/date-format.js';
   import {canManageResourceLibrary,canUseResourceLibrary} from './src/lib/auth-permissions.js';
+  import {validateResourceLibraryFile,RESOURCE_LIBRARY_ALLOWED_MIME_TYPES,RESOURCE_LIBRARY_MAX_FILE_SIZE_BYTES} from './src/lib/resource-library-upload.js';
   const useAuth=()=>({user:window.f.auth.user}),useToast=()=>({showToast:()=>{}}),canCreateFormationBoard=()=>false,canUseFormationBoards=()=>false;
   const Link=({children})=><span>{children}</span>,Navigate=()=>null;
   const NoticeBanner=({title,message})=><div role="status">{title} {message}</div>,PageHeader=({title})=><h2>{title}</h2>;
   const getResourceLibraryItems=async()=>window.f.resources||[],getResourceLibraryPlayers=async()=>[];
   const uploadResourceLibraryItem=async draft=>{window.f.uploads.push({teamId:draft.teamId,clubId:draft.user.clubId,name:draft.file.name,title:draft.title});const saved={id:'upload-'+window.f.uploads.length,teamId:draft.teamId,clubId:draft.user.clubId,title:draft.title,category:draft.category,resourceType:'file',originalFilename:draft.file.name,links:[]};(window.f.resources||=[]).push(saved);return saved;};
-  ${validation}
+  ${resourceFormHelpers}
   ${resourcePage}
   export const ResourceLibraryPage=({scopedUser})=><div data-testid="verified-uploader" data-team-id={scopedUser.activeTeamId}><ActualResourceLibraryPage scopedUser={scopedUser}/></div>;
 `
@@ -134,7 +138,10 @@ try {
   await login.getByLabel('Email', { exact: true }).fill('test@example.test')
   await login.getByLabel('Password', { exact: true }).fill('unused-synthetic-password')
   await login.getByRole('button', { name: 'Sign in', exact: true }).click()
-  await login.getByTestId('verified-uploader').waitFor()
+  await login.getByTestId('verified-uploader').waitFor({ timeout: 5000 }).catch(error => {
+    assert.deepEqual(errors, [], 'Browser upload rendered without errors')
+    throw error
+  })
   assert.equal(await login.getByTestId('verified-uploader').getAttribute('data-team-id'),teamId)
   const pickerEvent=login.waitForEvent('filechooser')
   await login.getByRole('button',{name:'Choose files',exact:true}).click()

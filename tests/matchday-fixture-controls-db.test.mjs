@@ -24,6 +24,20 @@ const TEAM_A_ID = '30000000-0000-0000-0000-000000000001'
 const TEAM_B_ID = '30000000-0000-0000-0000-000000000002'
 const TEAM_C_ID = '30000000-0000-0000-0000-000000000003'
 
+function migrationText(name) {
+  return readFileSync(new URL(`../supabase/migrations/${name}.sql`, import.meta.url), 'utf8').replaceAll('\r\n', '\n')
+}
+
+function migrationFunction(name, signature, delimiter) {
+  const sql = migrationText(name)
+  const start = sql.toLowerCase().indexOf(`create or replace function ${signature}`)
+  assert.ok(start >= 0, signature)
+  const body = sql.indexOf(delimiter, start)
+  const end = sql.indexOf(delimiter, body + delimiter.length)
+  assert.ok(body > start && end > body, signature)
+  return sql.slice(start, end + delimiter.length) + ';'
+}
+
 async function createDatabase() {
   const db = new PGlite()
   await db.exec(`
@@ -548,4 +562,102 @@ test('candidate deletion allows assigned Team Admin and denies suspended staff',
   const suspendedState = await db.query('select deleted_at from public.match_days where id = $1', [suspendedMatchId])
   assert.equal(suspendedState.rows[0].deleted_at, null)
   await db.close()
+})
+
+test('Coach fixture lifecycle protects off-date starts, supports old edits and removes matches with scoped audit', async (t) => {
+  const db = await createDatabase()
+  t.after(() => db.close())
+  await db.exec(`
+    create schema private;
+    create schema app_private;
+    alter table public.clubs add column status text, add column timezone_name text;
+    alter table public.teams add column status text;
+    alter table public.team_staff add column id uuid default gen_random_uuid(), add column role_rank integer default 30;
+    create table public.user_club_memberships (auth_user_id uuid, club_id uuid, role text, role_rank integer);
+    update public.users set role = 'coach', role_rank = 30;
+    insert into public.user_club_memberships select id, club_id, role, role_rank from public.users;
+    create table public.match_locations (id uuid, club_id uuid, archived_at timestamptz);
+    alter table public.match_days
+      add column match_conclusion_rule text default 'normal_time',
+      add column match_duration_minutes integer default 90,
+      add column current_match_phase text default 'pre_match',
+      add column extra_time_half_minutes integer default 10,
+      add column extra_time_period_count integer default 2,
+      add column normal_time_home_score integer, add column normal_time_away_score integer,
+      add column extra_time_home_score integer, add column extra_time_away_score integer,
+      add column home_shootout_score integer default 0, add column away_shootout_score integer default 0,
+      add column shootout_winner text, add column carpool_enabled boolean default true,
+      add column pitch_type text, add column location_id uuid, add column notification_team_name text,
+      add column shirt_choice text;
+    create function private.is_guest_match_scorer(uuid) returns boolean language sql as $$ select false $$;
+    create function public.current_user_is_match_day_scorer(uuid) returns boolean language sql as $$ select false $$;
+    create function public.current_user_has_match_day_scorer_assignment(uuid) returns boolean language sql as $$ select false $$;
+    create function public.can_manage_match_day(uuid) returns boolean language sql as $$
+      select exists (select 1 from public.team_staff where team_id = $1 and user_id = auth.uid())
+    $$;
+    alter function public.set_match_day_timer_state(uuid,text) rename to fixture_test_apply_timer;
+    create function public.apply_match_day_timer_action(uuid,text,uuid,text,text,uuid)
+    returns jsonb language sql as $$ select public.fixture_test_apply_timer($1,$2) $$;
+  `)
+  await db.exec(migrationFunction('20260728170000_staff_role_assignment_control', 'app_private.actor_can_manage_team_resource(', '$$'))
+  await db.exec(migrationFunction('20260731110000_fp_v1_gameday_scorer_authority_02a', 'public.match_day_local_date_is_today(', '$$'))
+  await db.exec(migrationFunction('20260902151551_guest_match_day_scorer', 'public.set_match_day_timer_state(', '$function$'))
+  await db.exec(migrationText('20260903120639_squad_notification_email_fallback').split('alter table public.match_day_squad_notifications')[0])
+  await db.exec(migrationText('20260903120851_coach_conclusion_authority'))
+  await db.exec(migrationText('20261030075557_matchday_finish_before_optional_phases'))
+  await db.exec(migrationFunction('20260914065046_coach_pitch_and_event_participant_removal', 'public.update_match_day_fixture_for_team(', '$function$'))
+  await db.exec(migrationText('20261110130302_coach_match_fixture_lifecycle'))
+  const fixture = '40000000-0000-0000-0000-000000000014'
+  const otherTeam = '40000000-0000-0000-0000-000000000015'
+  const historic = '40000000-0000-0000-0000-000000000016'
+  const londonToday = "(timezone('Europe/London', now())::date)"
+  await db.query(`
+    insert into public.match_days (id, club_id, team_id, match_date, status, timer_status, concluded_at, home_score, updated_at) values
+      ($1, $4, $5, ${londonToday} + 1, 'scheduled', 'not_started', null, 0, now()),
+      ($2, $4, $6, ${londonToday}, 'scheduled', 'not_started', null, 0, now()),
+      ($3, $4, $5, '2025-03-15', 'full_time', 'full_time', '2025-03-15T16:00:00Z', 3, '2025-03-15T16:00:00Z')
+  `, [fixture, otherTeam, historic, CLUB_A_ID, TEAM_A_ID, TEAM_B_ID])
+  await assert.rejects(db.query("select public.set_match_day_timer_state($1,'start')", [fixture]), /only be started on the fixture date/)
+  await assert.rejects(db.query("select public.set_match_day_timer_state($1,'start')", [otherTeam]), /access is required/)
+  await db.query(`update public.match_days set match_date = ${londonToday} - 1 where id = $1`, [fixture])
+  await assert.rejects(db.query("select public.set_match_day_timer_state($1,'start')", [fixture]), /only be started on the fixture date/)
+  await db.query(`update public.match_days set match_date = ${londonToday} where id = $1`, [fixture])
+  const started = await db.query("select public.set_match_day_timer_state($1,'start') as result", [fixture])
+  assert.equal(started.rows[0].result.status, 'live')
+  await assert.rejects(db.query('select public.delete_match_day_fixture_for_team($1,$2)', [fixture, TEAM_A_ID]), /Finish the active match/)
+  await assert.rejects(db.query('select public.delete_match_day_fixture_for_team($1,$2)', [otherTeam, TEAM_B_ID]), /assigned Coach or Manager/)
+
+  const payload = {
+    concludedEdit: true, expectedUpdatedAt: '2025-03-15T16:00:00Z', fixtureType: '',
+    opponent: 'Corrected FC', homeAway: 'home', shirtChoice: 'away', matchDate: '2025-03-14', kickoffTime: '14:00',
+    conclusionRule: 'straight_to_penalties', matchDurationMinutes: 60, extraTimeHalfMinutes: 7, extraTimePeriodCount: 1,
+  }
+  const update = 'select public.update_match_day_fixture_for_team($1,$2,$3) as result'
+  await assert.rejects(db.query(update, [historic, TEAM_B_ID, payload]), /not_permitted/)
+  await assert.rejects(db.query(update, [historic, TEAM_A_ID, { ...payload, concludedEdit: false }]), /not_permitted/)
+  await assert.rejects(db.query(update, [historic, TEAM_A_ID, { ...payload, matchDate: '2099-01-01' }]), /cannot be in the future/)
+  const saved = (await db.query(update, [historic, TEAM_A_ID, payload])).rows[0].result
+  assert.equal(saved.opponent, 'Corrected FC')
+  assert.equal(saved.match_date, '2025-03-14')
+  assert.equal(saved.fixture_type, null)
+  assert.equal(saved.home_score, 3)
+  assert.equal(saved.match_conclusion_rule, 'normal_time')
+  assert.equal(saved.match_duration_minutes, 90)
+  assert.equal(saved.status, 'full_time')
+  await assert.rejects(db.query(update, [historic, TEAM_A_ID, payload]), /Refresh it before saving/)
+
+  await db.query('insert into public.match_day_events (match_day_id,event_type) values ($1,\'goal\')', [historic])
+  await db.query('insert into public.match_day_notification_events (match_day_id,status) values ($1,\'queued\')', [historic])
+  const remove = 'select public.delete_match_day_fixture_for_team($1,$2) as result'
+  await assert.rejects(db.query(remove, [historic, TEAM_A_ID]), /notifications to finish/)
+  await db.query("update public.match_day_notification_events set status = 'sent' where match_day_id = $1", [historic])
+  const deleted = (await db.query(remove, [historic, TEAM_A_ID])).rows[0].result
+  assert.equal(deleted.deleted, true)
+  assert.deepEqual((await db.query(remove, [historic, TEAM_A_ID])).rows[0].result, deleted)
+  const counts = (await db.query(`select
+    (select count(*)::int from public.match_days where id=$1 and deleted_at is null) as visible,
+    (select count(*)::int from public.match_day_events where match_day_id=$1) as retained,
+    (select count(*)::int from public.audit_logs where entity_id=$1 and action='match_day_fixture_deleted') as audited
+  `, [historic])).rows[0]
+  assert.deepEqual(counts, { visible: 0, retained: 1, audited: 1 })
 })

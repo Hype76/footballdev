@@ -12,10 +12,13 @@ import {
 import { getMatchTimerMinute } from '../../../src/lib/matchday-timer.js'
 import { captureMatchEventTime, formatMatchAddedTimeClock } from '../../../src/lib/matchday-event-time.js'
 import { getMatchDayUndoReasonOptions, isMatchDayEventUndoSupported, validateMatchDayEventUndoInput } from '../../../src/lib/matchday-event-undo.js'
+import { getDateInTimeZone } from './parentCalendarCore.js'
 
 const CLOSED_STATUSES = new Set(['cancelled', 'postponed'])
 const LIVE_STATUSES = new Set(['live', 'half_time', 'second_half', 'extra_time', 'penalties'])
 const STAFF_EVENT_TYPES = new Set(['yellow_card', 'red_card', 'substitution'])
+
+export const COACH_MATCH_DAY_PAGE_SIZE = 80
 
 function normalize(value) {
   return String(value ?? '').trim()
@@ -208,9 +211,8 @@ export function getCoachMatchDayActions({ context, match, reconciling = false, s
           ? 'This fixture is closed.'
           : ''
   const lifecycleTimerActions = blockedReason ? [] : getParentScorerTimerActions(match)
-  const startBlockedByFixtureDate = match?.hasPresentationState === true
-    && match?.isToday !== true
-    && lifecycleTimerActions.some((item) => item.action === 'start')
+  const isFixtureDate = match?.hasPresentationState === true ? match.isToday === true : match?.matchDate === getDateInTimeZone()
+  const startBlockedByFixtureDate = !isFixtureDate && lifecycleTimerActions.some((item) => item.action === 'start')
   const timerActions = startBlockedByFixtureDate
     ? lifecycleTimerActions.filter((item) => item.action !== 'start')
     : lifecycleTimerActions

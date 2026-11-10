@@ -65,5 +65,14 @@ for (const app of mobileApps) {
     assert.equal(config.ios.bundleIdentifier, app.bundleIdentifier)
     assert.equal(native.ios.infoPlist.ITSAppUsesNonExemptEncryption, false)
     assert.ok(native.ios.infoPlist.NSFaceIDUsageDescription.includes('Face ID'))
+    if (app.appRole === 'coach') {
+      assert.equal(native.ios.infoPlist.NSPhotoLibraryUsageDescription, 'Choose photos to add to your Team Resource Library.')
+      assert.equal(native.ios.infoPlist.NSCameraUsageDescription, undefined)
+      assert.equal(native.ios.infoPlist.NSMicrophoneUsageDescription, undefined)
+      for (const permission of ['CAMERA', 'RECORD_AUDIO', 'READ_MEDIA_IMAGES', 'READ_EXTERNAL_STORAGE', 'WRITE_EXTERNAL_STORAGE']) {
+        const entry = native.android.manifest.manifest['uses-permission'].find(item => item.$['android:name'] === `android.permission.${permission}`)
+        assert.equal(entry?.$['tools:node'], 'remove')
+      }
+    }
   })
 }

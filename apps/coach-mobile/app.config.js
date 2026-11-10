@@ -7,7 +7,15 @@ module.exports = createMobileExpoConfig({
   easProjectId: '347965b1-f32f-47b1-8c86-7aa910fe2cb5',
   name: 'Football Player Coach',
   packageName: 'com.footballplayer.coach',
-  plugins: ['@react-native-community/datetimepicker', ['react-native-widget-extension', { widgetsFolder: 'widgets', deploymentTarget: '15.1', frequentUpdates: true }]],
+  plugins: [
+    '@react-native-community/datetimepicker',
+    ['expo-image-picker', {
+      photosPermission: 'Choose photos to add to your Team Resource Library.',
+      cameraPermission: false,
+      microphonePermission: false,
+    }],
+    ['react-native-widget-extension', { widgetsFolder: 'widgets', deploymentTarget: '15.1', frequentUpdates: true }],
+  ],
   scheme: 'footballplayercoach',
   slug: 'football-player-coach',
   version: '1.1.2',

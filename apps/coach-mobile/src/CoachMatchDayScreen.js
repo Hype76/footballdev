@@ -6,7 +6,7 @@ import { CoachSavedFormationBoards } from './CoachSavedFormationBoards'
 import { getMatchDayLifecycleState } from '../../../src/lib/matchday-lifecycle.js'
 import { formatUkDate } from '../../../src/lib/date-format.js'
 import { invalidateMobileResource, readMobileResource } from '../../mobile-core/src/mobileResourceCache'
-import { canEditCoachFixture } from '../../mobile-core/src/coachFixtureEditCore'
+import { canDeleteCoachFixture, canEditCoachFixture } from '../../mobile-core/src/coachFixtureEditCore'
 import { ClubKitDisplay } from '../../mobile-core/src/ClubKitDisplay'
 import { getGoalScorerSide, setGoalOwnGoal } from '../../../src/lib/matchday-goal-credit.js'
 import { createMatchDayGoalCorrectionDraft, getMatchDaySubstitutionPlayers } from '../../mobile-core/src/matchDayParticipantRoster.js'
@@ -16,6 +16,7 @@ import { useMobileActivity, useMobileOffline } from '../../mobile-core/src/Mobil
 import { MobileFailureNotice } from '../../mobile-core/src/MobileFailureNotice'
 import { MobileLoadingStatus } from '../../mobile-core/src/MobileHeaderActivity'
 import { getCoachFormationAuthorityScope } from './coachFormationEntryCore'
+import { exportCoachMatchReportPdf, supportsCoachMatchReportPdf } from './coachMatchReportPdf'
 import MaterialIcons from '@expo/vector-icons/MaterialIcons'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { activateKeepAwakeAsync, deactivateKeepAwake, isAvailableAsync } from 'expo-keep-awake'
@@ -24,6 +25,7 @@ import { buildCompletedMatchEventPresentation } from '../../../src/lib/matchday-
 import {
   buildCoachFinalMatchReport,
   captureCoachMatchDayAction,
+  COACH_MATCH_DAY_PAGE_SIZE,
   createCoachMatchDayEventForm,
   filterCoachMatchDayPlayerChoices,
   filterCoachMatchDays,
@@ -52,6 +54,7 @@ import {
 } from '../../mobile-core/src/coachMatchDayCore'
 import {
   correctCoachMatchDayGoal,
+  deleteCoachMatchDayFixture,
   endCoachMatchDayWithoutShootoutResult,
   getCoachMatchDayDetail,
   getCoachMatchDayList,
@@ -257,12 +260,13 @@ function MatchDayActionSheet({ busy, capturedClock, children, onClose, styles, t
   </Modal>
 }
 
-function MatchList({ clubLogoUrl, filter, matches, onOpen, selectedId, setFilter, styles }) {
+function MatchList({ clubLogoUrl, filter, loadingOlder, matches, onLoadOlder, onOpen, selectedId, setFilter, styles }) {
   const visible = filterCoachMatchDays(matches, filter)
   return <View style={styles.stack}>
     <Chips onChange={setFilter} options={[{ iconKey: getMatchDayFilterIconKey('current'), label: 'Today and live', value: 'current' }, { iconKey: getMatchDayFilterIconKey('upcoming'), label: 'Upcoming', value: 'upcoming' }, { iconKey: getMatchDayFilterIconKey('previous'), label: 'Previous', value: 'previous' }, { iconKey: getMatchDayFilterIconKey('all'), label: 'All', value: 'all' }]} styles={styles} value={filter} />
     {visible.length === 0 ? <View style={styles.emptyState}><MaterialIcons name="sports-soccer" size={40} style={styles.secondaryText} /><Text style={styles.cardTitle}>No fixtures match this view.</Text><Text style={styles.meta}>Select a filter above to view fixtures.</Text></View> : null}
     {visible.map((match) => { const view = getCoachMatchDayPresentation(match); return <Pressable accessibilityRole="button" key={match.id} onPress={() => onOpen(match)} style={[styles.card, selectedId === match.id && styles.cardSelected]}><MatchTeamsLine match={match} clubLogoUrl={clubLogoUrl} compact textStyle={styles.cardTitle} /><Text style={styles.meta}>{formatUkDate(match.matchDate, 'Date TBC')} | {match.kickoffTimeTbc ? 'Kick-off TBC' : match.kickoffTime?.slice(0, 5) || 'Time TBC'}{normalize(match.status) && normalize(match.status) !== 'scheduled' ? ` | ${label(match.status)}` : ''}</Text>{getMatchDayLifecycleState(match) !== 'not_started' ? <Text style={styles.body}>{view.displayScore} | {view.phaseLabel}</Text> : null}</Pressable> })}
+    {onLoadOlder && ['previous', 'all'].includes(filter) ? <Button compact disabled={loadingOlder} label={loadingOlder ? 'Loading older matches...' : 'Load older matches'} onPress={onLoadOlder} secondary styles={styles} /> : null}
   </View>
 }
 
@@ -608,10 +612,33 @@ function ShootoutPanel({ busy, match, onEndWithoutResult, onKick, onPrepare, onV
   return <View style={styles.stack}><View style={styles.card}><Text style={styles.cardTitle}>Penalty shootout</Text><Text style={styles.score}>{match.homeShootoutScore} - {match.awayShootoutScore}</Text><Chips onChange={(value) => setKick({ ...kick, teamSide: value })} options={[{ label: 'Our Team', value: 'club' }, { label: 'Opponent', value: 'opponent' }]} styles={styles} value={kick.teamSide} /><Chips onChange={(value) => setKick({ ...kick, outcome: value })} options={[{ label: 'Scored', value: 'scored' }, { label: 'Missed', value: 'missed' }]} styles={styles} value={kick.outcome} /><Field label="Player" onChangeText={(value) => setKick({ ...kick, playerName: value })} styles={styles} value={kick.playerName} /><Field label="Notes" onChangeText={(value) => setKick({ ...kick, notes: value })} styles={styles} value={kick.notes} /><Button disabled={busy || match.currentMatchPhase !== 'penalties'} label="Review penalty" onPress={() => onPrepare({ kind: 'kick', label: 'Record penalty', run: () => onKick(kick) })} styles={styles} /></View>{(match.shootoutEvents || []).map((item) => <View key={item.id} style={styles.card}><Text style={styles.cardTitle}>{item.kickNumber}. {item.teamSide} {item.outcome}</Text><Text style={styles.body}>{item.playerName || 'Player not recorded'}</Text>{item.eventStatus !== 'voided' ? <Button disabled={busy} label="Void penalty" onPress={() => onPrepare({ kind: 'void-kick', label: 'Void penalty kick', run: () => onVoid(item.id) })} secondary styles={styles} /> : null}</View>)}{match.currentMatchPhase === 'penalties' ? <View style={styles.card}><Text style={styles.body}>Started this shootout by mistake? End the match without a shootout winner. Recorded kicks will remain in the audit history as voided.</Text><Button danger disabled={busy} label="End match without shootout result" onPress={() => onPrepare({ kind: 'end-shootout', label: 'End this match at full time without a shootout winner? Recorded shootout kicks will be voided.', run: onEndWithoutResult })} secondary styles={styles} /></View> : null}</View>
 }
 
-function ReportPanel({ busy, canConclude, canSave, concludeBlockedReason, match, onConclude, onSave, styles }) {
+function ReportPanel({ busy, canConclude, canSave, concludeBlockedReason, context, match, onConclude, onSave, styles }) {
   const report = buildCoachFinalMatchReport(match)
   const activeEvents = report.activeEvents.slice().reverse()
   const [notes, setNotes] = useState(match.finalReport?.staffNotes || '')
+  const [exporting, setExporting] = useState(false)
+  const [exportNotice, setExportNotice] = useState('')
+  const mounted = useRef(false)
+  const exportInFlight = useRef(false)
+  useEffect(() => {
+    mounted.current = true
+    return () => { mounted.current = false }
+  }, [])
+  const exportPdf = async (mode) => {
+    if (busy || exportInFlight.current) return
+    exportInFlight.current = true
+    setExporting(true)
+    setExportNotice('')
+    try {
+      const result = await exportCoachMatchReportPdf(match, { context, mode, isCurrent: () => mounted.current })
+      if (mounted.current && result === 'saved') setExportNotice('Match report PDF saved.')
+    } catch (error) {
+      if (mounted.current) setExportNotice(errorMessage(error, 'The match report PDF could not be exported.'))
+    } finally {
+      exportInFlight.current = false
+      if (mounted.current) setExporting(false)
+    }
+  }
   if (getMatchDayLifecycleState(match) === 'not_started') return <Text style={styles.body}>The match report will be available after kick-off.</Text>
   return <View style={styles.stack}>
     <View style={styles.card}>
@@ -637,6 +664,13 @@ function ReportPanel({ busy, canConclude, canSave, concludeBlockedReason, match,
       {!canSave && match.status === 'full_time' ? <Text style={styles.body}>Reconnect and confirm Coach access before saving this report.</Text> : null}
       <Field label="Coach notes" multiline onChangeText={setNotes} styles={styles} value={notes} />
       <Button disabled={busy || !canSave} label="Save final report" onPress={() => onSave(notes)} styles={styles} />
+      {match.status === 'full_time' && supportsCoachMatchReportPdf() ? <>
+        <View style={styles.row}>
+          {Platform.OS === 'android' ? <Button compact disabled={busy || exporting} label="Save PDF" onPress={() => void exportPdf('save')} secondary styles={styles} /> : null}
+          <Button compact disabled={busy || exporting} label={Platform.OS === 'ios' ? 'Save or share PDF' : 'Share PDF'} onPress={() => void exportPdf('share')} secondary styles={styles} />
+        </View>
+        {exportNotice ? <Text accessibilityLiveRegion="polite" style={styles.meta}>{exportNotice}</Text> : null}
+      </> : null}
     </View>
   </View>
 }
@@ -666,6 +700,9 @@ function CoachMatchDayScoped({ context, matchDayTarget, onMatchDayTargetHandled,
   const [refreshing, setRefreshing] = useState(false)
   const [serverMatch, setMatch] = useState(null)
   const [matches, setMatches] = useState([])
+  const [olderMatchOffset, setOlderMatchOffset] = useState(null)
+  const [loadingOlder, setLoadingOlder] = useState(false)
+  const matchListGeneration = useRef(0)
   const visibleFilter = filterChosen ? filter : getCoachMatchDayDefaultFilter(matches)
   const [notice, setNotice] = useState('')
   const [panel, setPanel] = useState('overview')
@@ -746,12 +783,14 @@ function CoachMatchDayScoped({ context, matchDayTarget, onMatchDayTargetHandled,
     accessDeniedRef.current = true
     setAccessDenied(true)
     hasMatchListSnapshot.current = false; playersStaleRef.current = true
+    setOlderMatchOffset(null)
     matchRef.current = null; selectedMatchId.current = ''; playersRef.current = []
     setMatches([]); setPlayers([]); setMatch(null); setFixtureFormOpen(false); setFixtureFormMatch(null); setPending(null); setPanel('overview'); setBusy(false); setStale(true)
   }
   const load = useCallback(async () => {
     if (loadInFlight.current || (busyRef.current && !reconciliationPendingRef.current) || appState.current !== 'active') return
     loadInFlight.current = true
+    matchListGeneration.current += 1
     setRefreshing(true)
     setError(''); setNotice(''); setLoading(!hasMatchListSnapshot.current)
     const currentUser = userRef.current
@@ -794,6 +833,7 @@ function CoachMatchDayScoped({ context, matchDayTarget, onMatchDayTargetHandled,
       if (matchesResult.status === 'rejected') throw matchesResult.reason
       if (playersResult.status === 'rejected' && isMatchDayAccessDenied(playersResult.reason)) throw playersResult.reason
       const nextMatches = matchesResult.value
+      setOlderMatchOffset(nextMatches.length === COACH_MATCH_DAY_PAGE_SIZE ? nextMatches.length : null)
       hasMatchListSnapshot.current = true
       setMatches(nextMatches); setLoading(false)
       if (playersResult.status === 'rejected') { playersStaleRef.current = true; setStale(true); setError('Players could not be refreshed. Showing saved information until the connection is restored.') }
@@ -1071,6 +1111,7 @@ function CoachMatchDayScoped({ context, matchDayTarget, onMatchDayTargetHandled,
     invalidateMobileResource(user, 'coach:calendar')
     invalidateMobileResource(user, 'coach:match-list')
     setMatches((current) => [summary, ...current.filter((item) => item.id !== summary.id)])
+    setOlderMatchOffset(offset => offset === null ? null : offset + 1)
     try {
       const detail = await getCoachMatchDayDetail(user, summary.id)
       setMatch(detail)
@@ -1087,6 +1128,7 @@ function CoachMatchDayScoped({ context, matchDayTarget, onMatchDayTargetHandled,
     onRequestScrollTop?.()
     const summary = normalizeCoachMatchDay(updatedMatch)
     setMatches((current) => current.map((item) => item.id === summary.id ? summary : item))
+    matchRef.current = summary
     setMatch(summary)
     setPanel('overview')
     setNotice(updatedMatch.parentInvitationsAddedCount
@@ -1097,6 +1139,17 @@ function CoachMatchDayScoped({ context, matchDayTarget, onMatchDayTargetHandled,
     invalidateMobileResource(user, 'coach:match-list')
     if (fixtureReturnTarget) onNavigate('calendar', { ...fixtureReturnTarget, occurrenceDate: summary.matchDate })
     setFixtureReturnTarget(null)
+    if (summary.concludedAt && !fixtureReturnTarget) {
+      try {
+        const detail = await getCoachMatchDayDetail(user, summary.id)
+        if (selectedMatchId.current !== summary.id) return
+        matchRef.current = detail
+        setMatch(detail)
+        await cache(matches.map((item) => item.id === detail.id ? detail : item), detail, players)
+      } catch {
+        if (selectedMatchId.current === summary.id) setNotice('Fixture saved. Refresh Game Day to reload the match report.')
+      }
+    }
   }
 
   const handleFixtureCancelled = async (cancelledMatch, notificationMessage) => {
@@ -1137,6 +1190,60 @@ function CoachMatchDayScoped({ context, matchDayTarget, onMatchDayTargetHandled,
     setPanel('overview')
   }
 
+  const loadOlderMatches = async () => {
+    if (olderMatchOffset === null || loadingOlder || loadInFlight.current) return
+    const scope = context.id
+    const offset = olderMatchOffset
+    const generation = matchListGeneration.current
+    setLoadingOlder(true)
+    setError('')
+    try {
+      const page = await withMobileAsyncTimeout(() => getCoachMatchDayList(user, offset))
+      if (contextRef.current.id !== scope || matchListGeneration.current !== generation) return
+      setOlderMatchOffset(page.length === COACH_MATCH_DAY_PAGE_SIZE ? offset + page.length : null)
+      setMatches(current => [...new Map([...current, ...page].map(item => [item.id, item])).values()])
+    } catch (pageError) {
+      if (contextRef.current.id === scope) setError(errorMessage(pageError, 'Older matches could not be loaded.'))
+    } finally {
+      setLoadingOlder(false)
+    }
+  }
+
+  const fixtureChangesBlocked = stale || user.isOfflineProfile || reconciling || pendingCount > 0 || pendingSquadCount > 0
+  const deleteFixture = async (fixture) => {
+    if (busyRef.current || !canDeleteCoachFixture({ context, fixture, stale: fixtureChangesBlocked })) return
+    const scope = contextRef.current.id
+    busyRef.current = true
+    setBusy(true)
+    setError('')
+    setNotice('')
+    try {
+      await deleteCoachMatchDayFixture(user, fixture)
+      if (contextRef.current.id !== scope) return
+      const remaining = matches.filter((item) => item.id !== fixture.id)
+      if (remaining.length < matches.length) setOlderMatchOffset(offset => offset === null ? null : offset - 1)
+      setMatches(remaining)
+      closeFixture()
+      invalidateMobileResource(user, 'coach:calendar')
+      invalidateMobileResource(user, 'coach:match-list')
+      setNotice('Match deleted from Game Day and Calendar.')
+      await cache(remaining, null, players).catch(() => {})
+    } catch (deleteError) {
+      if (contextRef.current.id === scope) setError(errorMessage(deleteError, 'The match could not be deleted.'))
+    } finally {
+      if (contextRef.current.id === scope) {
+        busyRef.current = false
+        setBusy(false)
+      }
+    }
+  }
+
+  const prepareFixtureDeletion = () => setPending({
+    kind: 'delete-fixture',
+    label: `${getCoachMatchDayPresentation(serverMatch).displayName} will be removed from Game Day and Calendar. It cannot be restored in the app.`,
+    run: () => deleteFixture(serverMatch),
+  })
+
   const focusedLiveMode = Boolean(match && !fixtureFormOpen && panel === 'live')
 
   return <View style={styles.stack}>
@@ -1167,8 +1274,9 @@ function CoachMatchDayScoped({ context, matchDayTarget, onMatchDayTargetHandled,
     </View> : null}
     {panel === 'saved-actions' && pendingCount === 0 ? <Text style={styles.body}>All recorded actions have synced.</Text> : null}
     {selectedMatchIsLive && serverMatch && !fixtureFormOpen ? <LiveMatchFollowAction role="coach" matchId={serverMatch.id} textStyle={styles.body} /> : null}
-    {!fixtureFormOpen && !match ? <MatchList clubLogoUrl={getScopedTeamBranding(context)?.logoUrl || ''} filter={visibleFilter} matches={matches} onOpen={open} selectedId={match?.id} setFilter={(nextFilter) => { setFilter(nextFilter); setFilterChosen(true) }} styles={styles} /> : null}
-    {match && !fixtureFormOpen ? <>{!focusedLiveMode ? <><View style={styles.row}><Button compact iconKey="action.back" label="Back to fixtures" onPress={closeFixture} secondary styles={styles} />{canEditCoachFixture({ context, fixture: serverMatch, stale: stale || user.isOfflineProfile || reconciling }) ? <Button compact iconKey="action.edit" label="Edit fixture" onPress={() => { setFixtureFormMatch(serverMatch); setFixtureFormOpen(true); setError(''); setNotice(''); onRequestScrollTop?.() }} secondary styles={styles} /> : null}</View><FixtureHero clubLogoUrl={getScopedTeamBranding(context)?.logoUrl || ''} match={match} styles={styles} /><FixtureNavigation key={match.id} panel={panel} onChange={(nextPanel) => { if (nextPanel === 'formation') { formationReturnPanelRef.current = panel; setFormationBoardId('') } setPanel(nextPanel) }} styles={styles} /></> : null}
+    {!fixtureFormOpen && !match ? <MatchList clubLogoUrl={getScopedTeamBranding(context)?.logoUrl || ''} filter={visibleFilter} loadingOlder={loadingOlder} matches={matches} onLoadOlder={olderMatchOffset !== null && !refreshing && !stale && !user.isOfflineProfile ? loadOlderMatches : null} onOpen={open} selectedId={match?.id} setFilter={(nextFilter) => { setFilter(nextFilter); setFilterChosen(true) }} styles={styles} /> : null}
+    {match && !fixtureFormOpen ? <>{!focusedLiveMode ? <><View style={styles.row}><Button compact iconKey="action.back" label="Back to fixtures" onPress={closeFixture} secondary styles={styles} />{canEditCoachFixture({ context, fixture: serverMatch, stale: fixtureChangesBlocked }) ? <Button compact disabled={busy} iconKey="action.edit" label="Edit fixture" onPress={() => { setFixtureFormMatch(serverMatch); setFixtureFormOpen(true); setError(''); setNotice(''); onRequestScrollTop?.() }} secondary styles={styles} /> : null}
+      {canDeleteCoachFixture({ context, fixture: serverMatch, stale: fixtureChangesBlocked }) ? <Button compact danger disabled={busy} label="Delete match" onPress={prepareFixtureDeletion} secondary styles={styles} /> : null}</View><FixtureHero clubLogoUrl={getScopedTeamBranding(context)?.logoUrl || ''} match={match} styles={styles} /><FixtureNavigation key={match.id} panel={panel} onChange={(nextPanel) => { if (nextPanel === 'formation') { formationReturnPanelRef.current = panel; setFormationBoardId('') } setPanel(nextPanel) }} styles={styles} /></> : null}
       {pendingCount === 0 && reportMatch.status === 'full_time' && !reportMatch.concludedAt && panel === 'overview' ? <View style={styles.stack}><Text style={styles.cardTitle}>Ready for coach review</Text><Text style={styles.body}>Full time has been recorded. Review the result and conclude this match.</Text><Button disabled={busy || reconciling} label="Review and conclude" onPress={() => { setPanel('report'); onRequestScrollTop?.() }} styles={styles} /></View> : null}
       {panel === 'overview' ? <View style={styles.stack}><View style={styles.card}><Text style={styles.cardTitle}>Fixture details</Text><CoachSavedFormationBoards key={`${user.id}:${context.id}:${match.id}`} context={context} match={match} onEdit={(boardId) => { formationReturnPanelRef.current = 'overview'; setFormationBoardId(boardId); setPanel('formation') }} palette={palette} user={user} /><FixtureDetailRow icon="calendar-month" styles={styles}>{formatFixtureDate(match.matchDate)}</FixtureDetailRow><FixtureDetailRow icon="schedule" styles={styles}>Kick-off: {match.kickoffTimeTbc ? 'TBC' : match.kickoffTime?.slice(0, 5) || 'TBC'}{!match.kickoffTimeTbc && match.arrivalTime ? ` (Arrival ${match.arrivalTime.slice(0, 5)})` : ''}</FixtureDetailRow><FixtureDetailRow icon="place" styles={styles}>{match.venueAddress || match.venueName || 'Venue TBC'}</FixtureDetailRow><ClubKitDisplay clubId={context.clubId || user.clubId} teamId={context.teamId || user.activeTeamId} shirtChoice={match.shirtChoice} textStyle={styles.body} />{match.notes ? <><Text style={styles.fieldLabel}>Match notes</Text><Text selectable style={styles.body}>{match.notes}</Text></> : null}<Text style={styles.meta}>Clock {match.clockMode}, {match.matchDurationMinutes} minutes | Rule {label(match.conclusionRule, 'normal time')}</Text></View>{actions.timerActions.some((item) => item.action === 'start') ? <View style={styles.card}><Text style={styles.cardTitle}>Ready for kick-off?</Text><Text style={styles.body}>Start the match clock and open the live controller.</Text><Button disabled={busy || reconciling} label="Start match" onPress={() => setPending({ kind: 'start-match', label: 'Start match', run: async () => { const detail = await runTimer('start'); setPanel('live'); return detail } })} styles={styles} /></View> : actions.startBlockedReason ? <View style={styles.warning}><Text style={styles.cardTitle}>Not available to start today</Text><Text style={styles.body}>This fixture is scheduled for {formatFixtureDate(match.matchDate)}. It can only be started on that date. If the match has moved, edit the fixture date first.</Text></View> : <Button label="Open Game Mode" onPress={() => setPanel('live')} styles={styles} />}</View> : null}
       <View style={panel === 'squad' ? undefined : { display: 'none' }}><CoachSquadPanel key={`${user.id}:${user.activeTeamId}:${match.id}`} templateStore={templateStore} actions={actions} busy={busy || reconciling} match={match} palette={palette} onPendingChange={setPendingSquadCount}
@@ -1198,8 +1306,8 @@ function CoachMatchDayScoped({ context, matchDayTarget, onMatchDayTargetHandled,
       {panel === 'live' ? <LivePanel actions={actions} busy={busy} canReviewConclude={pendingCount === 0 && !reconciling} eventForm={eventForm} match={match} onEndWithoutResult={endWithoutShootoutResult} onEventForm={setEventForm} onExit={() => setPanel('overview')} onPrepare={setPending} onResolveEnd={() => { if (pendingCount > 0) { setPanel('saved-actions'); onRequestScrollTop?.() } else if (!reconciling) { void load() } else { setNotice('Match Day is still reconciling. Try ending this match again when the saved action has finished syncing.') } }} onReviewConclude={() => { setPanel('report'); onRequestScrollTop?.() }} onScore={(kind) => kind === 'event' ? submitEvent() : capture('score', { homeScore: Number(scoreDraft.home), awayScore: Number(scoreDraft.away) })} onTimer={runTimer} players={players} scoreDraft={scoreDraft} setScoreDraft={setScoreDraft} shootoutEndAuthorized={getCoachMatchDayActions({ context, match }).canMutate} shootoutExitDisabled={busy || reconciling || stale || pendingCount > 0} styles={styles} /> : null}
       {panel === 'timeline' ? <TimelinePanel busy={busy || reconciling || stale || pendingCount > 0} match={match} players={players} onCorrectGoal={(event, goal, reason) => replace(() => correctCoachMatchDayGoal(user, match, event, goal, reason), (detail) => isCoachMatchDayGoalCorrectionApplied(detail, event.id, goal, reason))} onPrepare={setPending} onUndo={(event, input) => replace(() => voidCoachMatchDayEvent(user, match, event, input), (detail) => isCoachMatchDayEventVoided(detail, event.id))} styles={styles} /> : null}
       {panel === 'shootout' ? <ShootoutPanel busy={busy || reconciling || stale || pendingCount > 0} match={match} onEndWithoutResult={endWithoutShootoutResult} onKick={(kick) => { const priorKickIds = (match.shootoutEvents || []).map((item) => item.id); return replace(() => recordCoachMatchDayShootoutKick(user, match, kick), (detail) => isCoachMatchDayShootoutKickApplied(detail, priorKickIds, kick)) }} onPrepare={setPending} onVoid={(id) => replace(() => voidCoachMatchDayShootoutKick(user, match, id), (detail) => isCoachMatchDayShootoutKickVoided(detail, id))} styles={styles} /> : null}
-      {panel === 'report' ? <ReportPanel busy={busy || reconciling || stale || pendingCount > 0} canConclude={actions.timerActions.some((item) => item.action === 'conclude')} concludeBlockedReason={pendingCount > 0 ? 'Sync the saved actions on this device before concluding.' : actions.blockedReason} onConclude={() => setPending({ kind: 'conclude', label: `Conclude ${getCoachMatchDayPresentation(match).displayName} at ${getCoachMatchDayPresentation(match).displayScore}? Check the score and events first.`, run: () => replace(() => runCoachMatchDayTimerAction(user, match, 'conclude'), (detail) => isCoachMatchDayTimerActionApplied(detail, 'conclude')) })} canSave={actions.canSaveFinalReport} key={`${reportMatch.id}:${reportMatch.finalReport?.updatedAt || ''}`} match={reportMatch} onSave={(notes) => setPending({ label: 'Save final Match Day report', run: () => replace(() => saveCoachMatchDayFinalReport(user, match, notes), (detail) => isCoachMatchDayFinalReportApplied(detail, notes)) })} styles={styles} /> : null}
+      {panel === 'report' ? <ReportPanel busy={busy || reconciling || stale || pendingCount > 0} canConclude={actions.timerActions.some((item) => item.action === 'conclude')} concludeBlockedReason={pendingCount > 0 ? 'Sync the saved actions on this device before concluding.' : actions.blockedReason} onConclude={() => setPending({ kind: 'conclude', label: `Conclude ${getCoachMatchDayPresentation(match).displayName} at ${getCoachMatchDayPresentation(match).displayScore}? Check the score and events first.`, run: () => replace(() => runCoachMatchDayTimerAction(user, match, 'conclude'), (detail) => isCoachMatchDayTimerActionApplied(detail, 'conclude')) })} canSave={actions.canSaveFinalReport} context={context} key={`${reportMatch.id}:${reportMatch.finalReport?.updatedAt || ''}`} match={reportMatch} onSave={(notes) => setPending({ label: 'Save final Match Day report', run: () => replace(() => saveCoachMatchDayFinalReport(user, match, notes), (detail) => isCoachMatchDayFinalReportApplied(detail, notes)) })} styles={styles} /> : null}
     </> : null}
-    <Modal animationType="fade" onRequestClose={() => setPending(null)} transparent visible={Boolean(pending)}><View accessibilityViewIsModal style={styles.modalScreen}><Pressable accessibilityLabel="Cancel Match Day change" onPress={() => setPending(null)} style={styles.modalBackdrop} /><View accessibilityLiveRegion="assertive" style={styles.modalCard}><Text style={styles.cardTitle}>{pending?.kind === 'start-match' ? 'Start this match?' : 'Confirm this change'}</Text><Text style={styles.body}>{pending?.kind === 'start-match' ? `This starts the match clock for ${getCoachMatchDayPresentation(match).displayName} and makes Match Day live.` : pending?.label}</Text><Text style={styles.meta}>{pending?.kind === 'start-match' ? 'Only start when both teams are ready for kick-off.' : 'Match actions save on this device and sync when connected. Other changes need an online connection.'}</Text><Button disabled={busy || reconciling} label={pending?.kind === 'start-match' ? 'Start match' : 'Confirm'} onPress={confirm} styles={styles} /><Button label="Cancel" onPress={() => setPending(null)} secondary styles={styles} /></View></View></Modal>
+    <Modal animationType="fade" onRequestClose={() => setPending(null)} transparent visible={Boolean(pending)}><View accessibilityViewIsModal style={styles.modalScreen}><Pressable accessibilityLabel="Cancel Match Day change" onPress={() => setPending(null)} style={styles.modalBackdrop} /><View accessibilityLiveRegion="assertive" style={styles.modalCard}><Text style={styles.cardTitle}>{pending?.kind === 'delete-fixture' ? 'Delete this match?' : pending?.kind === 'start-match' ? 'Start this match?' : 'Confirm this change'}</Text><Text style={styles.body}>{pending?.kind === 'start-match' ? `This starts the match clock for ${getCoachMatchDayPresentation(match).displayName} and makes Match Day live.` : pending?.label}</Text>{pending?.kind !== 'delete-fixture' ? <Text style={styles.meta}>{pending?.kind === 'start-match' ? 'Only start when both teams are ready for kick-off.' : 'Match actions save on this device and sync when connected. Other changes need an online connection.'}</Text> : null}<Button danger={pending?.kind === 'delete-fixture'} disabled={busy || reconciling} label={pending?.kind === 'delete-fixture' ? 'Delete match' : pending?.kind === 'start-match' ? 'Start match' : 'Confirm'} onPress={confirm} styles={styles} /><Button label="Cancel" onPress={() => setPending(null)} secondary styles={styles} /></View></View></Modal>
   </View>
 }

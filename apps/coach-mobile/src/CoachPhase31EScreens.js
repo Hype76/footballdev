@@ -12,7 +12,7 @@ import { mergeUnfinishedDevelopmentDrafts } from '../../mobile-core/src/developm
 import { subscribeDevelopmentSync, syncCoachDevelopmentDrafts } from './coachDevelopmentSync'
 import { CoachMatchInviteTable } from './CoachMatchInviteTable'
 import { useCoachMatchInvites } from './useCoachMatchInvites'
-import { CoachResourceUploadAction } from './CoachResourceUploadAction'
+import { CoachNativeResourceUpload as CoachResourceUploadAction } from './CoachNativeResourceUpload'
 import { InviteStatusBadge } from '../../mobile-core/src/InviteStatusBadge'
 import { canRespondToCoachInviteOnBehalf } from '../../mobile-core/src/coachPhase31ECore'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
