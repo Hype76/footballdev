@@ -129,6 +129,14 @@ try {
   assert.equal(await page.getByText('Published Starter', { exact: true }).evaluate(el => getComputedStyle(el).color), 'rgb(255, 255, 255)', 'Coach white name labels in Parent')
   for (const width of [320, 390]) {
     await page.setViewportSize({ width, height: 844 })
+    const detailNames = page.getByRole('heading', { name: 'Peterborough Junior Blues U14 v Cambourne Town FC', exact: true })
+    for (const name of ['Peterborough Junior Blues U14', 'Cambourne Town FC']) {
+      const textStyle = await detailNames.getByText(name, { exact: true }).evaluate(element => {
+        const style = getComputedStyle(element)
+        return { fontSize: style.fontSize, whiteSpace: style.whiteSpace }
+      })
+      assert.deepEqual(textStyle, { fontSize: '20px', whiteSpace: 'nowrap' }, `Readable detail name at ${width}px`)
+    }
     const defender = await page.getByText('Centre Defender', { exact: true }).boundingBox()
     const goalkeeper = await page.getByLabel('Goalkeeper, shirt 1, goalkeeper', { exact: true }).locator('img').boundingBox()
     assert.ok(defender.y + defender.height + 4 <= goalkeeper.y, `Defender name clears the goalkeeper at ${width}px`)
