@@ -559,7 +559,7 @@
   "implementationHashes": {
     "scripts/security-supply-chain-gate.mjs": "dcf722bc6cbf2015da4250ea60cbb81e34d3c5c64ec7bb6059671cbae5ab4207",
     "scripts/security-apply-reviewed-backports.mjs": "7f0e9de0add15a121a0f60f89f71656b503450010b8b9c8d4aaf58bc355fc5ec",
-    "scripts/security-verify-reviewed-backports.mjs": "28137be831dcc63a09f9361091f704864231f7e61c3d7bc8a71f057444e8594c",
+    "scripts/security-verify-reviewed-backports.mjs": "2df4dfcfef9c20b650fb721117e719cbc38347880c31ff8b1838ab98536007dd",
     "security/patches/braces-3.0.3.patch": "e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699",
     "security/patches/node-forge-1.4.0.patch": "2de065ac998bf58917a14d0935112d97ec2957ac41b5f06958d500934f188ed4",
     "security/patches/reviewed-source-manifest.json": "facb364bbac44a8276d082068e8ed8415ca89777d24f4c7a05ff370f71e5a54d",
@@ -2076,7 +2076,7 @@
       "src/lib/domain/sessions.js": "e305b6f84377798e3ca63463ae6f80b3430622932f6043ef249a14823d18c34b",
       "src/lib/football-calendar-events.js": "3bdd69dc4634179ab64071e76a8026fed841f1ff060e729ce9c23cb10737e410",
       "src/lib/parent-cancelled-series.js": "abe697be30e8f6214a8c12fd095af130a0627b40c583d86d0c100f00a43521ab",
-      "src/pages/ParentPortalPage.jsx": "f7894b45ef0fbd92264f62277dff1efdd14eede4f796dec2aac9cb9d37f5ff37",
+      "src/pages/ParentPortalPage.jsx": "928fc911e57c55f061cfa44ba5f31fed55ac6c0977d107a5a195e1de9cf41733",
       "supabase/migrations/20261102083200_event_cancellation_reasons.sql": "737c59b1bd5965a0f8813e692a71d2b519b3fa5cb8641ea86f492bc1ad65c40c",
       "tests/calendar-event-cancellation-pglite.test.mjs": "de9399fff4aa68616da6b40a4e020f7dc539bc21ccc5c12ac131620c753cb8f5",
       "tests/calendar-event-cancellation.test.mjs": "7d08f45e58f5910249e9fdebd4529153d85bba5247f4a0c211f7087ecce1c5ca",
@@ -3717,7 +3717,7 @@
       "independentExactSourceAcceptanceRequired": true
     }
   },
-  "releasePreparationSha256": "02006d4ebe3dff02cb34ffa79c9f3f7820839be3ebbacb7d428ff80fd31cb2fa",
+  "releasePreparationSha256": "c39b95a0378bda4fc86fa2e75a296cd16aba0627b2eb6e2b6d83d03d09fa6f2d",
   "rootOnlyProposalSha256": "45c3b7352c7328c84982e114b7e87e09cf79514d02d102297ae75ec0925812eb",
   "remediationMode": "maintained-source-fixes",
   "officialCompatibilityDependencies": [

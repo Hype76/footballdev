@@ -3257,14 +3257,14 @@ function LinkedPlayerStats({ link }) {
   return <section className="mb-4 border-b border-[#d7e5dc] py-4" aria-label="Linked player stats">
     <h2 className="text-xl font-black">Player stats</h2>
     <p className={bodyTextClass}>{link.playerName}{stats?.period ? ` | ${stats.period}` : ''}</p>
-    {personal ? <dl className="mt-2 divide-y divide-[#d7e5dc]">
+    {personal ? <dl className="mt-2">
       {[
         ['Matches selected', personal.matches],
         ['Goals', personal.goals],
         ['Assists', personal.assists],
         ['Player of the Match (POM)', personal.playerOfTheMatch],
         ...(personal.playingTimeMatches ? [['Recorded playing time', `${personal.playingMinutes} min`]] : []),
-      ].map(([label, value]) => <div className="flex justify-between gap-3 py-2" key={label}><dt>{label}</dt><dd className="font-bold">{value}</dd></div>)}
+      ].map(([label, value]) => <div className="flex justify-between gap-3 border-b border-[#d7e5dc] py-2" key={label}><dt>{label}</dt><dd className="font-bold">{value}</dd></div>)}
     </dl> : <p role="status" className={bodyTextClass}>{failed ? 'Player stats could not be loaded.' : 'Loading player stats...'}</p>}
     {failed ? <button type="button" className={secondaryButtonClass} onClick={() => { setFailed(false); setAttempt(value => value + 1) }}>Try again</button> : null}
   </section>
