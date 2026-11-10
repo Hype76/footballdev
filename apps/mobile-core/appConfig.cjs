@@ -82,6 +82,10 @@ function createMobileExpoConfig({
         bundleIdentifier,
         buildNumber: '1',
         supportsTablet: false,
+        entitlements: {
+          // The separate app-optimized certification requires satellite performance testing first.
+          'com.apple.developer.networking.carrier-constrained.appcategory': ['sports-8019'],
+        },
         infoPlist: {
           NSFaceIDUsageDescription: faceIdPermission,
           ITSAppUsesNonExemptEncryption: false,
@@ -130,6 +134,7 @@ function createMobileExpoConfig({
           },
         ],
         'expo-secure-store',
+        '../mobile-core/plugins/withSatellite.cjs',
         ...plugins,
       ],
       extra: {

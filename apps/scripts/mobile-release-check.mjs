@@ -9,6 +9,7 @@ const checks = [
   ['npm', ['run', 'lint']],
   ['npm', ['run', 'build']],
   ['npm', ['run', 'mobile:config']],
+  ['node', ['--test', 'tests/mobile-satellite-config.test.mjs']],
   ['npm', ['run', 'mobile:prestore']],
   ['npm', ['run', 'mobile:evidence:check']],
   ['npm', ['run', 'mobile:doctor']],

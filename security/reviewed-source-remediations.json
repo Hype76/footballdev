@@ -559,7 +559,7 @@
   "implementationHashes": {
     "scripts/security-supply-chain-gate.mjs": "dcf722bc6cbf2015da4250ea60cbb81e34d3c5c64ec7bb6059671cbae5ab4207",
     "scripts/security-apply-reviewed-backports.mjs": "7f0e9de0add15a121a0f60f89f71656b503450010b8b9c8d4aaf58bc355fc5ec",
-    "scripts/security-verify-reviewed-backports.mjs": "477d27d25e70e91acaf07a73b7f765fb094545779f62d3937cc095dc2ab78b51",
+    "scripts/security-verify-reviewed-backports.mjs": "8af5dc03983841d21a6ea36f81e05aa3d51cb9574c572e11d15c64fd7e7dfeff",
     "security/patches/braces-3.0.3.patch": "e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699",
     "security/patches/node-forge-1.4.0.patch": "2de065ac998bf58917a14d0935112d97ec2957ac41b5f06958d500934f188ed4",
     "security/patches/reviewed-source-manifest.json": "facb364bbac44a8276d082068e8ed8415ca89777d24f4c7a05ff370f71e5a54d",
@@ -567,7 +567,7 @@
     "scripts/security-provision-reviewed-backports.mjs": "853c3c58c688b1a260651e38b2fff41d60d094c7a89e0352d3e53bebce753285",
     "tests/security-reviewed-provisioning.test.mjs": "edf0a13180d6b8b0fae0709adedafca9f255bec9ba2dd4d43a8752e10db53b3e",
     ".github/workflows/security-gate.yml": "402856f232edd7eebf823a9e9b0dfd1868148ae18aa7820162c604398f809f1a",
-    "apps/scripts/mobile-release-check.mjs": "d92e479e0222a74dd332e63cee5d3108a0fb1bfc0d8f34f77059bade0a5aed48",
+    "apps/scripts/mobile-release-check.mjs": "7e347c977b4757bd13cfd4fe2a81f2e155bf27ef8c50f283a6216302a95c9511",
     "package.json": "0b814b1dd5a449f1c14dba289fa8da496db47b72eabda7537b3117e27834ab16",
     "scripts/security-provision-root-backport.mjs": "ad2b058de5e567b0491b7b7e9c263c8055fd985955db11f4e7fd0c6874924df7",
     "security/root-backport-proposal.json": "45c3b7352c7328c84982e114b7e87e09cf79514d02d102297ae75ec0925812eb",
@@ -602,9 +602,15 @@
     },
     {
       "path": "apps/mobile-core/appConfig.cjs",
-      "normalisedUtf8Sha256": "f3a7a067a9aaf0bc56c75bdc67bc066b341ad897dc4d432bc2a6332c7273c4b2",
+      "normalisedUtf8Sha256": "62ae47ac5472c74f6853086650610eadcfa2ea41649de5268230a498cbc2d84f",
       "unchanged": false,
-      "reason": "User-authorised Coach-only 15 MB offline storage native testing: Expo file system 19.0.24 and isolated runtime 1.1.2; original data preserved, separate production store publication not authorised, all independent review and release controls retained."
+      "reason": "User-authorised Coach-only 15 MB offline storage native testing: Expo file system 19.0.24 and isolated runtime 1.1.2; original data preserved, separate production store publication not authorised, all independent review and release controls retained. Carry forward the released iOS satellite category and Android opt-in for Coach and Parents 1.1.2."
+    },
+    {
+      "path": "apps/mobile-core/plugins/withSatellite.cjs",
+      "normalisedUtf8Sha256": "816a1185072fa68f1dd8da890845c5fca998ddb0c9004c5f007ecce23f2ce3f0",
+      "unchanged": false,
+      "reason": "Android native manifest input carried forward from the public release. Adds one package-specific satellite opt-in entry."
     },
     {
       "path": "apps/parent-mobile/package.json",
@@ -1957,7 +1963,7 @@
       "apps/MOBILE_VERSIONING.md": "9fc67d08db5406ac06662b0cd69a127543e9b74663be6db5db01099800e4b735",
       "apps/coach-mobile/app.config.js": "a32c47db53715eaa46ed23768a21472831972ef451f51bc3774c5032aa42416b",
       "apps/coach-mobile/src/CoachCalendarSync.js": "07188f9256e15c3105f254afa5f8e779361cdd025625749a0d205ee4ea8bc2da",
-      "apps/mobile-core/appConfig.cjs": "f3a7a067a9aaf0bc56c75bdc67bc066b341ad897dc4d432bc2a6332c7273c4b2",
+      "apps/mobile-core/appConfig.cjs": "62ae47ac5472c74f6853086650610eadcfa2ea41649de5268230a498cbc2d84f",
       "apps/mobile-core/src/calendarSubscriptionCore.js": "5acad2f91a2c224aded43a0d60223acdaa981d83536774d3615d6bea3f29c45c",
       "apps/mobile-core/src/coachCalendarSubscription.js": "c5cbe9ed0eb9294636d09f9283e30ed37293a0fda6469fddf5a2088ed5b10c6a",
       "apps/parent-mobile/app.config.js": "58918b0ef3ac3e7a994c67658dae9170851614b8200a98aa5659921669dca960",
@@ -2014,7 +2020,7 @@
       "tests/device-theme-preference.test.mjs": "5ddb8456d9a0a11513acddc66b3c2f8817a7ac41546d3c0a435b6f64ac0a55a0",
       "tests/matchday-extended-ops-db.test.mjs": "b63ce8efe1bbac9469e1faf1d36a144532818790b65142e0e28e50a73858362b",
       "tests/matchday-extended-ops.test.mjs": "9287102044e2086c025fa1e3f69b682a35048e677a864387bf8f3b50e8a6906d",
-      "tests/mobile-ota-runtime.test.mjs": "417f7d5117610785b095350574d1f2fa7b8b8828088c274e7ae6ea967ccc88e6",
+      "tests/mobile-ota-runtime.test.mjs": "6890960a24e93514d9aaee759ea600f2707ae89498287427c80ee4c16e696717",
       "tests/mobile-resource-loading-performance.test.mjs": "ff15cd3836b2fcff53ec4be7e42fb5c48d1a54c93c019e04e118c1a522c4eed1",
       "apps/coach-mobile/src/CoachFormationScreen.js": "77a0ef1924a92167d7ffa02fc99435b2e43f4874284b882da06d0bf6caeb63d0",
       "apps/coach-mobile/src/coachNotificationCache.js": "94e596b5bbbe5228b89d1df429347b71544cbaafb0df1f11ce69161353a5d2cc",
@@ -2198,7 +2204,10 @@
       "tests/parent-portal-invite-resurface.test.mjs": "46e6ec9fd8b8f308ee16922895fef7865ff5ccd8703bca98f36bfda132ea2dff",
       "tests/player-types-112-pglite.test.mjs": "fd695eeb3152a9506a8f10a0b2f778c88c5cd7d3eaca52aa22fc9d93b552afcd",
       "tests/player-types-112.test.mjs": "f623694755d3394dcc17307d383269c46518e39e44ff1d5e43976afe0ff88e89",
-      "tests/matchday-fixture-workflow.test.mjs": "2fb06b1d8c2038f8b6663788157dedba69fd61c9ba25ed850467acd2cb262e2a"
+      "tests/matchday-fixture-workflow.test.mjs": "2fb06b1d8c2038f8b6663788157dedba69fd61c9ba25ed850467acd2cb262e2a",
+      "apps/mobile-core/plugins/withSatellite.cjs": "816a1185072fa68f1dd8da890845c5fca998ddb0c9004c5f007ecce23f2ce3f0",
+      "apps/scripts/mobile-config-check.mjs": "c2f23261b20dfcec3e08fdef1166f612499aa5bec2e39bbfdf0d93b4db659260",
+      "tests/mobile-satellite-config.test.mjs": "47909c56c48edb5dd743ec8224d1fcc849b3e98485ead53b72d122613a010430"
     },
     "externalTrustInputs": [
       "FOOTBALL_REVIEW_RECEIPT_BASE64",
@@ -3648,7 +3657,7 @@
       "independentExactSourceAcceptanceRequired": true
     }
   },
-  "releasePreparationSha256": "5e0a33f865e516e9ba045417cd4bf0e1070147487931976e7c718da7b7fd6e79",
+  "releasePreparationSha256": "6e40e7234aa9a9b0bcdfded8bcb466484a33da1d6b78bd9fca072e1a3abaa5f2",
   "rootOnlyProposalSha256": "45c3b7352c7328c84982e114b7e87e09cf79514d02d102297ae75ec0925812eb",
   "remediationMode": "maintained-source-fixes",
   "officialCompatibilityDependencies": [
