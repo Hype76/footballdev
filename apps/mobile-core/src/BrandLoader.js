@@ -6,6 +6,7 @@ const logoSource = require('../assets/football-player-logo.png')
 // Keep the exact PNG bytes in the Android bundle. Expo can otherwise resolve an
 // identical embedded asset using a resource name from a different module path.
 const androidLogoSource = require('../assets/football-player-logo.android-source.json')
+const reverseLogoSource = require('../assets/football-player-reverse-source.json')
 // Frame just the round FP emblem within the existing 512px app artwork.
 const emblem = { diameter: 276, left: 118, top: 66, sourceSize: 512 }
 
@@ -20,6 +21,10 @@ export function BrandLoader({ accessibilityLabel = 'Loading', accessible = true,
   const [reduceMotion, setReduceMotion] = useState(true)
   const [appState, setAppState] = useState(AppState.currentState || 'active')
   const transform = [{ perspective: 600 }, { rotateY: rotation.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] }) }]
+  const reverseOpacity = rotation.interpolate({
+    inputRange: [0, 0.249, 0.251, 0.749, 0.751, 1],
+    outputRange: [0, 0, 1, 1, 0, 0],
+  })
 
   useEffect(() => {
     if (routedToHeader) return undefined
@@ -55,6 +60,11 @@ export function BrandLoader({ accessibilityLabel = 'Loading', accessible = true,
   }, [appState, reduceMotion, rotation, routedToHeader])
 
   if (routedToHeader) return null
+  const reverse = <Animated.View collapsable={false} testID="brand-loader-reverse" style={[
+    styles.reverse, { borderRadius: diameter / 2, opacity: reverseOpacity, transform: [{ scaleX: -1 }] },
+  ]}>
+    <Image accessible={false} source={reverseLogoSource} fadeDuration={0} resizeMode="contain" style={{ width: diameter, height: diameter }} />
+  </Animated.View>
 
   return (
     <View
@@ -69,6 +79,7 @@ export function BrandLoader({ accessibilityLabel = 'Loading', accessible = true,
         <View collapsable={false} style={[styles.disc, { width: diameter, height: diameter, borderRadius: diameter / 2 }]}>
           <Image accessible={false} source={androidLogoSource} fadeDuration={0} resizeMethod="scale" resizeMode="stretch" style={{ position: 'absolute', width: emblem.sourceSize * scale, height: emblem.sourceSize * scale, left: -emblem.left * scale, top: -emblem.top * scale }} />
         </View>
+        {reverse}
       </Animated.View> : <Animated.View
         collapsable={false}
         pointerEvents="none"
@@ -88,6 +99,7 @@ export function BrandLoader({ accessibilityLabel = 'Loading', accessible = true,
           style={{ position: 'absolute', width: emblem.sourceSize * scale, height: emblem.sourceSize * scale, left: -emblem.left * scale, top: -emblem.top * scale }}
         />
         </View>
+        {reverse}
       </Animated.View>}
     </View>
   )
@@ -96,4 +108,5 @@ export function BrandLoader({ accessibilityLabel = 'Loading', accessible = true,
 const styles = StyleSheet.create({
   frame: { alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   disc: { backgroundColor: '#000000', overflow: 'hidden' },
+  reverse: { ...StyleSheet.absoluteFillObject, backgroundColor: '#ffffff', overflow: 'hidden' },
 })

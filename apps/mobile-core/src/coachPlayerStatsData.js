@@ -40,6 +40,7 @@ export async function getCoachPlayerStats(user, playerId) {
     matchdaySquad: squad.count,
     goals: row ? Number(row.goals || 0) : null,
     assists: row ? Number(row.assists || 0) : null,
+    playerOfTheMatch: row ? Number(row.motm_votes || 0) : null,
     playingMinutes: playingTime.minutes,
     playingTimeMatches: playingTime.recordedMatches,
   }

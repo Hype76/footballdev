@@ -39,7 +39,7 @@ function normalizeEvent(row = {}) {
     playerOnName: normalize(row.player_on_name ?? row.playerOnName ?? row.assist_name ?? row.assistName), playerOnShirtNumber: normalize(row.player_on_shirt_number ?? row.playerOnShirtNumber ?? row.assist_shirt_number ?? row.assistShirtNumber),
     homeScore: integer(row.home_score ?? row.homeScore), awayScore: integer(row.away_score ?? row.awayScore), notes: normalize(row.notes),
     isPenaltyGoal: row.is_penalty_goal === true || row.isPenaltyGoal === true, isOwnGoal: row.is_own_goal === true || row.isOwnGoal === true, eventStatus: normalize(row.event_status ?? row.eventStatus) || 'active',
-    correctionReason: normalize(row.correction_reason ?? row.correctionReason), requestId: normalize(row.request_id ?? row.requestId), voidedAt: row.voided_at ?? row.voidedAt ?? '', createdByName: normalize(row.created_by_name ?? row.createdByName), createdAt: row.created_at ?? row.createdAt ?? '',
+    correctionReason: normalize(row.correction_reason ?? row.correctionReason), correctionId: normalize(row.correction_metadata?.correctionId ?? row.correctionId), requestId: normalize(row.request_id ?? row.requestId), voidedAt: row.voided_at ?? row.voidedAt ?? '', createdByName: normalize(row.created_by_name ?? row.createdByName), createdAt: row.created_at ?? row.createdAt ?? '',
     eventTeamId: row.event_team_id ?? row.eventTeamId ?? '', eventTeamName: normalize(row.event_team_name ?? row.eventTeamName), matchPhase: normalize(row.match_phase ?? row.matchPhase), phaseOrder: row.phase_order ?? row.phaseOrder ?? null,
   }
 }
@@ -370,11 +370,10 @@ export function buildCoachFixtureUpdatePayload(form = {}, fixture = {}, location
 export async function updateCoachMatchDayFixture(user, match, form) {
   await prepareMutation(user, match)
   if (!isCoachFixtureEditable(match)) {
-    throw new Error('Edit fixture details before kick-off or after the match is concluded.')
+    throw new Error('Edit fixture details before kick-off.')
   }
-  const concludedFixture = Boolean(match.concludedAt)
-  const fixture = validateCoachFixtureForm({ ...form, parentVisible: false, selectedPlayerIds: [] }, { concludedFixture })
-  if (!concludedFixture && fixture.rememberNotificationTeamName) {
+  const fixture = validateCoachFixtureForm({ ...form, parentVisible: false, selectedPlayerIds: [] })
+  if (fixture.rememberNotificationTeamName) {
     await saveCoachTeamNotificationDisplayName(user, user.activeTeamId, fixture.notificationTeamName)
   }
   const { data: locationId, error: locationError } = await supabase.rpc('upsert_match_location_for_team', {
@@ -384,11 +383,7 @@ export async function updateCoachMatchDayFixture(user, match, form) {
     p_team_id: user.activeTeamId,
   })
   if (locationError) throw locationError
-  const fixtureUpdate = buildCoachFixtureUpdatePayload(concludedFixture ? {} : form, fixture, locationId)
-  if (concludedFixture) {
-    fixtureUpdate.concludedEdit = true
-    fixtureUpdate.expectedUpdatedAt = match.updatedAt
-  }
+  const fixtureUpdate = buildCoachFixtureUpdatePayload(form, fixture, locationId)
   const { data, error } = await supabase.rpc('update_match_day_fixture_for_team', {
     p_fixture: fixtureUpdate,
     p_match_day_id: match.id,
@@ -647,6 +642,19 @@ export async function correctCoachMatchDayGoal(user, match, event, goal, reason 
   await prepareMutation(user, match)
   await rpc('correct_coach_match_day_goal_v2', { scorer_player_id_value: normalize(goal.scorerPlayerId) || null, assist_player_id_value: goal.isOwnGoal ? null : normalize(goal.assistPlayerId) || null, match_day_id_value: match.id, goal_event_id_value: event.id, team_side_value: goal.teamSide === 'opponent' ? 'opponent' : 'club', scorer_name_value: normalize(goal.scorerName), scorer_shirt_number_value: normalize(goal.scorerShirtNumber), assist_name_value: normalize(goal.assistName), assist_shirt_number_value: normalize(goal.assistShirtNumber), minute_value: goal.minute ?? null, notes_value: normalize(goal.notes), correction_reason_value: normalize(reason), is_own_goal_value: goal.isOwnGoal === true, is_penalty_goal_value: goal.isOwnGoal !== true && goal.isPenaltyGoal === true, stoppage_minute_value: goal.stoppageMinute ? Number(goal.stoppageMinute) : null })
   return getCoachMatchDayDetail(user, match.id)
+}
+
+export async function saveCoachConcludedMatchEvent(user, match, { changeId, details, eventId, operation }) {
+  await prepareMutation(user, match, 30)
+  await rpc('save_coach_concluded_match_event', {
+    change_id: changeId,
+    details,
+    event_id: eventId || null,
+    expected_updated_at: match.updatedAt,
+    match_id: match.id,
+    operation,
+  })
+  return getCoachMatchDayDetail(user, match.id, { includeVolunteerEligibility: false })
 }
 
 export async function voidCoachMatchDayEvent(user, match, event, { note = '', reasonCode = '' } = {}) {

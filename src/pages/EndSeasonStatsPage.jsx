@@ -25,7 +25,7 @@ const seasonRules = [
   },
   {
     label: 'Awards are snapshots',
-    body: 'Generate POTM awards after records are checked, then use the summary for end-of-season planning.',
+    body: 'Generate POM awards after records are checked, then use the summary for end-of-season planning.',
   },
 ]
 
@@ -258,7 +258,7 @@ export function EndSeasonStatsPage() {
               <SeasonMetric label="Players" value={isLoading ? '...' : activePlayers} />
               <SeasonMetric label="Goals" value={isLoading ? '...' : totalGoals} />
               <SeasonMetric label="Assists" value={isLoading ? '...' : totalAssists} />
-              <SeasonMetric label="POTM" value={isLoading ? '...' : totalVotes} />
+              <SeasonMetric label="POM" value={isLoading ? '...' : totalVotes} />
             </div>
           </div>
         </div>
@@ -338,7 +338,7 @@ export function EndSeasonStatsPage() {
           <div className="grid gap-3 md:grid-cols-3">
             <AwardCard title="Top goal scorer" value={formatWinners(awardSummary.goals, 'goals', 'goals')} />
             <AwardCard title="Top assistant" value={formatWinners(awardSummary.assists, 'assists', 'assists')} />
-            <AwardCard title="Most POTM awards" value={formatWinners(awardSummary.motmVotes, 'POTM awards', 'motmVotes')} />
+            <AwardCard title="Most POM awards" value={formatWinners(awardSummary.motmVotes, 'POM awards', 'motmVotes')} />
           </div>
         </SectionCard>
       ) : null}
@@ -360,7 +360,7 @@ export function EndSeasonStatsPage() {
                   <SortableHeader field="teamName" label="Team" sortConfig={sortConfig} onSort={updateSort} />
                   <SortableHeader align="right" field="goals" label="Goals" sortConfig={sortConfig} onSort={updateSort} />
                   <SortableHeader align="right" field="assists" label="Assists" sortConfig={sortConfig} onSort={updateSort} />
-                  <SortableHeader align="right" field="motmVotes" label="POTM" sortConfig={sortConfig} onSort={updateSort} />
+                  <SortableHeader align="right" field="motmVotes" label="POM" sortConfig={sortConfig} onSort={updateSort} />
                 </tr>
               </thead>
               <tbody>

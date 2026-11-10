@@ -152,7 +152,7 @@ export function buildMatchDayActionableInvitationEmail({
     origin: appOrigin,
   })
   const mapLinksMarkup = buildEventMapLinksMarkup(normalizeInvitationText(match.venue_address || match.venue_name))
-  const requestedRoles = getRequestedMatchDayRoles(match, volunteerTemplates)
+  const requestedRoles = ['player', 'adult_player'].includes(recipient?.type) ? [] : getRequestedMatchDayRoles(match, volunteerTemplates)
   const kickoffTimeTbc = isFixtureKickoffTimeTbc(match.kickoff_time_tbc)
   const details = [
     ['Fixture', matchName],

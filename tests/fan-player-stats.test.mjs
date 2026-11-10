@@ -33,6 +33,18 @@ test('Goals, assists and Player of the Match use active goals and winning closed
   assert.equal(stats.personal.playerOfTheMatch, 1)
 })
 
+test('historical corrections use player IDs and preserve tied POM wins', () => {
+  const stats = buildPlayerStats({ matches, player, events: [
+    { match_day_id: 'home-win', event_type: 'goal', team_side: 'club', event_status: 'corrected', participant_identity_version: 1, scorer_player_id: player.id, scorer_name: 'Old player name' },
+    { match_day_id: 'home-win', event_type: 'goal', team_side: 'club', event_status: 'corrected', participant_identity_version: 1, assist_player_id: player.id, scorer_name: player.player_name },
+  ], polls: [{ id: 'poll-1', status: 'closed' }], votes: [
+    { poll_id: 'poll-1', option_id: player.id }, { poll_id: 'poll-1', option_id: 'player-2' },
+  ] })
+  assert.equal(stats.personal.goals, 1)
+  assert.equal(stats.personal.assists, 1)
+  assert.equal(stats.personal.playerOfTheMatch, 1)
+})
+
 test('recorded playing time follows submitted starters and active substitutions', () => {
   const completed = [{ ...matches[0], timer_elapsed_seconds: 46 * 60 }]
   const startingSquads = [{ match_day_id: 'home-win', player_ids: [player.id] }]

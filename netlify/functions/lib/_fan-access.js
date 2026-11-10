@@ -24,6 +24,20 @@ export async function loadFanInviteForOwner(client, authUserId, connectionId) {
   const club = await loadFanInvitingParent(client, fan)
   return { ...fan, club }
 }
+
+export async function loadParentPlayerStatsScope(client, authUserId, parentLinkId) {
+  const parent = await one(client.from('parent_player_links').select('id,auth_user_id,player_id,club_id,team_id')
+    .eq('id', parentLinkId).eq('auth_user_id', authUserId).eq('link_type', 'parent').eq('status', 'active'))
+  const [player, club, suspended] = await Promise.all([
+    one(client.from('players').select('id,player_name,club_id,team_id,status,archived_at').eq('id', parent.player_id).eq('club_id', parent.club_id)),
+    one(client.from('clubs').select('id,name').eq('id', parent.club_id).eq('status', 'active')),
+    client.from('users').select('role,club_id').eq('id', authUserId).eq('status', 'suspended'),
+  ])
+  if (suspended.error) throw suspended.error
+  if (!player.team_id || player.archived_at || player.status === 'archived' || (parent.team_id && player.team_id !== parent.team_id)
+    || (suspended.data || []).some(user => user.role === 'parent_portal' || user.club_id === parent.club_id)) throw fanDenied()
+  return { parent: { ...parent, team_id: player.team_id }, player, club, fan: { relationship_type: 'parent', club_id: parent.club_id } }
+}
 export async function loadFanInvitingParent(client, fan) {
   await one(client.from('parent_player_links').select('id').eq('id', fan.parent_link_id).eq('auth_user_id', fan.invited_by).eq('player_id', fan.player_id).eq('club_id', fan.club_id).eq('link_type', 'parent').eq('status', 'active'))
   const player = await one(client.from('players').select('status,archived_at').eq('id', fan.player_id).eq('club_id', fan.club_id))

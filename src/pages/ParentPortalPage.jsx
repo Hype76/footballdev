@@ -24,6 +24,7 @@ import { useToast } from '../components/ui/toast-context.js'
 import { MatchDayPage } from './MatchDayPage.jsx'
 import { buildMainAppUrl } from '../lib/app-origins.js'
 import { useAuth } from '../lib/auth.js'
+import { fanRequest } from '../lib/fans-client.js'
 import { getOwnParentPortalFanLinks, revokeOwnParentPlayerAccess, updateParentPortalDisplayName } from '../lib/domain/parent-portal.js'
 import { recordAnalyticsEvent } from '../lib/domain/platform-analytics.js'
 import {
@@ -1751,11 +1752,14 @@ function ParentPortalExperience({ onAccessRemoved, onOpenDemoGameDay }) {
           ) : null}
 
           {activeSection === 'results' ? (
-            <ParentResultsPanel
-              isLoading={isLoadingMatches}
-              previousMatches={previousMatches}
-              onOpen={setSelectedPreviousMatch}
-            />
+            <>
+              {selectedLink?.linkType === 'parent' ? <LinkedPlayerStats key={selectedLink.id} link={selectedLink} /> : null}
+              <ParentResultsPanel
+                isLoading={isLoadingMatches}
+                previousMatches={previousMatches}
+                onOpen={setSelectedPreviousMatch}
+              />
+            </>
           ) : null}
 
           {activeSection === 'development' ? (
@@ -3237,6 +3241,34 @@ function ParentMatchListItem({ isSelected, match, onSelect }) {
 }
 
 const parentResultsPageSize = 3
+
+function LinkedPlayerStats({ link }) {
+  const [stats, setStats] = useState(null)
+  const [failed, setFailed] = useState(false)
+  const [attempt, setAttempt] = useState(0)
+  useEffect(() => {
+    let current = true
+    fanRequest({ action: 'parent_stats', parentLinkId: link.id })
+      .then(result => { if (current) setStats(result.stats) })
+      .catch(() => { if (current) setFailed(true) })
+    return () => { current = false }
+  }, [attempt, link.id])
+  const personal = stats?.personal
+  return <section className="mb-4 border-b border-[#d7e5dc] py-4" aria-label="Linked player stats">
+    <h2 className="text-xl font-black">Player stats</h2>
+    <p className={bodyTextClass}>{link.playerName}{stats?.period ? ` | ${stats.period}` : ''}</p>
+    {personal ? <dl className="mt-2 divide-y divide-[#d7e5dc]">
+      {[
+        ['Matches selected', personal.matches],
+        ['Goals', personal.goals],
+        ['Assists', personal.assists],
+        ['Player of the Match (POM)', personal.playerOfTheMatch],
+        ...(personal.playingTimeMatches ? [['Recorded playing time', `${personal.playingMinutes} min`]] : []),
+      ].map(([label, value]) => <div className="flex justify-between gap-3 py-2" key={label}><dt>{label}</dt><dd className="font-bold">{value}</dd></div>)}
+    </dl> : <p role="status" className={bodyTextClass}>{failed ? 'Player stats could not be loaded.' : 'Loading player stats...'}</p>}
+    {failed ? <button type="button" className={secondaryButtonClass} onClick={() => { setFailed(false); setAttempt(value => value + 1) }}>Try again</button> : null}
+  </section>
+}
 
 function ParentResultsPanel({ isLoading, onOpen, previousMatches }) {
   const [searchParams, setSearchParams] = useSearchParams()

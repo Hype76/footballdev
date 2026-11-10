@@ -1173,7 +1173,7 @@ function CoachPlayersScoped({ context, onNavigate, onQuickActionHandled, onReque
             {detail.matchStats ? <>
               <Text style={styles.meta}>Calendar year {detail.matchStats.year}</Text>
               <View style={styles.filterRow}>
-                {[['Matchday squad', detail.matchStats.matchdaySquad], ['Goals', detail.matchStats.goals], ['Assists', detail.matchStats.assists], ...(detail.matchStats.playingTimeMatches ? [['Recorded playing time', `${detail.matchStats.playingMinutes} min`]] : [])].map(([label, value]) => <View key={label} style={styles.profileStat}><Text style={styles.cardTitle}>{value ?? 'Not available'}</Text><Text style={styles.meta}>{label}</Text></View>)}
+                {[['Matchday squad', detail.matchStats.matchdaySquad], ['Goals', detail.matchStats.goals], ['Assists', detail.matchStats.assists], ['POM', detail.matchStats.playerOfTheMatch], ...(detail.matchStats.playingTimeMatches ? [['Recorded playing time', `${detail.matchStats.playingMinutes} min`]] : [])].map(([label, value]) => <View key={label} style={styles.profileStat}><Text style={styles.cardTitle}>{value ?? 'Not available'}</Text><Text style={styles.meta}>{label}</Text></View>)}
               </View>
               <Text style={styles.body}>Matchday squad counts completed matches where this player was selected. Goals and assists come from saved scoring records. Playing time appears for completed matches with a submitted starting squad and identified substitutions.</Text>
             </> : <Text style={styles.body}>{detail.matchStatsError || 'No match stats available yet.'}</Text>}

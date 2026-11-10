@@ -3,7 +3,7 @@ import { createSupabaseAdminClient } from './lib/_supabase.js'
 import { createFromAddress, sendEmail } from './lib/_email-provider.js'
 import { fanInviteUrl } from '../../src/lib/fans.js'
 import { buildFanEmail } from './lib/_fan-email.js'
-import { loadFanInviteForOwner, loadFanScope } from './lib/_fan-access.js'
+import { loadFanInviteForOwner, loadFanScope, loadParentPlayerStatsScope } from './lib/_fan-access.js'
 import { loadFanMatches, loadFanSchedule, loadPlayerAttendance } from './lib/_fan-schedule.js'
 import { loadFanPlayerStats } from './lib/_fan-player-stats.js'
 import { loadHistory } from './lib/_parent-development-history.js'
@@ -43,6 +43,15 @@ export async function handleFans(event, {
         : await client.from('fan_devices').delete().eq('token', body.token).eq('auth_user_id', actor)
       if (result.error) throw result.error
       return json(200, { success: true })
+    }
+    if (body.action === 'parent_stats') {
+      if (!UUID.test(body.parentLinkId || '')) return json(400, { message: 'Choose a valid linked player.' })
+      const scope = await loadParentPlayerStatsScope(client, actor, body.parentLinkId)
+      for (const featureName of ['parentPortal', 'matchDay', 'fixtures']) {
+        await assertPlanFeatureForScope({ actionCategory: 'READ', clubId: scope.club.id, featureName,
+          parentLinkId: scope.parent.id, playerId: scope.player.id, teamId: scope.player.team_id }, { supabaseAdmin: client })
+      }
+      return json(200, { stats: await loadFanPlayerStats(client, scope) })
     }
     if (!UUID.test(body.connectionId || '')) return json(400, { message: 'Choose a valid Fan connection.' })
     if (body.action === 'send_invitation') {
@@ -127,7 +136,7 @@ export async function handleFans(event, {
         if (!matches.some((match) => match.id === body.matchId)) return json(403, { message: 'This Game Day is unavailable.' })
         const clubKits = await readClubKits(client, scope.fan.club_id)
         const events = await client.from('match_day_events').select('id, event_type, team_side, minute, stoppage_minute, match_phase, phase_order, event_sequence, scorer_name, scorer_shirt_number, assist_name, assist_shirt_number, is_penalty_goal, is_own_goal, home_score, away_score, created_at')
-          .eq('match_day_id', body.matchId).eq('event_status', 'active').order('created_at', { ascending: true })
+          .eq('match_day_id', body.matchId).in('event_status', ['active', 'corrected']).order('created_at', { ascending: true })
         if (events.error) throw events.error
         return json(200, { matches: matches.filter((match) => match.id === body.matchId), events: events.data || [], clubKits })
       }

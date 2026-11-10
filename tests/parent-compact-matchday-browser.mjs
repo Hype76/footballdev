@@ -249,10 +249,14 @@ try {
     ]);window.list(true) })
     const teamLine = page.getByLabel('Peterborough Junior Blues U14 versus Cambourne Town FC', { exact: true }).first()
     await teamLine.waitFor()
+    const fontSizes = []
     for (const name of ['Peterborough Junior Blues U14', 'Cambourne Town FC']) {
       const teamName = teamLine.getByText(name, { exact: true })
       assert.equal(await teamName.evaluate(element => getComputedStyle(element).whiteSpace), 'nowrap', `${name} stays on one line at ${width}px`)
+      fontSizes.push(await teamName.evaluate(element => Number.parseFloat(getComputedStyle(element).fontSize)))
     }
+    assert.equal(fontSizes[0], fontSizes[1], 'Both team names use the same font size')
+    assert.ok(fontSizes[0] >= 16, 'Fixture names remain readable')
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth))
     const longBadges = await Promise.all(['Availability: Needs response', 'Match squad: Not announced yet'].map(label => page.getByLabel(label,{exact:true}).first().boundingBox()))
     assert.ok(Math.abs(longBadges[0].y-longBadges[1].y)<2, 'long status chips remain beside each other')

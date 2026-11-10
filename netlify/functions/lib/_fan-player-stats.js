@@ -24,7 +24,9 @@ export function buildPlayerStats({ matches = [], selections = [], startingSquads
     record[club === opponent ? 'drawn' : club > opponent ? 'won' : 'lost'] += 1
   }
   const playerName = normalizeName(player.player_name)
-  const activeGoals = events.filter(event => matchIds.has(event.match_day_id) && event.event_type === 'goal' && event.team_side === 'club' && (event.event_status || 'active') === 'active' && !event.voided_at && !event.is_own_goal)
+  const activeGoals = events.filter(event => matchIds.has(event.match_day_id) && event.event_type === 'goal' && event.team_side === 'club' && ['active', 'corrected'].includes(event.event_status || 'active') && !event.voided_at && !event.is_own_goal)
+  const credits = (event, role) => event[`${role}_player_id`] === player.id
+    || (!event[`${role}_player_id`] && event.participant_identity_version == null && normalizeName(event[`${role}_name`]) === playerName)
   const closedPolls = new Set(polls.filter(poll => poll.status === 'closed' || (poll.closes_at && Date.parse(poll.closes_at) <= Date.now())).map(poll => poll.id))
   const awards = completed.filter(match => match.motm_poll_id && closedPolls.has(match.motm_poll_id)).reduce((count, match) => {
     const totals = new Map()
@@ -38,8 +40,8 @@ export function buildPlayerStats({ matches = [], selections = [], startingSquads
     matches: record,
     personal: {
       matches: completed.filter(match => selectedIds.has(match.id)).length,
-      goals: activeGoals.filter(event => normalizeName(event.scorer_name) === playerName).length,
-      assists: activeGoals.filter(event => normalizeName(event.assist_name) === playerName).length,
+      goals: activeGoals.filter(event => credits(event, 'scorer')).length,
+      assists: activeGoals.filter(event => credits(event, 'assist')).length,
       playerOfTheMatch: awards,
       playingMinutes: playingTime.minutes,
       playingTimeMatches: playingTime.recordedMatches,
@@ -48,7 +50,7 @@ export function buildPlayerStats({ matches = [], selections = [], startingSquads
 }
 
 export async function loadFanPlayerStats(client, scope) {
-  if (scope.fan.relationship_type !== 'player') throw Object.assign(new Error('Player account access is required.'), { statusCode: 403 })
+  if (!['player', 'parent'].includes(scope.fan.relationship_type)) throw Object.assign(new Error('Linked player access is required.'), { statusCode: 403 })
   const matches = (await loadFanMatches(client, scope, '', { limit: 500 })).filter(match => match.status === 'full_time' && match.team_id === scope.player.team_id)
   const matchIds = matches.map(match => match.id)
   if (!matchIds.length) return buildPlayerStats({ player: scope.player })
@@ -56,7 +58,7 @@ export async function loadFanPlayerStats(client, scope) {
   const [selections, startingSquads, events, polls, votes] = await Promise.all([
     rows(client.from('match_day_player_squad_decisions').select('match_day_id,player_id,status').eq('club_id', scope.fan.club_id).eq('player_id', scope.player.id).in('match_day_id', matchIds)),
     rows(client.from('match_day_starting_squads').select('match_day_id,player_ids').eq('club_id', scope.fan.club_id).eq('team_id', scope.player.team_id).in('match_day_id', matchIds)),
-    rows(client.from('match_day_events').select('match_day_id,event_type,team_side,event_status,voided_at,is_own_goal,scorer_name,assist_name,scorer_player_id,assist_player_id,minute,stoppage_minute,created_at').in('match_day_id', matchIds).in('event_type', ['goal', 'substitution', 'red_card'])),
+    rows(client.from('match_day_events').select('match_day_id,event_type,team_side,event_status,voided_at,is_own_goal,scorer_name,assist_name,scorer_player_id,assist_player_id,participant_identity_version,minute,stoppage_minute,created_at').in('match_day_id', matchIds).in('event_type', ['goal', 'substitution', 'red_card'])),
     pollIds.length ? rows(client.from('polls').select('id,status,closes_at').in('id', pollIds)) : [],
     pollIds.length ? rows(client.from('poll_votes').select('poll_id,option_id').in('poll_id', pollIds)) : [],
   ])
