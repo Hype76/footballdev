@@ -247,6 +247,12 @@ try {
         assert.equal(await page.getByRole('button',{name:'Conclude match',exact:true}).count(),0);
         await page.getByRole('button',{name:'Overview',exact:true}).click();
         assert.equal(await page.getByRole('button',{name:'Edit fixture',exact:true}).count(),0);
+        assert.equal(await page.getByRole('button',{name:'Delete match',exact:true}).count(),0);
+        await page.getByRole('button',{name:'More match options',exact:true}).click();
+        await page.getByRole('button',{name:'Delete match',exact:true}).click();
+        await page.getByText('Delete this match?',{exact:true}).waitFor();
+        await page.getByRole('button',{name:'Cancel',exact:true}).click();
+        assert.equal(await page.getByRole('button',{name:'Delete match',exact:true}).count(),0);
         await page.getByRole('button',{name:'Edit match timeline',exact:true}).click();
         await page.getByRole('button',{name:'Add timeline event',exact:true}).click();
         await page.getByLabel('Match minute',{exact:true}).fill('57');
