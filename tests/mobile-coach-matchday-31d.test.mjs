@@ -83,7 +83,7 @@ test('hidden and archived previous fixtures never reappear in mobile lists', () 
 })
 
 test('timer actions derive from canonical lifecycle including reversible Full Time', () => {
-  assert.deepEqual(getCoachMatchDayActions({ context, match: { ...baseMatch, status: 'scheduled', timerStatus: 'not_started' } }).timerActions.map((item) => item.action), ['start'])
+  assert.deepEqual(getCoachMatchDayActions({ context, match: { ...baseMatch, status: 'scheduled', timerStatus: 'not_started', hasPresentationState: true, isToday: true } }).timerActions.map((item) => item.action), ['start'])
   assert.deepEqual(getCoachMatchDayActions({ context, match: { ...baseMatch, status: 'full_time', timerStatus: 'full_time' } }).timerActions.map((item) => item.action), ['resume', 'conclude'])
   assert.deepEqual(getCoachMatchDayActions({ context, match: { ...baseMatch, status: 'live', timerStatus: 'hydration' } }).timerActions.map((item) => item.action), ['resume', 'full_time'])
 })
@@ -190,7 +190,7 @@ test('backend deltas explicitly refuse invented fixture-linked lineup and extern
   assert.equal(COACH_MATCH_DAY_BACKEND_DELTAS.some((item) => item.category === 'E' && /No external communication/.test(item.decision)), true)
 })
 
-test('Match Day live operations use canonical RPC mutations while pre-match fixture details remain editable', async () => {
+test('Match Day live operations and fixture edits use canonical RPC mutations', async () => {
   const source = await readFile(new URL('../apps/mobile-core/src/coachMatchDayData.js', import.meta.url), 'utf8')
   for (const rpc of ['start_match_day', 'set_match_day_timer_state', 'set_match_day_extended_state', 'set_match_day_player_squad_decision_v2', 'record_match_day_goal_v4', 'record_match_day_score_correction_v2', 'record_match_day_scorer_event_v2', 'correct_coach_match_day_goal_v2', 'void_coach_match_day_event_v1', 'record_match_day_shootout_kick', 'void_match_day_shootout_kick', 'save_match_day_final_report']) assert.match(source, new RegExp(`['\"]${rpc}['\"]`))
   assert.match(source, /scorer_player_id_value: normalize\(event.scorerPlayerId\)/)
@@ -199,7 +199,8 @@ test('Match Day live operations use canonical RPC mutations while pre-match fixt
   assert.match(source, /Authorization: `Bearer \$\{accessToken\}`/)
   assert.equal((source.match(/\.from\('match_days'\)\.update\(/g) || []).length, 0)
   assert.match(source, /rpc\('update_match_day_fixture_for_team'/)
-  assert.match(source, /export async function updateCoachMatchDayFixture[\s\S]*Fixture details can only be edited before the match starts/)
+  assert.match(source, /export async function updateCoachMatchDayFixture[\s\S]*?!isCoachFixtureEditable\(match\)/)
+  assert.match(source, /fixtureUpdate\.concludedEdit = true[\s\S]*?fixtureUpdate\.expectedUpdatedAt = match\.updatedAt/)
   assert.doesNotMatch(source, /\.from\('match_day_events'\)[\s\S]{0,300}\.insert\(/)
   assert.match(source, /\['admin', 'parent_portal', 'adult_player', 'super_admin'\]/)
   assert.match(source, /archived or unavailable/)

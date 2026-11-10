@@ -559,7 +559,7 @@
   "implementationHashes": {
     "scripts/security-supply-chain-gate.mjs": "dcf722bc6cbf2015da4250ea60cbb81e34d3c5c64ec7bb6059671cbae5ab4207",
     "scripts/security-apply-reviewed-backports.mjs": "7f0e9de0add15a121a0f60f89f71656b503450010b8b9c8d4aaf58bc355fc5ec",
-    "scripts/security-verify-reviewed-backports.mjs": "f80aaef5637b736b92de4d9f0b3b25fc801d600f0d564acd0e6b359fd9cfb6a5",
+    "scripts/security-verify-reviewed-backports.mjs": "455059db5c63d7e4f286d0e7911c15b991cecef619d5563e505f848afb5ee73a",
     "security/patches/braces-3.0.3.patch": "e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699",
     "security/patches/node-forge-1.4.0.patch": "2de065ac998bf58917a14d0935112d97ec2957ac41b5f06958d500934f188ed4",
     "security/patches/reviewed-source-manifest.json": "facb364bbac44a8276d082068e8ed8415ca89777d24f4c7a05ff370f71e5a54d",
@@ -1701,7 +1701,7 @@
       "tests/coach-development-template-browser.mjs": "9ccb2fa5c3fe1a28561b5e2f955e718bd8095f98164e723efd457ba207b0d51c",
       "tests/coach-development-template.test.mjs": "8b4cad74de5e5317e1b5fe752655586059d86b98869d4dd9d6a76f1aa2184734",
       "tests/coach-development-workspace-responsiveness.test.mjs": "9400a3e850b0d929f6b56a76b9ef6e6236a3359f9174611c4f60ebfb02f831ef",
-      "tests/coach-feedback-browser.mjs": "4d967d15b725c7fe30d92daecf761d089d7cc42dff1363da32427364682bcd94",
+      "tests/coach-feedback-browser.mjs": "0a57ec00bb3dc3673ec744eff8f1e17f100d079fd78df652a626f8739a495941",
       "tests/coach-fixture-pitch-browser.mjs": "09c440fb4697c74ac5c808a9e68ff0cf1ef87f9917befc9982877bc5e5d832c7",
       "tests/coach-home-warning-recovery.test.mjs": "4f19deb7b64f3ca8c5164dbdd4a61ecf473d48f10114e190dc4ca72377903838",
       "tests/coach-invite-table-browser.mjs": "84d25d718f8e3ff33197486261129241d01eb54910b3c5b2b42a0d4c94293495",
@@ -1783,13 +1783,13 @@
       "tests/mobile-attendance-command.test.mjs": "35da3e258d2333395d7ef00a3cfbf2e0b11d300ee1e8098ec6a210c6cdf165f4",
       "tests/mobile-attendance-legacy-intent.test.mjs": "5bbfc1461c97a5fca809e565fdd6d3daf8a81f95bacc4fd68040bdf137e36299",
       "tests/mobile-auth-refresh-browser.mjs": "1fa426514c8614b5c5de71a183aee62ca51a94a865af3796c09b5b08725913d0",
-      "tests/mobile-cancelled-fixture.test.mjs": "f41257daca338daaa858048a03334651c30bc55ccb3670296e8b3d3ced85e5a4",
+      "tests/mobile-cancelled-fixture.test.mjs": "452a951b75834ca868ce0cd33a9e46514bccd4362f268c0d3f39da2c7a934afe",
       "tests/mobile-chat-sessions-poll-60.test.mjs": "e3b62fa2d06e830d94dd7bb16282ac876d7e47276b891b9249135ace4a76f53d",
       "tests/mobile-coach-bulk-invite-actions-106.test.mjs": "7d1f9f990f78da29d304ae38764b9c459a555d3b876abb27c1dbc35aa9814673",
       "tests/mobile-coach-comms-corrective-36.test.mjs": "5212e93139f6e1cfbdfb4c4947c946e710d25b363c492c3fa6bd45e3232808d6",
       "tests/mobile-coach-home-open-development.test.mjs": "ef6be48e4c5d116897dc5952d1453c9798351ba7fe6801d6f1db4eb08ad25fe2",
       "tests/mobile-coach-live-qa-corrective-35.test.mjs": "fa368bb1640a19d7f4f5e46d326e1310bc23346aa8652da1f42800625c11928c",
-      "tests/mobile-coach-matchday-31d.test.mjs": "14abf2810bc1cade7e0a189d24102fc8622b765933a28eb8577dabaa777e7995",
+      "tests/mobile-coach-matchday-31d.test.mjs": "27902c87ef452e72e94b4fe2a4926117c4b99b5f2c2981a908be67793aab47af",
       "tests/mobile-coach-operational-31c.test.mjs": "002c075cf0174f80ea8399c4634e03a755548f615a0e490b50c70f528f016a0c",
       "tests/mobile-coach-parity-closure-31g.test.mjs": "c8a86537a961bc2d899e34b946e6dbdfeee2223776a1005514fb6fb9cbcb56d2",
       "tests/mobile-coach-phase31e.test.mjs": "98ecb711b44a7b137d01042e63b40cb0f0f1f8d5a27b363486e3e822eb2d60cb",
@@ -3698,7 +3698,7 @@
       "independentExactSourceAcceptanceRequired": true
     }
   },
-  "releasePreparationSha256": "1f31985bf26781df367e177ac7f0106a5bb471ea81557f1fc68d48cb4d163870",
+  "releasePreparationSha256": "e0d6c60cb8fb1766a87eca3add0289350f9853b4180384daccc98a5984ab47f2",
   "rootOnlyProposalSha256": "45c3b7352c7328c84982e114b7e87e09cf79514d02d102297ae75ec0925812eb",
   "remediationMode": "maintained-source-fixes",
   "officialCompatibilityDependencies": [
