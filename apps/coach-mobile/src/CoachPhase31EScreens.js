@@ -232,6 +232,15 @@ function CoachOfflineCopyWarning({ message, onRetry, palette, styles }) {
   </View>
 }
 
+function coachInvitesOfflineWarningMessage({ data, dataScope, offlineWarning, stale }) {
+  if (offlineWarning.scope !== dataScope || !offlineWarning.message) return ''
+  // Current online invitations can load even when the latest offline save fails.
+  if (data && !stale && /Reference: CACHE\./.test(offlineWarning.message)) {
+    return 'Invites are current, but the latest offline copy could not be saved. Stay online and retry. Reference: CACHE.'
+  }
+  return offlineWarning.message
+}
+
 export function CoachPhase31EScreen({ chatNotificationTarget, domain, context, onChatNotificationTargetHandled, onNavigate, onCaptureScrollPosition, onRestoreScrollPosition, palette, reloadHome, user }) {
   const styles = useMemo(() => phaseStyles(palette), [palette])
   const dataScope = JSON.stringify([user.id, context.id, context.authorityId, context.authoritySource, context.clubId, context.teamId, context.role, domain])
@@ -445,6 +454,7 @@ export function CoachPhase31EScreen({ chatNotificationTarget, domain, context, o
     }
   }, [domain, load])
 
+  const invitesOfflineWarningMessage = domain === 'invites' ? coachInvitesOfflineWarningMessage({ data, dataScope, offlineWarning, stale }) : ''
   const common = { context, palette, chatNotificationTarget, data, load, notice, onAvailabilityFocus, onChatNotificationTargetHandled, onNavigate, onCaptureScrollPosition, onRestoreScrollPosition, placeholderColor: palette.textSecondary, reloadHome, setNotice, stale, styles, user }
   return (
     <View style={styles.stack}>
@@ -462,7 +472,7 @@ export function CoachPhase31EScreen({ chatNotificationTarget, domain, context, o
           <View style={{ flex: 1 }} />
           <Pressable accessibilityRole="button" accessibilityLabel="Refresh invitations" disabled={invitesRefreshing} onPress={() => void load({ silent: true })} style={{ minHeight: 44, minWidth: 72, alignItems: 'center', justifyContent: 'center', opacity: invitesRefreshing ? 0.5 : 1 }}><Text style={{ color: palette.accentText, fontWeight: '700' }}>Refresh</Text></Pressable>
         </View> : confirmedStale && !activity ? <Text accessibilityLabel="Offline stale data" style={styles.status}>{domain === 'invites' ? 'Showing saved invitations. Reconnect to refresh.' : 'Offline and read-only'}</Text> : null}
-        {domain === 'invites' && offlineWarning.scope === dataScope && offlineWarning.message ? <CoachOfflineCopyWarning message={offlineWarning.message} onRetry={() => void load({ silent: true })} palette={palette} styles={styles} /> : null}
+        {invitesOfflineWarningMessage ? <CoachOfflineCopyWarning message={invitesOfflineWarningMessage} onRetry={() => void load({ silent: true })} palette={palette} styles={styles} /> : null}
         {notice ? <MobileFailureNotice message={/could not|failed|unavailable|too long/i.test(notice) ? notice : ''} scopeKey={dataScope} onRetry={() => load({ silent: true })} /> : null}
       </>}
       {loading ? <MobileLoadingStatus message={`Loading ${TITLES[domain]}`} /> : null}
