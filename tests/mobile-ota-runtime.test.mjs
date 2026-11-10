@@ -23,6 +23,8 @@ test('native defaults include satellite settings and OTA runtime requires explic
   }
   const satellitePlugin = '../mobile-core/plugins/withSatellite.cjs'
   expected.expo.plugins = [...expected.expo.plugins.filter(plugin => plugin !== satellitePlugin), satellitePlugin]
+  const pickerStoragePermissions = ['android.permission.READ_EXTERNAL_STORAGE', 'android.permission.WRITE_EXTERNAL_STORAGE']
+  expected.expo.android.blockedPermissions = [...new Set([...expected.expo.android.blockedPermissions, ...pickerStoragePermissions])]
   assert.deepEqual(config(source), expected)
   const approved = { MOBILE_OTA_RUNTIME_VERSION: '1.1.1', MOBILE_OTA_UPDATE_CONFIRMED: 'true', EXPO_PUBLIC_BUILD_PROFILE: 'store-live' }
   assert.equal(config(source, approved).expo.runtimeVersion, '1.1.1')
