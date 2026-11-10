@@ -26,7 +26,7 @@ export function buildPlayerStats({ matches = [], selections = [], startingSquads
   const playerName = normalizeName(player.player_name)
   const activeGoals = events.filter(event => matchIds.has(event.match_day_id) && event.event_type === 'goal' && event.team_side === 'club' && ['active', 'corrected'].includes(event.event_status || 'active') && !event.voided_at && !event.is_own_goal)
   const credits = (event, role) => event[`${role}_player_id`] === player.id
-    || (!event[`${role}_player_id`] && event.participant_identity_version == null && normalizeName(event[`${role}_name`]) === playerName)
+    || (Boolean(playerName) && !event[`${role}_player_id`] && event.participant_identity_version == null && normalizeName(event[`${role}_name`]) === playerName)
   const closedPolls = new Set(polls.filter(poll => poll.status === 'closed' || (poll.closes_at && Date.parse(poll.closes_at) <= Date.now())).map(poll => poll.id))
   const awards = completed.filter(match => match.motm_poll_id && closedPolls.has(match.motm_poll_id)).reduce((count, match) => {
     const totals = new Map()

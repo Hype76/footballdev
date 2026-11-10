@@ -6,7 +6,7 @@ export function calculatePlayerPlayingTime(matches = [], startingSquads = [], ev
     const matchSeconds = Number(match.timer_elapsed_seconds)
     if (!startingSquad || !Number.isFinite(matchSeconds) || matchSeconds <= 0) continue
     const timeline = events.filter(event => event.match_day_id === match.id && ['substitution', 'red_card'].includes(event.event_type)
-      && event.team_side === 'club' && (event.event_status || 'active') === 'active' && !event.voided_at
+      && event.team_side === 'club' && ['active', 'corrected'].includes(event.event_status || 'active') && !event.voided_at
       && !(event.event_type === 'red_card' && /^Coach:\s*/i.test(event.scorer_name || '')))
     const eventMinute = event => Number(event.minute) + Number(event.stoppage_minute || 0)
     if (timeline.some(event => !event.scorer_player_id || (event.event_type === 'substitution' && !event.assist_player_id)

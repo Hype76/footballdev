@@ -40,7 +40,7 @@ function normalizeEvent(row = {}) {
     homeScore: integer(row.home_score ?? row.homeScore), awayScore: integer(row.away_score ?? row.awayScore), notes: normalize(row.notes),
     isPenaltyGoal: row.is_penalty_goal === true || row.isPenaltyGoal === true, isOwnGoal: row.is_own_goal === true || row.isOwnGoal === true, eventStatus: normalize(row.event_status ?? row.eventStatus) || 'active',
     correctionReason: normalize(row.correction_reason ?? row.correctionReason), correctionId: normalize(row.correction_metadata?.correctionId ?? row.correctionId), requestId: normalize(row.request_id ?? row.requestId), voidedAt: row.voided_at ?? row.voidedAt ?? '', createdByName: normalize(row.created_by_name ?? row.createdByName), createdAt: row.created_at ?? row.createdAt ?? '',
-    eventTeamId: row.event_team_id ?? row.eventTeamId ?? '', eventTeamName: normalize(row.event_team_name ?? row.eventTeamName), matchPhase: normalize(row.match_phase ?? row.matchPhase), phaseOrder: row.phase_order ?? row.phaseOrder ?? null,
+    eventTeamId: row.event_team_id ?? row.eventTeamId ?? '', eventTeamName: normalize(row.event_team_name ?? row.eventTeamName), matchPhase: normalize(row.match_phase ?? row.matchPhase), phaseOrder: row.phase_order ?? row.phaseOrder ?? null, eventSequence: row.event_sequence ?? row.eventSequence ?? null,
   }
 }
 

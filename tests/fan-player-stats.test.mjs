@@ -49,7 +49,7 @@ test('recorded playing time follows submitted starters and active substitutions'
   const completed = [{ ...matches[0], timer_elapsed_seconds: 46 * 60 }]
   const startingSquads = [{ match_day_id: 'home-win', player_ids: [player.id] }]
   const events = [
-    { match_day_id: 'home-win', event_type: 'substitution', team_side: 'club', minute: 20, scorer_player_id: player.id, assist_player_id: 'player-2', event_status: 'active' },
+    { match_day_id: 'home-win', event_type: 'substitution', team_side: 'club', minute: 20, scorer_player_id: player.id, assist_player_id: 'player-2', event_status: 'corrected' },
     { match_day_id: 'home-win', event_type: 'substitution', team_side: 'club', minute: 35, scorer_player_id: 'player-2', assist_player_id: player.id, event_status: 'active' },
     { match_day_id: 'home-win', event_type: 'substitution', team_side: 'club', minute: 40, scorer_player_id: player.id, assist_player_id: 'player-3', event_status: 'voided' },
   ]
@@ -84,7 +84,7 @@ test('a recorded red card ends playing time, while a Coach dismissal does not', 
   const startingSquads = [{ match_day_id: 'home-win', player_ids: [player.id] }]
   const events = [
     { match_day_id: 'home-win', event_type: 'red_card', team_side: 'club', minute: 20, scorer_name: 'Coach: Alex', scorer_player_id: null },
-    { match_day_id: 'home-win', event_type: 'red_card', team_side: 'club', minute: 75, stoppage_minute: 1, scorer_player_id: player.id },
+    { match_day_id: 'home-win', event_type: 'red_card', team_side: 'club', minute: 75, stoppage_minute: 1, scorer_player_id: player.id, event_status: 'corrected' },
   ]
   const stats = buildPlayerStats({ matches: completed, startingSquads, events, player })
   assert.equal(stats.personal.playingMinutes, 76)
