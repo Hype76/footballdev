@@ -712,7 +712,7 @@ export function CoachFormationBoard({ context, initialBoardId = '', match = null
     setNotice('New Formation Board ready. Tap any pitch position to choose a Player.')
   }
 
-  const saveOfflineFormation = async ({ nextBoard = board, nextBoards = boards, nextDraft = draft, nextPresets = presets, nextPublications = matchPublications, pendingSave, pendingQueueKey } = {}) => {
+  const saveOfflineFormation = async ({ nextBoard = board, nextBoards = boards, nextDraft = draft, nextPresets = presets, nextPublications = matchPublications, pendingSave, pendingQueueKey, clearDraftKey } = {}) => {
     const pendingKey = `${match?.id || ''}:${pendingSave?.boardId || nextBoard?.id || board?.id || 'new'}`
     const pendingSaveChanges = pendingSave === undefined ? undefined : {
       ...((pendingSave?.queueKey || pendingQueueKey) ? { [pendingSave?.queueKey || pendingQueueKey]: null } : {}),
@@ -722,6 +722,7 @@ export function CoachFormationBoard({ context, initialBoardId = '', match = null
       formation: {
         board: nextBoard,
         boards: nextBoards,
+        clearDraftKey,
         draft: nextDraft,
         matchDayId: match?.id || '',
         matchPublications: nextPublications,
@@ -794,6 +795,7 @@ export function CoachFormationBoard({ context, initialBoardId = '', match = null
     }
     let nextBoard = saveBoard
     let serverAcknowledged = Boolean(queuedSave?.acknowledged)
+    let acknowledgedPendingSave = queuedSave?.acknowledged ? queuedSave : null
     let savedLocally = false
     if (!queuedSave) await saveOfflineFormation({ pendingSave }).then(() => { savedLocally = true }).catch(() => {})
     try {
@@ -807,8 +809,8 @@ export function CoachFormationBoard({ context, initialBoardId = '', match = null
         if (!serverAcknowledged) nextBoard = await saveCoachMatchFormationBoard(user, match, nextBoard, saveDraft, saveTitle, saveShared)
         serverAcknowledged = true
         requireActiveBoard()
-        const acknowledgedPendingSave = { ...pendingSave, acknowledged: true, board: nextBoard, boardId: nextBoard.id, expectedVersionNumber: nextBoard.currentVersionNumber }
-        await saveOfflineFormation({ nextBoard, pendingSave: acknowledgedPendingSave }).catch(() => {})
+        acknowledgedPendingSave = { ...pendingSave, acknowledged: true, board: nextBoard, boardId: nextBoard.id, expectedVersionNumber: nextBoard.currentVersionNumber }
+        if (saveStartingSquad) await saveOfflineFormation({ nextBoard, pendingSave: acknowledgedPendingSave }).catch(() => {})
       }
       if (saveStartingSquad && !queuedSave?.startingSquadSubmitted) {
         try {
@@ -819,15 +821,26 @@ export function CoachFormationBoard({ context, initialBoardId = '', match = null
           failure.code = 'starting_squad_submit_failed'
           throw failure
         }
-        await saveOfflineFormation({ nextBoard, pendingSave: { ...pendingSave, acknowledged: true, board: nextBoard, boardId: nextBoard.id, startingSquadSubmitted: true } }).catch(() => {})
+        acknowledgedPendingSave = { ...acknowledgedPendingSave, startingSquadSubmitted: true }
+        await saveOfflineFormation({ nextBoard, pendingSave: acknowledgedPendingSave }).catch(() => {})
       }
       // Retain a confirmed server identity even if refresh or local storage fails.
       setBoard(nextBoard)
       setActiveSheet((sheet) => sheet === 'share' ? '' : sheet)
-      const nextBoards = await getCoachFormationBoards(user)
-      if (queuedSave?.acknowledged && !nextBoards.some((candidate) => candidate.id === nextBoard.id)) throw new Error('The saved Formation Board is no longer available to this account.')
-      const nextPublications = await resolvePublications(nextBoard, user)
-      if (queuedSave?.acknowledged && queuedSave.shared && !getActiveFormationPublication(nextPublications.matchItems, match.id)) throw new Error('The saved Formation Board visibility could not be confirmed. It remains queued for review.')
+      // The match save commits the board and its audience together. Only a resumed
+      // acknowledgement needs to check whether that earlier save is still current.
+      let nextBoards = [nextBoard, ...boards.filter((candidate) => candidate.id !== nextBoard.id)]
+      let nextPublications = saveShared ? [{ match_day_id: match.id, board_version_id: nextBoard.currentVersionId }] : []
+      if (queuedSave?.acknowledged) {
+        const [latestBoards, publications] = await Promise.all([
+          getCoachFormationBoards(user),
+          resolvePublications(nextBoard, user),
+        ])
+        if (!latestBoards.some((candidate) => candidate.id === nextBoard.id)) throw new Error('The saved Formation Board is no longer available to this account.')
+        if (queuedSave.shared && !getActiveFormationPublication(publications.matchItems, match.id)) throw new Error('The saved Formation Board visibility could not be confirmed. It remains queued for review.')
+        nextBoards = latestBoards
+        nextPublications = publications.matchItems
+      }
       requireActiveBoard()
       const currentEditor = editorSnapshotRef.current
       const preserveCurrentDraft = queuedSave && (
@@ -835,16 +848,30 @@ export function CoachFormationBoard({ context, initialBoardId = '', match = null
         || formationContentKey(currentEditor.draft, currentEditor.title) !== formationContentKey(saveDraft, saveTitle)
         || currentEditor.shared !== saveShared
       )
-      setBoard(preserveCurrentDraft && nextBoard?.isLocked ? null : nextBoard)
+      const savedDraft = createMobileFormationDraft({ board: nextBoard })
+      const editorBoard = preserveCurrentDraft && nextBoard.isLocked ? null : nextBoard
+      setBoard(editorBoard)
       setBoards(nextBoards)
       if (!preserveCurrentDraft) {
-        setDraft(createMobileFormationDraft({ board: nextBoard }))
+        setDraft(savedDraft)
         setTitle(nextBoard.title)
       }
-      setSavedContentKey(formationContentKey(createMobileFormationDraft({ board: nextBoard }), nextBoard.title))
-      setMatchPublications(nextPublications.matchItems)
-      await saveOfflineFormation({ nextBoard: preserveCurrentDraft && nextBoard?.isLocked ? null : nextBoard, nextBoards, nextDraft: preserveCurrentDraft ? currentEditor.draft : createMobileFormationDraft({ board: nextBoard }), nextPublications: nextPublications.matchItems, pendingSave: null, pendingQueueKey: pendingSave.queueKey }).catch(() => {})
-      if (!preserveCurrentDraft) await saveCoachFormationLocalDraft(user.id, context, currentDraftKey, null).catch(() => {})
+      setSavedContentKey(formationContentKey(savedDraft, nextBoard.title))
+      setMatchPublications(nextPublications)
+      try {
+        await saveOfflineFormation({
+          nextBoard: editorBoard,
+          nextBoards,
+          nextDraft: preserveCurrentDraft ? currentEditor.draft : savedDraft,
+          nextPublications,
+          pendingSave: null,
+          pendingQueueKey: pendingSave.queueKey,
+          clearDraftKey: preserveCurrentDraft ? undefined : currentDraftKey,
+        })
+      } catch {
+        // Preserve the server identity if local cleanup fails after a confirmed save.
+        if (acknowledgedPendingSave) await saveOfflineFormation({ nextBoard, pendingSave: acknowledgedPendingSave }).catch(() => {})
+      }
       setQueuedRetryPending(false)
       setQueuedSaveAcknowledged(false)
       if (!preserveCurrentDraft) {
