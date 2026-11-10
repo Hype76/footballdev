@@ -86,7 +86,7 @@ test('official tooling updates preserve unrelated dependencies and the exact app
     const { overrides: oldOverrides, ...oldPackage } = before
     const { overrides, ...newPackage } = current
     assert.deepEqual(newPackage, oldPackage, `${scope} direct dependencies and scripts match the exact mobile feature additions`)
-    assert.deepEqual(overrides, { ...oldOverrides, minimatch: '11.0.5', 'glob@>=9.0.0 <=14.0.1': '14.0.4', ...(scope === '.' ? { '@eslint/config-array': '0.23.5' } : { 'test-exclude': '8.0.0', 'node-forge': '1.4.3' }) })
+    assert.deepEqual(overrides, { ...oldOverrides, minimatch: '11.0.6', 'glob@>=9.0.0 <=14.0.1': '14.0.4', ...(scope === '.' ? { '@eslint/config-array': '0.23.5' } : { 'test-exclude': '8.0.0', 'node-forge': '1.4.3' }) })
     const oldLock = previousLock.packages
     const newLock = JSON.parse(fs.readFileSync(`${prefix}package-lock.json`)).packages
     for (const file of new Set([...Object.keys(oldLock), ...Object.keys(newLock)])) {
@@ -117,7 +117,7 @@ test('the current glob and minimatch update changes only reviewed tooling packag
     const newPackage = JSON.parse(fs.readFileSync(`${prefix}package.json`))
     const oldLock = JSON.parse(execFileSync('git', ['show', `${candidate}:${prefix}package-lock.json`], { encoding: 'utf8', maxBuffer: 8 * 1024 * 1024 }))
     if (scope === 'apps/coach-mobile') applyApprovedCoachFileTools(oldPackage, oldLock)
-    oldPackage.overrides.minimatch = '11.0.5'
+    oldPackage.overrides.minimatch = '11.0.6'
     oldPackage.overrides['glob@>=9.0.0 <=14.0.1'] = '14.0.4'
     assert.deepEqual(newPackage, oldPackage)
     const newLock = JSON.parse(fs.readFileSync(`${prefix}package-lock.json`))
@@ -127,7 +127,7 @@ test('the current glob and minimatch update changes only reviewed tooling packag
       if (name.endsWith('/glob')) assert.ok(['7.2.3', '14.0.4'].includes(entry.version), `${scope}: affected glob version at ${name}`)
     }
     assert.equal(newLock.packages['node_modules/glob'].version, '14.0.4')
-    assert.equal(newLock.packages['node_modules/minimatch'].version, '11.0.5')
+    assert.equal(newLock.packages['node_modules/minimatch'].version, '11.0.6')
     assert.equal(newLock.packages['node_modules/@isaacs/nonrecursive-glob-match'].version, '1.1.0')
   }
 })
@@ -162,7 +162,7 @@ for (const scope of ['.', 'apps/coach-mobile', 'apps/parent-mobile']) {
         }
       }
       const minimatch = require('minimatch')
-      assert.equal(require('minimatch/package.json').version, '11.0.5')
+      assert.equal(require('minimatch/package.json').version, '11.0.6')
       assert.equal(minimatch.minimatch('src/index.js', 'src/**/*.js'), true)
       assert.equal(new minimatch.Minimatch('src/**/*.js').match('src/nested/player.js'), true)
       assert.equal(new minimatch.Minimatch('src/**/*.js').match('src/notes.txt'), false)

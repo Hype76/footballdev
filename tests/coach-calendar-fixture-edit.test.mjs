@@ -1,7 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { canDeleteCoachFixture, canEditCoachFixture } from '../apps/mobile-core/src/coachFixtureEditCore.js'
-import { createCoachFixtureForm, validateCoachFixtureForm } from '../apps/mobile-core/src/coachFixtureCore.js'
 
 const context = { teamId: 'team', role: 'coach', roleRank: 30, paymentAccess: { canMutate: true } }
 const fixture = { id: 'fixture', teamId: 'team', status: 'scheduled' }
@@ -15,14 +14,10 @@ test('fixture editing is available only for editable fixtures in an authorised o
   assert.equal(canEditCoachFixture(), false)
 })
 
-test('concluded matches can be edited on their original historical dates', () => {
+test('concluded matches keep fixture details locked regardless of date or status', () => {
   const historical = { ...fixture, status: 'full_time', matchDate: '2025-03-15', concludedAt: '2025-03-15T16:00:00Z', opponent: 'Historic FC' }
-  assert.equal(canEditCoachFixture({ context, fixture: historical }), true)
-  assert.equal(canEditCoachFixture({ context, fixture: { ...historical, previousHiddenAt: 'saved' } }), false)
-  const form = createCoachFixtureForm({ match: historical })
-  assert.equal(validateCoachFixtureForm(form, { concludedFixture: true }).matchDate, '2025-03-15')
-  assert.throws(() => validateCoachFixtureForm({ ...form, fixtureType: 'league' }), /today or a future match date/)
-  assert.throws(() => validateCoachFixtureForm({ ...form, matchDate: '2099-01-01' }, { concludedFixture: true }), /cannot be in the future/)
+  assert.equal(canEditCoachFixture({ context, fixture: historical }), false)
+  assert.equal(canEditCoachFixture({ context, fixture: { ...historical, status: 'scheduled' } }), false)
 })
 
 test('assigned coaches can delete a scheduled or historical match, with active and stale contexts protected', () => {

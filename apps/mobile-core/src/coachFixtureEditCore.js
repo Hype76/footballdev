@@ -19,8 +19,7 @@ function canManageFixture(context, fixture, stale, minimumRank) {
 }
 
 export function isCoachFixtureEditable(fixture = {}) {
-  return Boolean(fixture.concludedAt)
-    || ['scheduled', 'scorer_request', 'postponed'].includes(fixture.status)
+  return !fixture.concludedAt && ['scheduled', 'scorer_request', 'postponed'].includes(fixture.status)
 }
 
 export function canEditCoachFixture({ context, fixture, stale = false } = {}) {

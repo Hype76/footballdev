@@ -58,6 +58,18 @@ test('creation and edit use one actionable HTML and plain-text invitation builde
   assert.match(update.html, /existing response is preserved/i)
 })
 
+test('self-managed Players get availability links without volunteer offers', () => {
+  for (const type of ['player', 'adult_player']) {
+    const email = buildMatchDayActionableInvitationEmail({
+      appOrigin: 'https://footballplayer.online', match: fixture, player: { player_name: 'Alex Player' },
+      recipient: { email: 'player@example.com', name: 'Alex Player', type },
+      responseUrl: 'https://footballplayer.online/.netlify/functions/match-day-availability-confirm?token=abc',
+    })
+    assert.match(email.html, />Available<\/a>/)
+    assert.doesNotMatch(email.html + email.text, /Volunteer|#volunteer-/i)
+  }
+})
+
 test('Calendar Match Day edits use the shared server service and no browser recipient scope', async () => {
   const [sendFunction, calendarDomain, processor] = await Promise.all([
     readFile(sendFunctionUrl, 'utf8'),

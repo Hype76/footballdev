@@ -553,6 +553,19 @@ export async function getParentResources(user) {
   return (data || []).map(normalizeParentResource)
 }
 
+export async function getLinkedParentPlayerStats(link) {
+  if (link?.linkType !== 'parent' || !link.id) throw new Error('Choose a player linked to your parent account.')
+  const accessToken = await getAccessToken()
+  if (!accessToken) throw new Error('Sign in again to view player stats.')
+  const { ok, result } = await fetchJsonWithTimeout(joinApiPath(getMobileRuntimeConfig('parent').apiBaseUrl, '/.netlify/functions/fans'), {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'parent_stats', parentLinkId: link.id }),
+  })
+  if (!ok || !result?.stats) throw new Error(result?.message || 'Player stats could not be loaded.')
+  return result.stats
+}
+
 export async function getParentNotificationInbox(user) {
   const link = requireSelectedLink(user)
   const config = getMobileRuntimeConfig('parent')

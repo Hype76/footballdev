@@ -354,6 +354,33 @@ test('Fan match timeline shows recorded scorer and assist names without private 
   assert.equal(response.body.includes('Private staff note'), false)
 })
 
+test('parent stats require their own current parent link and expose only its player totals', async () => {
+  const { client, tables } = fixture()
+  const match = { id: id(9), club_id: id(6), team_id: id(7), parent_audience: 'all_team_parents',
+    parent_visible: true, status: 'full_time', match_date: new Date().toISOString().slice(0, 10), motm_poll_id: id(10) }
+  tables.match_days.push(match, { ...match, id: id(11), parent_visible: false, motm_poll_id: null })
+  tables.polls = [{ id: id(10), status: 'closed' }]
+  tables.poll_votes = [{ poll_id: id(10), option_id: id(5) }]
+  tables.match_day_events.push(
+    { match_day_id: id(9), event_type: 'goal', event_status: 'corrected', team_side: 'club', scorer_player_id: id(5), assist_player_id: id(30), participant_identity_version: 1 },
+    { match_day_id: id(11), event_type: 'goal', event_status: 'active', team_side: 'club', scorer_player_id: id(5), participant_identity_version: 1 },
+  )
+  const call = () => handleFans({ httpMethod: 'POST', headers: { authorization: 'Bearer synthetic' }, body: JSON.stringify({
+    action: 'parent_stats', parentLinkId: id(4), playerId: id(30),
+  }) }, { createClient: () => client })
+  assert.equal((await call()).statusCode, 403, 'A Fan cannot borrow the owning Parent link')
+  client.auth.getUser = async () => ({ data: { user: { id: id(3) } } })
+  const response = await call()
+  assert.equal(response.statusCode, 200)
+  const { personal } = JSON.parse(response.body).stats
+  assert.equal(personal.goals, 1)
+  assert.equal(personal.assists, 0)
+  assert.equal(personal.playerOfTheMatch, 1)
+  assert.equal(response.body.includes(id(30)), false)
+  tables.parent_player_links[0].status = 'revoked'
+  assert.equal((await call()).statusCode, 403)
+})
+
 test('Schedule-only endpoint denies every other view and exposes no scoring or attendance actions',async()=>{
   const {client,read}=fixture()
   const call=action=>handleFans({httpMethod:'POST',headers:{authorization:'Bearer synthetic'},body:JSON.stringify({action,connectionId:id(1)})},{createClient:()=>client})

@@ -664,7 +664,7 @@ export function InvitationsScreen({ activeActionId, isOffline, link, onAddToCale
         const resources = group.invitations.flatMap((invitation) => Array.isArray(invitation.resources) ? invitation.resources.map((resourceItem) => ({ invitation, resourceItem })) : [])
         return (
           <View key={group.eventKey} style={styles.inviteGroup}>
-            <View style={styles.row}><Text style={[styles.eventLabel, { color: colors[presentation.tone] }]}>{isMatch ? 'Match & volunteer invite' : `${presentation.label} invite`}</Text><Text style={styles.meta}>{formatDateOnly(primary?.eventStart || primary?.eventDate)}</Text></View>
+            <View style={styles.row}><Text style={[styles.eventLabel, { color: colors[presentation.tone] }]}>{volunteerOffers.length ? 'Match & volunteer invite' : isMatch ? 'Match invite' : `${presentation.label} invite`}</Text><Text style={styles.meta}>{formatDateOnly(primary?.eventStart || primary?.eventDate)}</Text></View>
             <View style={styles.inviteHeader}>
               <ParentIcon color={colors[presentation.tone]} iconKey={presentation.iconKey} size={34} />
               <View style={styles.inviteHeaderCopy}><Text style={styles.cardTitle}>{group.eventTitle}</Text>{primary?.teamName ? <Text style={styles.meta}>{primary.teamName}</Text> : null}</View>
@@ -717,10 +717,18 @@ function MatchCard({ colors, invitations, link, match, onOpen, styles }) {
   return (
     <View style={styles.card}>
       {!match.isFanView && !isCompleted ? <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}><MatchStatusBadge compact colors={colors} status={getParentMatchAvailability(match, invitation, link)} prefix="Availability" styles={styles} /><MatchStatusBadge compact colors={colors} status={getParentMatchSquadStatus(match)} prefix="Match squad" styles={styles} /></View> : null}
-      <Pressable accessibilityHint="Opens Match Day" accessibilityRole="button" onPress={() => onOpen(match)} style={styles.compactRow}>
-        <ParentIcon color={colors.text} iconKey="football" size={34} />
-        <View style={styles.compactCopy}><View style={styles.row}>{match.status !== 'scheduled' || match.isFanView ? <Text style={styles.pill}>{getParentMatchStatusLabel(match)}</Text> : null}<Text style={[styles.meta, styles.fixtureDate]}>{formatDate(match.matchDate)}</Text></View><MatchTeamsLine match={match} clubLogoUrl={resolveParentMobileBranding(link).clubLogoUrl} compact singleLine textStyle={styles.cardTitle} /><Text style={styles.meta}>{match.kickoffTimeTbc ? 'Time TBC' : formatParentProductTime(match.kickoffTime)} | {getMatchDayShirtChoiceLabel(match.shirtChoice)}</Text></View>
-        {scoreVisible(match) ? <Text style={styles.score}>{match.homeScore} - {match.awayScore}</Text> : <ParentIcon color={colors.accentText} iconKey="action.open" size={22} />}
+      <Pressable accessibilityHint="Opens Match Day" accessibilityRole="button" onPress={() => onOpen(match)} style={{ minHeight: 48, gap: 5, paddingVertical: 3 }}>
+        <View style={styles.row}>
+          <ParentIcon color={colors.text} iconKey="football" size={20} />
+          {match.status !== 'scheduled' || match.isFanView ? <Text style={styles.pill}>{getParentMatchStatusLabel(match)}</Text> : null}
+          <Text style={[styles.meta, styles.fixtureDate]}>{formatDate(match.matchDate)}</Text>
+          <ParentIcon color={colors.accentText} iconKey="action.open" size={22} />
+        </View>
+        <MatchTeamsLine match={match} clubLogoUrl={resolveParentMobileBranding(link).clubLogoUrl} compact singleLine textStyle={styles.cardTitle} />
+        <View style={styles.row}>
+          <Text style={styles.meta}>{match.kickoffTimeTbc ? 'Time TBC' : formatParentProductTime(match.kickoffTime)} | {getMatchDayShirtChoiceLabel(match.shirtChoice)}</Text>
+          {scoreVisible(match) ? <Text style={styles.score}>{match.homeScore} - {match.awayScore}</Text> : null}
+        </View>
       </Pressable>
       {match.arrivalTime ? <Text style={styles.meta}>Arrive {formatParentProductTime(match.arrivalTime)}</Text> : null}
     </View>
@@ -1252,7 +1260,7 @@ export function MatchdayScreen({ activeActionId, clubKits, formationViewportHeig
         {selectedMatch.isScorer ? <MatchdayAction accessibilityLabel="Back to Matchday" label="Back" iconKey="action.back" onPress={onBack} colors={colors} styles={styles} back /> : null}
         <View style={[styles.gameDayHero, selectedMatchIsLive && styles.gameDayHeroLive]}>
           {['cancelled', 'postponed'].includes(selectedMatch.status) ? <Text style={styles.pill}>{getParentMatchStatusLabel(selectedMatch)}</Text> : null}
-          <MatchTeamsLine match={selectedMatch} clubLogoUrl={resolveParentMobileBranding(link).clubLogoUrl} header textStyle={styles.header} />
+          <MatchTeamsLine match={selectedMatch} clubLogoUrl={resolveParentMobileBranding(link).clubLogoUrl} header singleLine textStyle={[styles.header, { fontSize: 20, lineHeight: 26 }]} />
           <View accessibilityLabel="Match information" style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 6 }}>
             <MatchTypeIcon compact fixtureType={selectedMatch.fixtureType} textStyle={styles.body} />
             <HomeAwayIcon compact homeAway={selectedMatch.homeAway} textStyle={styles.body} />
@@ -1604,6 +1612,7 @@ export function MoreScreen({ onOpen, themeTokens, unansweredInvites, unansweredP
     ['updates', 'notifications', 'Notifications', unreadNotifications ? `${unreadNotifications} new` : 'Selection, scores and club news', unreadNotifications],
     ['invites', 'invite', 'Invites', unansweredInvites ? `${unansweredInvites} to answer` : 'Attendance and roles', unansweredInvites],
     ['results', 'result', 'Results', 'Completed fixtures', 0],
+    ['stats', 'development', 'Player stats', 'Goals, assists and POM', 0],
     ['fans', 'fans', 'Fans', 'People and access', 0],
     ['development', 'development', 'Development', 'Shared reports', 0],
     ['resources', 'resource', 'Resources', 'Files and links', 0],

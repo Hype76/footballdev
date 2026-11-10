@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { randomUUID } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import { test } from 'node:test'
 
@@ -564,7 +565,7 @@ test('candidate deletion allows assigned Team Admin and denies suspended staff',
   await db.close()
 })
 
-test('Coach fixture lifecycle protects off-date starts, supports old edits and removes matches with scoped audit', async (t) => {
+test('Coach fixture lifecycle locks old details, corrects the timeline and keeps deletion and date guards', async (t) => {
   const db = await createDatabase()
   t.after(() => db.close())
   await db.exec(`
@@ -578,6 +579,7 @@ test('Coach fixture lifecycle protects off-date starts, supports old edits and r
     insert into public.user_club_memberships select id, club_id, role, role_rank from public.users;
     create table public.match_locations (id uuid, club_id uuid, archived_at timestamptz);
     alter table public.match_days
+      add column title text default '',
       add column match_conclusion_rule text default 'normal_time',
       add column match_duration_minutes integer default 90,
       add column current_match_phase text default 'pre_match',
@@ -598,6 +600,20 @@ test('Coach fixture lifecycle protects off-date starts, supports old edits and r
     alter function public.set_match_day_timer_state(uuid,text) rename to fixture_test_apply_timer;
     create function public.apply_match_day_timer_action(uuid,text,uuid,text,text,uuid)
     returns jsonb language sql as $$ select public.fixture_test_apply_timer($1,$2) $$;
+    create sequence public.match_day_event_sequence_seq;
+    create function public.match_day_phase_order(text) returns integer language sql as $$ select case when $1='first_half' then 10 when $1='second_half' then 30 else 100 end $$;
+    create function public.get_initials_from_full_name(text) returns text language sql as $$ select left($1, 1) $$;
+    alter table public.players add column player_name text, add column shirt_number text;
+    alter table public.match_day_events
+      add column club_id uuid, add column team_id uuid, add column event_status text not null default 'active',
+      add column event_sequence bigint default nextval('public.match_day_event_sequence_seq'), add column phase_order integer,
+      add column match_phase text, add column stoppage_minute integer, add column scorer_player_id uuid,
+      add column assist_player_id uuid, add column participant_identity_version integer, add column is_own_goal boolean,
+      add column is_penalty_goal boolean, add column created_by uuid, add column request_id uuid,
+      add column correction_reason text, add column correction_metadata jsonb not null default '{}'::jsonb,
+      add column corrected_at timestamptz, add column corrected_by uuid, add column corrected_by_name text,
+      add column voided_at timestamptz, add column voided_by uuid;
+    alter table public.match_day_event_log drop constraint match_day_event_log_event_type_check;
   `)
   await db.exec(migrationFunction('20260728170000_staff_role_assignment_control', 'app_private.actor_can_manage_team_resource(', '$$'))
   await db.exec(migrationFunction('20260731110000_fp_v1_gameday_scorer_authority_02a', 'public.match_day_local_date_is_today(', '$$'))
@@ -607,6 +623,18 @@ test('Coach fixture lifecycle protects off-date starts, supports old edits and r
   await db.exec(migrationText('20261030075557_matchday_finish_before_optional_phases'))
   await db.exec(migrationFunction('20260914065046_coach_pitch_and_event_participant_removal', 'public.update_match_day_fixture_for_team(', '$function$'))
   await db.exec(migrationText('20261110130302_coach_match_fixture_lifecycle'))
+  await db.exec(migrationFunction('20260731110000_fp_v1_gameday_scorer_authority_02a', 'public.enforce_match_day_gameplay_write()', '$$'))
+  await db.exec(migrationFunction('20260928124108_mobile_match_calendar', 'public.enforce_match_day_event_write()', '$function$'))
+  await db.exec(migrationFunction('20260902144139_parent_scorer_resume_added_time_own_goals', 'public.set_match_day_event_extended_context()', '$function$'))
+  await db.exec(migrationText('20261110161643_coach_concluded_match_timeline').split('-- A self-managed Player')[0])
+  await db.exec(`
+    create trigger enforce_event before insert or update or delete on public.match_day_events
+      for each row execute function public.enforce_match_day_event_write();
+    create trigger event_context before insert on public.match_day_events
+      for each row execute function public.set_match_day_event_extended_context();
+    create trigger enforce_score before update of home_score, away_score on public.match_days
+      for each row execute function public.enforce_match_day_gameplay_write();
+  `)
   const fixture = '40000000-0000-0000-0000-000000000014'
   const otherTeam = '40000000-0000-0000-0000-000000000015'
   const historic = '40000000-0000-0000-0000-000000000016'
@@ -635,18 +663,49 @@ test('Coach fixture lifecycle protects off-date starts, supports old edits and r
   const update = 'select public.update_match_day_fixture_for_team($1,$2,$3) as result'
   await assert.rejects(db.query(update, [historic, TEAM_B_ID, payload]), /not_permitted/)
   await assert.rejects(db.query(update, [historic, TEAM_A_ID, { ...payload, concludedEdit: false }]), /not_permitted/)
-  await assert.rejects(db.query(update, [historic, TEAM_A_ID, { ...payload, matchDate: '2099-01-01' }]), /cannot be in the future/)
-  const saved = (await db.query(update, [historic, TEAM_A_ID, payload])).rows[0].result
-  assert.equal(saved.opponent, 'Corrected FC')
-  assert.equal(saved.match_date, '2025-03-14')
-  assert.equal(saved.fixture_type, null)
-  assert.equal(saved.home_score, 3)
-  assert.equal(saved.match_conclusion_rule, 'normal_time')
-  assert.equal(saved.match_duration_minutes, 90)
-  assert.equal(saved.status, 'full_time')
-  await assert.rejects(db.query(update, [historic, TEAM_A_ID, payload]), /Refresh it before saving/)
-
-  await db.query('insert into public.match_day_events (match_day_id,event_type) values ($1,\'goal\')', [historic])
+  await assert.rejects(db.query(update, [historic, TEAM_A_ID, payload]), /Fixture details are locked/)
+  await assert.rejects(db.query('update public.match_days set opponent=\'Other FC\' where id=$1', [historic]), /Fixture details are locked/)
+  await assert.rejects(db.query('update public.match_days set home_score=6 where id=$1', [historic]), /concluded match is read only/)
+  await assert.rejects(db.query("insert into public.match_day_events(match_day_id,event_type) values ($1,'goal')", [historic]), /closed matches are read only/)
+  const change = 'select public.save_coach_concluded_match_event($1,$2,$3,$4,$5,$6) as result'
+  const playerId = randomUUID()
+  const outsiderId = randomUUID()
+  await db.query('insert into public.players values ($1,$3,$4,\'New scorer\',\'9\'), ($2,$3,$5,\'Other team\',\'1\')',
+    [playerId, outsiderId, CLUB_A_ID, TEAM_A_ID, TEAM_B_ID])
+  const initialTime = payload.expectedUpdatedAt
+  const goalDetails = { eventType: 'goal', teamSide: 'club', minute: 12, reason: 'Missed goal' }
+  const goalParams = [historic, initialTime, randomUUID(), null, 'save', goalDetails]
+  const goal = (await db.query(change, goalParams)).rows[0].result
+  assert.equal(goal.match_phase, 'first_half')
+  assert.deepEqual((await db.query(change, goalParams)).rows[0].result, goal)
+  await assert.rejects(db.query(change, [historic, initialTime, randomUUID(), goal.id, 'save', goalDetails]), /Refresh it before saving/)
+  const updatedAt = async () => (await db.query('select updated_at::text from public.match_days where id=$1', [historic])).rows[0].updated_at
+  const version = await updatedAt()
+  await assert.rejects(db.query(change, [historic, version, randomUUID(), goal.id, 'save', { ...goalDetails, scorerPlayerId: outsiderId }]), /player from this match team/)
+  const edited = (await db.query(change, [historic, version, randomUUID(), goal.id, 'save', {
+    ...goalDetails, minute: 57, scorerPlayerId: playerId, assistName: 'Unknown assist',
+  }])).rows[0].result
+  assert.equal(edited.scorer_name, 'New scorer')
+  assert.equal(edited.assist_name, 'Unknown assist')
+  assert.equal(edited.match_phase, 'second_half')
+  assert.equal(edited.event_status, 'corrected')
+  assert.equal(edited.home_score, 4)
+  const card = (await db.query(change, [historic, await updatedAt(), randomUUID(), null, 'save', {
+    eventType: 'red_card', teamSide: 'club', minute: 40, scorerPlayerId: playerId, reason: 'Missed card',
+  }])).rows[0].result
+  assert.equal(card.event_type, 'red_card')
+  assert.equal(card.home_score, 3)
+  await db.query(change, [historic, await updatedAt(), randomUUID(), goal.id, 'void', { reason: 'Duplicate goal' }])
+  await db.query(change, [historic, await updatedAt(), randomUUID(), null, 'score', { homeScore: 2, awayScore: 1, reason: 'Verified final score' }])
+  const state = (await db.query('select match_date::text, status, home_score, away_score, timer_status from public.match_days where id=$1', [historic])).rows[0]
+  assert.deepEqual(state, { match_date: '2025-03-15', status: 'full_time', home_score: 2, away_score: 1, timer_status: 'full_time' })
+  await db.query('update public.team_staff set role_rank=20 where user_id=$1', [ACTOR_ID])
+  await assert.rejects(db.query(change, [historic, await updatedAt(), randomUUID(), card.id, 'void', { reason: 'Denied' }]), /assigned Coach or Manager/)
+  await db.query('update public.team_staff set role_rank=30 where user_id=$1', [ACTOR_ID])
+  const grants = (await db.query(`select
+    has_function_privilege('anon','public.save_coach_concluded_match_event(uuid,timestamptz,uuid,uuid,text,jsonb)','execute') as anon,
+    has_function_privilege('service_role','public.save_coach_concluded_match_event(uuid,timestamptz,uuid,uuid,text,jsonb)','execute') as service`)).rows[0]
+  assert.deepEqual(grants, { anon: false, service: false })
   await db.query('insert into public.match_day_notification_events (match_day_id,status) values ($1,\'queued\')', [historic])
   const remove = 'select public.delete_match_day_fixture_for_team($1,$2) as result'
   await assert.rejects(db.query(remove, [historic, TEAM_A_ID]), /notifications to finish/)
@@ -659,5 +718,5 @@ test('Coach fixture lifecycle protects off-date starts, supports old edits and r
     (select count(*)::int from public.match_day_events where match_day_id=$1) as retained,
     (select count(*)::int from public.audit_logs where entity_id=$1 and action='match_day_fixture_deleted') as audited
   `, [historic])).rows[0]
-  assert.deepEqual(counts, { visible: 0, retained: 1, audited: 1 })
+  assert.deepEqual(counts, { visible: 0, retained: 3, audited: 1 })
 })

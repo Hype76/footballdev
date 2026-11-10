@@ -92,12 +92,15 @@ try {
     await page.waitForTimeout(140)
     frames.push(await discs.first().evaluate(element => {
       const matrix = new DOMMatrix(getComputedStyle(element).transform)
-      return { vertical: matrix.m22, clockX: matrix.m12, clockY: matrix.m21, depth: matrix.m13, face: matrix.m11 }
+      const reverse = getComputedStyle(element.querySelector('[data-testid="brand-loader-reverse"]'))
+      return { vertical: matrix.m22, clockX: matrix.m12, clockY: matrix.m21, depth: matrix.m13, face: matrix.m11, opacity: Number(reverse.opacity), colour: reverse.backgroundColor }
     }))
   }
   assert.ok(frames.every(frame => Math.abs(frame.vertical - 1) < 0.001 && Math.abs(frame.clockX) < 0.001 && Math.abs(frame.clockY) < 0.001), 'Logo turns around its vertical axis rather than rotating like clock hands')
   assert.ok(frames.some(frame => frame.depth > 0.5) && frames.some(frame => frame.depth < -0.5), 'Horizontal flip completes both sides of its rotation')
   assert.ok(frames.some(frame => frame.face > 0.5) && frames.some(frame => frame.face < -0.5), 'Front and reverse faces are reached')
+  assert.ok(frames.filter(frame => frame.face > 0.5).every(frame => frame.opacity === 0), 'The black front is visible when facing forward')
+  assert.ok(frames.filter(frame => frame.face < -0.5).every(frame => frame.opacity === 1 && frame.colour === 'rgb(255, 255, 255)'), 'The white reverse is visible when facing backward')
   await page.evaluate(() => {
     Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'hidden' })
     document.dispatchEvent(new Event('visibilitychange'))

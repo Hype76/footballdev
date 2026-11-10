@@ -129,6 +129,14 @@ try {
   assert.equal(await page.getByText('Published Starter', { exact: true }).evaluate(el => getComputedStyle(el).color), 'rgb(255, 255, 255)', 'Coach white name labels in Parent')
   for (const width of [320, 390]) {
     await page.setViewportSize({ width, height: 844 })
+    const detailNames = page.getByRole('heading', { name: 'Peterborough Junior Blues U14 v Cambourne Town FC', exact: true })
+    for (const name of ['Peterborough Junior Blues U14', 'Cambourne Town FC']) {
+      const textStyle = await detailNames.getByText(name, { exact: true }).evaluate(element => {
+        const style = getComputedStyle(element)
+        return { fontSize: style.fontSize, whiteSpace: style.whiteSpace }
+      })
+      assert.deepEqual(textStyle, { fontSize: '20px', whiteSpace: 'nowrap' }, `Readable detail name at ${width}px`)
+    }
     const defender = await page.getByText('Centre Defender', { exact: true }).boundingBox()
     const goalkeeper = await page.getByLabel('Goalkeeper, shirt 1, goalkeeper', { exact: true }).locator('img').boundingBox()
     assert.ok(defender.y + defender.height + 4 <= goalkeeper.y, `Defender name clears the goalkeeper at ${width}px`)
@@ -249,10 +257,14 @@ try {
     ]);window.list(true) })
     const teamLine = page.getByLabel('Peterborough Junior Blues U14 versus Cambourne Town FC', { exact: true }).first()
     await teamLine.waitFor()
+    const fontSizes = []
     for (const name of ['Peterborough Junior Blues U14', 'Cambourne Town FC']) {
       const teamName = teamLine.getByText(name, { exact: true })
       assert.equal(await teamName.evaluate(element => getComputedStyle(element).whiteSpace), 'nowrap', `${name} stays on one line at ${width}px`)
+      fontSizes.push(await teamName.evaluate(element => Number.parseFloat(getComputedStyle(element).fontSize)))
     }
+    assert.equal(fontSizes[0], fontSizes[1], 'Both team names use the same font size')
+    assert.ok(fontSizes[0] >= 16, 'Fixture names remain readable')
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth))
     const longBadges = await Promise.all(['Availability: Needs response', 'Match squad: Not announced yet'].map(label => page.getByLabel(label,{exact:true}).first().boundingBox()))
     assert.ok(Math.abs(longBadges[0].y-longBadges[1].y)<2, 'long status chips remain beside each other')

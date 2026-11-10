@@ -71,6 +71,32 @@ const choices=[
  ['Bearer match','parent_match',s=>`select * from public.submit_match_day_availability_response('${token}','${s}')`],
  ['Bearer training','parent_training',s=>`select * from public.submit_training_availability_response('${trainingToken}','${s}')`],
 ]
+test('Player availability tokens hide volunteer offers and ignore volunteer fields without dropping attendance', async t => {
+  const { db } = await setup(t, { combined: true })
+  const candidate = await read('../supabase/migrations/20261110161643_coach_concluded_match_timeline.sql')
+  const tokenRead = await read('../supabase/migrations/20260802194024_reusable_availability_links_26a.sql')
+  const portalRead = await read('../supabase/migrations/20260914135926_parent_invitation_revocation_read_model.sql')
+  await db.exec(`
+    alter table public.parent_player_links add column link_type text default 'parent';
+    alter table public.match_day_availability_requests add column recipient_type text default 'parent';
+    alter table public.match_days add column opponent text, add column kickoff_time time, add column kickoff_time_tbc boolean,
+      add column arrival_time time, add column venue_name text, add column venue_address text;
+    create table public.teams(id uuid, club_id uuid, name text);
+    update public.match_days set request_scorer=true, request_linesman=true, request_referee=true;
+  `)
+  await db.exec(tokenRead.slice(tokenRead.indexOf('create function public.get_match_day_availability_response_v2('), tokenRead.indexOf('revoke all on function public.get_match_day_availability_response_v2(text)')))
+  await db.exec(portalRead.slice(0, portalRead.indexOf('revoke all on function public.get_parent_portal_invitation_state')))
+  await db.exec(candidate.slice(candidate.indexOf('-- A self-managed Player')))
+  const flags = async () => (await db.query('select request_scorer,request_linesman,request_referee from public.get_match_day_availability_response_v2($1)', [token])).rows[0]
+  assert.deepEqual(await flags(), { request_scorer: true, request_linesman: true, request_referee: true })
+  await db.exec("update public.match_day_availability_requests set recipient_type='player', volunteer_scorer_response='no_response'; update public.parent_player_links set link_type='adult_player'")
+  assert.deepEqual(await flags(), { request_scorer: false, request_linesman: false, request_referee: false })
+  const result = (await db.query("select * from public.submit_match_day_availability_response($1,'maybe','yes','yes','yes')", [token])).rows[0]
+  assert.equal(result.response_status, 'maybe')
+  assert.equal(result.volunteer_scorer_response, 'no_response')
+  await assert.rejects(db.query("select public.respond_parent_portal_match_day_invitation($1,$2,'role','scorer','yes')", [id(2), id(8)]), /Volunteer offers require a parent contact/)
+})
+
 for(const[name,route,legacy,status='available']of choices)test(`actual original ${name}: same-answer intent invalidates older queued different answer`,async t=>{
  const e=await setup(t,{status}),before=await e.prepare(route),answerBefore=before.baseline
  const result=(await e.db.query(legacy(status))).rows

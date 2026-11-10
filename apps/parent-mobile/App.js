@@ -166,6 +166,7 @@ import {
   revokeOwnParentPlayerAccess,
 } from './src/parentPortalData'
 import { getParentAnnouncementMessages, getParentStaffMessageRoomId, isParentStaffMessageRoom, isParentStaffAnnouncement, prepareParentChatRooms } from './src/parentPresentationCore'
+import { LinkedParentPlayerStatsScreen } from './src/PlayerStatsScreen'
 import {
   CalendarScreen,
   CalendarEventDetail,
@@ -507,10 +508,11 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
   const parentPlanContext = useMemo(() => selectedLink || user, [selectedLink, user])
   const parentRouteAllowed = useCallback((route) => {
     const normalizedRoute = String(route || '').trim().toLowerCase()
+    if (normalizedRoute === 'stats' && selectedLink?.linkType !== 'parent') return false
     if (selectedLink && !String(selectedLink.planKey || selectedLink.plan_key || '').trim()) {
-      return !['calendar', 'matchday', 'formation', 'sessions', 'development', 'resources', 'chat', 'messages', 'polls', 'invites', 'results'].includes(normalizedRoute)
+      return !['calendar', 'matchday', 'formation', 'sessions', 'development', 'resources', 'chat', 'messages', 'polls', 'invites', 'results', 'stats'].includes(normalizedRoute)
     }
-    if (normalizedRoute === 'results') {
+    if (normalizedRoute === 'results' || normalizedRoute === 'stats') {
       return isMobileCapabilityAllowed(parentPlanContext, 'matchDay', matchdayPlanConfig)
     }
     if (['chat', 'messages'].includes(normalizedRoute)) {
@@ -580,7 +582,9 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
     onConfirmed: () => loadParentData(),
   })
   const reconcileAttendance = attendanceOutbox.reconcile
-  const visibleInvitations = resources.invitations.items.map(attendanceOutbox.project)
+  const visibleInvitations = resources.invitations.items
+    .filter(invitation => invitation.invitationType !== 'match_role' || selectedLink?.linkType === 'parent')
+    .map(attendanceOutbox.project)
   const visibleMatches = resources.matches.items.map((match) => {
     const journal = scorerOutboxes[match.id]
     return getVisibleParentScorerMatch(match, journal)
@@ -2622,7 +2626,7 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
                 unansweredInvites={unansweredInvites}
                 unansweredPolls={homeModel.unansweredPolls}
                 unreadNotifications={unreadNotifications}
-                visibleKeys={['updates', 'invites', 'results', 'fans', 'development', 'resources', 'polls', 'feedback', 'bug', 'profile', 'settings', 'partners'].filter((key) => parentRouteAllowed(key))}
+                visibleKeys={['updates', 'invites', 'results', 'stats', 'fans', 'development', 'resources', 'polls', 'feedback', 'bug', 'profile', 'settings', 'partners'].filter((key) => parentRouteAllowed(key))}
               />
             ) : null}
             {renderedActiveTab === 'more' && renderedMoreSection ? <BackButton label="Back to More" onPress={() => { setMoreSection(''); setSelectedInvitationId(''); setSelectedMessageId(''); setSelectedPollId('') }} /> : null}
@@ -2634,6 +2638,7 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
               <InvitationsScreen activeActionId={activeActionId} isOffline={isOffline} link={selectedLink} onAddToCalendar={handleAddToCalendar} onBackTarget={() => setSelectedInvitationId('')} onOpenResource={handleOpenCalendarResource} onRespond={handleInvitationResponse} onTransport={handleMatchTransport} resource={{ ...resources.invitations, items: visibleInvitationsWithMatchTimes }} targetInvitationId={selectedInvitationId} theme={displayTheme} themeTokens={themeModel.tokens} />
             ) : null}
             {renderedActiveTab === 'more' && renderedMoreSection === 'results' ? <ResultsScreen activeActionId={activeActionId} link={selectedLink} onDownloadPdf={handleDownloadMatchReport} resource={{ ...resources.matches, items: visibleMatches }} theme={displayTheme} themeTokens={themeModel.tokens} /> : null}
+            {renderedActiveTab === 'more' && renderedMoreSection === 'stats' ? <LinkedParentPlayerStatsScreen key={selectedLink.id} isOffline={isOffline} link={selectedLink} themeTokens={themeModel.tokens} /> : null}
             {renderedActiveTab === 'more' && renderedMoreSection === 'fans' ? <FansScreen embedded scrollViewRef={scrollViewRef} themeMode={displayTheme} themeTokens={themeModel.tokens} selectedParentLinkId={selectedLink?.id} onSelectedParentLinkChange={(linkId) => handleChildChange(linkId, { stayOnFans: true })} /> : null}
             {renderedActiveTab === 'more' && renderedMoreSection === 'development' ? <DevelopmentScreen isOffline={isOffline} pendingReportIds={pdfTasks.filter(task => task.authorityScope === reportScopeRef.current).map(task => task.reportId)} onDismiss={(report) => handleDismissParentItem('development', report.id, 'report')} onOpen={handleDevelopmentPdf} onPrepare={prepareDevelopmentPdf} resource={{ ...resources.development, items: visibleDevelopment }} theme={displayTheme} themeTokens={themeModel.tokens} /> : null}
             {renderedActiveTab === 'more' && renderedMoreSection === 'resources' ? <ResourcesScreen formationBoard={selectedResourcePreview} formationViewportHeight={contentViewportHeight} isOffline={isOffline} onCloseFormation={() => setSelectedResourcePreview(null)} onDismiss={(item) => handleDismissParentItem('resources', item.id, 'resource')} onOpen={(item) => handleOpenParentItem('resource', item)} resource={{ ...resources.resources, items: visibleResources }} theme={displayTheme} themeTokens={themeModel.tokens} /> : null}
@@ -3254,7 +3259,7 @@ function PollsScreen({ activeActionId, drafts, link, onDismiss, onDraftChange, o
         const watchedMatch = watched[watchedKey] === true
         const needsConfirmation = requiresWatchedMatch(poll)
         const submitEnabled = canSubmitParentPoll(poll, draftOptionId) && (!needsConfirmation || watchedMatch)
-        const rankedResults = rankParentPollResults(poll.options, poll.votes)
+        const rankedResults = rankParentPollResults(poll.options, poll.votes).filter(option => option.count > 0)
 
         return (
           <View key={poll.id} style={{ gap: 12, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: PARENT_POLL_SEPARATOR_COLOUR }}>
@@ -3265,6 +3270,7 @@ function PollsScreen({ activeActionId, drafts, link, onDismiss, onDraftChange, o
             <Text accessibilityRole="header" style={styles.cardTitle}>{poll.title}</Text>
             {poll.description ? <Text style={styles.bodyText}>{poll.description}</Text> : null}
             {!isOpenPoll(poll) ? <View style={styles.optionStack}>
+              {rankedResults.length === 0 ? <Text style={styles.helperText}>No votes were cast.</Text> : null}
               {rankedResults.map((option) => <View key={option.id} style={styles.optionButton}>
                 <Badge label={`${option.rank}`} tone={option.rank === 1 && option.count > 0 ? 'accent' : 'neutral'} />
                 <Text style={styles.optionLabel}>{option.label}</Text>

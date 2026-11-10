@@ -33,7 +33,7 @@ const entry = `
       matchDayTarget={target} onMatchDayTargetHandled={()=>setTarget(null)} onNavigate={(route,target)=>{window.navigations.push({route,target});setShow(false)}}/></View>:<div>Home</div>;}
   createRoot(document.getElementById('root')).render(<App/>);
 `
-const implemented = new Set(['createCoachMatchDayCommandId','getCoachMatchDayList','getCoachMatchDayDetail','normalizeCoachMatchDay','syncCoachMatchDayCommand','setCoachMatchDaySquadDecision','setCoachMatchDaySquadDecisions','notifyCoachMatchDaySquadDecisions','runCoachMatchDayTimerAction','endCoachMatchDayWithoutShootoutResult','saveCoachMatchDayFinalReport'])
+const implemented = new Set(['createCoachMatchDayCommandId','getCoachMatchDayList','getCoachMatchDayDetail','normalizeCoachMatchDay','syncCoachMatchDayCommand','setCoachMatchDaySquadDecision','setCoachMatchDaySquadDecisions','notifyCoachMatchDaySquadDecisions','runCoachMatchDayTimerAction','endCoachMatchDayWithoutShootoutResult','saveCoachMatchDayFinalReport','saveCoachConcludedMatchEvent'])
 const dataMock = `
   import {projectMatchDayCommand} from './apps/mobile-core/src/matchDayOutboxCore.js';
   export const createCoachMatchDayCommandId=()=>crypto.randomUUID();
@@ -63,6 +63,13 @@ const dataMock = `
     localStorage.setItem('server',JSON.stringify(window.server));return window.server;
   }
   export async function saveCoachMatchDayFinalReport(user,match,notes){window.server={...window.server,updatedAt:new Date().toISOString(),finalReport:{staffNotes:notes,updatedAt:new Date().toISOString()}};localStorage.setItem('server',JSON.stringify(window.server));return window.server;}
+  export async function saveCoachConcludedMatchEvent(user,match,change){
+    window.correction=change;
+    const prior=window.server.events.find(event=>event.id===change.eventId);
+    const event={...prior,...change.details,id:change.eventId||change.changeId,requestId:change.changeId,eventStatus:change.operation==='void'?'voided':prior?'corrected':'active'};
+    window.server={...window.server,updatedAt:new Date().toISOString(),events:[...window.server.events.filter(item=>item.id!==event.id),event]};
+    return window.server;
+  }
   export async function setCoachMatchDaySquadDecision(user,match,id,decision){await new Promise(resolve=>setTimeout(resolve,30));window.server={...window.server,squadDecisions:[...window.server.squadDecisions.filter(row=>row.playerId!==id),{playerId:id,status:decision,decisionRevision:id+'-revision',decidedAt:'now'}]};return window.server;}
   export async function setCoachMatchDaySquadDecisions(user,match,choices){window.squadSaveCalls=(window.squadSaveCalls||0)+1;for(const {player,decision} of choices) await setCoachMatchDaySquadDecision(user,match,player.id,decision);return window.server;}
   export async function notifyCoachMatchDaySquadDecisions(user,match,choices){window.squadNotifyCalls=(window.squadNotifyCalls||0)+1;return choices.map(p=>({playerId:p.id,revision:p.decisionRevision,sent:true}));}
@@ -238,6 +245,30 @@ try {
         await page.getByRole('button',{name:'Report',exact:true}).click();
         await page.getByText('Match concluded',{exact:true}).waitFor();
         assert.equal(await page.getByRole('button',{name:'Conclude match',exact:true}).count(),0);
+        await page.getByRole('button',{name:'Overview',exact:true}).click();
+        assert.equal(await page.getByRole('button',{name:'Edit fixture',exact:true}).count(),0);
+        assert.equal(await page.getByRole('button',{name:'Delete match',exact:true}).count(),0);
+        await page.getByRole('button',{name:'More match options',exact:true}).click();
+        await page.getByRole('button',{name:'Delete match',exact:true}).click();
+        await page.getByText('Delete this match?',{exact:true}).waitFor();
+        await page.getByRole('button',{name:'Cancel',exact:true}).click();
+        assert.equal(await page.getByRole('button',{name:'Delete match',exact:true}).count(),0);
+        await page.getByRole('button',{name:'Edit match timeline',exact:true}).click();
+        await page.getByRole('button',{name:'Add timeline event',exact:true}).click();
+        await page.getByLabel('Match minute',{exact:true}).fill('57');
+        await page.getByLabel('Scorer',{exact:true}).fill('Historical scorer');
+        await page.getByLabel('Assist (optional)',{exact:true}).fill('Historical assist');
+        await page.getByLabel('Reason for the correction',{exact:true}).fill('Missed in the original report');
+        const versionWhenOpened = await page.evaluate(()=>window.server.updatedAt);
+        await page.getByRole('button',{name:'Save correction',exact:true}).click();
+        await page.getByText(/Historical scorer, assisted by Historical assist/).waitFor();
+        assert.equal(await page.evaluate(()=>window.correction.expectedUpdatedAt),versionWhenOpened);
+        await page.getByRole('button',{name:'Edit event',exact:true}).click();
+        await page.getByLabel('Scorer',{exact:true}).fill('Corrected scorer');
+        await page.getByLabel('Reason for the correction',{exact:true}).fill('Confirmed with the team');
+        await page.getByRole('button',{name:'Save correction',exact:true}).click();
+        await page.getByText(/Corrected scorer, assisted by Historical assist/).waitFor();
+        assert.equal(await page.evaluate(()=>window.correction.details.scorerName),'Corrected scorer');
       }
     }
     assert.deepEqual(errors,[]);
