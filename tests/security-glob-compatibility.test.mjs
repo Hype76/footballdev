@@ -68,7 +68,7 @@ function removeFixture(directory) {
 }
 
 test('the retained glob7 tree and payload bytes match the reviewed preimage and postimage', () => {
-  assert.equal(require('minimatch/package.json').version, '11.0.5')
+  assert.equal(require('minimatch/package.json').version, '11.0.6')
   assert.equal(require(path.join(installed, 'package.json')).version, '7.2.3')
   assert.ok([target.originalTreeSha256, target.patchedTreeSha256].includes(hash(Buffer.from(JSON.stringify(inventory(installed))))))
   for (const file of library.files) {
@@ -149,7 +149,7 @@ test('all eight compatibility copies are prepared atomically and no partial, sub
 test('glob compatibility grants no acceptance for minimatch, glob or any new advisory', () => {
   for (const name of ['glob', 'minimatch']) {
     const audit = { auditReportVersion: 2, vulnerabilities: { [name]: { name, severity: 'moderate', via: [{ name, severity: 'moderate', url: 'https://github.com/advisories/' + (name === 'glob' ? 'GHSA-3g3m-2fjr-6pw4' : 'GHSA-g3hv-75wg-m249') }], nodes: ['node_modules/' + name] } }, metadata: { vulnerabilities: { info: 0, low: 0, moderate: 1, high: 0, critical: 0, total: 1 } } }
-    const result = evaluateAudit(audit, { packages: { ['node_modules/' + name]: { version: name === 'glob' ? '7.2.3' : '11.0.5' } } }, '.', record)
+    const result = evaluateAudit(audit, { packages: { ['node_modules/' + name]: { version: name === 'glob' ? '7.2.3' : '11.0.6' } } }, '.', record)
     assert.ok(result.failures.some(value => value.includes('Unaccepted advisory')))
     assert.deepEqual(result.acceptedSourceRemediations, [])
   }
