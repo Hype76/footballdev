@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { canCreateEvaluation, canViewBilling, getWorkspaceHomeCopy, isClubAdmin, useAuth } from '../lib/auth.js'
+import { canCreateEvaluation, canManageMatchDay, canViewBilling, getWorkspaceHomeCopy, isClubAdmin, useAuth } from '../lib/auth.js'
 import {
   assignPlayerStaffNote,
   deletePlayerStaffNote,
@@ -536,7 +536,9 @@ export function CoachHomePage() {
           withRequestTimeout(() => getEvaluations({ user }), 'Could not load development records.').then((value) => { if (isMounted) setEvaluations(value); return value }),
           withRequestTimeout(() => getUnassignedStaffVoiceNotes({ user, limit: 5 }), 'Could not load voice notes.').then((value) => { if (isMounted) setUnassignedVoiceNotes(value); return value }),
           withRequestTimeout(() => getCalendarEvents({ user }), 'Could not load calendar events.').then((value) => { if (isMounted) setCalendarEvents(value); return value }),
-          withRequestTimeout(() => getMatchDays({ user }), 'Could not load fixtures.').then((value) => { if (isMounted) setMatchDays(value); return value }),
+          canManageMatchDay(user)
+            ? withRequestTimeout(() => getMatchDays({ user }), 'Could not load fixtures.').then((value) => { if (isMounted) setMatchDays(value); return value })
+            : Promise.resolve([]),
         ])
 
         if (!isMounted) {
