@@ -205,6 +205,8 @@ function usePortalStyles(themeTokens) {
       inviteMetadataItem: { alignItems: 'center', flexDirection: 'row', gap: 5 },
       inviteResponseLabel: { alignItems: 'center', flexDirection: 'row', flex: 1, gap: 7, minWidth: 96 },
       inviteResponseRow: { alignItems: 'stretch', borderTopColor: colors.border, borderTopWidth: 1, gap: 6, minHeight: 52, paddingVertical: 8 },
+      inviteResponseActions: { position: 'relative' },
+      inviteResponseChange: { alignItems: 'center', bottom: 0, justifyContent: 'center', minWidth: 64, position: 'absolute', right: 0, top: 0 },
       inviteSection: { borderTopColor: colors.border, borderTopWidth: 1, gap: 5, paddingVertical: 6 },
       inviteSectionCopy: { flex: 1 },
       inviteSectionHeader: { alignItems: 'center', flexDirection: 'row', gap: 7, minHeight: 38 },
@@ -332,14 +334,20 @@ function InvitationResponseControl({ activeActionId, colors, invitation, isOffli
   const options = getInvitationResponseOptions(invitation)
   const lockReason = getParentInvitationLockReason(invitation)
   const error = local?.error || invitation.attendancePendingError
-  const responseValue = normalizeText(local?.response || invitation.responseState).toLowerCase()
+  const responseValue = normalizeText(local?.pending ? local.response : invitation.responseState).toLowerCase()
   const accepted = ['accepted', 'available', 'attending', 'yes'].includes(responseValue)
   const declined = ['declined', 'no', 'not_attending', 'unavailable'].includes(responseValue)
   const choiceStatus = isVolunteer
     ? accepted ? `${label} accepted` : declined ? `${label} declined` : ''
     : accepted ? 'Attending' : declined ? 'Not attending' : responseValue === 'maybe' ? 'Maybe' : ''
-  const status = error || (local?.pending || invitation.attendancePendingStatus === 'persisting' ? 'Saving'
-    : invitation.attendancePending ? `${choiceStatus || 'Response'} saved on phone, waiting to sync`
+  const savingLocally = local?.pending || invitation.attendancePendingStatus === 'persisting'
+  const showConfirmation = accepted && !savingLocally && !error && changingScope !== scope && options.length > 0
+  const hasSelectionState = Boolean(invitation.selectionState && invitation.selectionState !== 'not_applicable')
+  const selection = hasSelectionState ? labelize(invitation.selectionState) : ''
+  const syncStatus = isOffline ? 'Saved on this phone. Waiting to sync.' : 'Saved on this phone. Syncing.'
+  const detail = isVolunteer ? "You've accepted this role." : "You've confirmed you are attending."
+  const status = error || (savingLocally ? 'Saving' : invitation.attendancePending ? syncStatus
+    : showConfirmation ? detail
       : local?.saved || invitation.attendanceSaved ? (isVolunteer ? choiceStatus : `${choiceStatus || 'Response'} confirmed`) : '')
   const respond = async (value) => {
     if (busy || isLocked || offlineBlocked || !actionable || inFlight.current?.scope === scope) return
@@ -351,7 +359,7 @@ function InvitationResponseControl({ activeActionId, colors, invitation, isOffli
       const receipt = await onRespond(invitation, value, { inlineFeedback: true })
       if (!current()) return
       setSubmission({ scope, response: value, pending: false, saved: Boolean(receipt?.saved), error: receipt?.error || '' })
-      if (receipt?.saved && !receipt?.error) setChangingScope('')
+      if ((receipt?.saved || receipt?.durable) && !receipt?.error) setChangingScope('')
     } catch (failure) {
       if (current()) setSubmission({ scope, pending: false, error: failure?.message || 'Your response could not be saved. Try again.' })
     } finally {
@@ -359,37 +367,30 @@ function InvitationResponseControl({ activeActionId, colors, invitation, isOffli
     }
   }
 
-  if (accepted && !busy && !error && changingScope !== scope && options.length) {
-    const confirmation = isVolunteer ? `${label} accepted` : 'Attending'
-    const detail = isVolunteer ? "You've accepted this role." : "You've confirmed you are attending."
-    return <View accessibilityLabel={`${confirmation}. ${detail}`} style={[styles.inviteResponseRow, { borderBottomWidth: 1, borderBottomColor: colors.border, flexDirection: 'row', alignItems: 'center' }]}>
-      <ParentIcon color={colors.success} iconKey="attendance.available" size={24} />
-      <View style={[styles.inviteSectionCopy, { flex: 1 }]}><Text style={[styles.inviteSectionTitle, { color: colors.success }]}>{confirmation}</Text><Text style={styles.meta}>{detail}</Text></View>
-      <Pressable accessibilityLabel={`Change ${label.toLowerCase()} response`} accessibilityRole="button" onPress={() => setChangingScope(scope)} style={{ minHeight: 44, minWidth: 64, justifyContent: 'center', alignItems: 'center' }}><Text style={[styles.body, { color: colors.accentText, fontWeight: '700' }]}>Change</Text></Pressable>
-    </View>
-  }
-
   return (
-    <View style={styles.inviteResponseRow}>
+    <View style={styles.inviteResponseRow} testID="invite-response-row">
       <View style={styles.inviteResponseLabel}>
-        <ParentIcon color={invitationToneColor(colors, response.tone)} iconKey={sectionIcon} size={21} />
+        <ParentIcon color={showConfirmation ? colors.success : invitationToneColor(colors, response.tone)} iconKey={showConfirmation ? 'attendance.available' : sectionIcon} size={21} />
         <View style={styles.inviteSectionCopy}>
-          <Text style={styles.inviteSectionTitle}>{label}</Text>
-          {invitation.selectionState && invitation.selectionState !== 'not_applicable' ? <Text accessibilityLabel={`${isVolunteer ? VOLUNTEER_ROLE_STATUS_LABEL : 'Squad status'}: ${labelize(invitation.selectionState)}`} numberOfLines={1} style={styles.meta}>{isVolunteer ? 'Role' : 'Squad'}: {labelize(invitation.selectionState)}</Text> : null}
+          <Text numberOfLines={1} style={[styles.inviteSectionTitle, showConfirmation && { color: colors.success }]}>{showConfirmation ? choiceStatus : label}</Text>
+          {options.length > 0 || hasSelectionState ? <Text accessibilityLabel={selection ? `${isVolunteer ? VOLUNTEER_ROLE_STATUS_LABEL : 'Squad status'}: ${selection}` : undefined} numberOfLines={1} style={styles.meta}>{selection ? `${isVolunteer ? 'Role' : 'Squad'}: ${selection}` : '\u00a0'}</Text> : null}
           {!options.length ? <Text style={[styles.meta, { color: invitationToneColor(colors, response.tone) }]}>{response.label}</Text> : null}
           {options.length ? <Text accessibilityLabel={status || undefined} accessibilityLiveRegion="polite" accessibilityRole={error ? 'alert' : undefined} numberOfLines={1} style={[styles.meta, error && { color: colors.danger }]}>{status || '\u00a0'}</Text> : null}
           {lockReason ? <Text style={styles.warning}>{lockReason}</Text> : null}
         </View>
       </View>
       {options.length ? (
-        <View accessibilityLabel={`${label} choices`} accessibilityRole="radiogroup" style={styles.iconChoiceRow}>
-          {options.map((option) => {
-            const selected = local?.pending ? local.response === option.value : isParentInvitationOptionSelected(invitation, option.value)
-            const tone = ['available', 'yes'].includes(option.value) ? 'success' : option.value === 'maybe' ? 'warning' : 'danger'
-            const iconKey = ['available', 'yes'].includes(option.value) ? 'attendance.available' : option.value === 'maybe' ? 'attendance.maybe' : 'attendance.unavailable'
-            const optionLabel = isVolunteer ? option.value === 'yes' ? 'Yes' : 'No' : option.value === 'available' ? 'Attending' : option.value === 'unavailable' ? 'Not attending' : option.label
-            return <IconChoice accessibilityLabel={`${label}, ${optionLabel}${local?.pending && selected ? ', saving' : invitation.attendancePending && selected ? ', awaiting server confirmation' : ''}`} busy={busy && selected} colors={colors} disabled={isLocked || offlineBlocked || busy || !actionable} iconKey={iconKey} key={option.value} label={optionLabel} onPress={() => respond(option.value)} selected={selected} styles={styles} tone={tone} />
-          })}
+        <View style={styles.inviteResponseActions}>
+          <View accessibilityLabel={`${label} choices`} accessibilityRole="radiogroup" accessibilityElementsHidden={showConfirmation} importantForAccessibility={showConfirmation ? 'no-hide-descendants' : 'auto'} aria-hidden={showConfirmation} style={[styles.iconChoiceRow, showConfirmation && { opacity: 0 }]}>
+            {options.map((option) => {
+              const selected = local?.pending ? local.response === option.value : isParentInvitationOptionSelected(invitation, option.value)
+              const tone = ['available', 'yes'].includes(option.value) ? 'success' : option.value === 'maybe' ? 'warning' : 'danger'
+              const iconKey = ['available', 'yes'].includes(option.value) ? 'attendance.available' : option.value === 'maybe' ? 'attendance.maybe' : 'attendance.unavailable'
+              const optionLabel = isVolunteer ? option.value === 'yes' ? 'Yes' : 'No' : option.value === 'available' ? 'Attending' : option.value === 'unavailable' ? 'Not attending' : option.label
+              return <IconChoice accessibilityLabel={`${label}, ${optionLabel}${local?.pending && selected ? ', saving' : invitation.attendancePending && selected ? ', awaiting server confirmation' : ''}`} busy={busy && selected} colors={colors} disabled={showConfirmation || isLocked || offlineBlocked || busy || !actionable} iconKey={iconKey} key={option.value} label={optionLabel} onPress={() => respond(option.value)} selected={selected} styles={styles} tone={tone} />
+            })}
+          </View>
+          {showConfirmation && actionable ? <Pressable accessibilityLabel={`Change ${label.toLowerCase()} response`} accessibilityRole="button" accessibilityState={{ disabled: busy || isLocked || offlineBlocked }} disabled={busy || isLocked || offlineBlocked} onPress={() => setChangingScope(scope)} style={styles.inviteResponseChange}><Text style={[styles.body, { color: busy || isLocked || offlineBlocked ? colors.muted : colors.accentText, fontWeight: '700' }]}>Change</Text></Pressable> : null}
         </View>
       ) : null}
     </View>
@@ -624,9 +625,10 @@ export function InvitationsScreen({ activeActionId, isOffline, link, onAddToCale
   const sections = useMemo(() => getParentInvitationSections(resource.items), [resource.items])
   const counts = useMemo(() => getParentInvitationCounts(resource.items), [resource.items])
   const defaultSection = sections.needsResponse.length ? 'needsResponse' : 'upcoming'
-  const [sectionKey, setSectionKey] = useState(null)
+  const [visit, setVisit] = useState(null)
   const [volunteerHelpOpen, setVolunteerHelpOpen] = useState(false)
-  const activeSectionKey = sectionKey || defaultSection
+  const currentVisit = visit?.linkId === link?.id ? visit : null
+  const activeSectionKey = currentVisit?.sectionKey || defaultSection
   const targetedInvitation = targetInvitationId
     ? resource.items.find((invitation) => invitation.invitationId === targetInvitationId) || null
     : null
@@ -637,9 +639,20 @@ export function InvitationsScreen({ activeActionId, isOffline, link, onAddToCale
     ...sections.history,
   ], [sections])
   const groupedInvitations = useMemo(() => groupParentInvitationsByEvent(uniqueInvitations), [uniqueInvitations])
-  const visibleEventKeys = useMemo(() => new Set((targetedInvitation ? [targetedInvitation] : sections[activeSectionKey] || []).map(getParentInvitationEventKey)), [activeSectionKey, sections, targetedInvitation])
+  const visibleEventKeys = new Set((targetedInvitation ? [targetedInvitation] : sections[activeSectionKey] || []).map(getParentInvitationEventKey))
+  if (!targetedInvitation) currentVisit?.retainedEventKeys.forEach(key => visibleEventKeys.add(key))
   const visibleGroups = groupedInvitations.filter((group) => visibleEventKeys.has(group.eventKey))
-  const respond = (invitation, responseState, options) => onRespond(invitation, responseState, options)
+  const respond = (invitation, responseState, options) => {
+    if (!targetedInvitation) {
+      const eventKey = getParentInvitationEventKey(invitation)
+      setVisit(previous => ({
+        linkId: link?.id,
+        sectionKey: activeSectionKey,
+        retainedEventKeys: new Set([...(previous?.linkId === link?.id && previous?.sectionKey === activeSectionKey ? previous.retainedEventKeys : []), eventKey]),
+      }))
+    }
+    return onRespond(invitation, responseState, { ...options, independent: true })
+  }
   return (
     <View style={styles.stack}>
       {targetedInvitation && onBackTarget ? <Button label="Back to all requests" onPress={onBackTarget} outline styles={styles} /> : null}
@@ -650,7 +663,7 @@ export function InvitationsScreen({ activeActionId, isOffline, link, onAddToCale
         ['upcoming', 'Coming up'],
         ['responded', 'Responded'],
         ['history', 'History'],
-      ].map(([key, label]) => <Button key={key} label={`${label}${counts[key] ? ` (${counts[key]})` : ''}`} onPress={() => setSectionKey(key)} outline={activeSectionKey !== key} styles={styles} />)}</View> : null}
+      ].map(([key, label]) => <Button key={key} label={`${label}${counts[key] ? ` (${counts[key]})` : ''}`} onPress={() => setVisit({ linkId: link?.id, sectionKey: key, retainedEventKeys: new Set() })} outline={activeSectionKey !== key} styles={styles} />)}</View> : null}
       <ResourceState emptyCopy="There are no invitations for this player." {...resource} styles={styles} />
       {!resource.loading && resource.items.length > 0 && visibleGroups.length === 0 ? <Text style={styles.empty}>Nothing is in this section.</Text> : null}
       {visibleGroups.map((group) => {

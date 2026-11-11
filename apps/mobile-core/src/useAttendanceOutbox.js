@@ -34,6 +34,9 @@ export function useAttendanceOutbox({ scope, read, update, notify, onConfirmed, 
       onReaction: command => {
         if (isCurrent()) setState(previous => ({ ...previous, scope, provisional: [...(previous.scope === scope ? previous.provisional : []), command], error: '' }))
       },
+      onDiscard: command => {
+        if (isCurrent()) setState(previous => ({ ...previous, provisional: previous.provisional.filter(entry => entry.id !== command.id) }))
+      },
       onChange: commands => {
         if (!isCurrent()) return
         setState(previous => ({ scope, commands, provisional: previous.scope === scope
@@ -93,7 +96,7 @@ export function useAttendanceOutbox({ scope, read, update, notify, onConfirmed, 
       const token = capture()
       try { return await token.engine.enqueue(preparation, response, label) }
       catch (error) {
-        if (token.isCurrent()) setState(previous => ({ ...previous, scope, provisional: [], error: error.message || 'This answer could not be saved on the phone. The screen remains open.' }))
+        if (token.isCurrent()) setState(previous => ({ ...previous, scope, error: error.message || 'This answer could not be saved on the phone. The screen remains open.' }))
         throw error
       }
     },

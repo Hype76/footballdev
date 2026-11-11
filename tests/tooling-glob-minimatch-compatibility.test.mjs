@@ -13,6 +13,31 @@ const baseline = 'a891ce5fea782b6f17052a1cee4c65c271717447'
 const toolingPackages = new Set(['glob', 'minimatch', 'path-scurry', 'test-exclude', '@eslint/config-array', '@eslint/object-schema', '@isaacs/nonrecursive-glob-match', '@isaacs/cliui', 'balanced-match', 'brace-expansion', 'concat-map', 'foreground-child', 'jackspeak', 'package-json-from-dist'])
 const liveMatchPackages = new Set(['expo-task-manager', 'football-player-live-match', 'react-native-widget-extension', 'unimodules-app-loader', '@expo/config-plugins', '@expo/config-types', '@expo/plist', '@expo/require-utils', 'semver', 'xcode', 'argparse', 'sprintf-js'])
 
+function applyApprovedXmlParserDelta(pkg, lock) {
+  pkg.dependencies['fast-xml-parser'] = '5.12.0'
+  lock.packages[''].dependencies['fast-xml-parser'] = '5.12.0'
+  const packages = [
+    ['@nodable/entities', '3.1.0', 'LsS/DjHr+uDM647Gru/cA8+J3a3HfhttwCKLyuoyN7yXTFCxKBtSgMQBvrW9yNPa2/zDRUNuGPaH5QUFoa4arQ=='],
+    ['fast-xml-builder', '1.3.1', 'pIM/1n3ntFXKYrUZwW7QCK0gAW7XY+wzj1YMIV3tLDvPj/V+zTGJK5e3/4WJfwj0qWw2ElNXiTixda/R+3YSug=='],
+    ['fast-xml-parser', '5.12.0', '/pXxRBtwxY9w8z7YbgsvIPPcPvFDsTbIkWwTQJhzNJPokj+TbN6ftmcv4j/pEQDvOCNnKGDzuk5Bo2oogIOiFg=='],
+    ['is-unsafe', '2.0.3', 'ZBllczCCO267vgdFb6Tq3pv+LhHaCiGMdr+ZsuL+OopruAg7S+3ZDs1vD0RPC0uSrkjzbraxaGjtX1YBxjPeFQ=='],
+    ['strnum', '2.5.1', 'UM4nTLWzQiDBseVxUGxN0wJzIk0UU89Qi7pKXz9qISo+lhviJikTuikBsK/oFRlpvYHvSdz0TVoLyQ+sEpYwxA=='],
+  ]
+  for (const [name, version, integrity] of packages) {
+    Object.assign(lock.packages[`node_modules/${name}`], {
+      version,
+      resolved: `https://registry.npmjs.org/${name}/-/${name.split('/').at(-1)}-${version}.tgz`,
+      integrity: `sha512-${integrity}`,
+    })
+  }
+  Object.assign(lock.packages['node_modules/fast-xml-parser'].dependencies, {
+    '@nodable/entities': '^3.1.0',
+    'fast-xml-builder': '^1.3.1',
+    'is-unsafe': '^2.0.3',
+    strnum: '^2.5.1',
+  })
+}
+
 function applyApprovedCoachFileTools(pkg, lock) {
   const packages = [
     ['expo-document-picker', '14.0.8', '3tyQKpPqWWFlI8p9RiMX1+T1Zge5mEKeBuXWp1h8PEItFMUDSiOJbQ112sfdC6Hxt8wSxreV9bCRl/NgBdt+fA=='],
@@ -77,6 +102,7 @@ test('official tooling updates preserve unrelated dependencies and the exact app
     const previous = file => JSON.parse(execFileSync('git', ['show', `${baseline}:${prefix}${file}`], { encoding: 'utf8', maxBuffer: 8 * 1024 * 1024 }))
     const before = previous('package.json')
     const previousLock = previous('package-lock.json')
+    if (scope === '.') applyApprovedXmlParserDelta(before, previousLock)
     if (scope === 'apps/coach-mobile') {
       applyApprovedCoachNativeDelta(before, previousLock)
       applyApprovedCoachFileTools(before, previousLock)
@@ -86,7 +112,7 @@ test('official tooling updates preserve unrelated dependencies and the exact app
     const { overrides: oldOverrides, ...oldPackage } = before
     const { overrides, ...newPackage } = current
     assert.deepEqual(newPackage, oldPackage, `${scope} direct dependencies and scripts match the exact mobile feature additions`)
-    assert.deepEqual(overrides, { ...oldOverrides, minimatch: '11.0.6', 'glob@>=9.0.0 <=14.0.1': '14.0.4', ...(scope === '.' ? { '@eslint/config-array': '0.23.5' } : { 'test-exclude': '8.0.0', 'node-forge': '1.4.3' }) })
+    assert.deepEqual(overrides, { ...oldOverrides, minimatch: '11.0.7', 'glob@>=9.0.0 <=14.0.1': '14.0.4', ...(scope === '.' ? { '@eslint/config-array': '0.23.5' } : { 'test-exclude': '8.0.0', 'node-forge': '1.4.3' }) })
     const oldLock = previousLock.packages
     const newLock = JSON.parse(fs.readFileSync(`${prefix}package-lock.json`)).packages
     for (const file of new Set([...Object.keys(oldLock), ...Object.keys(newLock)])) {
@@ -116,8 +142,9 @@ test('the current glob and minimatch update changes only reviewed tooling packag
     const oldPackage = JSON.parse(execFileSync('git', ['show', `${candidate}:${prefix}package.json`], { encoding: 'utf8' }))
     const newPackage = JSON.parse(fs.readFileSync(`${prefix}package.json`))
     const oldLock = JSON.parse(execFileSync('git', ['show', `${candidate}:${prefix}package-lock.json`], { encoding: 'utf8', maxBuffer: 8 * 1024 * 1024 }))
+    if (scope === '.') applyApprovedXmlParserDelta(oldPackage, oldLock)
     if (scope === 'apps/coach-mobile') applyApprovedCoachFileTools(oldPackage, oldLock)
-    oldPackage.overrides.minimatch = '11.0.6'
+    oldPackage.overrides.minimatch = '11.0.7'
     oldPackage.overrides['glob@>=9.0.0 <=14.0.1'] = '14.0.4'
     assert.deepEqual(newPackage, oldPackage)
     const newLock = JSON.parse(fs.readFileSync(`${prefix}package-lock.json`))
@@ -127,7 +154,7 @@ test('the current glob and minimatch update changes only reviewed tooling packag
       if (name.endsWith('/glob')) assert.ok(['7.2.3', '14.0.4'].includes(entry.version), `${scope}: affected glob version at ${name}`)
     }
     assert.equal(newLock.packages['node_modules/glob'].version, '14.0.4')
-    assert.equal(newLock.packages['node_modules/minimatch'].version, '11.0.6')
+    assert.equal(newLock.packages['node_modules/minimatch'].version, '11.0.7')
     assert.equal(newLock.packages['node_modules/@isaacs/nonrecursive-glob-match'].version, '1.1.0')
   }
 })
@@ -162,7 +189,7 @@ for (const scope of ['.', 'apps/coach-mobile', 'apps/parent-mobile']) {
         }
       }
       const minimatch = require('minimatch')
-      assert.equal(require('minimatch/package.json').version, '11.0.6')
+      assert.equal(require('minimatch/package.json').version, '11.0.7')
       assert.equal(minimatch.minimatch('src/index.js', 'src/**/*.js'), true)
       assert.equal(new minimatch.Minimatch('src/**/*.js').match('src/nested/player.js'), true)
       assert.equal(new minimatch.Minimatch('src/**/*.js').match('src/notes.txt'), false)

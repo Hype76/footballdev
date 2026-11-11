@@ -75,8 +75,9 @@ export function projectAttendanceChoice(item, commands, scope) {
 
 // Storage supplies encrypted, serialized updates and checks the account/authority epoch.
 // An accepted receipt means that the command is durable, never that it reached the server.
-export function createAttendanceOutbox({ scope, read, update, execute, notify, canSend, isCurrent, onChange = () => {}, onReaction = () => {}, makeId, now = Date.now }) {
+export function createAttendanceOutbox({ scope, read, update, execute, notify, canSend, isCurrent, onChange = () => {}, onReaction = () => {}, onDiscard = () => {}, makeId, now = Date.now }) {
   let syncPromise = null
+  let syncAgain = false
   const accepting = new Set()
   const publish = commands => { if (isCurrent()) onChange(commands.filter(entry => entry.scope === scope)) }
   const change = async updater => {
@@ -99,14 +100,20 @@ export function createAttendanceOutbox({ scope, read, update, execute, notify, c
   async function enqueue(preparation, response, label) {
     const key = attendanceTargetKey(preparation)
     if (accepting.has(key)) throw new Error('This answer is being saved on this phone.')
+    const command = createAttendanceCommand({ id: makeId(), scope, preparation, response, label, now: now() })
     accepting.add(key)
     try {
-      const command = createAttendanceCommand({ id: makeId(), scope, preparation, response, label, now: now() })
       // Visible reaction precedes storage/network awaits. Closure still requires the durable receipt.
       if (isCurrent()) onReaction({ ...command, status: 'persisting' })
       await change(commands => appendAttendanceCommand(commands, command))
-      if (isCurrent()) void sync().catch(() => {})
+      if (isCurrent()) {
+        if (syncPromise) syncAgain = true
+        void sync().catch(() => {})
+      }
       return command
+    } catch (error) {
+      if (isCurrent()) onDiscard(command)
+      throw error
     } finally { accepting.delete(key) }
   }
   async function run({ explicitRetry = false } = {}) {
@@ -162,7 +169,18 @@ export function createAttendanceOutbox({ scope, read, update, execute, notify, c
   }
   function sync(options) {
     if (syncPromise) return syncPromise
-    syncPromise = run(options).finally(() => { syncPromise = null })
+    syncPromise = (async () => {
+      let commands
+      do {
+        syncAgain = false
+        commands = await run(options)
+        options = undefined
+      } while (syncAgain && isCurrent() && canSend())
+      return commands
+    })().finally(() => {
+      syncPromise = null
+      if (syncAgain && isCurrent() && canSend()) void sync().catch(() => {})
+    })
     return syncPromise
   }
   async function review(id) {
