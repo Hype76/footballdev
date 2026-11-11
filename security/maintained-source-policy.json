@@ -222,9 +222,9 @@
       },
       "minimatch": {
         "name": "minimatch",
-        "version": "11.0.7",
-        "registryIntegrity": "sha512-Tnk+M9mPjqKDZlUd77eMSjPjhnlBIa1mABOwetMryIshUwi1YmOBdGFfQnHgn4Z8A66eLT8ENzJrxwYmKfqrZg==",
-        "gitHead": "9880b42628158305340c2bbe2602261206027984"
+        "version": "11.0.8",
+        "registryIntegrity": "sha512-nFQuYSTVrGvysVBps5Ih+0BdnYFN/Cj3C816r6+p7yK+FHrVLGE4O4N9AFwykrlNlvM2HYt+Rad1Uiro6h88Ig==",
+        "gitHead": "35c928bb604f2a93fb8ee06bb8db5accefc3facb"
       }
     },
     "advisoryAcceptanceAllowed": false,
