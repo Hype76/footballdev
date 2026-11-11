@@ -1,9 +1,9 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../lib/auth.js'
 import { createThemeColorTokens } from '../lib/theme.js'
 import { getClubMatchdayTv } from '../lib/domain/club-matchday-tv.js'
-import { clubTvDate, newTvGoals, readTvPreferences, TV_PAGE_SIZE, TV_REFRESH_MS, TV_ROTATION_SECONDS, tvMatchSides, tvMatchStatus, tvPitchNumber } from '../lib/club-matchday-tv.js'
+import { activeTvSponsors, clubTvDate, newTvGoals, readTvPreferences, TV_PAGE_SIZE, TV_REFRESH_MS, TV_ROTATION_SECONDS, tvMatchSides, tvMatchStatus, tvPitchNumber, validTvDate } from '../lib/club-matchday-tv.js'
 import fpLogo from '../assets/football-player-logo.webp'
 import { isClubTvLocked, setClubTvLocked } from '../lib/club-tv-lock.js'
 import './club-matchday-tv.css'
@@ -152,6 +152,7 @@ function DisplaySettings({ preferences, onSave, onClose }) {
   const [dragTarget, setDragTarget] = useState('')
   const [mapUploading, setMapUploading] = useState(false)
   const [sponsorsUploading, setSponsorsUploading] = useState(false)
+  const [previewIndex, setPreviewIndex] = useState(null)
   const uploadVersion = useRef(0)
   useEffect(() => { const element = dialog.current; element.showModal(); return () => element.close() }, [])
   async function upload(file) {
@@ -177,7 +178,7 @@ function DisplaySettings({ preferences, onSave, onClose }) {
     try {
       const ads = await Promise.all(incoming.map(async file => {
         const image = await prepareTvArtwork(file)
-        return { image, name: '' }
+        return { image, name: '', enabled: true, startDate: '', endDate: '' }
       }))
       setDraft(current => ({ ...current, sponsorAds: [...current.sponsorAds, ...ads].slice(0, 3) }))
       setError('')
@@ -190,8 +191,28 @@ function DisplaySettings({ preferences, onSave, onClose }) {
     if (target === 'map') void upload(event.dataTransfer.files?.[0])
     else void uploadSponsors(event.dataTransfer.files || [])
   }
+  function updateSponsor(index, change) {
+    setDraft(current => ({ ...current, sponsorAds: current.sponsorAds.map((ad, itemIndex) => itemIndex === index ? { ...ad, ...change } : ad) }))
+  }
+  function moveSponsor(index, direction) {
+    setDraft(current => {
+      const ads = [...current.sponsorAds], target = index + direction
+      if (target < 0 || target >= ads.length) return current
+      ;[ads[index], ads[target]] = [ads[target], ads[index]]
+      return { ...current, sponsorAds: ads }
+    })
+    setPreviewIndex(null)
+  }
+  function save(event) {
+    event.preventDefault()
+    if (draft.sponsorAds.some(ad => (ad.startDate && !validTvDate(ad.startDate)) || (ad.endDate && !validTvDate(ad.endDate)) || (ad.startDate && ad.endDate && ad.startDate > ad.endDate))) {
+      setError('Each advert end date must be on or after its start date.')
+      return
+    }
+    try { onSave(draft) } catch { setError('Settings could not be saved. Try a smaller map or free some browser storage.') }
+  }
   return <dialog ref={dialog} className="club-tv-settings" onCancel={onClose} aria-labelledby="club-tv-settings-title">
-    <form onSubmit={(event) => { event.preventDefault(); try { onSave(draft) } catch { setError('Settings could not be saved. Try a smaller map or free some browser storage.') } }}>
+    <form onSubmit={save}>
       <h2 id="club-tv-settings-title">Display settings</h2>
       <p>For this club on this browser. Scores use your club’s live Match Day records.</p>
       <label>Appearance <select aria-label="Appearance" value={draft.appearance} onChange={(event) => setDraft({ ...draft, appearance: event.target.value })}><option value="light">Light</option><option value="dark">Dark</option></select></label>
@@ -204,7 +225,14 @@ function DisplaySettings({ preferences, onSave, onClose }) {
       {draft.map ? <><img className="club-tv-map-preview" src={draft.map} alt="Uploaded pitch map preview" /><label className="club-tv-check"><input type="checkbox" checked={draft.showMap} onChange={(event) => setDraft({ ...draft, showMap: event.target.checked })} /> Show map on half the display</label><button type="button" onClick={() => { uploadVersion.current++; setMapUploading(false); setDraft({ ...draft, map: '' }) }}>Remove map</button></> : null}
       <label className={`club-tv-upload${dragTarget === 'sponsor' ? ' club-tv-upload-active' : ''}`} onDragOver={(event) => { event.preventDefault(); setDragTarget('sponsor') }} onDragLeave={() => setDragTarget('')} onDrop={(event) => dropFiles(event, 'sponsor')}>Sponsor artwork <span>Drag and drop or click to upload</span><input aria-label="Sponsor artwork" type="file" accept="image/png,image/jpeg,image/webp" multiple disabled={sponsorsUploading} onChange={(event) => { void uploadSponsors(event.target.files || []); event.target.value = '' }} /></label>
       <small>Add up to three sponsor adverts. Each image can be up to 5 MB. They rotate on this club display.</small>
-      {draft.sponsorAds.map((ad, index) => <div className="club-tv-sponsor-edit" key={index}><img src={ad.image} alt={`Sponsor ${index + 1} preview`} /><button type="button" aria-label={`Remove sponsor ${index + 1}`} onClick={() => setDraft(current => ({ ...current, sponsorAds: current.sponsorAds.filter((_, itemIndex) => itemIndex !== index) }))}>Remove</button></div>)}
+      {draft.sponsorAds.length ? <label>Time per advert <select aria-label="Time per advert" value={draft.sponsorSeconds} onChange={(event) => setDraft({ ...draft, sponsorSeconds: Number(event.target.value) })}>{[10, 15, 30, 60].map(seconds => <option key={seconds} value={seconds}>{seconds} seconds</option>)}</select></label> : null}
+      {draft.sponsorAds.map((ad, index) => <div className="club-tv-sponsor-settings" key={index}>
+        <div className="club-tv-sponsor-edit"><img src={ad.image} alt={`Sponsor ${index + 1} preview`} /><strong>Advert {index + 1}</strong><button type="button" onClick={() => setPreviewIndex(previewIndex === index ? null : index)} aria-label={`Preview sponsor ${index + 1}`}>Preview</button><button type="button" aria-label={`Move sponsor ${index + 1} up`} disabled={index === 0} onClick={() => moveSponsor(index, -1)}>↑</button><button type="button" aria-label={`Move sponsor ${index + 1} down`} disabled={index === draft.sponsorAds.length - 1} onClick={() => moveSponsor(index, 1)}>↓</button><button type="button" aria-label={`Remove sponsor ${index + 1}`} onClick={() => { setPreviewIndex(null); setDraft(current => ({ ...current, sponsorAds: current.sponsorAds.filter((_, itemIndex) => itemIndex !== index) })) }}>Remove</button></div>
+        {previewIndex === index ? <div className="club-tv-ad-preview"><img src={ad.image} alt={`Full preview of sponsor ${index + 1}`} /></div> : null}
+        <label className="club-tv-check"><input type="checkbox" checked={ad.enabled !== false} onChange={(event) => updateSponsor(index, { enabled: event.target.checked })} /> Show advert {index + 1}</label>
+        <div className="club-tv-sponsor-dates"><label>Start date (optional)<input aria-label={`Sponsor ${index + 1} start date`} type="date" value={ad.startDate || ''} onChange={(event) => updateSponsor(index, { startDate: event.target.value })} /></label><label>End date (optional)<input aria-label={`Sponsor ${index + 1} end date`} type="date" value={ad.endDate || ''} onChange={(event) => updateSponsor(index, { endDate: event.target.value })} /></label></div>
+      </div>)}
+      {draft.sponsorAds.length ? <small>Dates use UK time and include the whole start and end days. Leave them blank to show an advert at any time.</small> : null}
       <label className="club-tv-check"><input type="checkbox" checked={draft.showPitchsideOrdering} onChange={(event) => setDraft({ ...draft, showPitchsideOrdering: event.target.checked })} /> Show pitchside ordering</label>
       <small>When enabled, the display says Coming soon until ordering is available.</small>
       {error ? <p role="alert">{error}</p> : null}
@@ -276,6 +304,9 @@ function ClubDayDisplay({ user, date, setDate }) {
   const pageSize = Math.min(TV_PAGE_SIZE, capacity)
   const homePageSize = homeCapacity
   const [now, setNow] = useState(Date.now)
+  const sponsorToday = clubTvDate(new Date(now))
+  const activeSponsors = useMemo(() => activeTvSponsors(preferences.sponsorAds, sponsorToday), [preferences.sponsorAds, sponsorToday])
+  const sponsorSlides = useMemo(() => hasMap && !preferences.showPitchsideOrdering ? [...activeSponsors, { image: '/club-tv-goal-alerts.webp', goalAlerts: true }] : activeSponsors, [activeSponsors, hasMap, preferences.showPitchsideOrdering])
   const [page, setPage] = useState(0)
   const [sponsorIndex, setSponsorIndex] = useState(0)
   const [paused, setPaused] = useState(false)
@@ -363,10 +394,10 @@ function ClubDayDisplay({ user, date, setDate }) {
     previousSeconds.current = seconds
   }, [seconds, totalPages])
   useEffect(() => {
-    if (preferences.sponsorAds.length < 2) return undefined
-    const timer = setInterval(() => { if (!document.hidden && !paused) setSponsorIndex(current => (current + 1) % preferences.sponsorAds.length) }, TV_ROTATION_SECONDS * 1000)
+    if (sponsorSlides.length < 2) return undefined
+    const timer = setInterval(() => { if (!document.hidden && !paused && !settings) setSponsorIndex(current => (current + 1) % sponsorSlides.length) }, preferences.sponsorSeconds * 1000)
     return () => clearInterval(timer)
-  }, [paused, preferences.sponsorAds])
+  }, [paused, settings, sponsorSlides, preferences.sponsorSeconds])
   useEffect(() => {
     if (!goal) return
     const timer = setTimeout(() => setGoals((queue) => queue.slice(1)), 7000)
@@ -403,9 +434,9 @@ function ClubDayDisplay({ user, date, setDate }) {
         {!homeFixtures.length ? <p className="club-tv-home-empty">No home fixtures {weekAhead ? 'this week' : 'today'}.</p> : null}
       </section>
       <aside className="club-tv-side-panel" aria-label="Club information">
-        <section className={`club-tv-sponsor${preferences.sponsorAds.length ? ' club-tv-sponsor-artwork' : ''}`} aria-label="Club sponsors">{preferences.sponsorAds.length ? <img src={preferences.sponsorAds[sponsorIndex % preferences.sponsorAds.length].image} alt="Club sponsor advert" /> : <><small>PROUD TO SUPPORT YOUR CLUB</small><strong>Your company could advertise here.</strong><span>Ask the Club Admin about matchday sponsorship.</span></>}</section>
+        <section className={`club-tv-sponsor${sponsorSlides.length ? ' club-tv-sponsor-artwork' : ''}`} aria-label="Club sponsors">{sponsorSlides.length ? <img src={sponsorSlides[sponsorIndex % sponsorSlides.length].image} alt={sponsorSlides[sponsorIndex % sponsorSlides.length].goalAlerts ? 'Free live goal alerts for grassroots football. Scan the QR code to get started.' : 'Club sponsor advert'} /> : <><small>PROUD TO SUPPORT YOUR CLUB</small><strong>Your company could advertise here.</strong><span>Ask the Club Admin about matchday sponsorship.</span></>}</section>
         {hasMap ? <section className="club-tv-pitch"><div><h2>Pitch map</h2><span>Find your pitch</span></div><img src={preferences.map} alt={`${club?.name || user.clubName || 'Club'} pitch map`} /></section> : null}
-        {preferences.showPitchsideOrdering ? <section className="club-tv-ordering"><small>MATCHDAY PITCHSIDE</small><strong>Pitchside ordering</strong><span>Coming soon</span></section> : <section className="club-tv-goal-alert-ad" aria-label="Free live goal alerts"><img src="/club-tv-goal-alerts.webp" alt="Free live goal alerts for grassroots football. Scan the QR code to get started." /></section>}
+        {preferences.showPitchsideOrdering ? <section className="club-tv-ordering"><small>MATCHDAY PITCHSIDE</small><strong>Pitchside ordering</strong><span>Coming soon</span></section> : !hasMap ? <section className="club-tv-goal-alert-ad" aria-label="Free live goal alerts"><img src="/club-tv-goal-alerts.webp" alt="Free live goal alerts for grassroots football. Scan the QR code to get started." /></section> : null}
       </aside>
     </div>
     <RoadTicker matches={awayFixtures} clubLogo={club?.logoUrl || user.clubLogoUrl} showDate={weekAhead} paused={paused} />

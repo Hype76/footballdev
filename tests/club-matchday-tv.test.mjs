@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { canViewClubMatchdayTv, clubTvDate, newTvGoals, readTvPreferences, toClubTvMatch, tvMatchSides, tvMatchStatus, tvPitchNumber, validTvDate, tvDateAfter } from '../src/lib/club-matchday-tv.js'
+import { activeTvSponsors, canViewClubMatchdayTv, clubTvDate, newTvGoals, readTvPreferences, toClubTvMatch, tvMatchSides, tvMatchStatus, tvPitchNumber, validTvDate, tvDateAfter } from '../src/lib/club-matchday-tv.js'
 import { isClubTvLocked, setClubTvLocked } from '../src/lib/club-tv-lock.js'
 
 process.env.VITE_SUPABASE_URL ||= 'https://example.supabase.co'
@@ -162,6 +162,13 @@ test('weather is gated by the same club authority and accepts only ground postco
   const result = await endpoint(request({ clubId, action: 'weather', postcode: 'CB23 6FY' }))
   assert.equal(result.statusCode, 200)
   assert.equal(requested, 'CB236FY')
+})
+
+test('sponsor dates include both boundaries and exclude disabled or invalid schedules', () => {
+  const ads = [{ id: 'always' }, { id: 'today', startDate: '2026-10-21', endDate: '2026-10-21' }, { id: 'future', startDate: '2026-10-22' }, { id: 'past', endDate: '2026-10-20' }, { id: 'disabled', enabled: false }, { id: 'invalid', endDate: 'bad' }, { id: 'reversed', startDate: '2026-10-22', endDate: '2026-10-20' }]
+  assert.deepEqual(activeTvSponsors(ads, '2026-10-21').map(ad => ad.id), ['always', 'today'])
+  assert.deepEqual(activeTvSponsors(ads, '2026-10-22').map(ad => ad.id), ['always', 'future'])
+  assert.deepEqual(activeTvSponsors(ads, 'not-a-date'), [])
 })
 
 test('browser preferences reject executable image types and corrupt storage', () => {
