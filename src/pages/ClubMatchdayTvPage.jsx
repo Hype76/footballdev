@@ -87,13 +87,14 @@ function MatchRow({ match, status, clubLogo }) {
 }
 
 function HomeFixtureRow({ match, clubLogo, showDate }) {
-  return <article className="club-tv-home-row">
+  return <article className={`club-tv-home-row${showDate ? ' club-tv-home-row-week' : ''}`}>
     <strong className="club-tv-home-time">{match.kickoffTbc ? 'TBC' : match.kickoff || 'TBC'}</strong>
     <div className="club-tv-home-teams">
       <span><TeamBadge src={clubLogo} /><strong className="club-tv-team-name" title={match.teamName}>{match.teamName}</strong></span>
-      <span className="club-tv-home-opponent">{showDate ? <small>{fixtureDayLabel(match.matchDate)} ·</small> : null}<span>v</span><strong className="club-tv-team-name" title={match.opponent}>{match.opponent}</strong></span>
+      <span className="club-tv-home-opponent"><span>v</span><strong className="club-tv-team-name" title={match.opponent}>{match.opponent}</strong></span>
     </div>
     <span className="club-tv-home-pitch">{tvPitchNumber(match.venue)}</span>
+    {showDate ? <span className="club-tv-home-date">{fixtureDayLabel(match.matchDate)}</span> : null}
   </article>
 }
 
@@ -367,7 +368,7 @@ function ClubDayDisplay({ user, date, setDate }) {
       </section>
       <section className="club-tv-home-panel" aria-label="At home today">
         <div className="club-tv-section-head"><h2>{weekAhead ? 'At home this week' : 'At home today'}</h2><small>KICK-OFF &amp; PITCH GUIDE</small></div>
-        <div className="club-tv-home-head"><span>KO</span><span>TEAM / OPPOSITION</span><span>PITCH</span></div>
+        <div className={`club-tv-home-head${weekAhead ? ' club-tv-home-row-week' : ''}`}><span>KO</span><span>TEAM / OPPOSITION</span><span>PITCH</span>{weekAhead ? <span>DATE</span> : null}</div>
         {homeFixtures.slice((currentPage % homePages) * homePageSize, ((currentPage % homePages) + 1) * homePageSize).map(match => <HomeFixtureRow key={match.id} match={match} showDate={weekAhead} clubLogo={club?.logoUrl || user.clubLogoUrl} />)}
         {!homeFixtures.length ? <p className="club-tv-home-empty">No home fixtures {weekAhead ? 'this week' : 'today'}.</p> : null}
       </section>

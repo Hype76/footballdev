@@ -559,7 +559,7 @@
   "implementationHashes": {
     "scripts/security-supply-chain-gate.mjs": "dcf722bc6cbf2015da4250ea60cbb81e34d3c5c64ec7bb6059671cbae5ab4207",
     "scripts/security-apply-reviewed-backports.mjs": "7f0e9de0add15a121a0f60f89f71656b503450010b8b9c8d4aaf58bc355fc5ec",
-    "scripts/security-verify-reviewed-backports.mjs": "2377471c5017e09273ce0018aa024c395ecfea8dc9fdf334db2fcd5405798245",
+    "scripts/security-verify-reviewed-backports.mjs": "f60889f54a0cc90ab45633636f74f49ae2864a231a6ed00563da704fe3c86169",
     "security/patches/braces-3.0.3.patch": "e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699",
     "security/patches/node-forge-1.4.0.patch": "2de065ac998bf58917a14d0935112d97ec2957ac41b5f06958d500934f188ed4",
     "security/patches/reviewed-source-manifest.json": "facb364bbac44a8276d082068e8ed8415ca89777d24f4c7a05ff370f71e5a54d",
@@ -1975,9 +1975,9 @@
       "src/lib/domain/club-matchday-tv.js": "c69be07e55969261fe7e1e51de2c44447e53bb2dd9bec11691368e73e6b677de",
       "src/lib/paywall-ui.js": "2cc0bb4b566cbd5ead25da5832423cdc0406b24fe9dbdbc081f0d111af9daf28",
       "src/lib/recovery-phase.js": "26ae33f7c77c04b7b5b151628bfe5b9a3715a809f9bc4837fbcf1f7074dcec18",
-      "src/pages/ClubMatchdayTvPage.jsx": "89d381e2718fdb306ecfc92f7b48088f7626aa0286e7fcb7eb2d47c67bc006ea",
-      "src/pages/club-matchday-tv.css": "86d65e53d53d08f2d8b56cf694f0a5800ff1e702acd0d8cfa2f262c5dd27dcd1",
-      "tests/club-matchday-tv-browser.mjs": "ba483c410e8bf6bcb6c3d0a30619931694812ebc3aad978252fc2658d1acfc56",
+      "src/pages/ClubMatchdayTvPage.jsx": "6d59eaf2f68e8ac2806b6216807cb68b544890794cc5473722ad18920fa1b3fa",
+      "src/pages/club-matchday-tv.css": "6811035d431ec7a4fcc0f3f97546b557e29d9e4156522611ab286e5f35ad4b67",
+      "tests/club-matchday-tv-browser.mjs": "d99ce935c8cc8326d1b8ba9cdeabcf57e94d01f44e25bd410863fae75f111081",
       "tests/club-matchday-tv-weather.test.mjs": "967df9819b3d087dc3576d9768abd42e18ecdf7cfc2bd4df0e9add545fc854bb",
       "tests/club-matchday-tv.test.mjs": "7bd35c64741309f7aadcc4648bb69863c51a1567805c4bbe4a5f5832b38dc81c",
       "tests/security-tooling-updates.test.mjs": "1d78c188aed7037fdea62dac2aed45aac0e8bcc3c4b9b2d9bb28dbebc30ad536",
@@ -3730,7 +3730,7 @@
       "independentExactSourceAcceptanceRequired": true
     }
   },
-  "releasePreparationSha256": "591354d6d5181bec4ff29222e99d3580dd9d04cac039554d2e6ba5affebfc4f1",
+  "releasePreparationSha256": "3f77cd1bc13b2d3aa6156da29584d815ddceb3da82c269310a4a25cf7cbb721a",
   "rootOnlyProposalSha256": "45c3b7352c7328c84982e114b7e87e09cf79514d02d102297ae75ec0925812eb",
   "remediationMode": "maintained-source-fixes",
   "officialCompatibilityDependencies": [
