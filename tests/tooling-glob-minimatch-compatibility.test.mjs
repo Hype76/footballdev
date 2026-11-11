@@ -112,7 +112,7 @@ test('official tooling updates preserve unrelated dependencies and the exact app
     const { overrides: oldOverrides, ...oldPackage } = before
     const { overrides, ...newPackage } = current
     assert.deepEqual(newPackage, oldPackage, `${scope} direct dependencies and scripts match the exact mobile feature additions`)
-    assert.deepEqual(overrides, { ...oldOverrides, minimatch: '11.0.7', 'glob@>=9.0.0 <=14.0.1': '14.0.4', ...(scope === '.' ? { '@eslint/config-array': '0.23.5' } : { 'test-exclude': '8.0.0', 'node-forge': '1.4.3' }) })
+    assert.deepEqual(overrides, { ...oldOverrides, minimatch: '11.0.8', 'glob@>=9.0.0 <=14.0.1': '14.0.4', ...(scope === '.' ? { '@eslint/config-array': '0.23.5' } : { 'test-exclude': '8.0.0', 'node-forge': '1.4.3' }) })
     const oldLock = previousLock.packages
     const newLock = JSON.parse(fs.readFileSync(`${prefix}package-lock.json`)).packages
     for (const file of new Set([...Object.keys(oldLock), ...Object.keys(newLock)])) {
@@ -144,7 +144,7 @@ test('the current glob and minimatch update changes only reviewed tooling packag
     const oldLock = JSON.parse(execFileSync('git', ['show', `${candidate}:${prefix}package-lock.json`], { encoding: 'utf8', maxBuffer: 8 * 1024 * 1024 }))
     if (scope === '.') applyApprovedXmlParserDelta(oldPackage, oldLock)
     if (scope === 'apps/coach-mobile') applyApprovedCoachFileTools(oldPackage, oldLock)
-    oldPackage.overrides.minimatch = '11.0.7'
+    oldPackage.overrides.minimatch = '11.0.8'
     oldPackage.overrides['glob@>=9.0.0 <=14.0.1'] = '14.0.4'
     assert.deepEqual(newPackage, oldPackage)
     const newLock = JSON.parse(fs.readFileSync(`${prefix}package-lock.json`))
@@ -154,7 +154,7 @@ test('the current glob and minimatch update changes only reviewed tooling packag
       if (name.endsWith('/glob')) assert.ok(['7.2.3', '14.0.4'].includes(entry.version), `${scope}: affected glob version at ${name}`)
     }
     assert.equal(newLock.packages['node_modules/glob'].version, '14.0.4')
-    assert.equal(newLock.packages['node_modules/minimatch'].version, '11.0.7')
+    assert.equal(newLock.packages['node_modules/minimatch'].version, '11.0.8')
     assert.equal(newLock.packages['node_modules/@isaacs/nonrecursive-glob-match'].version, '1.1.0')
   }
 })
@@ -189,10 +189,18 @@ for (const scope of ['.', 'apps/coach-mobile', 'apps/parent-mobile']) {
         }
       }
       const minimatch = require('minimatch')
-      assert.equal(require('minimatch/package.json').version, '11.0.7')
+      assert.equal(require('minimatch/package.json').version, '11.0.8')
       assert.equal(minimatch.minimatch('src/index.js', 'src/**/*.js'), true)
       assert.equal(new minimatch.Minimatch('src/**/*.js').match('src/nested/player.js'), true)
       assert.equal(new minimatch.Minimatch('src/**/*.js').match('src/notes.txt'), false)
+      for (const options of [{}, { windowsPathsNoEscape: true }, { magicalBraces: true }, { windowsPathsNoEscape: true, magicalBraces: true }]) {
+        for (const literal of ['!secret.txt', '#notes.md']) {
+          const pattern = minimatch.escape(literal, options)
+          assert.equal(minimatch.minimatch(literal, pattern, options), true)
+          assert.equal(minimatch.minimatch('other.txt', pattern, options), false)
+        }
+      }
+      assert.throws(() => new minimatch.Minimatch('@('.repeat(300) + 'a' + ')'.repeat(300)), /too many extglobs/)
       if (scope !== '.') {
         assert.equal(require('test-exclude/package.json').version, '8.0.0')
         const TestExclude = require('test-exclude')
@@ -209,6 +217,16 @@ for (const scope of ['.', 'apps/coach-mobile', 'apps/parent-mobile']) {
     }
   })
 }
+
+test('large compiled patterns do not exhaust a constrained heap', () => {
+  const source = `
+    const { minimatch } = require('minimatch')
+    for (let index = 0; index < 30; index++) {
+      if (minimatch('a/b', '{a,b}/'.repeat(13) + '*' + index)) throw new Error('Unexpected match')
+    }
+  `
+  execFileSync(process.execPath, ['--max-old-space-size=64', '-e', source], { cwd: root, timeout: 120000 })
+})
 
 test('the installed ESLint flat-configuration dependency supports its public ESM import', async () => {
   const { ConfigArray } = await import('@eslint/config-array')
