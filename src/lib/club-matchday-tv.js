@@ -32,6 +32,11 @@ export function tvDateAfter(value, days) {
   return validTvDate(result) ? result : null
 }
 
+export function activeTvSponsors(ads, today = clubTvDate()) {
+  if (!validTvDate(today)) return []
+  return ads.filter(ad => ad.enabled !== false && (!ad.startDate || (validTvDate(ad.startDate) && ad.startDate <= today)) && (!ad.endDate || (validTvDate(ad.endDate) && ad.endDate >= today)) && (!ad.startDate || !ad.endDate || ad.startDate <= ad.endDate))
+}
+
 // Explicit display DTO: never spread raw match/event records into the TV response.
 export function toClubTvMatch(row, clubId) {
   if (row?.club_id !== clubId || row.deleted_at) return null
@@ -110,7 +115,8 @@ export function readTvPreferences(key) {
     const map = /^data:image\/(png|jpeg|webp);base64,[a-z0-9+/=]+$/i.test(saved.map ?? '') && saved.map.length < 2850000 ? saved.map : ''
     const sponsorAds = (Array.isArray(saved.sponsorAds) ? saved.sponsorAds : []).slice(0, 3)
       .filter(ad => /^data:image\/(png|jpeg|webp);base64,[a-z0-9+/=]+$/i.test(ad?.image ?? '') && ad.image.length < 750000)
-      .map(ad => ({ image: ad.image, name: text(ad.name).slice(0, 80) }))
-    return { appearance: saved.appearance === 'dark' ? 'dark' : 'light', bigGoal: saved.bigGoal !== false, showMap: saved.showMap !== false, weatherPostcode: text(saved.weatherPostcode).slice(0, 10), map, sponsorAds, showPitchsideOrdering: saved.showPitchsideOrdering === true }
-  } catch { return { appearance: 'light', bigGoal: true, showMap: true, weatherPostcode: '', map: '', sponsorAds: [], showPitchsideOrdering: false } }
+      .map(ad => ({ image: ad.image, name: text(ad.name).slice(0, 80), enabled: ad.enabled !== false, startDate: text(ad.startDate), endDate: text(ad.endDate) }))
+    const sponsorSeconds = [10, 15, 30, 60].includes(saved.sponsorSeconds) ? saved.sponsorSeconds : 30
+    return { appearance: saved.appearance === 'dark' ? 'dark' : 'light', bigGoal: saved.bigGoal !== false, showMap: saved.showMap !== false, weatherPostcode: text(saved.weatherPostcode).slice(0, 10), map, sponsorAds, sponsorSeconds, showPitchsideOrdering: saved.showPitchsideOrdering === true }
+  } catch { return { appearance: 'light', bigGoal: true, showMap: true, weatherPostcode: '', map: '', sponsorAds: [], sponsorSeconds: 30, showPitchsideOrdering: false } }
 }
