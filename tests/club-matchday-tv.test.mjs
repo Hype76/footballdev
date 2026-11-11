@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { activeTvSponsors, canViewClubMatchdayTv, clubTvDate, newTvGoals, readTvPreferences, toClubTvMatch, tvMatchSides, tvMatchStatus, tvPitchNumber, validTvDate, tvDateAfter } from '../src/lib/club-matchday-tv.js'
+import { activeTvSponsors, canViewClubMatchdayTv, clubTvDate, newTvGoals, readTvPreferences, toClubTvMatch, tvMatchSides, tvMatchStatus, tvPitchNumber, validTvDate, tvDateAfter, tvPeriodWindow } from '../src/lib/club-matchday-tv.js'
 import { isClubTvLocked, setClubTvLocked } from '../src/lib/club-tv-lock.js'
 
 process.env.VITE_SUPABASE_URL ||= 'https://example.supabase.co'
@@ -137,12 +137,37 @@ test('empty matchdays fall back to the next seven days with the same club and pr
   assert.equal(tvDateAfter('9999-12-31', 7), null)
 })
 
+test('explicit periods use bounded calendar dates and retain club and privacy scope', async () => {
+  const examples = [
+    ['2026-10-21', 'weekend', '2026-10-24', '2026-10-25'],
+    ['2026-10-25', 'weekend', '2026-10-24', '2026-10-25'],
+    ['2026-12-31', 'week', '2026-12-28', '2027-01-03'],
+    ['2028-02-12', 'month', '2028-02-01', '2028-02-29'],
+  ]
+  for (const [date, period, startDate, endDate] of examples) {
+    const client = clientFor([fixture({ match_date: startDate }), fixture({ id: 'foreign', club_id: otherClub, match_date: startDate })])
+    const response = await handler({ client })(request({ clubId, date, period }))
+    assert.equal(response.statusCode, 200)
+    const payload = JSON.parse(response.body)
+    assert.deepEqual(payload.window, { kind: period, startDate, endDate })
+    assert.equal(payload.matches.length, 1)
+    assert.deepEqual(client.calls.find(({ table }) => table === 'match_days').filters, [['club_id', clubId], ['gte', 'match_date', startDate], ['lte', 'match_date', endDate], ['deleted_at', null]])
+    assert.doesNotMatch(response.body, /PRIVATE|foreign/)
+  }
+  assert.equal(tvPeriodWindow('9999-12-31', 'weekend'), null)
+  assert.equal(tvPeriodWindow('2026-10-21', 'year'), null)
+  const emptyClient = clientFor([])
+  const empty = JSON.parse((await handler({ client: emptyClient })(request({ clubId, date: '2026-10-21', period: 'month' }))).body)
+  assert.equal(empty.window.kind, 'month')
+  assert.equal(emptyClient.calls.filter(({ table }) => table === 'match_days').length, 1)
+})
+
 test('foreign club requests, unauthenticated callers, expired plans and invalid requests never query matches', async () => {
   const client = clientFor([fixture()])
   assert.equal((await handler({ client })(request({ clubId: otherClub, date: '2026-10-21' }))).statusCode, 403)
   assert.equal((await handler({ client, authenticate: async () => { throw Object.assign(new Error('Login'), { statusCode: 401 }) } })(request())).statusCode, 401)
   assert.equal((await handler({ client, assertFeature: () => { throw Object.assign(new Error('Plan'), { statusCode: 403 }) } })(request())).statusCode, 403)
-  for (const body of [null, [], {}, { clubId, date: '2026-02-30' }, { clubId, action: 'export' }]) assert.equal((await handler({ client })(request(body))).statusCode, 400)
+  for (const body of [null, [], {}, { clubId, date: '2026-02-30' }, { clubId, date: '2026-10-21', period: 'year' }, { clubId, action: 'export' }]) assert.equal((await handler({ client })(request(body))).statusCode, 400)
   assert.equal((await handler({ client })({ httpMethod: 'GET' })).statusCode, 405)
   assert.equal(client.calls.length, 0)
 })

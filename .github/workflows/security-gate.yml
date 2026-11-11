@@ -78,7 +78,7 @@ jobs:
   security-and-v1:
     name: Security and V1 regression
     runs-on: ubuntu-24.04
-    timeout-minutes: 35
+    timeout-minutes: 50
     steps:
       - name: Check out source
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -97,7 +97,20 @@ jobs:
       - name: Provision exact externally reviewed backports
         run: npm run security:provision -- --install-mobile
       - name: Install Playwright Chromium
-        run: npx playwright install --with-deps chromium
+        run: |
+          if ! getent ahostsv4 azure.archive.ubuntu.com >/dev/null; then
+            selected=''
+            for mirror in https://archive.ubuntu.com/ubuntu https://mirrors.nic.funet.fi/pub/mirrors/archive.ubuntu.com/ubuntu; do
+              available=1
+              for suite in noble noble-updates noble-security noble-backports; do
+                if ! curl -fsSIL --connect-timeout 5 --max-time 10 "$mirror/dists/$suite/InRelease" >/dev/null; then available=0; break; fi
+              done
+              if [ "$available" = 1 ]; then selected="$mirror"; break; fi
+            done
+            [ -n "$selected" ] || { echo 'No Ubuntu archive is reachable'; exit 1; }
+            printf '%s\n' "$selected" | sudo tee /etc/apt/apt-mirrors.txt >/dev/null
+          fi
+          npx playwright install --with-deps chromium
       - name: Official tooling security and PDF compatibility
         run: node --test tests/security-tooling-updates.test.mjs && node tests/security-tooling-pdf-browser.mjs
       - name: Native calendar subscriptions and background invitation commands
@@ -353,7 +366,20 @@ jobs:
           WEBSITE_IMAGES_BUILT: 'true'
         run: node --test tests/website-images.test.mjs tests/workspace-invite-cache-policy.test.mjs tests/pwa-update-prompt.test.mjs
       - name: Verify responsive player contact layout
-        run: npx playwright install --with-deps chromium && node tests/player-contact-layout-browser.mjs
+        run: |
+          if ! getent ahostsv4 azure.archive.ubuntu.com >/dev/null; then
+            selected=''
+            for mirror in https://archive.ubuntu.com/ubuntu https://mirrors.nic.funet.fi/pub/mirrors/archive.ubuntu.com/ubuntu; do
+              available=1
+              for suite in noble noble-updates noble-security noble-backports; do
+                if ! curl -fsSIL --connect-timeout 5 --max-time 10 "$mirror/dists/$suite/InRelease" >/dev/null; then available=0; break; fi
+              done
+              if [ "$available" = 1 ]; then selected="$mirror"; break; fi
+            done
+            [ -n "$selected" ] || { echo 'No Ubuntu archive is reachable'; exit 1; }
+            printf '%s\n' "$selected" | sudo tee /etc/apt/apt-mirrors.txt >/dev/null
+          fi
+          npx playwright install --with-deps chromium && node tests/player-contact-layout-browser.mjs
       - name: Verify resource editing and retained assignments
         run: node --test tests/resource-library-edit.test.mjs tests/resource-library-edit-pglite.test.mjs && node tests/resource-library-edit-browser.mjs
       - name: Upload build evidence

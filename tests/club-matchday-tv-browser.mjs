@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { mkdir, readFile } from 'node:fs/promises'
 import { createServer } from 'vite'
 import { chromium } from 'playwright'
+import { tvPeriodWindow } from '../src/lib/club-matchday-tv.js'
 
 const port = Number(process.env.CLUB_TV_BROWSER_PORT || 43136), origin = `http://127.0.0.1:${port}`
 Object.assign(process.env, { VITE_AUTH_ACCESS_BROWSER_FIXTURES: 'true', VITE_APP_URL: origin, VITE_PARENT_APP_URL: origin, VITE_SUPABASE_URL: 'http://fixture.supabase.test', VITE_SUPABASE_ANON_KEY: 'fixture-anon-key' })
@@ -36,7 +37,7 @@ try {
     if (url.pathname === '/.netlify/functions/club-matchday-tv') {
       const body = route.request().postDataJSON(); requests.push(body)
       if (body.action === 'unlock') return route.fulfill({ status: unlockAccepted ? 200 : 401, contentType: 'application/json', body: JSON.stringify(unlockAccepted ? { club: { id: body.clubId }, unlocked: true } : { message: 'Password not accepted. The display stays locked.' }) })
-      const payload = denied ? { message: 'Access is restricted to your own active Club Admin workspace.' } : unavailable ? { message: 'Scores could not be refreshed.' } : body.action === 'weather' ? { club: { id: body.clubId }, weather: { temperature: 13, windMph: 7, location: 'Club ground', condition: 'cloudy', time: '2026-10-21T09:00:00Z' } } : { club: { id: body.clubId, name: 'Test Club United', logoUrl: clubBadge, accent: '#1465c0' }, date: body.date, window: displayWindow, matches, refreshedAt: '2026-10-21T09:00:00Z' }
+      const payload = denied ? { message: 'Access is restricted to your own active Club Admin workspace.' } : unavailable ? { message: 'Scores could not be refreshed.' } : body.action === 'weather' ? { club: { id: body.clubId }, weather: { temperature: 13, windMph: 7, location: 'Club ground', condition: 'cloudy', time: '2026-10-21T09:00:00Z' } } : { club: { id: body.clubId, name: 'Test Club United', logoUrl: clubBadge, accent: '#1465c0' }, date: body.date, window: body.period && body.period !== 'day' ? tvPeriodWindow(body.date, body.period) : displayWindow, matches, refreshedAt: '2026-10-21T09:00:00Z' }
       return route.fulfill({ status: denied ? 403 : unavailable ? 503 : 200, contentType: 'application/json', body: JSON.stringify(payload) })
     }
     if (url.pathname.startsWith('/.netlify/functions/')) return route.fulfill({ status: 200, contentType: 'application/json', body: '{}' })
@@ -137,6 +138,26 @@ try {
   const fullWidthLastRow = await page.locator('.club-tv-match').last().boundingBox()
   assert.ok(fullWidthLastRow.y + fullWidthLastRow.height <= bounds.y + 1, 'All live score rows fit above the footer')
   await page.screenshot({ path: `${output}/tv-full.png` })
+  for (const [button, heading, period] of [['Weekend', 'At home this weekend', 'weekend'], ['Week', 'At home this week', 'week'], ['Month', 'At home this month', 'month']]) {
+    await page.getByRole('button', { name: button, exact: true }).click()
+    await page.getByRole('heading', { name: heading, exact: true }).waitFor()
+    await page.locator('.club-tv-home-date').first().waitFor()
+    assert.equal(await page.getByRole('button', { name: button, exact: true }).getAttribute('aria-pressed'), 'true')
+    assert.equal(requests.filter(request => !request.action).at(-1).period, period)
+    assert.ok(await page.locator('.club-tv-home-date').count() > 0)
+  }
+  const beforeEmptyPeriod = matches
+  matches = []
+  await page.clock.runFor(11000)
+  await page.getByRole('heading', { name: 'No matches in this period' }).waitFor()
+  matches = beforeEmptyPeriod
+  await page.getByLabel('Match date').fill('2026-10-24')
+  await page.getByRole('heading', { name: 'At home on this date', exact: true }).waitFor()
+  assert.equal(await page.getByRole('button', { name: 'Month', exact: true }).getAttribute('aria-pressed'), 'false')
+  await page.getByRole('button', { name: 'Today', exact: true }).click()
+  await page.getByRole('heading', { name: 'At home today', exact: true }).waitFor()
+  await page.locator('.club-tv-home-row').first().waitFor()
+  assert.equal(requests.filter(request => !request.action).at(-1).period, 'day')
   const fullMatchday = matches
   const compactMatches = [
     { ...makeMatch(7), teamName: 'U14 JPL 26/27', opponent: 'Peterborough United Football Club U16 Girls', matchDate: '2026-10-24', venue: 'Bespoke Builds Training Ground', timerStatus: 'not_started', homeScore: 0, awayScore: 0, events: [] },
