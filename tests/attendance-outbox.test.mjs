@@ -78,6 +78,21 @@ test('distinct fixture/recurring targets can queue independently', async () => {
   assert.notEqual(core.attendanceTargetKey(one),core.attendanceTargetKey(two))
 })
 
+test('an answer added during an active send syncs without a foreground or timer retry', async () => {
+  const network = deferred()
+  const f = harness({ online: true, execute: command => command.preparation.target.eventId === prep.target.eventId ? network.promise : clone(saved) })
+  const first = await f.engine.enqueue(prep, 'available')
+  await flush()
+  assert.equal(f.calls.length, 1)
+  const other = { ...prep, target: { ...prep.target, eventId: 'another-event', requestId: 'another-request' } }
+  const second = await f.engine.enqueue(other, 'available')
+  assert.equal(f.read().find(command => command.id === second.id).status, 'pending')
+  network.resolve(saved)
+  await f.engine.sync()
+  assert.deepEqual(f.calls.map(command => command.id), [first.id, second.id])
+  assert.deepEqual(f.read().map(command => command.status), ['saved', 'saved'])
+})
+
 test('offline durable queue survives restart and sends identical original command', async () => {
   const f=harness(); const command=await f.engine.enqueue(prep,'available')
   const restart=harness({commands:f.read(),online:true})

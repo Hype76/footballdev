@@ -939,6 +939,7 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
 
   const parentSyncScopeRef = useRef('')
   const parentActionScopeRef = useRef(0)
+  const invitationResponsesInFlight = useRef(new Set())
   const parentFeedbackSequenceRef = useRef(0)
   parentSyncScopeRef.current = `${selectedMobileUser?.id || ''}:${selectedLink?.id || ''}`
   useEffect(() => {
@@ -1676,9 +1677,9 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
     }
   }
 
-  async function handleInvitationResponse(invitation, responseState, { inlineFeedback = false } = {}) {
+  async function handleInvitationResponse(invitation, responseState, { inlineFeedback = false, independent = false } = {}) {
     if (invitation?.attendancePreparation && ['match_attendance', 'training_attendance'].includes(invitation.invitationType)) {
-      if (invitation.attendancePending || activeActionId || !isParentInvitationActionable(invitation)
+      if (invitation.attendancePending || (!independent && activeActionId) || !isParentInvitationActionable(invitation)
         || selectedLink?.linkType !== 'parent' || invitation.parentLinkId !== selectedLink.id || invitation.childId !== selectedLink.playerId) return false
       const scope = parentSyncScopeRef.current
       const generation = parentActionScopeRef.current
@@ -1699,7 +1700,10 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
     if (isOffline || activeActionId) return
     const actionScope = parentSyncScopeRef.current
     const actionGeneration = parentActionScopeRef.current
-    setActiveActionId(`invite:${invitation.invitationId}`)
+    const responseKey = JSON.stringify([actionScope, actionGeneration, invitation.invitationId])
+    if (invitationResponsesInFlight.current.has(responseKey)) return
+    invitationResponsesInFlight.current.add(responseKey)
+    if (!independent) setActiveActionId(`invite:${invitation.invitationId}`)
     if (!inlineFeedback) setNotice(null)
     try {
       await respondToParentInvitation(selectedMobileUser, invitation, responseState)
@@ -1721,7 +1725,8 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
       if (inlineFeedback) return { error: message }
       setNotice({ message, tone: 'error' })
     } finally {
-      if (actionScope === parentSyncScopeRef.current && actionGeneration === parentActionScopeRef.current) setActiveActionId('')
+      invitationResponsesInFlight.current.delete(responseKey)
+      if (!independent && actionScope === parentSyncScopeRef.current && actionGeneration === parentActionScopeRef.current) setActiveActionId('')
     }
   }
 

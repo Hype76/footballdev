@@ -51,6 +51,7 @@ const invitation={invitationId:'invite',invitationType:'match_attendance',parent
 function parentFixture(overrides = {}) {
   const gate=deferred(),scope={current:'user:parent'},generation={current:1},notices=[],calls=[]
   const dependencies={isOffline:false,activeActionId:'',selectedLink:{id:'parent',playerId:'player',linkType:'parent'},selectedMobileUser:{id:'user'},parentSyncScopeRef:scope,parentActionScopeRef:generation,
+    invitationResponsesInFlight:{current:new Set()},
     attendanceOutbox:{enqueue:async(...args)=>{calls.push(args);return gate.promise}},isParentInvitationActionable:()=>true,setNotice:value=>notices.push(value),getParentFriendlyError:(_e,message)=>message,
     setActiveActionId:()=>{},setResources:()=>{},respondToParentInvitation:async()=>{},loadParentData:async()=>{},...overrides}
   return {gate,scope,generation,notices,calls,run:bind(extracted('../apps/parent-mobile/App.js','handleInvitationResponse'),'handleInvitationResponse',dependencies)}
@@ -163,6 +164,31 @@ const preparation={route:'parent_match',target:{invitationId:'hook-invite'},base
 function hookScope(scope, storage={commands:[]}) {
   return {scope,read:async()=>storage.commands,update:async change=>(storage.commands=change(storage.commands))}
 }
+
+test('a failed local save leaves a different provisional attendance answer visible', async () => {
+  const firstWrite = deferred(), secondWrite = deferred()
+  let writes = 0
+  const f = attendanceHookFixture()
+  const options = { scope: 'parent', read: async () => [], update: async change => {
+    await (++writes === 1 ? firstWrite.promise : secondWrite.promise)
+    return change([])
+  } }
+  const outbox = f.render(options)
+  f.commit()
+  await Promise.resolve()
+  const first = outbox.enqueue(preparation, 'available')
+  const other = { ...preparation, target: { invitationId: 'other-invite' } }
+  const second = outbox.enqueue(other, 'unavailable')
+  firstWrite.reject(new Error('Synthetic disk failure'))
+  await assert.rejects(first, /disk failure/)
+  const pending = f.render(options).commands
+  assert.equal(pending.length, 1)
+  assert.equal(pending[0].preparation.target.invitationId, 'other-invite')
+  assert.equal(pending[0].status, 'persisting')
+  secondWrite.resolve()
+  await second
+  f.unmount()
+})
 test('actual outbox abandoned scope render leaves committed engine able to durably save',async()=>{
  const f=attendanceHookFixture(),storage={commands:[]},a=hookScope('a',storage)
  const committed=f.render(a);f.commit();await Promise.resolve()

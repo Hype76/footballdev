@@ -67,28 +67,31 @@ const initial={id:'match',teamId:'team',clubId:'club',clubName:'Cambourne Town F
 const parentLink={id:'parent',clubId:'club',playerId:'child',linkType:'parent'};
 const initialInvitation={invitationId:'invitation',eventId:'match',childId:'child',parentLinkId:'parent',sourceRecordId:'request',invitationType:'match_attendance',invitationState:'active',canRespond:true,canChangeResponse:true,responseState:'available',carpoolEnabled:true};
 const getParentFriendlyError=(error)=>error.message,saveParentOfflineSelection=async()=>{};
-const respondToParentInvitation=async(user,invitation,response)=>{window.calls.push(['attendance',user.selectedParentLinkId,invitation.sourceRecordId,response]);if(window.defer)await new Promise((resolve,reject)=>window.pending.push(error=>error?reject(new Error(error)):resolve()));window.server={...window.server,availabilityStatus:response};window.serverInvitation={...window.serverInvitation,responseState:response}};
+const respondToParentInvitation=async(user,invitation,response)=>{window.calls.push(['attendance',user.selectedParentLinkId,invitation.sourceRecordId,response]);if(window.defer)await new Promise((resolve,reject)=>window.pending.push(error=>error?reject(new Error(error)):resolve()));window.server={...window.server,availabilityStatus:response};if(invitation.invitationId===window.serverInvitation.invitationId)window.serverInvitation={...window.serverInvitation,responseState:response,isPending:false};else window.serverExtraInvitations=window.serverExtraInvitations.map(item=>item.invitationId===invitation.invitationId?{...item,responseState:response,isPending:false}:item)};
 const setParentMatchTransport=async(user,invitation,mode)=>{window.calls.push(['transport',user.selectedParentLinkId,invitation.sourceRecordId,mode]);window.serverInvitation={...window.serverInvitation,transportNeedsLift:mode==='needs_lift',transportCanOfferLift:mode==='offering_lift',transportRespondedAt:'2099-01-01'};window.server={...window.server,squadTransport:[{playerId:'child',playerName:'Synthetic Player',needsLift:mode==='needs_lift',canOfferLift:mode==='offering_lift'}]}};
-window.calls=[];window.pending=[];window.server=initial;window.serverInvitation=initialInvitation;
-function App(){const[match,setMatch]=useState(initial),[mode,setMode]=useState('light'),[offline,setOffline]=useState(false),[warning,setWarning]=useState(false),[activeActionId,setActiveActionId]=useState(''),[notice,setNotice]=useState(null),[invitation,setInvitation]=useState(initialInvitation),[selectedLinkId,setSelectedLinkId]=useState('parent'),[linkType,setLinkType]=useState('parent'),[showList,setShowList]=useState(false),[fixtures,setFixtures]=useState([]);
+window.calls=[];window.pending=[];window.server=initial;window.serverInvitation=initialInvitation;window.serverExtraInvitations=[];
+function App(){const[match,setMatch]=useState(initial),[mode,setMode]=useState('light'),[offline,setOffline]=useState(false),[warning,setWarning]=useState(false),[activeActionId,setActiveActionId]=useState(''),[notice,setNotice]=useState(null),[invitationRows,setInvitationRows]=useState([initialInvitation]),[selectedLinkId,setSelectedLinkId]=useState('parent'),[linkType,setLinkType]=useState('parent'),[showList,setShowList]=useState(false),[fixtures,setFixtures]=useState([]);
+const [invitation]=invitationRows;
+const setInvitation=update=>setInvitationRows(([first,...rest])=>[typeof update==='function'?update(first):update,...rest]);
 const[screen,setScreen]=useState('matchday'),[target,setTarget]=useState('invitation');
 const isOffline=offline,selectedMobileUser={id:'account',selectedParentLinkId:selectedLinkId},link={...parentLink,id:selectedLinkId,playerId:selectedLinkId==='parent'?'child':'other-child',linkType},parentLinks=[parentLink,{id:'other'}];
 const selectedLink=link;
-const parentSyncScopeRef=useRef(''),parentActionScopeRef=useRef(0),requestIdRef=useRef(0);parentSyncScopeRef.current='account:'+selectedLinkId;
+const parentSyncScopeRef=useRef(''),parentActionScopeRef=useRef(0),invitationResponsesInFlight=useRef(new Set()),requestIdRef=useRef(0);parentSyncScopeRef.current='account:'+selectedLinkId;
 const setChildSwitcherOpen=()=>{},setActiveTab=()=>{};
 const scrollViewRef=useRef(null),contentColumnRef=useRef(null);
-const setResources=update=>setInvitation(item=>update({invitations:{items:[item]}}).invitations.items[0]);
-const attendanceOutbox={enqueue:async()=>{if(window.defer)await new Promise((resolve,reject)=>window.pending.push(error=>error?reject(new Error(error)):resolve()));setInvitation(item=>({...item,responseState:'available',attendancePending:true,attendancePendingStatus:'pending'}))}};
-async function loadParentData(){window.refreshes=(window.refreshes||0)+1;if(window.deferRefresh)await new Promise(resolve=>window.pendingRefresh=resolve);setMatch(window.server);setInvitation(window.serverInvitation)}
+const setResources=update=>setInvitationRows(items=>update({invitations:{items}}).invitations.items);
+const attendanceOutbox={enqueue:async()=>{if(window.defer)await new Promise((resolve,reject)=>window.pending.push(error=>error?reject(new Error(error)):resolve()));const patch={responseState:'available',attendancePending:true,attendancePendingStatus:'pending'};if(window.preserveQueueOnRefresh)window.serverInvitation={...window.serverInvitation,...patch};setInvitation(item=>({...item,...patch}))}};
+async function loadParentData(){window.refreshes=(window.refreshes||0)+1;if(window.deferRefresh)await new Promise(resolve=>window.pendingRefresh=resolve);setMatch(window.server);setInvitationRows([window.serverInvitation,...window.serverExtraInvitations])}
 ${handlers}\n${childChange}
 window.match=patch=>setMatch({...initial,...patch});window.mode=setMode;window.offline=setOffline;window.warning=setWarning;window.linkType=setLinkType;window.switchChild=handleChildChange;window.list=setShowList;window.fixtures=patches=>setFixtures(patches.map(p=>({...initial,...p})));window.invitation=patch=>setInvitation({...initialInvitation,...patch});window.refresh=loadParentData;window.current={activeActionId,notice,selectedLinkId,warning,offline};
 window.screen=setScreen;window.target=setTarget;
+window.extraInvitations=rows=>{window.serverExtraInvitations=rows.map(patch=>({...initialInvitation,...patch}));setInvitationRows(([first])=>[first,...window.serverExtraInvitations])};
 const tokens=createParentMobileTheme({mode,selectedLink:{themeAccent:'#075293'}}).tokens,palette=createParentAppPalette(tokens);theme={palette,styles:createParentAppStyles(palette)};
 return <ScrollView testID="response-scroll" ref={scrollViewRef} style={{height:420}}><View ref={contentColumnRef} style={{padding:16,backgroundColor:palette.background,minHeight:'100vh'}}>
 <SyncStatus cacheState={{source:'cache',stale:true}} isOffline={offline} summary={{waiting:0,needsAttention:0}}/>
 {warning?<Notice compact tone="warning" message="Could not refresh. Showing saved information." onDismiss={()=>setWarning(false)}/>:null}
 {notice?<Notice message={notice.message} tone={notice.tone} onDismiss={()=>setNotice(null)}/>:null}
-{screen==='invites'?<><View style={{height:120}}/><InvitationsScreen activeActionId={activeActionId} isOffline={isOffline} link={link} resource={{items:[invitation]}} targetInvitationId={target} themeTokens={tokens} onBackTarget={()=>{window.backCalls=(window.backCalls||0)+1;setTarget('')}} onRespond={handleInvitationResponse} onTransport={handleMatchTransport}/><View style={{height:500}}/></>:<MatchdayScreen formationViewportHeight={420} onFocusFormation={target=>focusParentFormationBoard(target,contentColumnRef.current,scrollViewRef.current)} activeActionId={activeActionId} isOffline={isOffline} invitations={fixtures.length?fixtures.map(f=>({...initialInvitation,eventId:f.id,invitationState:f.demoInvitationState||'active'})):invitation?[invitation]:[]} selectedMatch={showList?null:match} resource={{items:fixtures.length?fixtures:[match]}} clubKits={{home:{}}} link={link} themeTokens={tokens} onBack={()=>window.action='back'} onAddToCalendar={()=>window.action='calendar'} onOpenLink={()=>window.action='directions'} onOpen={()=>setShowList(false)} onRespond={handleInvitationResponse} onTransport={handleMatchTransport}/>}
+{screen==='invites'?<><View style={{height:120}}/><InvitationsScreen activeActionId={activeActionId} isOffline={isOffline} link={link} resource={{items:invitationRows}} targetInvitationId={target} themeTokens={tokens} onBackTarget={()=>{window.backCalls=(window.backCalls||0)+1;setTarget('')}} onRespond={handleInvitationResponse} onTransport={handleMatchTransport}/><View style={{height:500}}/></>:<MatchdayScreen formationViewportHeight={420} onFocusFormation={target=>focusParentFormationBoard(target,contentColumnRef.current,scrollViewRef.current)} activeActionId={activeActionId} isOffline={isOffline} invitations={fixtures.length?fixtures.map(f=>({...initialInvitation,eventId:f.id,invitationState:f.demoInvitationState||'active'})):invitation?[invitation]:[]} selectedMatch={showList?null:match} resource={{items:fixtures.length?fixtures:[match]}} clubKits={{home:{}}} link={link} themeTokens={tokens} onBack={()=>window.action='back'} onAddToCalendar={()=>window.action='calendar'} onOpenLink={()=>window.action='directions'} onOpen={()=>setShowList(false)} onRespond={handleInvitationResponse} onTransport={handleMatchTransport}/>}
 </View></ScrollView>}
 createRoot(document.getElementById('root')).render(<App/>);`
 const result = await build({ stdin: { contents: entry, resolveDir: root, loader: 'jsx' }, bundle: true, write: false, jsx: 'automatic', loader: { '.js': 'jsx', '.ttf': 'dataurl', '.png': 'dataurl' }, platform: 'browser', conditions: ['browser'], mainFields: ['browser', 'module', 'main'], resolveExtensions: ['.web.tsx', '.web.ts', '.web.js', '.tsx', '.ts', '.jsx', '.js', '.json'], nodePaths: [modules], alias: { react: path.join(modules, 'react'), 'react-dom': path.join(modules, 'react-dom'), 'react-native': path.join(modules, 'react-native-web') }, define: { 'process.env.NODE_ENV': '"production"', __DEV__: 'false', global: 'globalThis' }, banner: { js: 'globalThis.process={env:{NODE_ENV:"production"}};' } })
@@ -349,6 +352,7 @@ try {
     const choice=page.getByRole('radio',{name:'Attendance, Attending',exact:true})
     await choice.scrollIntoViewIfNeeded()
     const position=await choice.boundingBox(),scroll=await page.getByTestId('response-scroll').evaluate(el=>el.scrollTop)
+    const rowPosition=await page.getByTestId('invite-response-row').boundingBox()
     await choice.click()
     const pending=page.getByRole('radio',{name:'Attendance, Attending, saving',exact:true})
     await pending.waitFor();assert.equal(await pending.isChecked(),true);assert.equal(await pending.isDisabled(),true)
@@ -356,13 +360,14 @@ try {
     assert.deepEqual(await pending.boundingBox(),position,'Pending feedback keeps the tapped choice in place')
     assert.equal(await page.getByText('Saved',{exact:true}).count(),0,'No server save is claimed while pending')
     await page.evaluate(()=>window.pending[0]())
-    await page.getByText('Attending',{exact:true}).waitFor()
     await page.getByText("You've confirmed you are attending.",{exact:true}).waitFor()
     await page.waitForFunction(()=>window.current.activeActionId==='')
     assert.ok(await page.getByRole('heading',{name:'Respond to request',exact:true}).count())
     assert.equal(await page.evaluate(()=>window.backCalls),0,'Confirmed reply leaves the request open')
     assert.equal(await page.evaluate(()=>window.current.notice),null,'No top-of-page notice reflows the request')
     await changeAttendance.waitFor()
+    assert.deepEqual(await page.getByTestId('invite-response-row').boundingBox(),rowPosition,'Confirmation keeps the same row height and position')
+    assert.equal(await page.getByTestId('response-scroll').evaluate(el=>el.scrollTop),scroll)
     await page.evaluate(()=>{window.pendingRefresh();window.deferRefresh=false})
     await page.getByTestId('response-scroll').evaluate(el=>{el.scrollTop=0})
     await page.screenshot({path:'output/playwright/parent-compact/request-saved-'+mode+'-'+width+'.png',fullPage:true})
@@ -391,10 +396,39 @@ try {
   await page.getByRole('radio',{name:'Attendance, Attending',exact:true}).click()
   await page.getByRole('radio',{name:'Attendance, Attending, saving',exact:true}).waitFor()
   await page.evaluate(()=>window.pending[0]())
-  await page.getByText('Attending saved on phone, waiting to sync',{exact:true}).waitFor()
+  await page.getByText('Saved on this phone. Waiting to sync.',{exact:true}).waitFor()
   assert.equal(await page.getByRole('heading',{name:'Respond to request',exact:true}).count(),1)
   assert.equal(await page.evaluate(()=>window.backCalls),0,'Durable local acceptance keeps the request open too')
   assert.equal(await page.getByText('Saved',{exact:true}).count(),0,'Offline acceptance does not claim server confirmation')
+  await page.evaluate(() => {
+    const fixture={eventTitle:'Synthetic shared fixture',eventDate:'2099-01-23',eventStart:'2099-01-23T14:00:00Z',isPending:true,responseState:'awaiting_response',selectionState:'undecided'};
+    window.target('');window.offline(false);window.pending=[];window.preserveQueueOnRefresh=true;
+    window.serverInvitation={...window.serverInvitation,...fixture,invitationId:'invitation',invitationType:'match_attendance',attendancePreparation:{route:'parent_match'},attendancePending:false};
+    window.invitation(window.serverInvitation);
+    window.extraInvitations(['scorer','linesman','referee'].map(roleType=>({...fixture,invitationId:roleType,invitationType:'match_role',roleType})));
+  })
+  const responseRows = page.getByTestId('invite-response-row')
+  await responseRows.last().waitFor()
+  assert.equal(await responseRows.count(), 4)
+  const rowLayout = () => responseRows.evaluateAll(rows => rows.map(row => ({ y: row.offsetTop, height: row.offsetHeight })))
+  const initialLayout = await rowLayout()
+  await page.getByRole('radio',{name:'Attendance, Attending',exact:true}).click()
+  assert.equal(await page.getByRole('radio',{name:'Attendance, Attending, saving',exact:true}).isChecked(),true)
+  await page.getByRole('radio',{name:'Scorer, Yes',exact:true}).click()
+  await page.getByRole('radio',{name:'Linesman, Yes',exact:true}).click()
+  await page.getByRole('radio',{name:'Referee, Yes',exact:true}).click()
+  await page.waitForFunction(() => window.pending.length === 4)
+  assert.deepEqual(await rowLayout(),initialLayout,'All four rows retain their positions while responses are in flight')
+  await page.evaluate(() => window.pending[0]())
+  await page.getByText('Saved on this phone. Syncing.',{exact:true}).waitFor()
+  for (const [index,role] of ['Scorer','Linesman','Referee'].entries()) {
+    await page.evaluate(i=>window.pending[i](),index+1)
+    await page.getByText(role+' accepted',{exact:true}).waitFor()
+    assert.deepEqual(await rowLayout(),initialLayout,'Accepting a role preserves the height of every response row')
+  }
+  await page.evaluate(() => window.invitation({...window.serverInvitation,isPending:false,attendancePending:false,responseState:'available'}))
+  await page.getByText("You've confirmed you are attending.",{exact:true}).waitFor()
+  assert.deepEqual(await rowLayout(),initialLayout,'The answered fixture and all rows remain in place after server confirmation')
   assert.deepEqual(errors, [])
   console.log('PASS: Parent Matchday at 320/390px light/dark with contrast and no overflow; availability and squad chips distinct; save/reload availability and carpool; squad lift badges; Parent/Player/Fan and offline gates; real App handlers reject stale A->B->A completion; score/timeline/scorer, back, calendar and directions retained. Targeted invites show immediate Saving selection, accepted confirmations without waiting for full refresh, failure restoration, scorer replies and offline durable status without automatic navigation.')
 } finally { await browser.close() }
