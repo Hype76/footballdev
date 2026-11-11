@@ -71,9 +71,9 @@ export function loadRecord(root) {
   const record = JSON.parse(fs.readFileSync(safe(root, 'security/reviewed-source-remediations.json')))
   verifyMaintainedAuthority(record)
   assert.equal(record.baseline, '864a6ad3856a02b65ec33bfe8e952e6f98d13dbd')
-  assert.equal(record.adoptionProposalSha256, '92a91b0568e80808ed63d9b19de3bb6dc503c88a3f5a8e5e4dc7fbfbbb98c8af', 'Maintained source policy identity changed')
+  assert.equal(record.adoptionProposalSha256, '41f34a9ca7defda6db03d7596471c5fed454483ab3cfd0c37cafc34f19258e97', 'Maintained source policy identity changed')
   assert.equal(hash(fs.readFileSync(safe(root, 'security/maintained-source-policy.json'))), record.adoptionProposalSha256, 'Maintained source policy evidence drift')
-  assert.equal(record.releasePreparationSha256, '8cef891637d8503db77cac6109d2e127ec423816f169d643401efad1e9f2c7e6', 'Release preparation scope drift')
+  assert.equal(record.releasePreparationSha256, 'a47ef1fc5ffacb7d4704c2a294cd6ac2b709c58538a2b53b7f5a712313a94a07', 'Release preparation scope drift')
   assert.equal(hash(Buffer.from(JSON.stringify(record.releasePreparation, null, 2) + '\n')), record.releasePreparationSha256, 'Release preparation pins drift')
   assert.equal(record.releasePreparation.baseline, record.baseline, 'Release preparation baseline mismatch')
   verifyReleasePreparation(root, record.releasePreparation)
@@ -140,14 +140,14 @@ export function loadRecord(root) {
   assert.deepEqual(record.compatibilityUpstream, JSON.parse(fs.readFileSync(safe(root, 'security/maintained-source-policy.json'))).glob7Compatibility.upstreamLatest, 'Compatibility upstream differs from the pinned maintenance policy')
   assert.deepEqual(record.glob7CompatibilityPublishedVersions, JSON.parse(fs.readFileSync(safe(root, 'security/maintained-source-policy.json'))).glob7Compatibility.publishedCompatibilityVersions, 'Compatibility publication inventory differs from the pinned maintenance policy')
   assert.deepEqual(record.officialCompatibilityDependencies.map(t => [t.scope, t.packagePath, t.name, t.version]), ['.', 'apps/parent-mobile', 'apps/coach-mobile'].flatMap(scope => [
-    [scope, 'node_modules/minimatch', 'minimatch', '11.0.6'], [scope, 'node_modules/glob', 'glob', '14.0.4'],
+    [scope, 'node_modules/minimatch', 'minimatch', '11.0.7'], [scope, 'node_modules/glob', 'glob', '14.0.4'],
   ]), 'Fixed official compatibility dependency scope changed')
   for (const t of record.officialCompatibilityDependencies) {
     assert.equal(t.mode, 'official-tooling')
     assert.deepEqual(t.files, [], 'Fixed official tooling must not receive source patches')
     assert.equal(t.originalTreeSha256, t.patchedTreeSha256, 'Fixed official tooling must remain unchanged')
     assert.equal(t.registryIntegrity, record.compatibilityUpstream[t.name].registryIntegrity, 'Fixed official tooling registry identity differs')
-    assert.equal(t.originalTreeSha256, t.name === 'minimatch' ? 'e50bccc1d6ce0417abb1f8fab82e9fd5beca8e75e18e60af78672cdfd7fd856f' : '82c03d04db08205d20c04e2c63db4d8b91d91bee2a448ffe6f9579c7bcf76bf7', 'Fixed official tooling tree identity changed')
+    assert.equal(t.originalTreeSha256, t.name === 'minimatch' ? '3e0623c76da0a41ec7b2f82490ca1c99fa170d1a577c631dbe3c85b11fa125f7' : '82c03d04db08205d20c04e2c63db4d8b91d91bee2a448ffe6f9579c7bcf76bf7', 'Fixed official tooling tree identity changed')
   }
   assert.equal(payload.qualificationManifestSha256, 'c6b590786dac4bf3ffeeec900f9d3e47e9550f649aa6c5820da83b3a64afc47d')
   for (const [file, expected] of Object.entries(record.implementationHashes)) assert.equal(textHash(fs.readFileSync(safe(root, file))), expected, `Implementation drift: ${file}`)
