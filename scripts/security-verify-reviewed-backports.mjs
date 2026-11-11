@@ -59,7 +59,7 @@ export function verifyReleasePreparation(root, preparation) {
     'apps/mobile-core/modules/live-match/android/src/main/res/drawable-nodpi/football_player_fallback.png',
     'apps/mobile-core/assets/football-player-logo-grey.png',
   ])
-  for (const [file, expected] of Object.entries(binary)) { assert.ok(file.startsWith('public/marketing-v70/') || liveMatchBadges.has(file), 'Binary asset scope changed'); assert.match(expected, /^[a-f0-9]{64}$/); assert.equal(hash(fs.readFileSync(safe(root, file))), expected, 'Approved binary asset drift: ' + file) }
+  for (const [file, expected] of Object.entries(binary)) { assert.ok(file.startsWith('public/marketing-v70/') || file === 'public/club-tv-goal-alerts.webp' || liveMatchBadges.has(file), 'Binary asset scope changed'); assert.match(expected, /^[a-f0-9]{64}$/); assert.equal(hash(fs.readFileSync(safe(root, file))), expected, 'Approved binary asset drift: ' + file) }
 }
 export function verifyMaintainedAuthority(record) {
   assert.equal(record.schemaVersion, 2, 'Maintained source schema is required')
@@ -73,7 +73,7 @@ export function loadRecord(root) {
   assert.equal(record.baseline, '864a6ad3856a02b65ec33bfe8e952e6f98d13dbd')
   assert.equal(record.adoptionProposalSha256, '2c5a71b31079852a14664a6b35cbe599bd9e04c5792bc17dbe0d7d56ca7d9e5b', 'Maintained source policy identity changed')
   assert.equal(hash(fs.readFileSync(safe(root, 'security/maintained-source-policy.json'))), record.adoptionProposalSha256, 'Maintained source policy evidence drift')
-  assert.equal(record.releasePreparationSha256, '3f77cd1bc13b2d3aa6156da29584d815ddceb3da82c269310a4a25cf7cbb721a', 'Release preparation scope drift')
+  assert.equal(record.releasePreparationSha256, 'bcdd35cce881e550af4f85ca99989cb64510a94afcfe7c87dc0ece2501b23360', 'Release preparation scope drift')
   assert.equal(hash(Buffer.from(JSON.stringify(record.releasePreparation, null, 2) + '\n')), record.releasePreparationSha256, 'Release preparation pins drift')
   assert.equal(record.releasePreparation.baseline, record.baseline, 'Release preparation baseline mismatch')
   verifyReleasePreparation(root, record.releasePreparation)
