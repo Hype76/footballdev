@@ -120,45 +120,75 @@ function RoadTicker({ matches, clubLogo, showDate, paused }) {
   return <div className="club-tv-road"><strong>ON THE ROAD</strong>{items.length ? <div className="club-tv-road-window"><div className="club-tv-road-track"><div>{items}</div>{!reducedMotion ? <div aria-hidden="true">{items}</div> : null}</div></div> : <span className="club-tv-road-empty">No away fixtures today</span>}{reducedMotion && matches.length > 1 ? <span className="club-tv-road-controls"><button aria-label="Previous away fixture" onClick={() => setIndex(current => (current - 1 + matches.length) % matches.length)}>‹</button><span>{index % matches.length + 1} / {matches.length}</span><button aria-label="Next away fixture" onClick={() => setIndex(current => (current + 1) % matches.length)}>›</button></span> : null}</div>
 }
 
+async function prepareTvArtwork(file) {
+  const data = await new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(reader.result)
+    reader.onerror = reject
+    reader.readAsDataURL(file)
+  })
+  const decoded = new Image()
+  decoded.src = data
+  await decoded.decode()
+  if (!decoded.width || !decoded.height || decoded.width > 12000 || decoded.height > 12000) throw new Error('Invalid image dimensions')
+  let scale = Math.min(1, 1600 / Math.max(decoded.width, decoded.height))
+  const canvas = document.createElement('canvas')
+  let image
+  do {
+    canvas.width = Math.max(1, Math.round(decoded.width * scale))
+    canvas.height = Math.max(1, Math.round(decoded.height * scale))
+    canvas.getContext('2d').drawImage(decoded, 0, 0, canvas.width, canvas.height)
+    image = canvas.toDataURL('image/webp', 0.88)
+    scale *= 0.75
+  } while (image.length >= 700000 && scale > 0.01)
+  if (!image.startsWith('data:image/webp;base64,') || image.length >= 700000) throw new Error('Image cannot be saved')
+  return image
+}
+
 function DisplaySettings({ preferences, onSave, onClose }) {
   const dialog = useRef(null)
   const [draft, setDraft] = useState(preferences)
   const [error, setError] = useState('')
+  const [dragTarget, setDragTarget] = useState('')
+  const [mapUploading, setMapUploading] = useState(false)
+  const [sponsorsUploading, setSponsorsUploading] = useState(false)
   const uploadVersion = useRef(0)
   useEffect(() => { const element = dialog.current; element.showModal(); return () => element.close() }, [])
   async function upload(file) {
     const version = ++uploadVersion.current
-    if (!file) return
-    if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type) || file.size > 2 * 1024 * 1024) { setError('Choose a PNG, JPG or WebP image up to 2 MB.'); return }
+    if (!file) { setMapUploading(false); return }
+    if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type) || file.size > 5 * 1024 * 1024) { setMapUploading(false); setError('Choose a PNG, JPG or WebP image up to 5 MB.'); return }
+    setMapUploading(true)
     try {
-      const data = await new Promise((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(reader.result); reader.onerror = reject; reader.readAsDataURL(file) })
-      const image = new Image()
-      image.src = data
-      await image.decode()
-      if (image.width > 12000 || image.height > 12000) throw new Error('Image too large')
+      const data = await prepareTvArtwork(file)
       if (version === uploadVersion.current) { setDraft((current) => ({ ...current, map: data, showMap: true })); setError('') }
-    } catch { setError('This image could not be opened. Try a smaller PNG, JPG or WebP.') }
+    } catch { if (version === uploadVersion.current) setError('This image could not be opened. Try a smaller PNG, JPG or WebP.') }
+    finally { if (version === uploadVersion.current) setMapUploading(false) }
   }
   async function uploadSponsors(files) {
+    if (sponsorsUploading) return
     const incoming = [...files].slice(0, Math.max(0, 3 - draft.sponsorAds.length))
     if (!incoming.length) return
-    if (incoming.some(file => !['image/png', 'image/jpeg', 'image/webp'].includes(file.type) || file.size > 500000)) {
-      setError('Each sponsor image must be PNG, JPG or WebP and under 500 KB.')
+    if (incoming.some(file => !['image/png', 'image/jpeg', 'image/webp'].includes(file.type) || file.size > 5 * 1024 * 1024)) {
+      setError('Each sponsor image must be PNG, JPG or WebP and up to 5 MB.')
       return
     }
+    setSponsorsUploading(true)
     try {
       const ads = await Promise.all(incoming.map(async file => {
-        const image = await new Promise((resolve, reject) => {
-          const reader = new FileReader()
-          reader.onload = () => resolve(reader.result)
-          reader.onerror = reject
-          reader.readAsDataURL(file)
-        })
-        return { image, name: file.name.replace(/\.[^.]+$/, '').slice(0, 80) }
+        const image = await prepareTvArtwork(file)
+        return { image, name: '' }
       }))
       setDraft(current => ({ ...current, sponsorAds: [...current.sponsorAds, ...ads].slice(0, 3) }))
       setError('')
-    } catch { setError('The sponsor images could not be opened.') }
+    } catch { setError('The sponsor images could not be opened. Try another PNG, JPG or WebP.') }
+    finally { setSponsorsUploading(false) }
+  }
+  function dropFiles(event, target) {
+    event.preventDefault()
+    setDragTarget('')
+    if (target === 'map') void upload(event.dataTransfer.files?.[0])
+    else void uploadSponsors(event.dataTransfer.files || [])
   }
   return <dialog ref={dialog} className="club-tv-settings" onCancel={onClose} aria-labelledby="club-tv-settings-title">
     <form onSubmit={(event) => { event.preventDefault(); try { onSave(draft) } catch { setError('Settings could not be saved. Try a smaller map or free some browser storage.') } }}>
@@ -169,16 +199,16 @@ function DisplaySettings({ preferences, onSave, onClose }) {
       <small>Weather uses this ground, wherever the screen is running. Great Britain postcodes supported.</small>
       <label className="club-tv-check"><input type="checkbox" checked={draft.bigGoal} onChange={(event) => setDraft({ ...draft, bigGoal: event.target.checked })} /> Large goal celebration</label>
       <small>Switch off for a small goal popup. All celebrations are silent.</small>
-      <label>Pitch map <input type="file" accept="image/png,image/jpeg,image/webp" onChange={(event) => upload(event.target.files?.[0])} /></label>
-      <small>PNG, JPG or WebP, up to 2 MB. The map stays beside the rotating scores.</small>
-      {draft.map ? <><img className="club-tv-map-preview" src={draft.map} alt="Uploaded pitch map preview" /><label className="club-tv-check"><input type="checkbox" checked={draft.showMap} onChange={(event) => setDraft({ ...draft, showMap: event.target.checked })} /> Show map on half the display</label><button type="button" onClick={() => { uploadVersion.current++; setDraft({ ...draft, map: '' }) }}>Remove map</button></> : null}
-      <label>Sponsor artwork <input type="file" accept="image/png,image/jpeg,image/webp" multiple onChange={(event) => { void uploadSponsors(event.target.files || []) }} /></label>
-      <small>Add up to three sponsor adverts. Each image must be under 500 KB. They rotate on this club display.</small>
-      {draft.sponsorAds.map((ad, index) => <div className="club-tv-sponsor-edit" key={`${ad.name}:${index}`}><img src={ad.image} alt="Sponsor preview" /><input aria-label={`Sponsor ${index + 1} name`} maxLength={80} value={ad.name} onChange={(event) => setDraft(current => ({ ...current, sponsorAds: current.sponsorAds.map((item, itemIndex) => itemIndex === index ? { ...item, name: event.target.value } : item) }))} /><button type="button" onClick={() => setDraft(current => ({ ...current, sponsorAds: current.sponsorAds.filter((_, itemIndex) => itemIndex !== index) }))}>Remove</button></div>)}
+      <label className={`club-tv-upload${dragTarget === 'map' ? ' club-tv-upload-active' : ''}`} onDragOver={(event) => { event.preventDefault(); setDragTarget('map') }} onDragLeave={() => setDragTarget('')} onDrop={(event) => dropFiles(event, 'map')}>Pitch map <span>Drag and drop or click to upload</span><input aria-label="Pitch map" type="file" accept="image/png,image/jpeg,image/webp" onChange={(event) => { void upload(event.target.files?.[0]); event.target.value = '' }} /></label>
+      <small>PNG, JPG or WebP, up to 5 MB. The map stays beside the rotating scores.</small>
+      {draft.map ? <><img className="club-tv-map-preview" src={draft.map} alt="Uploaded pitch map preview" /><label className="club-tv-check"><input type="checkbox" checked={draft.showMap} onChange={(event) => setDraft({ ...draft, showMap: event.target.checked })} /> Show map on half the display</label><button type="button" onClick={() => { uploadVersion.current++; setMapUploading(false); setDraft({ ...draft, map: '' }) }}>Remove map</button></> : null}
+      <label className={`club-tv-upload${dragTarget === 'sponsor' ? ' club-tv-upload-active' : ''}`} onDragOver={(event) => { event.preventDefault(); setDragTarget('sponsor') }} onDragLeave={() => setDragTarget('')} onDrop={(event) => dropFiles(event, 'sponsor')}>Sponsor artwork <span>Drag and drop or click to upload</span><input aria-label="Sponsor artwork" type="file" accept="image/png,image/jpeg,image/webp" multiple disabled={sponsorsUploading} onChange={(event) => { void uploadSponsors(event.target.files || []); event.target.value = '' }} /></label>
+      <small>Add up to three sponsor adverts. Each image can be up to 5 MB. They rotate on this club display.</small>
+      {draft.sponsorAds.map((ad, index) => <div className="club-tv-sponsor-edit" key={index}><img src={ad.image} alt={`Sponsor ${index + 1} preview`} /><button type="button" aria-label={`Remove sponsor ${index + 1}`} onClick={() => setDraft(current => ({ ...current, sponsorAds: current.sponsorAds.filter((_, itemIndex) => itemIndex !== index) }))}>Remove</button></div>)}
       <label className="club-tv-check"><input type="checkbox" checked={draft.showPitchsideOrdering} onChange={(event) => setDraft({ ...draft, showPitchsideOrdering: event.target.checked })} /> Show pitchside ordering</label>
       <small>When enabled, the display says Coming soon until ordering is available.</small>
       {error ? <p role="alert">{error}</p> : null}
-      <div className="club-tv-settings-actions"><button type="button" onClick={onClose}>Cancel</button><button type="submit">Save settings</button></div>
+      <div className="club-tv-settings-actions"><button type="button" onClick={onClose}>Cancel</button><button type="submit" disabled={mapUploading || sponsorsUploading}>Save settings</button></div>
       <small>Forecast: <a href="https://api.met.no/" target="_blank" rel="noreferrer">MET Norway</a>, CC BY 4.0. Postcodes: <a href="https://postcodes.io/docs/licences/" target="_blank" rel="noreferrer">OS OpenData and ONS</a>. Contains OS data and National Statistics data © Crown copyright and database right {new Date().getFullYear()}. Contains Royal Mail data © Royal Mail copyright and database right {new Date().getFullYear()}.</small>
     </form>
   </dialog>
@@ -373,9 +403,9 @@ function ClubDayDisplay({ user, date, setDate }) {
         {!homeFixtures.length ? <p className="club-tv-home-empty">No home fixtures {weekAhead ? 'this week' : 'today'}.</p> : null}
       </section>
       <aside className="club-tv-side-panel" aria-label="Club information">
-        <section className="club-tv-sponsor" aria-label="Club sponsors">{preferences.sponsorAds.length ? <><img src={preferences.sponsorAds[sponsorIndex % preferences.sponsorAds.length].image} alt={preferences.sponsorAds[sponsorIndex % preferences.sponsorAds.length].name || 'Club sponsor'} /><small>{preferences.sponsorAds[sponsorIndex % preferences.sponsorAds.length].name}</small></> : <><small>PROUD TO SUPPORT YOUR CLUB</small><strong>Your company could advertise here.</strong><span>Ask the Club Admin about matchday sponsorship.</span></>}</section>
+        <section className={`club-tv-sponsor${preferences.sponsorAds.length ? ' club-tv-sponsor-artwork' : ''}`} aria-label="Club sponsors">{preferences.sponsorAds.length ? <img src={preferences.sponsorAds[sponsorIndex % preferences.sponsorAds.length].image} alt="Club sponsor advert" /> : <><small>PROUD TO SUPPORT YOUR CLUB</small><strong>Your company could advertise here.</strong><span>Ask the Club Admin about matchday sponsorship.</span></>}</section>
         {hasMap ? <section className="club-tv-pitch"><div><h2>Pitch map</h2><span>Find your pitch</span></div><img src={preferences.map} alt={`${club?.name || user.clubName || 'Club'} pitch map`} /></section> : null}
-        {preferences.showPitchsideOrdering ? <section className="club-tv-ordering"><small>MATCHDAY PITCHSIDE</small><strong>Pitchside ordering</strong><span>Coming soon</span></section> : null}
+        {preferences.showPitchsideOrdering ? <section className="club-tv-ordering"><small>MATCHDAY PITCHSIDE</small><strong>Pitchside ordering</strong><span>Coming soon</span></section> : <section className="club-tv-goal-alert-ad" aria-label="Free live goal alerts"><img src="/club-tv-goal-alerts.webp" alt="Free live goal alerts for grassroots football. Scan the QR code to get started." /></section>}
       </aside>
     </div>
     <RoadTicker matches={awayFixtures} clubLogo={club?.logoUrl || user.clubLogoUrl} showDate={weekAhead} paused={paused} />
