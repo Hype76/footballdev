@@ -14,6 +14,11 @@ const date = '2026-10-21'
 const clubBadge = `data:image/webp;base64,${(await readFile('src/assets/football-player-logo.webp')).toString('base64')}`
 const makeMatch = (index) => ({ id: `match-${index}`, teamName: `U${index + 7} Blue`, opponent: `Visitors ${index + 1}`, homeAway: index % 2 ? 'away' : 'home', matchDate: date, kickoff: '10:00', kickoffTbc: false, venue: `Pitch ${index + 1}`, status: index < 3 ? 'live' : index < 6 ? 'full_time' : 'scheduled', homeScore: index % 3, awayScore: 0, timerStatus: index < 3 ? 'running' : index < 6 ? 'full_time' : 'not_started', elapsed: 1200, timerStartedAt: '2026-10-21T09:00:00Z', events: [{ id: `event-${index}`, type: 'goal', side: 'club', shirt: '9', minute: 12 }, { id: `red-${index}`, type: 'red_card', side: 'opponent', shirt: '4', minute: 19 }] })
 let matches = Array.from({ length: 19 }, (_, index) => makeMatch(index)), denied = false, unavailable = false, requests = [], unlockAccepted = false
+const longTeamName = 'U7 Cambourne Town Football Club Saturday Development Team Blue 26/27'
+matches[0] = { ...matches[0], teamName: longTeamName, venue: 'Cambourne Sports Centre, Pitch 1, 45 High Street' }
+matches[2] = { ...matches[2], venue: 'Cambourne Fitness and Sports Centre' }
+matches[4] = { ...matches[4], homeScore: 16, awayScore: 13 }
+matches[7] = { ...matches[7], kickoffTbc: true }
 let displayWindow
 const errors = []
 try {
@@ -38,6 +43,16 @@ try {
     return route.continue()
   })
   const page = await context.newPage()
+  async function assertScoreFits() {
+    const fits = await page.locator('.club-tv-score>[data-result="win"]').evaluate(score => {
+      const range = document.createRange()
+      range.selectNode(score.firstChild)
+      const text = range.getBoundingClientRect()
+      const box = score.getBoundingClientRect()
+      return text.left >= box.left && text.right <= box.right
+    })
+    assert.ok(fits, 'Both scores stay inside their result badge')
+  }
   async function nextGoal(selector) {
     for (let second = 0; second < 12; second++) {
       await page.clock.runFor(1000)
@@ -55,11 +70,30 @@ try {
   await page.screenshot({ path: `${output}/match-operations-menu.png` })
   await matchOperations.getByRole('link', { name: 'Matchday TV' }).click()
   await page.getByRole('heading', { name: 'Test Club United' }).waitFor()
+  assert.equal(await page.locator('.club-tv-identity small').textContent(), 'WELCOME TO')
   assert.equal(await page.locator('.club-tv-light').count(), 1)
   assert.ok(await page.locator('.club-tv-team-badge').count() >= 12)
   assert.equal(await page.locator('.club-tv-own .club-tv-team-badge').first().getAttribute('src'), clubBadge)
   assert.match(await page.locator('.club-tv-team:not(.club-tv-own) .club-tv-team-badge').first().getAttribute('src'), /football-player-logo/)
-  assert.equal(await page.locator('.club-tv-match').count(), 6)
+  assert.equal(await page.locator('.club-tv-match').count(), 8)
+  assert.deepEqual(await page.locator('.club-tv-match-meta').allTextContents(), ['LIVE', 'LIVE', 'LIVE', 'FULL TIME', 'FULL TIME', 'FULL TIME', 'KO 10:00', 'KO TBC'])
+  assert.deepEqual((await page.locator('.club-tv-home-pitch').allTextContents()).slice(0, 2), ['1', ''])
+  assert.ok((await page.locator('.club-tv-match-meta').first().boundingBox()).width >= 78)
+  assert.ok((await page.locator('.club-tv-home-pitch').first().boundingBox()).width >= 76)
+  const scoreStyles = await page.locator('.club-tv-score>strong').evaluateAll(scores =>
+    scores.map(score => [score.dataset.result || '', getComputedStyle(score).backgroundColor]))
+  assert.deepEqual(scoreStyles.slice(0, 6), [
+    ['', 'rgb(23, 77, 160)'], ['', 'rgb(23, 77, 160)'], ['', 'rgb(23, 77, 160)'],
+    ['draw', 'rgb(245, 207, 82)'], ['win', 'rgb(24, 116, 66)'], ['loss', 'rgb(178, 33, 55)'],
+  ])
+  await assertScoreFits()
+  const nameStyles = await page.locator('.club-tv-team-name').evaluateAll(names => names.map(name => {
+    const style = getComputedStyle(name)
+    return [style.fontFamily, style.fontSize, style.fontWeight, style.whiteSpace, style.textOverflow]
+  }))
+  assert.equal(new Set(nameStyles.map(style => JSON.stringify(style))).size, 1)
+  assert.deepEqual(nameStyles[0].slice(3), ['nowrap', 'ellipsis'])
+  assert.ok(await page.locator('.club-tv-match').first().getByTitle(longTeamName).evaluate(name => name.scrollWidth > name.clientWidth))
   assert.equal(await page.locator('.club-tv-home-row').count(), 6)
   assert.equal(await page.locator('.club-tv-road-track').count(), 1)
   assert.equal(await page.locator('.club-tv-ordering').count(), 0)
@@ -110,7 +144,7 @@ try {
   ]
   matches = compactMatches
   await page.clock.runFor(11000)
-  assert.equal(await page.locator('.club-tv-match').count(), 0)
+  assert.equal(await page.locator('.club-tv-match').count(), 2)
   assert.equal(await page.locator('.club-tv-home-row').count(), 1)
   await page.screenshot({ path: `${output}/compact-two-matches.png` })
   displayWindow = { kind: 'week', startDate: '2026-10-22', endDate: '2026-10-28' }
@@ -129,10 +163,10 @@ try {
   await page.clock.runFor(11000)
   await page.keyboard.press('Escape')
   await page.clock.runFor(31000)
-  assert.match(await page.locator('.club-tv-pages').textContent(), /Page 2 \/ 2/)
+  assert.match(await page.locator('.club-tv-pages').textContent(), /Page 2 \/ 3/)
   await page.getByRole('button', { name: 'Pause carousel' }).click()
   await page.clock.runFor(31000)
-  assert.match(await page.locator('.club-tv-pages').textContent(), /Page 2 \/ 2.*Paused/)
+  assert.match(await page.locator('.club-tv-pages').textContent(), /Page 2 \/ 3.*Paused/)
   await page.getByRole('button', { name: 'Previous match page' }).click()
   matches = matches.map((match, index) => index ? match : { ...match, homeScore: match.homeScore + 1, events: [...match.events, { id: 'new-goal', type: 'goal', side: 'club', shirt: '11', minute: 22 }] })
   await nextGoal('.club-tv-goal-large')
@@ -152,7 +186,7 @@ try {
   ])
   await page.getByLabel('Show pitchside ordering').check()
   await page.getByRole('button', { name: 'Save settings' }).click()
-  assert.equal(await page.locator('.club-tv-match').count(), 6)
+  assert.equal(await page.locator('.club-tv-match').count(), 8)
   await page.locator('.club-tv-pitch').waitFor()
   await page.getByAltText('Sponsor One').waitFor()
   await page.getByText('Coming soon').waitFor()
@@ -170,10 +204,11 @@ try {
   await page.getByText('Coming soon').waitFor()
   await page.getByText('13°C', { exact: false }).waitFor()
   await page.getByRole('img', { name: 'cloudy', exact: true }).waitFor()
+  assert.equal(await page.locator('.club-tv-weather-source a').textContent(), 'MET Norway')
   assert.equal(await page.locator('.club-tv-split').count(), 1)
   await page.screenshot({ path: `${output}/tv-split.png` })
   const lastMatch = await page.locator('.club-tv-match').last().boundingBox(), footer = await page.locator('.club-tv-footer').boundingBox()
-  assert.ok(lastMatch.y + lastMatch.height <= footer.y + 1, 'All six rows fit above the footer with the map visible')
+  assert.ok(lastMatch.y + lastMatch.height <= footer.y + 1, 'All score rows fit above the footer with the map visible')
   const mappedMatchday = matches
   matches = compactMatches; displayWindow = { kind: 'week', startDate: '2026-10-22', endDate: '2026-10-28' }
   await page.clock.runFor(11000)
@@ -223,6 +258,7 @@ try {
   await page.setViewportSize({ width: 390, height: 844 })
   await page.screenshot({ path: `${output}/narrow-web.png`, fullPage: true })
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false)
+  await assertScoreFits()
   await page.setViewportSize({ width: 1920, height: 1080 })
   await page.getByRole('button', { name: 'Full screen and lock' }).click()
   await page.getByRole('button', { name: 'Unlock Club Admin', exact: true }).waitFor()
@@ -268,7 +304,7 @@ try {
   unavailable = true
   await page.clock.runFor(11000)
   await page.getByRole('status').filter({ hasText: 'Scores could not be refreshed' }).waitFor()
-  assert.equal(await page.locator('.club-tv-match').count(), 6)
+  assert.equal(await page.locator('.club-tv-match').count(), 8)
   unavailable = false
   denied = true
   await page.clock.runFor(11000)

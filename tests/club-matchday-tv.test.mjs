@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { canViewClubMatchdayTv, clubTvDate, newTvGoals, readTvPreferences, toClubTvMatch, tvMatchSides, tvMatchStatus, validTvDate, tvDateAfter } from '../src/lib/club-matchday-tv.js'
+import { canViewClubMatchdayTv, clubTvDate, newTvGoals, readTvPreferences, toClubTvMatch, tvMatchSides, tvMatchStatus, tvPitchNumber, validTvDate, tvDateAfter } from '../src/lib/club-matchday-tv.js'
 import { isClubTvLocked, setClubTvLocked } from '../src/lib/club-tv-lock.js'
 
 process.env.VITE_SUPABASE_URL ||= 'https://example.supabase.co'
@@ -54,16 +54,41 @@ test('DTO discards player identities, invalid shirts, voided events, shootout ev
   assert.equal(toClubTvMatch(fixture({ match_day_events: [{ ...row.match_day_events[0], event_status: 'corrected' }] }), clubId).events.length, 1)
 })
 
-test('away scores, running clock, breaks, full time and London match dates remain correct', () => {
+test('TV uses compact live, full-time and kickoff labels and London match dates', () => {
   const display = toClubTvMatch(fixture(), clubId)
   assert.deepEqual(tvMatchSides(display), { home: 'Visitors', away: 'U12 Blue', clubHome: false })
-  assert.equal(tvMatchStatus(display, Date.parse('2026-10-21T10:05:00Z')).label, '25′ LIVE')
-  assert.equal(tvMatchStatus({ ...display, status: 'half_time' }).label, 'HALF TIME')
-  assert.equal(tvMatchStatus({ ...display, concluded: true }).kind, 'finished')
+  for (const status of ['live', 'half_time', 'second_half', 'extra_time', 'penalties']) {
+    assert.deepEqual(tvMatchStatus({ ...display, status }), { label: 'LIVE', kind: 'live' })
+  }
+  assert.equal(tvMatchStatus({ ...display, timerStatus: 'hydration' }).label, 'LIVE')
+  assert.equal(tvMatchStatus({ ...display, concluded: true }).label, 'FULL TIME')
+  assert.equal(tvMatchStatus({ ...display, status: 'scheduled', kickoff: '10:30' }).label, 'KO 10:30')
   assert.equal(tvMatchStatus({ ...display, status: 'scheduled', kickoffTbc: true }).label, 'KO TBC')
+  assert.equal(tvMatchStatus({ ...display, status: 'cancelled' }).kind, 'inactive')
+  assert.equal(tvMatchStatus({ ...display, status: 'postponed' }).kind, 'inactive')
   assert.equal(clubTvDate(new Date('2026-07-01T23:30:00Z')), '2026-07-02')
   assert.equal(validTvDate('2026-02-30'), false)
   assert.equal(validTvDate('2028-02-29'), true)
+})
+
+test('completed results use the club perspective and confirmed shootout winner', () => {
+  const result = (patch) => tvMatchStatus(toClubTvMatch(fixture({ status: 'full_time', ...patch }), clubId)).result
+  assert.equal(result({}), 'win')
+  assert.equal(result({ home_away: 'home' }), 'loss')
+  assert.equal(result({ home_score: 16, away_score: 3 }), 'loss')
+  assert.equal(result({ home_away: 'home', home_score: 16, away_score: 3 }), 'win')
+  assert.equal(result({ home_score: 2, away_score: 2 }), 'draw')
+  assert.equal(result({ home_score: 2, away_score: 2, shootout_winner: 'away' }), 'win')
+  assert.equal(result({ home_score: 2, away_score: 2, shootout_winner: 'home' }), 'loss')
+})
+
+test('home pitch displays only a recorded pitch number', () => {
+  assert.equal(tvPitchNumber('Pitch 4'), '4')
+  assert.equal(tvPitchNumber('Cambourne Sports Centre, Pitch No. 3b, 45 High Street'), '3B')
+  assert.equal(tvPitchNumber(' 12a '), '12A')
+  assert.equal(tvPitchNumber('45 High Street, CB23 6FY'), '')
+  assert.equal(tvPitchNumber('Cambourne Fitness and Sports Centre'), '')
+  assert.equal(tvPitchNumber(undefined), '')
 })
 
 test('initial loads and score corrections do not trigger goal celebrations', () => {

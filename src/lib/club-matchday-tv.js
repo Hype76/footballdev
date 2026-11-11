@@ -56,6 +56,7 @@ export function toClubTvMatch(row, clubId) {
     venue: text(row.venue_name), status: text(row.status) || 'scheduled',
     homeScore: number(row.home_score), awayScore: number(row.away_score),
     homeShootoutScore: number(row.home_shootout_score), awayShootoutScore: number(row.away_shootout_score),
+    shootoutWinner: ['home', 'away'].includes(row.shootout_winner) ? row.shootout_winner : '',
     timerStatus: text(row.timer_status), elapsed: Number.isFinite(Number(row.timer_elapsed_seconds)) ? Math.max(0, Math.min(86400, Number(row.timer_elapsed_seconds))) : 0,
     timerStartedAt: text(row.timer_started_at), concluded: Boolean(row.concluded_at), events,
   }
@@ -67,19 +68,29 @@ export function tvMatchSides(match) {
     : { home: match.teamName, away: match.opponent, clubHome: true }
 }
 
-export function tvMatchStatus(match, now = Date.now()) {
-  if (match.concluded || match.status === 'full_time' || match.timerStatus === 'full_time') return { label: 'FULL TIME', kind: 'finished' }
-  if (match.status === 'cancelled') return { label: 'CANCELLED', kind: 'upcoming' }
-  if (match.status === 'postponed') return { label: 'POSTPONED', kind: 'upcoming' }
-  if (match.status === 'half_time' || match.timerStatus === 'half_time') return { label: 'HALF TIME', kind: 'live' }
-  if (match.status === 'penalties') return { label: 'PENALTIES', kind: 'live' }
-  if (match.timerStatus === 'hydration') return { label: 'WATER BREAK', kind: 'live' }
-  if (liveStatuses.has(match.status)) {
-    const started = Date.parse(match.timerStartedAt)
-    const elapsed = match.elapsed + (match.timerStatus === 'running' && Number.isFinite(started) ? Math.max(0, (now - started) / 1000) : 0)
-    return { label: `${Math.floor(elapsed / 60)}′${match.timerStatus === 'paused' ? ' PAUSED' : ' LIVE'}`, kind: 'live' }
+export function tvMatchStatus(match) {
+  if (match.status === 'cancelled' || match.status === 'postponed') {
+    return { label: match.status.toUpperCase(), kind: 'inactive' }
+  }
+  if (match.concluded || match.status === 'full_time' || match.timerStatus === 'full_time') {
+    const winner = match.homeScore === match.awayScore
+      ? match.shootoutWinner
+      : match.homeScore > match.awayScore ? 'home' : 'away'
+    const clubSide = tvMatchSides(match).clubHome ? 'home' : 'away'
+    const result = winner ? (winner === clubSide ? 'win' : 'loss') : 'draw'
+    return { label: 'FULL TIME', kind: 'finished', result }
+  }
+  if (liveStatuses.has(match.status) || ['half_time', 'hydration'].includes(match.timerStatus)) {
+    return { label: 'LIVE', kind: 'live' }
   }
   return { label: match.kickoffTbc || !match.kickoff ? 'KO TBC' : `KO ${match.kickoff}`, kind: 'upcoming' }
+}
+
+export function tvPitchNumber(venue) {
+  const value = text(venue)
+  const match = /^(\d{1,3}[a-z]?)$/i.exec(value)
+    || /\bpitch\s+(?:no\.?\s*|#\s*)?(\d{1,3}[a-z]?)(?=$|[\s,;)])/i.exec(value)
+  return match?.[1].toUpperCase() ?? ''
 }
 
 export function newTvGoals(previous, next) {
