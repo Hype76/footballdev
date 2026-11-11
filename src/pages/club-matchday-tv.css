@@ -74,6 +74,10 @@
 .club-tv-sponsor,.club-tv-ordering,.club-tv-road>strong{background:var(--tv-accent);color:var(--tv-accent-text)}.club-tv-sponsor small,.club-tv-sponsor span,.club-tv-ordering small,.club-tv-ordering span{color:var(--tv-accent-text)}
 .club-tv-road-item .club-tv-team-name{max-width:24ch}.club-tv-road-item>strong{flex-shrink:0;white-space:nowrap}
 .club-tv-weather{gap:3px}
+.club-tv .club-tv-identity small{font-size:clamp(14px,1vw,18px);font-weight:700;letter-spacing:1px}
+.club-tv-home-head.club-tv-home-row-week,.club-tv-home-row.club-tv-home-row-week{grid-template-columns:48px minmax(0,1fr) 60px 76px}
+.club-tv-home-head.club-tv-home-row-week>span:last-child{text-align:right}
+.club-tv-home-date{text-align:right;white-space:nowrap;font-size:11px;font-weight:700;color:#164a69}
 .club-tv-weather-reading{gap:10px}
 .club-tv-weather-icon{width:48px;height:48px}
 .club-tv-weather-details{display:flex;align-items:baseline;gap:8px;text-align:left}
