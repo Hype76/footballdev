@@ -1,7 +1,7 @@
 import { getAuthenticatedPlanProfile, assertPlanFeature } from './lib/_plan-gate.js'
 import { supabaseAdmin, createPublicSupabaseClient } from './lib/_supabase.js'
 import { isClubWorkspace } from '../../src/lib/workspace-scope.js'
-import { toClubTvMatch, validTvDate, tvDateAfter } from '../../src/lib/club-matchday-tv.js'
+import { toClubTvMatch, validTvDate, tvDateAfter, tvPeriodWindow } from '../../src/lib/club-matchday-tv.js'
 import { getClubTvWeather, normaliseWeatherPostcode } from './lib/_club-tv-weather.js'
 
 export const CLUB_TV_MATCH_SELECT = 'id,club_id,team_id,opponent,match_date,kickoff_time,kickoff_time_tbc,home_away,venue_name,status,home_score,away_score,home_shootout_score,away_shootout_score,shootout_winner,timer_status,timer_elapsed_seconds,timer_started_at,concluded_at,deleted_at,teams:team_id(id,club_id,name),match_day_events(id,event_type,team_side,minute,stoppage_minute,scorer_shirt_number,event_status,match_phase,created_at)'
@@ -24,8 +24,8 @@ export function createClubMatchdayTvHandler({ authenticate = getAuthenticatedPla
       let body
       try { body = JSON.parse(event.body) } catch { return reply(400, { message: 'Invalid display request.' }) }
       if (!body || typeof body !== 'object' || Array.isArray(body)) return reply(400, { message: 'Invalid display request.' })
-      const clubId = String(body?.clubId ?? '').trim(), date = body?.date
-      if (!uuid.test(clubId) || (!body.action && !validTvDate(date)) || (body.action && !['weather', 'unlock'].includes(body.action))) return reply(400, { message: 'Choose a valid club and match date.' })
+      const clubId = String(body?.clubId ?? '').trim(), date = body?.date, period = body.period === undefined ? 'day' : body.period
+      if (!uuid.test(clubId) || (!body.action && (!validTvDate(date) || !tvPeriodWindow(date, period))) || (body.action && !['weather', 'unlock'].includes(body.action))) return reply(400, { message: 'Choose a valid club and match date.' })
       const profile = await authenticate(event, { clubId })
       assertClubTvAuthority(profile, clubId)
       // This is club-wide read access, independent of team-scoped scoring rights.
@@ -65,10 +65,10 @@ export function createClubMatchdayTvHandler({ authenticate = getAuthenticatedPla
         }
         throw new Error('Display match limit exceeded')
       }
-      let matches = await readMatches(date, date)
-      let window = { kind: 'day', startDate: date, endDate: date }
+      let window = tvPeriodWindow(date, period)
+      let matches = await readMatches(window.startDate, window.endDate)
       const nextDate = tvDateAfter(date, 1), endDate = tvDateAfter(date, 7)
-      if (!matches.length && nextDate && endDate) {
+      if (period === 'day' && !matches.length && nextDate && endDate) {
         matches = await readMatches(nextDate, endDate)
         window = { kind: 'week', startDate: nextDate, endDate }
       }

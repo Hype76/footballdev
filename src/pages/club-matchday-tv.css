@@ -81,6 +81,7 @@
 .club-tv-settings .club-tv-upload{border:1px dashed #8aa6b5;border-radius:5px;padding:12px;cursor:pointer}
 .club-tv-settings .club-tv-upload-active,.club-tv-settings .club-tv-upload:focus-within{outline:2px solid var(--tv-accent);outline-offset:2px}
 .club-tv-upload span{font-size:12px}
+.club-tv-controls button[aria-pressed="true"]{background:var(--tv-accent);color:var(--tv-accent-text);border-color:var(--tv-accent);font-weight:700}
 .club-tv-sponsor-settings{display:flex;flex-direction:column;gap:8px;padding:12px 0;border-bottom:1px solid #bdcfc2}
 .club-tv-sponsor-edit{flex-wrap:wrap}.club-tv-sponsor-edit strong{flex:1;min-width:65px}.club-tv-sponsor-edit button{min-width:38px}
 .club-tv-ad-preview{background:#092128}.club-tv-ad-preview img{display:block;width:100%;height:auto;max-height:240px;object-fit:contain}

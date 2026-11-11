@@ -32,6 +32,25 @@ export function tvDateAfter(value, days) {
   return validTvDate(result) ? result : null
 }
 
+export function tvPeriodWindow(date, period = 'day') {
+  if (!validTvDate(date) || !['day', 'weekend', 'week', 'month'].includes(period)) return null
+  if (period === 'day') return { kind: 'day', startDate: date, endDate: date }
+  const selected = new Date(`${date}T12:00:00Z`), weekday = selected.getUTCDay()
+  let startDate, endDate
+  if (period === 'weekend') {
+    startDate = tvDateAfter(date, weekday === 0 ? -1 : 6 - weekday)
+    endDate = startDate && tvDateAfter(startDate, 1)
+  } else if (period === 'week') {
+    startDate = tvDateAfter(date, -((weekday + 6) % 7))
+    endDate = startDate && tvDateAfter(startDate, 6)
+  } else {
+    startDate = `${date.slice(0, 7)}-01`
+    selected.setUTCMonth(selected.getUTCMonth() + 1, 0)
+    endDate = selected.toISOString().slice(0, 10)
+  }
+  return validTvDate(startDate) && validTvDate(endDate) ? { kind: period, startDate, endDate } : null
+}
+
 export function activeTvSponsors(ads, today = clubTvDate()) {
   if (!validTvDate(today)) return []
   return ads.filter(ad => ad.enabled !== false && (!ad.startDate || (validTvDate(ad.startDate) && ad.startDate <= today)) && (!ad.endDate || (validTvDate(ad.endDate) && ad.endDate >= today)) && (!ad.startDate || !ad.endDate || ad.startDate <= ad.endDate))
