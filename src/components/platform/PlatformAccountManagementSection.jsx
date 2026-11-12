@@ -6,6 +6,7 @@ import { Pagination } from '../ui/Pagination.jsx'
 import { SectionCard } from '../ui/SectionCard.jsx'
 import { StatusPill } from '../ui/StatusPill.jsx'
 import { ClubAccessManagement } from './ClubAccessManagement.jsx'
+import { PlatformMatchDaySupport } from './PlatformMatchDaySupport.jsx'
 
 const labelClass = 'mb-2 block text-sm font-black text-[#101828]'
 const eyebrowClass = 'text-xs font-black uppercase tracking-[0.16em] text-[#4b5f55]'
@@ -211,6 +212,7 @@ function ClubAccountCard({
         />
       </div>
       <ClubAccessManagement accessToken={accessToken} club={club} />
+      <PlatformMatchDaySupport key={club.id} club={club} />
     </div>
   )
 }

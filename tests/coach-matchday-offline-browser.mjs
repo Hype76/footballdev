@@ -150,6 +150,14 @@ try {
     };
     const secondHalf={...await page.evaluate(()=>window.server),status:'second_half',currentMatchPhase:'second_half',matchConclusionRule:'straight_to_penalties',matchDurationMinutes:80,timerStatus:'running',timerElapsedSeconds:2400,timerStartedAt:new Date(Date.now()-208*60000).toISOString()};
     await setFixture(secondHalf);
+    await page.evaluate(()=>localStorage.setItem('offline','1'));
+    await mount();
+    const refreshFinish=page.getByRole('button',{name:'Refresh to finish',exact:true});
+    await refreshFinish.waitFor();
+    await page.evaluate(()=>{window.online=true;window.endControlsTest=true});
+    await refreshFinish.click();
+    await page.getByRole('button',{name:'End normal time',exact:true}).waitFor();
+    assert.deepEqual(await page.evaluate(()=>window.timerCalls||[]),[],'Refreshing must not change the match');
     await page.getByRole('button',{name:'End normal time',exact:true}).click();
     await page.getByRole('button',{name:'Confirm',exact:true}).click();
     await page.waitForFunction(()=>window.server.currentMatchPhase==='normal_time_complete');
@@ -178,9 +186,10 @@ try {
       localStorage.setItem('offline','1');
     });
     await mount();
-    await page.getByRole('button',{name:'End match',exact:true}).waitFor();
-    assert.equal(await page.getByRole('button',{name:'End match',exact:true}).isEnabled(),true,'Saved actions must not hide the route to review them');
-    await page.getByRole('button',{name:'End match',exact:true}).click();
+    const reviewSaved=page.getByRole('button',{name:'Review saved actions',exact:true}).last();
+    await reviewSaved.waitFor();
+    assert.equal(await reviewSaved.isEnabled(),true,'Saved actions must not hide the route to review them');
+    await reviewSaved.click();
     await page.getByRole('button',{name:'Discard saved actions',exact:true}).waitFor();
     assert.equal(await page.evaluate(()=>window.shootoutExitCalls||0),0,'Opening saved-action recovery must not end the match');
     assert.deepEqual(errors,[]);

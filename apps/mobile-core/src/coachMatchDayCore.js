@@ -2,7 +2,7 @@ import { getGoalScorerSide } from '../../../src/lib/matchday-goal-credit.js'
 import { buildFinalMatchReportSummary, isFinalMatchReportAvailable } from '../../../src/lib/matchday-final-report.js'
 import { getMatchDayDisplayName, getMatchDayDisplayParts, getMatchDayDisplayScore } from '../../../src/lib/matchday-display.js'
 import { getMatchDayPhaseLabel } from '../../../src/lib/matchday-extended-ops.js'
-import { getMatchDayLifecycleState, getParentScorerTimerActions } from '../../../src/lib/matchday-lifecycle.js'
+import { getMatchDayFinishAction, getMatchDayLifecycleState, getParentScorerTimerActions } from '../../../src/lib/matchday-lifecycle.js'
 import {
   getMatchDayAvailabilityLabel,
   getMatchDaySquadDecisionLabel,
@@ -229,6 +229,19 @@ export function getCoachMatchDayActions({ context, match, reconciling = false, s
     startBlockedReason: startBlockedByFixtureDate ? 'This match can only be started on its fixture date.' : '',
     timerActions: captureActions ? captureActions.timerActions.filter(item => ['start', 'pause', 'hydration', 'half_time', 'resume', 'full_time'].includes(item.action)) : timerActions,
   })
+}
+
+export function getCoachMatchDayFinishControl({ context, match, fixtureStale, pendingCount, reconciling } = {}) {
+  const actions = getCoachMatchDayActions({ context, match })
+  if (!actions.canMutate) return null
+  const shootout = match.currentMatchPhase === 'penalties'
+  const finish = getMatchDayFinishAction(match, actions.timerActions)
+  if (!finish) return null
+  if (pendingCount > 0) return { label: 'Review saved actions', recovery: 'saved-actions' }
+  if (fixtureStale || reconciling) return { label: 'Refresh to finish', recovery: 'refresh' }
+  if (shootout && finish.disabled) return { label: 'End match', action: 'end_shootout_without_result' }
+  if (finish.disabled) return null
+  return { label: shootout ? 'End match' : finish.label, action: finish.action }
 }
 
 export function buildCoachMatchDaySquad(players = [], match = {}) {

@@ -114,3 +114,13 @@ export function getParentScorerTimerActions(match = {}) {
 
   return []
 }
+
+export function getMatchDayFinishAction(match, actions = getParentScorerTimerActions(match)) {
+  const isFinish = ({ action }) => ['normal_time_complete', 'complete_extra_time', 'full_time'].includes(action)
+  const finish = actions.find(isFinish)
+  if (finish) return finish
+  if (match.timerStatus === 'paused' && ['live', 'second_half', 'extra_time'].includes(match.status)) {
+    return getParentScorerTimerActions({ ...match, timerStatus: 'running' }).find(isFinish)
+  }
+  return undefined
+}

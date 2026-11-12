@@ -564,7 +564,7 @@ async function waitForReadonlyInputValue(page, value) {
 }
 
 async function signIn(page) {
-  const emailField = page.getByLabel('Email')
+  const emailField = page.getByLabel('Email', { exact: true })
 
   for (let attempt = 0; attempt < 2; attempt += 1) {
     await page.goto(`${baseUrl}/sign-in`, { waitUntil: 'domcontentloaded' })
@@ -580,13 +580,14 @@ async function signIn(page) {
   }
 
   await emailField.fill(fixtureEmail)
-  await page.getByLabel('Password').fill(fixturePassword)
+  const loginForm = page.locator('form').filter({ has: emailField })
+  await loginForm.locator('input[name="password"]').fill(fixturePassword)
   const authResponse = page.waitForResponse((response) =>
     response.url().includes('/auth/v1/token') &&
     response.request().method() !== 'OPTIONS' &&
     response.status() === 200,
   )
-  await page.getByRole('button', { name: 'Log in' }).click()
+  await loginForm.getByRole('button', { name: 'Log in', exact: true }).click()
   await authResponse
   await page.waitForResponse((response) =>
     response.url().includes('/.netlify/functions/platform-admin-access') &&
@@ -714,6 +715,7 @@ async function submitCreateClubInvite(page, { clubName = 'Created Browser Club F
 }
 
 async function runScenario(name, callback) {
+  if (process.argv.includes('--match-support-only') && name !== 'Platform Admin operates a selected team match') return
   await callback()
   console.log(`ok ${name}`)
 }
@@ -726,6 +728,47 @@ try {
     await waitForPort('127.0.0.1', port)
   }
   browser = await chromium.launch()
+
+  await runScenario('Platform Admin operates a selected team match', async () => {
+    const { context, page } = await prepareContext(browser)
+    const fixtureId = 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee'
+    const revision = '2026-11-11T10:00:00+00:00'
+    const writes = []
+    const reads = []
+    const refreshed = []
+    await context.route('**/rest/v1/rpc/platform_list_match_day_support', async (route) => {
+      const payload = route.request().postDataJSON()
+      reads.push(payload)
+      if (writes.length) refreshed.push(payload.team_id_value)
+      const fixture = { id: fixtureId, opponent: 'Old fixture visitors', matchDate: '2026-11-07', status: 'second_half',
+        timerStatus: 'paused', currentMatchPhase: 'second_half', homeScore: 2, awayScore: 0, updatedAt: revision }
+      await fulfillJson(route, 200, payload.team_id_value === disposableTeams[0].id && writes.length === 0 ? [fixture] : [])
+    })
+    await context.route('**/rest/v1/rpc/platform_apply_match_day_support_action', async (route) => {
+      writes.push(route.request().postDataJSON())
+      await fulfillJson(route, 200, { id: fixtureId, status: 'full_time' })
+    })
+    await openPlatformClubs(page)
+    const team = page.getByLabel('Team for Match Day support')
+    await team.selectOption(disposableTeams[1].id)
+    await page.getByText('No matches to manage on this page.').waitFor()
+    await team.selectOption(disposableTeams[0].id)
+    await page.getByRole('button', { name: 'Full time', exact: true }).click()
+    const finishDialog = page.getByRole('dialog', { name: 'Full time' })
+    await finishDialog.getByText(/U12 Tigers Fixture v Old fixture visitors/).waitFor()
+    assert.deepEqual(writes, [])
+    await finishDialog.getByRole('button', { name: 'Full time', exact: true }).click()
+    await page.getByText('Match Day updated.', { exact: true }).waitFor()
+    await page.getByText('No matches to manage on this page.').waitFor()
+    assert.deepEqual(writes, [{
+      club_id_value: disposableClub.id, team_id_value: disposableTeams[0].id,
+      match_day_id_value: fixtureId, expected_updated_at_value: revision, action_value: 'full_time',
+    }])
+    assert.ok(reads.every(({ club_id_value }) => club_id_value === disposableClub.id))
+    assert.deepEqual([...new Set(reads.map(({ team_id_value }) => team_id_value))], [disposableTeams[1].id, disposableTeams[0].id])
+    assert.deepEqual([...new Set(refreshed)], [disposableTeams[0].id])
+    await context.close()
+  })
 
   await runScenario('team delete modal shows the exact disposable team and club', async () => {
     const { context, page, requests } = await prepareContext(browser)

@@ -9,6 +9,7 @@ import {
   filterCoachMatchDays,
   getCoachMatchDayDefaultFilter,
   getCoachMatchDayActions,
+  getCoachMatchDayFinishControl,
   getCoachMatchDayPresentation,
   getCoachMatchDayUndoModel,
   isCoachMatchDayGoalCorrectionApplied,
@@ -114,6 +115,20 @@ test('extended-time actions preserve extra time and shootout gates', () => {
   const shootout = getCoachMatchDayActions({ context, match: { ...baseMatch, conclusionRule: 'straight_to_penalties', currentMatchPhase: 'penalties', shootoutEvents: [], status: 'penalties', timerStatus: 'paused' } })
   assert.equal(shootout.timerActions[0].action, 'full_time')
   assert.equal(shootout.timerActions[0].disabled, true)
+})
+
+test('Coach finish resolves stale and saved-action states before applying the current phase action', () => {
+  const match = { ...baseMatch, conclusionRule: 'extra_time', currentMatchPhase: 'second_half', status: 'second_half' }
+  assert.deepEqual(getCoachMatchDayFinishControl({ context, match, fixtureStale: true }), { label: 'Refresh to finish', recovery: 'refresh' })
+  assert.deepEqual(getCoachMatchDayFinishControl({ context, match, pendingCount: 1, fixtureStale: true }), { label: 'Review saved actions', recovery: 'saved-actions' })
+  assert.deepEqual(getCoachMatchDayFinishControl({ context, match, reconciling: true }), { label: 'Refresh to finish', recovery: 'refresh' })
+  assert.deepEqual(getCoachMatchDayFinishControl({ context, match }), { label: 'End normal time', action: 'normal_time_complete' })
+  assert.equal(getCoachMatchDayFinishControl({ context, match: baseMatch }).action, 'full_time')
+  assert.equal(getCoachMatchDayFinishControl({ context, match: { ...match, currentMatchPhase: 'extra_time_second_half', status: 'extra_time' } }).action, 'complete_extra_time')
+  assert.equal(getCoachMatchDayFinishControl({ context, match: { ...match, currentMatchPhase: 'penalties', status: 'penalties' } }).action, 'end_shootout_without_result')
+  assert.equal(getCoachMatchDayFinishControl({ context: { ...context, role: 'super_admin' }, match, fixtureStale: true }), null)
+  assert.equal(getCoachMatchDayFinishControl({ context, match: { ...match, status: 'cancelled' }, pendingCount: 1 }), null)
+  assert.equal(getCoachMatchDayFinishControl({ context, match: { ...match, status: 'full_time', timerStatus: 'full_time' } }), null)
 })
 
 test('squad model keeps availability separate from optimistic-concurrency decision state', () => {

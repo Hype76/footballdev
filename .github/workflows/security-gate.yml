@@ -277,7 +277,7 @@ jobs:
       - name: Coach fixture pitch and event participant removal
         run: node --test tests/team-notification-display-name-117.test.mjs tests/parent-match-live-notification.test.mjs tests/matchday-notification-detail.test.mjs tests/fixture-create-edit-feedback-128.test.mjs tests/fixture-create-edit-feedback-128-pglite.test.mjs tests/event-player-removal-26b-pglite.test.mjs tests/coach-fixture-create-crash-63.test.mjs tests/mobile-coach-invite-removal-modal-108.test.mjs && node tests/coach-fixture-pitch-browser.mjs
       - name: Website match automatic selection preference
-        run: node --test tests/match-available-auto-selection.test.mjs tests/match-available-reconcile-pglite.test.mjs tests/matchday-fixture-workflow.test.mjs tests/shared-match-selection-preference-pglite.test.mjs && node tests/match-auto-select-preference-browser.mjs
+        run: node --test tests/match-available-auto-selection.test.mjs tests/match-available-reconcile-pglite.test.mjs tests/matchday-fixture-workflow.test.mjs tests/shared-match-selection-preference-pglite.test.mjs tests/platform-match-day-support.test.mjs && node tests/match-auto-select-preference-browser.mjs
       - name: Mobile brand contrast and rendered readability
         run: node --test tests/mobile-theme-readability.test.mjs && node tests/mobile-settings-menu-browser.mjs && node tests/mobile-more-icon-badges-browser.mjs && node tests/fans-mobile-browser.mjs
       - name: Fan signup and mobile session recovery
@@ -317,7 +317,7 @@ jobs:
       - name: Parent access removal and unlisted grants
         run: node --test tests/parent-self-access-revocation-pglite.test.mjs tests/parent-self-access-removal.test.mjs tests/parent-own-access-web.test.mjs tests/parent-unlisted-access.test.mjs && node tests/parent-access-removal-browser.mjs && node tests/parent-own-access-web-browser.mjs
       - name: Coach offline scoring and reconnect
-        run: node --test tests/coach-matchday-conclusion-display.test.mjs && node tests/coach-matchday-offline-browser.mjs && node tests/coach-matchday-offline-browser.mjs --conclude-only
+        run: node --test tests/coach-matchday-conclusion-display.test.mjs && node tests/coach-matchday-offline-browser.mjs && node tests/coach-matchday-offline-browser.mjs --conclude-only && node tests/coach-matchday-offline-browser.mjs --end-controls-only
       - name: Guest and mobile scorer rendering
         run: node tests/guest-scorer-browser.mjs && node tests/mobile-scorer-parity-browser.mjs
       - name: V1 hardening and connection recovery
