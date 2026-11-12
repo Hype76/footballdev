@@ -559,7 +559,7 @@
   "implementationHashes": {
     "scripts/security-supply-chain-gate.mjs": "dcf722bc6cbf2015da4250ea60cbb81e34d3c5c64ec7bb6059671cbae5ab4207",
     "scripts/security-apply-reviewed-backports.mjs": "7f0e9de0add15a121a0f60f89f71656b503450010b8b9c8d4aaf58bc355fc5ec",
-    "scripts/security-verify-reviewed-backports.mjs": "8bdb4a0858fd48b35e9a06cd70a831d3a179fe07205e529ee50abd2d93c9d875",
+    "scripts/security-verify-reviewed-backports.mjs": "7f182149821b0bcfe0382911781c4443e0d7fc2266acc21ccfc3b681307f8307",
     "security/patches/braces-3.0.3.patch": "e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699",
     "security/patches/node-forge-1.4.0.patch": "2de065ac998bf58917a14d0935112d97ec2957ac41b5f06958d500934f188ed4",
     "security/patches/reviewed-source-manifest.json": "facb364bbac44a8276d082068e8ed8415ca89777d24f4c7a05ff370f71e5a54d",
@@ -1930,7 +1930,7 @@
       "tests/website-images.test.mjs": "db25a7188c5529eadcb0898c6c4ac606ad0a3fa77f2e3126fa6bdfe1d028076c",
       "tests/workspace-checkout.test.mjs": "f1393d30c9967b7c6a5173fffc7efc0af66a1b0520ee48d3ecf8c7dd0ae0dd83",
       "tests/workspace-invite-cache-policy.test.mjs": "aea72af1e3963fda701f275841ba0dd671ad0a21a8703cfa23626ae96fc78c21",
-      "vite.config.js": "04482dc7d0ac561fba9140b822293464709c7ca3660eee231f52e9afa1fb1726",
+      "vite.config.js": "78c9e84d7c308bf573be72405a6b1e21de0b5a8553c891009877246bced9d80c",
       "netlify/functions/create-club-owner-account.js": "ca22b1481ddf5e5f94f1f8005ba350337df293aab1101212f8d7e7b8cb2f049b",
       "netlify/functions/lib/_signup-notification-email.js": "8912b9fa92f81d0da9fa9daf7642ae223c33fcfd7dce2dec0e5b189a70d417cd",
       "netlify/functions/retry-failed-emails.js": "9a69c6d6d2425d997c06ccdb5e204598dd6fdb37506ebb9d80fa817839513ae9",
@@ -1989,7 +1989,7 @@
       "src/lib/recovery-phase.js": "766ddc9a287d3bdff8f8d9fc32efed6c9541bad9c62018f894ee46b95f4e4766",
       "src/pages/ClubMatchdayTvPage.jsx": "26620fb3d5d9d05efbe0a3c24c5360d5338e9a28832bdfe1671768dd0f4899e8",
       "src/pages/club-matchday-tv.css": "bea7504652e147d529f353bb66906e9835d3cc7e7b639b99c60924715b376b9e",
-      "tests/club-matchday-tv-browser.mjs": "676cc12eced0b661e3a41f6c1cda9cfc9ad15582f633153b0f9e2e45b717c7c5",
+      "tests/club-matchday-tv-browser.mjs": "5034455442bf56f910e9a46410555b2890da544ff70d0258a926e21ea147f129",
       "tests/club-matchday-tv-weather.test.mjs": "967df9819b3d087dc3576d9768abd42e18ecdf7cfc2bd4df0e9add545fc854bb",
       "tests/club-matchday-tv.test.mjs": "cd4faf77edafca18f93a050fc35950110e82279ee5ed92d83104908b49ffe70a",
       "tests/security-tooling-updates.test.mjs": "1d78c188aed7037fdea62dac2aed45aac0e8bcc3c4b9b2d9bb28dbebc30ad536",
@@ -3759,7 +3759,7 @@
       "independentExactSourceAcceptanceRequired": true
     }
   },
-  "releasePreparationSha256": "63210437dfb2a9636631be05b87e12e15aface0b62deaabd4b3f0fbc0cc99ec2",
+  "releasePreparationSha256": "109b74adfce19d828dc752d8f6cd27a550ea3506cf51ee9a41c4ec5451de3881",
   "rootOnlyProposalSha256": "45c3b7352c7328c84982e114b7e87e09cf79514d02d102297ae75ec0925812eb",
   "remediationMode": "maintained-source-fixes",
   "officialCompatibilityDependencies": [

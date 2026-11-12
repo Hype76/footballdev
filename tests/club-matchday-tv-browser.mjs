@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { mkdir, readFile } from 'node:fs/promises'
-import { createServer } from 'vite'
+import { build, createServer, preview } from 'vite'
 import { chromium } from 'playwright'
 import { tvPeriodWindow } from '../src/lib/club-matchday-tv.js'
 
@@ -11,6 +11,42 @@ await server.listen()
 const browser = await chromium.launch({ headless: true })
 const output = 'output/playwright/club-matchday-tv'
 await mkdir(output, { recursive: true })
+
+async function verifyProductionEntries() {
+  const buildOptions = { outDir: `${output}/production`, emptyOutDir: true }
+  const fixtureFlag = process.env.VITE_AUTH_ACCESS_BROWSER_FIXTURES
+  try {
+    process.env.VITE_AUTH_ACCESS_BROWSER_FIXTURES = 'false'
+    await build({ mode: 'production', logLevel: 'warn', build: buildOptions })
+  } finally {
+    process.env.VITE_AUTH_ACCESS_BROWSER_FIXTURES = fixtureFlag
+  }
+  const production = await preview({ mode: 'production', logLevel: 'error', build: buildOptions, preview: { host: '127.0.0.1', port: 0 } })
+  const base = `http://127.0.0.1:${production.httpServer.address().port}`
+  const context = await browser.newContext({ serviceWorkers: 'block' })
+  const errors = []
+  try {
+    await context.route('**/club-matchday-tv/view/**', async route => {
+      await route.fulfill({ response: await route.fetch({ url: `${base}/matchday-tv-view.html` }) })
+    })
+    const viewer = await context.newPage()
+    viewer.on('pageerror', error => errors.push(error.message))
+    await viewer.goto(`${base}/club-matchday-tv/view/cedarfield-fc`)
+    await viewer.getByText('Sign in with your Club Admin account to open this display.', { exact: true }).waitFor({ timeout: 15000 })
+    const admin = await context.newPage()
+    admin.on('pageerror', error => errors.push(error.message))
+    await admin.goto(`${base}/sign-in`)
+    await admin.waitForFunction(() => document.querySelector('#root')?.innerText.trim().length > 10, null, { timeout: 15000 })
+    assert.deepEqual(errors, [], 'Both compiled entry pages start without browser errors')
+    console.log('PASS: compiled Club Admin and standalone Matchday TV entry pages.')
+  } catch (error) {
+    if (errors.length) throw new Error(errors.join('\n'), { cause: error })
+    throw error
+  } finally {
+    await context.close()
+    await new Promise(resolve => production.httpServer.close(resolve))
+  }
+}
 const date = '2026-10-21'
 const fixtureEmail = 'club.fixture@footballplayer.test'
 const fixtureSession = { access_token: 'fixture-token', refresh_token: 'fixture-refresh', expires_at: 4102444800, expires_in: 31536000, token_type: 'bearer', user: { id: 'fixture-user', aud: 'authenticated', role: 'authenticated', email: fixtureEmail } }
@@ -28,6 +64,7 @@ const firstAvailabilityCheck = Promise.withResolvers()
 let failFirstCedarfieldCheck = true
 const errors = []
 try {
+  await verifyProductionEntries()
   const context = await browser.newContext({ viewport: { width: 1920, height: 1080 }, permissions: ['clipboard-read', 'clipboard-write'] })
   await context.addInitScript((session) => {
     if (!sessionStorage.getItem('auth-access-browser-fixture-email')) sessionStorage.setItem('auth-access-browser-fixture-email', 'club.fixture@footballplayer.test')

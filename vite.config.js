@@ -120,7 +120,8 @@ export default defineConfig(({ mode }) => {
               return 'supabase'
             }
 
-            if (id.includes('node_modules/react') || id.includes('node_modules/react-router-dom')) {
+            // Both entry points need React DOM and its scheduler to initialize together.
+            if (id.includes('node_modules/react') || id.includes('node_modules/scheduler/')) {
               return 'react-vendor'
             }
 
