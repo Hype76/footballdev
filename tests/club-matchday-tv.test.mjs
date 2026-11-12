@@ -296,10 +296,15 @@ test('private Matchday TV settings and aliases are saved atomically by authorize
   }
   await db.exec('set role service_role')
 
+  const clubPlan = { status: 'active', plan_key: 'pilot', plan_status: 'active', is_plan_comped: true }
   const client = {
     from(table) {
       if (table === 'match_days') return clientFor([fixture({ venue_name: 'Pitch 7, club venue details' })]).from(table)
-      if (table === 'clubs') return clientFor().from(table)
+      if (table === 'clubs') {
+        const query = clientFor().from(table)
+        query.maybeSingle = () => ({ data: { id: cedarfield, ...clubPlan }, error: null })
+        return query
+      }
       const filters = []
       let columns
       return {
@@ -321,7 +326,6 @@ test('private Matchday TV settings and aliases are saved atomically by authorize
       } catch (error) { return { data: null, error } }
     },
   }
-  let clubStatus = 'active'
   let receivedPostcode
   const endpoint = createClubMatchdayTvHandler({
     authenticate: async ({ headers }) => {
@@ -329,7 +333,6 @@ test('private Matchday TV settings and aliases are saved atomically by authorize
       return { role: headers.role || 'admin', clubId: headers.actor, planKey: 'club', accountStatus: 'active', clubStatus: 'active', planStatus: 'active' }
     },
     assertFeature: async () => {},
-    loadClubPlan: async id => ({ ...profile, clubId: id, clubStatus }),
     weather: async postcode => { receivedPostcode = postcode; return { temperature: 12 } },
     client,
     logger: { error() {} },
@@ -398,9 +401,13 @@ test('private Matchday TV settings and aliases are saved atomically by authorize
   assert.doesNotMatch(JSON.stringify(feed), /club venue details|PRIVATE PLAYER/)
   assert.equal((await request(undefined, { action: 'weather', slug: 'cedar-fc', postcode: 'SW1A 1AA' })).status, 200)
   assert.equal(receivedPostcode, 'CB236FY')
-  clubStatus = 'suspended'
+  clubPlan.status = 'suspended'
   assert.equal((await anonymousFeed()).status, 403)
-  clubStatus = 'active'
+  Object.assign(clubPlan, { status: 'active', plan_status: 'past_due', is_plan_comped: false, billing_arrangement: 'immediate' })
+  assert.equal((await view(undefined, 'cedar-fc')).status, 403)
+  assert.equal((await anonymousFeed()).status, 403)
+  clubPlan.plan_status = 'active'
+  assert.equal((await anonymousFeed()).status, 200)
   assert.equal((await save(cedarfield, null, 3, preferences)).status, 200)
   assert.equal((await view(undefined, 'cedar-fc')).status, 401)
   assert.equal((await anonymousFeed()).status, 401)

@@ -1,5 +1,6 @@
-import { getAuthenticatedPlanProfile, getClubPlanProfile, assertPlanEntitlement, assertPlanFeature } from './lib/_plan-gate.js'
+import { getAuthenticatedPlanProfile, getClubPlanProfile, canUsePlanEntitlement, assertPlanFeature } from './lib/_plan-gate.js'
 import { supabaseAdmin, createPublicSupabaseClient } from './lib/_supabase.js'
+import { BILLING_ACTION_CATEGORIES, isBillingActionAllowed } from '../../src/lib/billing-access.js'
 import { isClubWorkspace } from '../../src/lib/workspace-scope.js'
 import { clubTvSlugStatus, normalizeClubTvSlug, normalizeTvPreferences, toClubTvMatch, tvPitchNumber, validTvDate, validTvSponsorSchedule, tvDateAfter, tvPeriodWindow } from '../../src/lib/club-matchday-tv.js'
 import { getClubTvWeather, normaliseWeatherPostcode } from './lib/_club-tv-weather.js'
@@ -78,7 +79,7 @@ async function handleTvSettings(client, profile, body) {
   return reply(200, { club, settings: { preferences, revision } })
 }
 
-export function createClubMatchdayTvHandler({ authenticate = getAuthenticatedPlanProfile, assertFeature = assertPlanFeature, loadClubPlan = getClubPlanProfile, assertEntitlement = assertPlanEntitlement, client = supabaseAdmin, weather = getClubTvWeather, passwordClient = createPublicSupabaseClient, logger = console } = {}) {
+export function createClubMatchdayTvHandler({ authenticate = getAuthenticatedPlanProfile, assertFeature = assertPlanFeature, client = supabaseAdmin, weather = getClubTvWeather, passwordClient = createPublicSupabaseClient, logger = console } = {}) {
   return async (event) => {
     let action
     try {
@@ -107,11 +108,15 @@ export function createClubMatchdayTvHandler({ authenticate = getAuthenticatedPla
       const isPublic = linkAccess?.access_mode === 'public'
       let profile
       if (isPublic) {
-        const plan = await loadClubPlan(clubId, { client })
-        if (plan.clubId !== clubId || plan.clubStatus !== 'active' || plan.clubArchivedAt || plan.testerAccessExpired || !isClubWorkspace(plan)) {
+        const plan = await getClubPlanProfile(clubId, { client })
+        if (plan.clubId !== clubId || plan.clubStatus !== 'active' || plan.clubArchivedAt || plan.testerAccessExpired
+          || !isClubWorkspace(plan) || !canUsePlanEntitlement(plan, 'clubAdministration')) {
           return reply(403, { message: 'This display link is unavailable.' })
         }
-        await assertEntitlement(plan, 'clubAdministration')
+        // Evaluate the club's existing billing eligibility without a signed-in viewer.
+        if (!isBillingActionAllowed({ ...plan, role: 'system' }, BILLING_ACTION_CATEGORIES.staffMutation, { trustedSystemContext: true })) {
+          return reply(403, { message: 'This display link is unavailable.' })
+        }
       } else {
         profile = await authenticate(event, { clubId })
         assertClubTvAuthority(profile, clubId)
