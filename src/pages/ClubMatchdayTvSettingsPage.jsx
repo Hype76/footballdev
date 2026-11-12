@@ -1,3 +1,20 @@
+import { useEffect, useRef, useState } from 'react'
+import { Link } from 'react-router-dom'
+import { useAuth } from '../lib/auth.js'
+import { clubTvSlugStatus, clubTvStorageKey, clubTvViewerUrl, hasLocalTvPreferences, normalizeClubTvSlug, normalizeTvPreferences, readTvPreferences, validTvSponsorSchedule } from '../lib/club-matchday-tv.js'
+import { getClubMatchdayTv } from '../lib/domain/club-matchday-tv.js'
+import './club-matchday-tv.css'
+import './club-matchday-tv-settings.css'
+
+const availabilityMessages = {
+  available: 'Available',
+  taken: 'Already taken',
+  reserved: 'Reserved',
+  invalid: 'Use at least four letters. Numbers and single hyphens are also allowed.',
+  checking: 'Checking availability…',
+  unavailable: 'Availability could not be checked. Try again to save this ending.',
+}
+
 async function prepareTvArtwork(file) {
   const data = await new Promise((resolve, reject) => {
     const reader = new FileReader()
@@ -32,6 +49,7 @@ function DisplaySettings({ clubId, settings, storageKey }) {
   const [revision, setRevision] = useState(settings.revision)
   const [slug, setSlug] = useState(savedSlug)
   const [checked, setChecked] = useState(null)
+  const [checkAttempt, setCheckAttempt] = useState(0)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
@@ -43,21 +61,38 @@ function DisplaySettings({ clubId, settings, storageKey }) {
   const slugStatus = clubTvSlugStatus(slug)
   const availability = slugStatus !== 'valid' ? slugStatus
     : slug === savedSlug ? 'available' : checked?.slug === slug ? checked.status : 'checking'
+  const canSave = !saving && !mapUploading && !sponsorsUploading && (!slug || availability === 'available')
   const link = savedSlug ? clubTvViewerUrl(savedSlug) : ''
 
   useEffect(() => {
     if (slugStatus !== 'valid' || slug === savedSlug) return undefined
     const controller = new AbortController()
+    let timeout
     const timer = setTimeout(async () => {
+      timeout = setTimeout(() => {
+        controller.abort()
+        setChecked({ slug, status: 'unavailable' })
+      }, 10000)
       try {
         const result = await getClubMatchdayTv({ clubId, action: 'availability', slug, signal: controller.signal })
         if (!controller.signal.aborted) setChecked({ slug, status: result.availability })
       } catch {
         if (!controller.signal.aborted) setChecked({ slug, status: 'unavailable' })
+      } finally {
+        clearTimeout(timeout)
       }
     }, 300)
-    return () => { clearTimeout(timer); controller.abort() }
-  }, [clubId, savedSlug, slug, slugStatus])
+    return () => { clearTimeout(timer); clearTimeout(timeout); controller.abort() }
+  }, [checkAttempt, clubId, savedSlug, slug, slugStatus])
+
+  function changeSlug(event) {
+    const nextSlug = normalizeClubTvSlug(event.target.value)
+    if (nextSlug === slug) return
+    setSlug(nextSlug)
+    setChecked(null)
+    setError('')
+    setMessage('')
+  }
 
   async function copyLink() {
     try {
@@ -118,7 +153,7 @@ function DisplaySettings({ clubId, settings, storageKey }) {
   }
   async function save(event) {
     event.preventDefault()
-    if (saving || mapUploading || sponsorsUploading || (slug && ['invalid', 'reserved', 'taken'].includes(availability))) return
+    if (!canSave) return
     if (!draft.sponsorAds.every(validTvSponsorSchedule)) {
       setError('Each advert end date must be on or after its start date.')
       return
@@ -154,10 +189,11 @@ function DisplaySettings({ clubId, settings, storageKey }) {
         {hasLegacySettings ? <p>{usesLegacySettings
           ? 'This browser’s existing settings are ready to save for the club.'
           : <button type="button" onClick={() => { setDraft(readTvPreferences(storageKey)); setPreviewIndex(null); setUsesLegacySettings(true) }}>Use this browser’s previous settings</button>}</p> : null}
-        <label>Club link ending <input value={slug} maxLength={63} autoCapitalize="none" autoComplete="off" spellCheck={false} placeholder="e.g. ctfc" aria-describedby="club-tv-slug-help club-tv-slug-status" onChange={(event) => { setSlug(normalizeClubTvSlug(event.target.value)); setChecked(null); setError(''); setMessage('') }} /></label>
+        <label>Club link ending <input value={slug} maxLength={63} autoCapitalize="none" autoComplete="off" spellCheck={false} placeholder="e.g. ctfc" aria-describedby="club-tv-slug-help club-tv-slug-status" onChange={changeSlug} /></label>
         <small id="club-tv-slug-help">Use at least four letters. An active Club Admin for your club must sign in on the viewing browser.</small>
         {slug && slugStatus !== 'invalid' ? <output aria-label="Full viewing link" className="club-tv-url">{clubTvViewerUrl(slug)}</output> : null}
         <small id="club-tv-slug-status" role="status">{slug ? availabilityMessages[availability] : ''}</small>
+        {availability === 'unavailable' ? <button type="button" onClick={() => { setChecked(null); setCheckAttempt(attempt => attempt + 1) }}>Check availability again</button> : null}
         <label>Appearance <select aria-label="Appearance" value={draft.appearance} onChange={(event) => setDraft({ ...draft, appearance: event.target.value })}><option value="light">Light</option><option value="dark">Dark</option></select></label>
         <label>Club ground postcode <input value={draft.weatherPostcode} maxLength={10} placeholder="e.g. CB23 6FY" onChange={(event) => setDraft({ ...draft, weatherPostcode: event.target.value.toUpperCase() })} /></label>
         <small>Weather uses this ground, wherever the screen is running. Great Britain postcodes supported.</small>
@@ -180,28 +216,11 @@ function DisplaySettings({ clubId, settings, storageKey }) {
         <small>When enabled, the display says Coming soon until ordering is available.</small>
         {error ? <p role="alert">{error}</p> : null}
         <p role="status">{message}</p>
-        <div className="club-tv-admin-actions"><button type="submit" disabled={mapUploading || sponsorsUploading || Boolean(slug && ['invalid', 'reserved', 'taken'].includes(availability))}>{saving ? 'Saving…' : 'Save settings'}</button></div>
+        <div className="club-tv-admin-actions"><button type="submit" disabled={!canSave}>{saving ? 'Saving…' : 'Save settings'}</button></div>
         <small>Forecast: <a href="https://api.met.no/" target="_blank" rel="noreferrer">MET Norway</a>, CC BY 4.0. Postcodes: <a href="https://postcodes.io/docs/licences/" target="_blank" rel="noreferrer">OS OpenData and ONS</a>. Contains OS data and National Statistics data © Crown copyright and database right {new Date().getFullYear()}. Contains Royal Mail data © Royal Mail copyright and database right {new Date().getFullYear()}.</small>
       </fieldset>
     </form>
   </>
-}
-
-import { useEffect, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
-import { useAuth } from '../lib/auth.js'
-import { clubTvSlugStatus, clubTvStorageKey, clubTvViewerUrl, hasLocalTvPreferences, normalizeClubTvSlug, normalizeTvPreferences, readTvPreferences, validTvSponsorSchedule } from '../lib/club-matchday-tv.js'
-import { getClubMatchdayTv } from '../lib/domain/club-matchday-tv.js'
-import './club-matchday-tv.css'
-import './club-matchday-tv-settings.css'
-
-const availabilityMessages = {
-  available: 'Available',
-  taken: 'Already taken',
-  reserved: 'Reserved',
-  invalid: 'Use at least four letters. Numbers and single hyphens are also allowed.',
-  checking: 'Checking availability…',
-  unavailable: 'Availability could not be checked. We’ll check again when you save.',
 }
 
 export function ClubMatchdayTvSettingsPage() {

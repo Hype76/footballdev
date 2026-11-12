@@ -24,6 +24,8 @@ matches[4] = { ...matches[4], homeScore: 16, awayScore: 13 }
 matches[7] = { ...matches[7], kickoffTbc: true }
 let displayWindow
 let settings = { slug: null, preferences: null, revision: 0 }
+const firstAvailabilityCheck = Promise.withResolvers()
+let failFirstCedarfieldCheck = true
 const errors = []
 try {
   const context = await browser.newContext({ viewport: { width: 1920, height: 1080 }, permissions: ['clipboard-read', 'clipboard-write'] })
@@ -51,7 +53,14 @@ try {
     if (url.pathname === '/.netlify/functions/club-matchday-tv') {
       const body = route.request().postDataJSON(); requests.push(body)
       if (body.action === 'settings') return route.fulfill({ json: { club: { id: body.clubId }, settings } })
-      if (body.action === 'availability') return route.fulfill({ json: { club: { id: body.clubId }, availability: body.slug === 'oakfield-town' ? 'taken' : 'available' } })
+      if (body.action === 'availability') {
+        if (body.slug === 'cedarfield-fc' && failFirstCedarfieldCheck) {
+          failFirstCedarfieldCheck = false
+          await firstAvailabilityCheck.promise
+          return route.fulfill({ status: 503, json: { message: 'Availability could not be checked.' } })
+        }
+        return route.fulfill({ json: { club: { id: body.clubId }, availability: body.slug === 'oakfield-town' ? 'taken' : 'available' } })
+      }
       if (body.action === 'save') {
         settings = { slug: body.slug || settings.slug, preferences: body.preferences, revision: settings.revision + 1 }
         return route.fulfill({ json: { club: { id: body.clubId }, settings } })
@@ -259,8 +268,19 @@ try {
   await page.getByText('Already taken', { exact: true }).waitFor()
   assert.equal(await page.getByRole('button', { name: 'Save settings' }).isDisabled(), true)
   await page.getByLabel('Club link ending').fill('Cedarfield-FC')
+  await page.getByText('Checking availability…', { exact: true }).waitFor()
+  assert.equal(await page.getByRole('button', { name: 'Save settings' }).isDisabled(), true)
+  await page.locator('.club-tv-admin form').dispatchEvent('submit')
+  assert.equal(requests.some(request => request.action === 'save'), false)
+  firstAvailabilityCheck.resolve()
+  await page.getByText('Availability could not be checked. Try again to save this ending.', { exact: true }).waitFor()
+  assert.equal(await page.getByRole('button', { name: 'Save settings' }).isDisabled(), true)
+  await page.getByRole('button', { name: 'Check availability again' }).click()
   await page.getByText('Available', { exact: true }).waitFor()
+  assert.equal(await page.getByRole('button', { name: 'Save settings' }).isEnabled(), true)
+  await page.getByLabel('Club link ending').fill('CEDARFIELD-FC')
   assert.equal(await page.getByLabel('Club link ending').inputValue(), 'cedarfield-fc')
+  assert.equal(await page.getByRole('button', { name: 'Save settings' }).isEnabled(), true)
   assert.equal(await page.getByLabel('Full viewing link').textContent(), `${origin}/club-matchday-tv/view/cedarfield-fc`)
   await page.getByLabel('Large goal celebration').uncheck()
   await page.getByLabel('Club ground postcode').fill('CB23 6FY')
