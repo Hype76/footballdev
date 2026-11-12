@@ -50,7 +50,7 @@ function normalizeSharedFormationPlayer(row = {}) {
 }
 
 export async function addPublishedFormationPlans(client, scope, matches) {
-  if (!matches.length || scope.fan.relationship_type !== 'player') return matches
+  if (!matches.length || scope.suppressParentFormation || scope.fan.relationship_type !== 'player') return matches
   const matchIds = matches.map((match) => match.id).filter(Boolean)
   const createPublicationQuery = () => client.from('formation_board_match_publications')
     .select('match_day_id, board_id, id, publication_number, board_title_snapshot, published_at, withdrawn_at, board_version_id')

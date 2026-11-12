@@ -1812,7 +1812,7 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
             report: item,
           })
         : await openParentResource(selectedMobileUser, item.id)
-      if (result?.formationBoard) setSelectedResourcePreview(result.formationBoard)
+      if (result?.formationBoard) throw new Error('Ask your Coach to share a PDF.')
       if (result?.externalUrl) await openExternalParentUrl(result.externalUrl)
     } catch (error) {
       setNotice({ message: getParentFriendlyError(error, `This ${type === 'development' ? 'Development report' : 'resource'} could not be opened.`), tone: 'warning' })
@@ -1854,7 +1854,7 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
         calendarEventId: event.sourceId || event.eventId || String(event.id || '').replace(/^calendar:/, ''),
         calendarOccurrenceDate: event.occurrenceDate || event.calendarDate || event.eventDate || getParentProductDateTimeParts(event.startsAt || event.eventStart).date,
       })
-      if (result?.formationBoard) setSelectedResourcePreview(result.formationBoard)
+      if (result?.formationBoard) throw new Error('Ask your Coach to share a PDF.')
       if (result?.externalUrl) await openExternalParentUrl(result.externalUrl)
     } catch (error) {
       setNotice({ message: getParentFriendlyError(error, 'This event attachment could not be opened.'), tone: 'warning' })
@@ -2592,6 +2592,7 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
             {renderedActiveTab === 'calendar' ? <CalendarScreen targetEventId={selectedCalendarTarget?.id} targetOccurrenceDate={selectedCalendarTarget?.occurrenceDate} targetRequestId={selectedCalendarTarget?.requestId} onOpenEventDetails={() => scrollViewRef.current?.scrollTo({ y: 0, animated: false })} activeActionId={activeActionId} invitations={visibleInvitationsWithMatchTimes} isOffline={isOffline} link={selectedLink} onAddToCalendar={handleAddToCalendar} onDateSelected={() => setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 50)} onOpenInvitation={(invitation) => { setSelectedInvitationId(invitation.invitationId); setMoreSection('invites'); setActiveTab('more') }} onOpenLink={handleOpenMatchLink} onOpenResource={handleOpenCalendarResource} onRespond={handleInvitationResponse} onTransport={handleMatchTransport} resource={resources.calendar} theme={displayTheme} themeTokens={themeModel.tokens} /> : null}
             {renderedActiveTab === 'matchday' ? (
               <MatchdayScreen
+                suppressParentFormation
                 activeActionId={activeActionId}
                 formationViewportHeight={contentViewportHeight}
                 invitations={visibleInvitationsWithMatchTimes}
@@ -2646,7 +2647,7 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
             {renderedActiveTab === 'more' && renderedMoreSection === 'stats' ? <LinkedParentPlayerStatsScreen key={selectedLink.id} isOffline={isOffline} link={selectedLink} themeTokens={themeModel.tokens} /> : null}
             {renderedActiveTab === 'more' && renderedMoreSection === 'fans' ? <FansScreen embedded scrollViewRef={scrollViewRef} themeMode={displayTheme} themeTokens={themeModel.tokens} selectedParentLinkId={selectedLink?.id} onSelectedParentLinkChange={(linkId) => handleChildChange(linkId, { stayOnFans: true })} /> : null}
             {renderedActiveTab === 'more' && renderedMoreSection === 'development' ? <DevelopmentScreen isOffline={isOffline} pendingReportIds={pdfTasks.filter(task => task.authorityScope === reportScopeRef.current).map(task => task.reportId)} onDismiss={(report) => handleDismissParentItem('development', report.id, 'report')} onOpen={handleDevelopmentPdf} onPrepare={prepareDevelopmentPdf} resource={{ ...resources.development, items: visibleDevelopment }} theme={displayTheme} themeTokens={themeModel.tokens} /> : null}
-            {renderedActiveTab === 'more' && renderedMoreSection === 'resources' ? <ResourcesScreen formationBoard={selectedResourcePreview} formationViewportHeight={contentViewportHeight} isOffline={isOffline} onCloseFormation={() => setSelectedResourcePreview(null)} onDismiss={(item) => handleDismissParentItem('resources', item.id, 'resource')} onOpen={(item) => handleOpenParentItem('resource', item)} resource={{ ...resources.resources, items: visibleResources }} theme={displayTheme} themeTokens={themeModel.tokens} /> : null}
+            {renderedActiveTab === 'more' && renderedMoreSection === 'resources' ? <ResourcesScreen suppressParentFormation formationBoard={selectedResourcePreview} formationViewportHeight={contentViewportHeight} isOffline={isOffline} onCloseFormation={() => setSelectedResourcePreview(null)} onDismiss={(item) => handleDismissParentItem('resources', item.id, 'resource')} onOpen={(item) => handleOpenParentItem('resource', item)} resource={{ ...resources.resources, items: visibleResources }} theme={displayTheme} themeTokens={themeModel.tokens} /> : null}
             {renderedActiveTab === 'more' && renderedMoreSection === 'messages' ? (
               <MessagesScreen
                 activeActionId={activeActionId}

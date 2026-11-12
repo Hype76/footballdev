@@ -441,19 +441,22 @@ export async function listAuthorisedCalendarEventResources({ authUserId, parentL
 
   const resources = []
   const externalLinks = []
+  const boardResourceIds = new Set()
   for (let offset = 0; offset < resourceIds.length; offset += 100) {
     const ids = resourceIds.slice(offset, offset + 100)
-    const [resourceResult, externalResult] = await Promise.all([
+    const [resourceResult, externalResult, publicationResult] = await Promise.all([
       supabaseAdmin.from('resource_library_items')
-        .select('id, club_id, team_id, title, category, original_filename, file_size_bytes, archived_at')
+        .select('id, club_id, team_id, title, category, original_filename, file_size_bytes, archived_at, mime_type')
         .eq('club_id', parentLink.club_id).in('id', ids).is('archived_at', null),
       supabaseAdmin.from('resource_library_external_links')
         .select('resource_id, club_id, team_id').eq('club_id', parentLink.club_id).in('resource_id', ids),
+      supabaseAdmin.from('formation_board_publications').select('resource_id').in('resource_id', ids),
     ])
-    if (resourceResult.error || externalResult.error) throw resourceResult.error || externalResult.error
-    if (!Array.isArray(resourceResult.data) || !Array.isArray(externalResult.data)) throw new Error('Resource metadata could not be verified.')
+    const failed = [resourceResult, externalResult, publicationResult].find((result) => result.error || !Array.isArray(result.data))
+    if (failed) throw failed.error || new Error('Resource metadata could not be verified.')
     resources.push(...resourceResult.data)
     externalLinks.push(...externalResult.data)
+    for (const publication of publicationResult.data) boardResourceIds.add(normalizeText(publication.resource_id))
   }
 
   const resourceById = new Map((resources || []).map((resource) => [normalizeText(resource.id), resource]))
@@ -469,6 +472,8 @@ export async function listAuthorisedCalendarEventResources({ authUserId, parentL
     const event = eventById.get(eventKey(link.linked_type, link.linked_id))
 
     if (!resource
+      || resource.mime_type === 'application/vnd.footballplayer.formation-board+json'
+      || boardResourceIds.has(normalizeText(resource.id))
       || normalizeText(resource.club_id) !== normalizeText(link.club_id)
       || normalizeText(resource.team_id) !== normalizeText(link.team_id)
       || !event) return null
@@ -530,7 +535,7 @@ export async function loadResourceFormationBoard({ resource, resourceId = resour
   return formationBoard
 }
 
-export async function loadAuthorisedResource({ authUserId, calendarEventId = '', calendarOccurrenceDate = '', calendarSourceType = 'calendar_event', parentLinkId, resourceId, supabaseAdmin, parentClient }) {
+export async function loadAuthorisedResource({ authUserId, calendarEventId = '', calendarOccurrenceDate = '', calendarSourceType = 'calendar_event', parentLinkId, resourceId, supabaseAdmin, parentClient, allowFormationBoard = false }) {
   const unavailableMessage = 'This resource is not available for the selected player.'
   const { parentLink, player } = await loadActiveParentContext({ authUserId, parentLinkId, supabaseAdmin })
   const derivedSource = calendarEventId && ['match_day', 'assessment_session'].includes(calendarSourceType)
@@ -605,13 +610,16 @@ export async function loadAuthorisedResource({ authUserId, calendarEventId = '',
     ? validateParentCalendarEventResourceAccess({ authUserId, calendarEvent, calendarInvite, calendarOccurrenceDate, externalLink, parentLink, player, resource, resourceLink })
     : validateParentResourceAccess({ authUserId, externalLink, parentLink, player, resource, resourceLink })
 
-  const formationBoard = await loadResourceFormationBoard({ resource, resourceId, clubId: parentLink.club_id, supabaseAdmin })
-
-  return {
-    access,
-    formationBoard,
-    resource,
+  const { data: publication, error: publicationError } = await supabaseAdmin
+    .from('formation_board_publications').select('resource_id').eq('resource_id', resourceId).limit(1).maybeSingle()
+  if (publicationError) throw publicationError
+  if (!allowFormationBoard && (publication || resource.mime_type === 'application/vnd.footballplayer.formation-board+json')) {
+    throw new ParentResourceAccessError(unavailableMessage)
   }
+
+  const formationBoard = allowFormationBoard && publication
+    ? await loadResourceFormationBoard({ resource, resourceId, clubId: parentLink.club_id, supabaseAdmin }) : null
+  return { access, resource, formationBoard }
 }
 
 export default async (request) => {
@@ -694,7 +702,7 @@ export default async (request) => {
       throw new ParentResourceAccessError('Choose a valid shared resource.', 400)
     }
 
-    const { access, formationBoard, resource } = await loadAuthorisedResource({
+    const { access, resource } = await loadAuthorisedResource({
       authUserId: authData.user.id,
       calendarEventId,
       calendarOccurrenceDate,
@@ -704,10 +712,6 @@ export default async (request) => {
       resourceId,
       supabaseAdmin,
     })
-
-    if (formationBoard) {
-      return json(200, { success: true, accessType: 'formation_board', formationBoard })
-    }
 
     if (access.accessType === 'external_link') {
       return json(200, { success: true, ...access })

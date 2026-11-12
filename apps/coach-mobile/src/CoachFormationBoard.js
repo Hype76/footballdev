@@ -936,7 +936,7 @@ export function CoachFormationBoard({ context, initialBoardId = '', match = null
     try {
       const { nextBoard, savedShared } = await persistBoard()
       if (nextBoard.isLocked) setActiveSheet('')
-      setNotice(`${nextBoard.title} saved to this match. ${submitStartingSquad ? 'Starting squad submitted. ' : ''}${savedShared ? 'Visible to parents and players.' : 'Coaches only.'}${savedShared !== shared ? ' Save again to apply your new sharing choice.' : ''}`)
+      setNotice(`${nextBoard.title} saved to this match. ${submitStartingSquad ? 'Starting squad submitted. ' : ''}${savedShared ? 'Visible to players.' : 'Coaches only.'}${savedShared !== shared ? ' Save again to apply your new sharing choice.' : ''}`)
     } catch (saveError) {
       if (saveError.code === 'formation_navigation_changed' || saveError.code === 'formation_save_queued') return
       setErrorRetry(saveError.code === 'formation_conflict' ? 'conflict' : saveError.code === 'starting_squad_submit_failed' ? 'load' : 'save')
@@ -965,7 +965,7 @@ export function CoachFormationBoard({ context, initialBoardId = '', match = null
       setError('')
       const { nextBoard, savedShared } = await persistBoardRef.current({ queuedEditorRevision, queuedSave: pendingSave })
       if (nextBoard.isLocked) setActiveSheet('')
-      setNotice(`${nextBoard.title} saved to this match. ${pendingSave.submitStartingSquad ? 'Starting squad submitted. ' : ''}${savedShared ? 'Visible to parents and players.' : 'Coaches only.'}`)
+      setNotice(`${nextBoard.title} saved to this match. ${pendingSave.submitStartingSquad ? 'Starting squad submitted. ' : ''}${savedShared ? 'Visible to players.' : 'Coaches only.'}`)
     } catch (retryError) {
       if (retryError.code === 'formation_navigation_changed' || retryError.code === 'formation_save_queued' || isRetryableFormationSaveError(retryError)) return
       setErrorRetry(retryError.code === 'formation_conflict' ? 'conflict' : 'save')
@@ -1190,7 +1190,8 @@ export function CoachFormationBoard({ context, initialBoardId = '', match = null
               <Text style={styles.label}>Lineup name</Text>
               <TextInput editable={canEdit && !busy} accessibilityLabel="Formation plan title" maxLength={120} onBlur={() => { titleInputFocused.current = false }} onFocus={() => { titleInputFocused.current = true; revealTitleInput() }} onLayout={(event) => { titleInputTop.current = event.nativeEvent.layout.y }} onChangeText={setTitle} style={styles.input} value={title} />
               <Text style={styles.label}>Who can see this lineup?</Text>
-              {[{ label: 'Coaches only', value: false }, { label: 'Parents and players', value: true }].map(({ label, value }) => <Pressable aria-checked={shared === value} accessibilityLabel={label} accessibilityRole="radio" accessibilityState={{ checked: shared === value, disabled: !canEdit || busy }} disabled={!canEdit || busy} key={label} onPress={() => setShared(value)} style={[styles.modalPlayer, (!canEdit || busy) && styles.actionDisabled]}><Text style={styles.label}>{label}</Text><MaterialIcons color={shared === value ? palette.accentText : palette.textSecondary} name={shared === value ? 'radio-button-checked' : 'radio-button-unchecked'} size={24} /></Pressable>)}
+              {[{ label: 'Coaches only', value: false }, { label: 'Players', value: true }].map(({ label, value }) => <Pressable aria-checked={shared === value} accessibilityLabel={label} accessibilityRole="radio" accessibilityState={{ checked: shared === value, disabled: !canEdit || busy }} disabled={!canEdit || busy} key={label} onPress={() => setShared(value)} style={[styles.modalPlayer, (!canEdit || busy) && styles.actionDisabled]}><Text style={styles.label}>{label}</Text><MaterialIcons color={shared === value ? palette.accentText : palette.textSecondary} name={shared === value ? 'radio-button-checked' : 'radio-button-unchecked'} size={24} /></Pressable>)}
+              <Text style={styles.body}>To share with parents, export a PDF from the web app.</Text>
               <Pressable accessibilityLabel="Submit as starting squad" accessibilityRole="switch" accessibilityState={{ checked: submitStartingSquad, disabled: !canEdit || busy }} disabled={!canEdit || busy} onPress={() => setSubmitStartingSquad((value) => !value)} style={[{ minHeight: 52, flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: palette.border }, (!canEdit || busy) && styles.actionDisabled]}><View style={{ flex: 1 }}><Text style={styles.label}>Submit as starting squad</Text><Text style={styles.body}>Optional. Players on the pitch will start the playing-time record when this match begins.</Text></View><MaterialIcons color={submitStartingSquad ? palette.accentText : palette.textSecondary} name={submitStartingSquad ? 'check-circle' : 'radio-button-unchecked'} size={24} /></Pressable>
               {error ? <Text accessibilityRole="alert" style={styles.body}>{error}</Text> : null}
               {queuedRetryPending ? <Text accessibilityLiveRegion="polite" style={styles.body}>{queuedSaveAcknowledged ? 'Saved to this match. Refreshing the saved lineup is pending. Keep this board open to retry the refresh automatically.' : 'Saved on this phone. Saving to the match has not been confirmed. Keep this board open to retry automatically, or tap Save to match to retry now.'}</Text> : null}

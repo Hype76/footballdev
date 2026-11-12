@@ -16,6 +16,31 @@ import { readClubKits } from '../../src/lib/club-kits.js'
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 const json = (statusCode, body) => ({ statusCode, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'private, no-store', 'X-Content-Type-Options': 'nosniff' }, body: JSON.stringify(body) })
 
+async function filterParentFormationResources(client, resources) {
+  const ids = [...new Set(resources.map((item) => item.id).filter(Boolean))]
+  if (!ids.length) return resources
+  const blocked = new Set()
+  for (let offset = 0; offset < ids.length; offset += 100) {
+    const batch = ids.slice(offset, offset + 100)
+    const [items, publications] = await Promise.all([
+      client.from('resource_library_items').select('id,mime_type').in('id', batch),
+      client.from('formation_board_publications').select('resource_id').in('resource_id', batch),
+    ])
+    if (items.error || publications.error || !Array.isArray(items.data) || !Array.isArray(publications.data)) {
+      throw items.error || publications.error || new Error('Resource metadata could not be verified.')
+    }
+    for (const item of items.data) if (item.mime_type === 'application/vnd.footballplayer.formation-board+json') blocked.add(item.id)
+    for (const publication of publications.data) blocked.add(publication.resource_id)
+  }
+  return resources.filter((item) => !blocked.has(item.id))
+}
+
+async function filterParentScheduleResources(client, schedule) {
+  const allowed = await filterParentFormationResources(client, schedule.flatMap((item) => item.resources || []))
+  const ids = new Set(allowed.map((item) => item.id))
+  return schedule.map((item) => item.resources ? { ...item, resources: item.resources.filter((resource) => ids.has(resource.id)) } : item)
+}
+
 export async function handleFans(event, {
   assertPlanFeatureForScope = assertParentPlanFeatureForScope,
   createClient = createSupabaseAdminClient,
@@ -75,6 +100,12 @@ export async function handleFans(event, {
     const permission = { schedule: 'schedule', attendance: 'schedule', matches: 'game_day', stats: 'game_day', notifications: 'game_day', development: 'development', resources: 'resources', open_resource: 'resources' }[body.action]
     if (!permission) return json(400, { message: 'Choose a valid Fan action.' })
     const scope = await loadFanScope(client, actor, body.connectionId, body.action === 'notifications' ? null : permission)
+    if (['schedule', 'matches', 'resources', 'open_resource'].includes(body.action)) {
+      const parentLink = await client.from('parent_player_links').select('id').eq('auth_user_id', actor)
+        .eq('status', 'active').eq('link_type', 'parent').limit(1)
+      if (parentLink.error || !Array.isArray(parentLink.data)) throw parentLink.error || new Error('Account access could not be verified.')
+      scope.suppressParentFormation = parentLink.data.length > 0
+    }
     if (body.action === 'notifications' && !scope.fan.permissions?.game_day && !canReadPlayerEventResources(scope)) {
       return json(403, { message: 'Notification access is not enabled for this player.' })
     }
@@ -113,7 +144,8 @@ export async function handleFans(event, {
     }
     if (body.action === 'schedule') {
       await requireFeature('teamCalendar')
-      return json(200, { schedule: await loadFanSchedule(client, scope, new Date(), { featureAllowed }) })
+      const schedule = await loadFanSchedule(client, scope, new Date(), { featureAllowed })
+      return json(200, { schedule: scope.suppressParentFormation ? await filterParentScheduleResources(client, schedule) : schedule })
     }
     if (body.action === 'notifications') {
       const canMatches = scope.fan.permissions?.game_day === true && featureAllowed('matchDay')
@@ -147,18 +179,20 @@ export async function handleFans(event, {
       const schedule = canReadPlayerEventResources(scope) && featureAllowed('teamCalendar')
         ? await loadFanSchedule(client, scope, new Date(), { featureAllowed }) : []
       const resources = await listFanResources(client, scope, schedule)
-      return json(200, { resources })
+      return json(200, { resources: scope.suppressParentFormation ? await filterParentFormationResources(client, resources) : resources })
     }
     await requireFeature('resourceLibrary')
     if (!UUID.test(body.resourceId || '')) return json(400, { message: 'Choose a valid resource.' })
     const schedule = canReadPlayerEventResources(scope) && featureAllowed('teamCalendar')
       ? await loadFanSchedule(client, scope, new Date(), { featureAllowed }) : []
     const shared = await listFanResources(client, scope, schedule)
-    const selected = shared.find(item => item.id === body.resourceId)
+    const allowedShared = scope.suppressParentFormation ? await filterParentFormationResources(client, shared) : shared
+    const selected = allowedShared.find(item => item.id === body.resourceId)
     if (!selected) return json(403, { message: 'This resource is not available for this player.' })
     const { access, resource, formationBoard } = selected.eventId
       ? await loadPlayerEventResource(client, scope, selected, schedule)
-      : await loadAuthorisedResource({ authUserId: scope.parent.auth_user_id, parentLinkId: scope.parent.id, resourceId: body.resourceId, supabaseAdmin: client })
+      : await loadAuthorisedResource({ authUserId: scope.parent.auth_user_id, parentLinkId: scope.parent.id, resourceId: body.resourceId, supabaseAdmin: client, allowFormationBoard: !scope.suppressParentFormation })
+    if (formationBoard && scope.suppressParentFormation) return json(403, { message: 'Ask your Coach to share a PDF.' })
     if (formationBoard) return json(200, { formationBoard })
     if (access.accessType === 'external_link') return json(200, access)
     const signed = await client.storage.from('resource-library').createSignedUrl(resource.storage_path, 60)

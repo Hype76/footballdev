@@ -2072,7 +2072,7 @@ export async function getParentPortalMatchDays({ parentLinkId, clubName }) {
     supabase.rpc('get_parent_portal_match_day_extended_state', { parent_link_id_value: normalizedParentLinkId }),
     supabase.rpc('get_parent_portal_confirmed_teams', { parent_link_id_value: normalizedParentLinkId }),
     supabase.rpc('get_parent_scorer_game_mode_match_ids', { parent_link_id_value: normalizedParentLinkId }),
-    supabase.rpc('get_parent_portal_match_formation_plans', { parent_link_id_value: normalizedParentLinkId }),
+    Promise.resolve({ data: [], error: null }),
     supabase.rpc('get_parent_portal_match_shirt_choices', { parent_link_id_value: normalizedParentLinkId }),
     supabase.rpc('get_parent_cancelled_match_days', { parent_link_id_value: normalizedParentLinkId }),
   ])

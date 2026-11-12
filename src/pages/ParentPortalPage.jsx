@@ -3914,7 +3914,7 @@ function ParentMatchCard({
         </div>
       </div>
 
-      {(match.formationPlans?.length || match.formationPlan) ? <ParentFormationPlans plans={match.formationPlans} plan={match.formationPlan} /> : null}
+
 
       {responseRows.length > 0 ? (
         <div className="mt-4 rounded-lg border border-[#bbf7d0] bg-[#ecfdf5] p-4 shadow-sm shadow-[#047857]/10">
