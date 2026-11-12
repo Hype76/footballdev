@@ -82,8 +82,10 @@ export function createClubMatchdayTvHandler({ authenticate = getAuthenticatedPla
   return async (event) => {
     let action
     try {
-      if (event.httpMethod === 'HEAD') {
-        const clubId = await findLinkedClub(client, event.queryStringParameters?.displayPath)
+      const displayPath = event.queryStringParameters?.displayPath
+      // Netlify can deliver a HEAD request to the function as GET.
+      if (displayPath !== undefined && (event.httpMethod === 'HEAD' || event.httpMethod === 'GET')) {
+        const clubId = await findLinkedClub(client, displayPath)
         return { ...reply(clubId ? 204 : 404), body: '' }
       }
       if (event.httpMethod !== 'POST') return reply(405, { message: 'Method not allowed.' })
