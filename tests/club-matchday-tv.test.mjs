@@ -270,7 +270,7 @@ const oakfield = '22222222-2222-4222-8222-222222222222'
 const v2Shape = 'abcdefghijklmnopqrstuq'
 const artwork = 'data:image/webp;base64,YXJ0'
 const preferences = {
-  appearance: 'dark', bigGoal: false, showMap: true, weatherPostcode: 'CB23 6FY', map: artwork,
+  accessMode: 'admin', appearance: 'dark', bigGoal: false, showMap: true, weatherPostcode: 'CB23 6FY', map: artwork,
   sponsorAds: [{ image: artwork, name: 'Fictional Sponsor', enabled: true, startDate: '2026-11-12', endDate: '2026-11-12' }],
   sponsorSeconds: 15, showPitchsideOrdering: true,
 }
@@ -298,10 +298,12 @@ test('private Matchday TV settings and aliases are saved atomically by authorize
 
   const client = {
     from(table) {
+      if (table === 'match_days') return clientFor([fixture({ venue_name: 'Pitch 7, club venue details' })]).from(table)
+      if (table === 'clubs') return clientFor().from(table)
       const filters = []
       let columns
       return {
-        select(value) { columns = value; return this },
+        select(value) { columns = value.replace(/(\w+):(\w+)->>(\w+)/g, "$2->>'$3' as $1"); return this },
         eq(column, value) { filters.push({ column, value }); return this },
         async maybeSingle() {
           const where = filters.map(({ column }, index) => `${column} = $${index + 1}`).join(' and ')
@@ -319,12 +321,16 @@ test('private Matchday TV settings and aliases are saved atomically by authorize
       } catch (error) { return { data: null, error } }
     },
   }
+  let clubStatus = 'active'
+  let receivedPostcode
   const endpoint = createClubMatchdayTvHandler({
     authenticate: async ({ headers }) => {
       if (!headers.actor) throw Object.assign(new Error('Login required'), { statusCode: 401 })
       return { role: headers.role || 'admin', clubId: headers.actor, planKey: 'club', accountStatus: 'active', clubStatus: 'active', planStatus: 'active' }
     },
     assertFeature: async () => {},
+    loadClubPlan: async id => ({ ...profile, clubId: id, clubStatus }),
+    weather: async postcode => { receivedPostcode = postcode; return { temperature: 12 } },
     client,
     logger: { error() {} },
   })
@@ -366,6 +372,35 @@ test('private Matchday TV settings and aliases are saved atomically by authorize
   assert.equal((await view(cedarfield, 'cedar-fc')).settings.preferences.appearance, 'light')
   assert.equal((await view(cedarfield, 'cedarfield')).settings.revision, 2)
   assert.equal((await availability(oakfield, 'cedar-fc')).availability, 'taken')
+  const lookup = slug => endpoint({ httpMethod: 'HEAD', queryStringParameters: { displayPath: slug } })
+  assert.equal((await lookup('CEDAR-FC')).statusCode, 204)
+  assert.equal((await lookup('CEDAR-FC')).body, '')
+  assert.equal((await lookup('unclaimed')).statusCode, 404)
+  const anonymousFeed = () => request(undefined, { slug: 'cedar-fc', date: '2026-10-21' })
+  assert.equal((await anonymousFeed()).status, 401)
+  assert.equal((await save(cedarfield, null, 2, { ...preferences, accessMode: 'public' })).status, 200)
+  const publicView = await view(undefined, 'cedar-fc')
+  assert.equal(publicView.status, 200)
+  assert.equal(publicView.settings.preferences.accessMode, 'public')
+  assert.equal(publicView.weatherConfigured, true)
+  assert.equal(Object.hasOwn(publicView.settings.preferences, 'weatherPostcode'), false)
+  assert.equal((await request(undefined, { action: 'settings', clubId: cedarfield })).status, 401)
+  assert.equal((await save(undefined, 'cedar-fc', 3, preferences)).status, 400)
+  assert.equal((await request(undefined, { action: 'save', clubId: cedarfield, slug: 'cedar-fc', revision: 3, preferences })).status, 401)
+  assert.equal((await request(undefined, { clubId: oakfield, slug: 'cedar-fc', date: '2026-10-21' })).status, 403)
+  const feed = await anonymousFeed()
+  assert.equal(feed.status, 200)
+  assert.equal(feed.matches[0].venue, '7')
+  assert.doesNotMatch(JSON.stringify(feed), /club venue details|PRIVATE PLAYER/)
+  assert.equal((await request(undefined, { action: 'weather', slug: 'cedar-fc', postcode: 'SW1A 1AA' })).status, 200)
+  assert.equal(receivedPostcode, 'CB236FY')
+  clubStatus = 'suspended'
+  assert.equal((await anonymousFeed()).status, 403)
+  clubStatus = 'active'
+  assert.equal((await save(cedarfield, null, 3, preferences)).status, 200)
+  assert.equal((await view(undefined, 'cedar-fc')).status, 401)
+  assert.equal((await anonymousFeed()).status, 401)
+  assert.equal((await lookup('CEDAR-FC')).statusCode, 204)
 
   await assert.rejects(db.query('select public.save_club_matchday_tv_settings($1, $2, $3, 0)', [oakfield, 'broken-prefs', []]), { code: '23514' })
   assert.equal((await availability(oakfield, 'broken-prefs')).availability, 'available')
@@ -385,4 +420,23 @@ test('viewer URL generation keeps the V2 token space and supports only the V1 ap
   assert.equal(clubTvViewerUrl('cedar-fc', current, 'https://fpmd.online'), 'https://fpmd.online/cedar-fc')
   assert.equal(clubTvViewerUrl('cedar-fc', current, 'https://v1.fpmd.online'), 'https://v1.fpmd.online/cedar-fc')
   assert.equal(clubTvViewerUrl('cedar-fc', current, 'https://example.com'), 'https://footballplayer.online/club-matchday-tv/view/cedar-fc')
+})
+
+test('only the V1 embed response may be framed by fpmd.online', async () => {
+  const { default: frame } = await import('../netlify/edge-functions/club-matchday-tv-frame.js')
+  const policy = "default-src 'self'; frame-ancestors 'none'; connect-src 'self'"
+  const upstream = () => new Response('<html>Viewer</html>', { headers: {
+    'Content-Type': 'text/html', 'Content-Security-Policy': policy, 'X-Frame-Options': 'DENY',
+  } })
+  const request = new Request('https://v1.fpmd.online/club-matchday-tv/embed/cedar-fc')
+  const allowed = await frame(request, { next: upstream })
+  assert.equal(allowed.headers.get('Content-Security-Policy'), "default-src 'self'; frame-ancestors https://fpmd.online; connect-src 'self'")
+  assert.equal(allowed.headers.get('X-Frame-Options'), null)
+  assert.equal(allowed.headers.get('Cache-Control'), 'no-store')
+  assert.equal(await allowed.text(), '<html>Viewer</html>')
+  assert.equal(await frame(new Request('https://footballplayer.online/club-matchday-tv/embed/cedar-fc'), {
+    next() { assert.fail('The V1 web app should never receive frame headers') },
+  }), undefined)
+  const failed = await frame(request, { next: () => new Response('Unavailable', { status: 503, headers: { 'X-Frame-Options': 'DENY' } }) })
+  assert.equal(failed.headers.get('X-Frame-Options'), 'DENY')
 })
