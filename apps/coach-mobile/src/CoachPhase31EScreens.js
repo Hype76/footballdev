@@ -81,7 +81,7 @@ import {
 } from '../../mobile-core/src/coachPhase31ECore'
 import { getMobileRuntimeConfig } from '../../mobile-core/src/config'
 import { getCoachPlayerList } from '../../mobile-core/src/coachPlayersData'
-import { useConfirmedConnectionIssue, useConfirmedConnectionMessage } from '../../mobile-core/src/useConfirmedConnectionIssue'
+import { isTransientConnectionMessage, useConfirmedConnectionIssue, useConfirmedConnectionMessage } from '../../mobile-core/src/useConfirmedConnectionIssue'
 import { createCoachOfflineResourceSaver, readCoachDevelopmentDrafts, readCoachOfflineResources, saveCoachOfflineResources } from './offline'
 import { getCoachFriendlyError } from './coachFriendlyErrors'
 import { useAttendanceOutbox, useAttendanceUiGuard } from '../../mobile-core/src/useAttendanceOutbox'
@@ -406,7 +406,10 @@ export function CoachPhase31EScreen({ chatNotificationTarget, domain, context, o
       }
       if (dataRef.current || recent !== undefined || hasCachedValue) {
         setStale(true)
-        if (!silent) setNotice(getCoachFriendlyError(loadError, `${TITLES[domain]} could not be refreshed. Showing saved information.`))
+        if (!silent) {
+          const message = getCoachFriendlyError(loadError, `${TITLES[domain]} could not be refreshed. Showing saved information.`)
+          if (domain !== 'invites' || !isTransientConnectionMessage(message)) setNotice(message)
+        }
       }
       if (!silent && !hasCachedValue && recent === undefined && !dataRef.current) setError(getCoachFriendlyError(loadError, `${TITLES[domain]} could not be loaded.`))
       return false
@@ -463,11 +466,13 @@ export function CoachPhase31EScreen({ chatNotificationTarget, domain, context, o
           <Pressable accessibilityRole="button" accessibilityLabel="Refresh invitations" disabled={invitesRefreshing} onPress={() => void load({ silent: true })} style={{ minHeight: 44, minWidth: 72, alignItems: 'center', justifyContent: 'center', opacity: invitesRefreshing ? 0.5 : 1 }}><Text style={{ color: palette.accentText, fontWeight: '700' }}>Refresh</Text></Pressable>
         </View> : confirmedStale && !activity ? <Text accessibilityLabel="Offline stale data" style={styles.status}>{domain === 'invites' ? 'Showing saved invitations. Reconnect to refresh.' : 'Offline and read-only'}</Text> : null}
         {domain === 'invites' && offlineWarning.scope === dataScope && offlineWarning.message ? <CoachOfflineCopyWarning message={offlineWarning.message} onRetry={() => void load({ silent: true })} palette={palette} styles={styles} /> : null}
-        {notice ? <MobileFailureNotice message={/could not|failed|unavailable|too long/i.test(notice) ? notice : ''} scopeKey={dataScope} onRetry={() => load({ silent: true })} /> : null}
+        {/could not|failed|unavailable|too long/i.test(notice) ? domain === 'invites'
+          ? <Text accessibilityLiveRegion="polite" style={styles.danger}>{notice}</Text>
+          : <MobileFailureNotice message={notice} scopeKey={dataScope} onRetry={() => load({ silent: true })} /> : null}
       </>}
       {loading ? <MobileLoadingStatus message={`Loading ${TITLES[domain]}`} /> : null}
       {!activity && !loading && error && !visibleError ? <MobileLoadingStatus message="Checking for the latest information" /> : null}
-      {activity ? <MobileFailureNotice message={error} scopeKey={dataScope} onRetry={load} /> : visibleError ? <View style={styles.panel}><Text accessibilityLiveRegion="assertive" style={styles.danger}>{visibleError}</Text><Button label="Try again" onPress={load} styles={styles} /></View> : null}
+      {activity && domain !== 'invites' ? <MobileFailureNotice message={error} scopeKey={dataScope} onRetry={load} /> : !activity && visibleError ? <View style={domain === 'invites' ? styles.stack : styles.panel}><Text accessibilityLiveRegion="assertive" style={styles.danger}>{visibleError}</Text><Button label="Try again" onPress={load} styles={styles} /></View> : null}
       {data && !error && domain === 'development' ? <DevelopmentDomain {...common} setData={setData} /> : null}
       {data && !error && domain === 'resources' ? <ResourcesDomain {...common} /> : null}
       {data && !error && domain === 'chat' ? <ChatDomain {...common} /> : null}

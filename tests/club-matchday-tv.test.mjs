@@ -51,6 +51,7 @@ test('DTO discards player identities, invalid shirts, voided events, shootout ev
   assert.equal(toClubTvMatch(fixture({ club_id: otherClub }), clubId), null)
   assert.equal(toClubTvMatch(fixture({ teams: { club_id: otherClub, name: 'Foreign team' } }), clubId), null)
   assert.equal(toClubTvMatch(fixture({ deleted_at: '2026-10-01' }), clubId), null)
+  assert.equal(toClubTvMatch(fixture({ status: 'cancelled' }), clubId), null)
   assert.equal(toClubTvMatch(fixture({ match_day_events: [{ ...row.match_day_events[0], event_status: 'corrected' }] }), clubId).events.length, 1)
 })
 
@@ -135,6 +136,15 @@ test('empty matchdays fall back to the next seven days with the same club and pr
   assert.equal(tvDateAfter('2026-12-29', 7), '2027-01-05')
   assert.equal(tvDateAfter('2028-02-28', 1), '2028-02-29')
   assert.equal(tvDateAfter('9999-12-31', 7), null)
+})
+
+test('cancelled fixtures are excluded and do not prevent the next seven days fallback', async () => {
+  const client = clientFor((call) => call.filters.some(([operator]) => operator === 'gte')
+    ? [fixture({ id: 'cancelled-next', status: 'cancelled', match_date: '2026-10-24' }), fixture({ id: 'scheduled-next', status: 'scheduled', match_date: '2026-10-25' })]
+    : [fixture({ id: 'cancelled-today', status: 'cancelled' })])
+  const payload = JSON.parse((await handler({ client })(request())).body)
+  assert.equal(payload.window.kind, 'week')
+  assert.deepEqual(payload.matches.map(({ id }) => id), ['scheduled-next'])
 })
 
 test('explicit periods use bounded calendar dates and retain club and privacy scope', async () => {

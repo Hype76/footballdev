@@ -4,7 +4,9 @@ import test from 'node:test'
 import vm from 'node:vm'
 import { parse } from '@babel/parser'
 import { restoreCoachAvailabilitySnapshot } from '../apps/mobile-core/src/coachAvailabilityCache.js'
+import { isTransientConnectionMessage } from '../apps/mobile-core/src/useConfirmedConnectionIssue.js'
 import * as cache from '../apps/mobile-core/src/coachOfflineCore.js'
+import { getCoachFriendlyError } from '../apps/coach-mobile/src/coachFriendlyErrors.js'
 
 const screenSource = await readFile(new URL('../apps/coach-mobile/src/CoachPhase31EScreens.js', import.meta.url), 'utf8')
 const offlineSource = await readFile(new URL('../apps/coach-mobile/src/offline.js', import.meta.url), 'utf8')
@@ -57,7 +59,7 @@ function harness({ initialDocument = null, diskError = null, authority = context
     hasUsableCoachPhase31ECache: (_domain, value) => Boolean(value),
     createCoachOfflineResourceSaver: (...args) => wrapSaver(actualSaver.createCoachOfflineResourceSaver(...args)),
     saveCoachOfflineResources: actualSaver.saveCoachOfflineResourcesWithProfile,
-    getCoachFriendlyError: error => error.message,
+    getCoachFriendlyError, isTransientConnectionMessage,
     ...Object.fromEntries(['Data', 'Error', 'Notice', 'OfflineWarning', 'Loading', 'Refreshing', 'Stale', 'InvitesRefreshing'].map(name => [`set${name}`, value => { const key = name.charAt(0).toLowerCase() + name.slice(1); state[key] = typeof value === 'function' ? value(state[key]) : value }])),
   }
   return { state, config, load: vm.runInNewContext(`(${screenSource.slice(callback.start, callback.end)})`, environment),
@@ -75,6 +77,21 @@ test('Invites load repairs a missing profile and retains pending drafts across r
   await h.load({ silent: true }); await h.settle()
   assert.deepEqual(h.document().developmentDrafts, pendingDrafts)
   assert.equal(h.state.offlineWarning.message, '')
+})
+
+test('a connection failure keeps saved availability visible without an Invites failure pop-up', async () => {
+  const h = harness()
+  await h.load()
+  h.config.networkError = new Error('Network request failed')
+  await h.load()
+  assert.equal(h.state.data, snapshot)
+  assert.equal(h.state.stale, true)
+  assert.equal(h.state.notice, '')
+  assert.equal(h.state.error, '')
+
+  const jsx = screenSource.slice(screen.body.start, screen.body.end)
+  assert.match(jsx, /domain === 'invites'\s+\? <Text accessibilityLiveRegion="polite" style=\{styles\.danger\}>\{notice\}<\/Text>\s+: <MobileFailureNotice/)
+  assert.match(jsx, /activity && domain !== 'invites' \? <MobileFailureNotice message=\{error\}/)
 })
 
 test('actual write failure retains live data, protected drafts and a visible inline warning across refreshes', async () => {
