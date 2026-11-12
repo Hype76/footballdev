@@ -5,6 +5,7 @@ import test from 'node:test'
 import { parse } from '@babel/parser'
 import { restoreCoachAvailabilitySnapshot } from '../apps/mobile-core/src/coachAvailabilityCache.js'
 import { getCoachCacheByteLength, COACH_PHASE_31F_MAX_CACHE_BYTES } from '../apps/mobile-core/src/coachPhase31FCore.js'
+import { isTransientConnectionMessage } from '../apps/mobile-core/src/useConfirmedConnectionIssue.js'
 import { createCoachOfflineDocument, recoverCoachOfflineCacheSpace, setCoachOfflineProfile, setCoachOfflineResources } from '../apps/mobile-core/src/coachOfflineCore.js'
 
 test('Coach keeps saved resources for 20 teams beyond the previous 15 MB limit', () => {
@@ -73,6 +74,7 @@ function loadHarness({ saveError, savePending, loadError, cachedValue, cachePend
     createCoachOfflineResourceSaver: (profile, context) => resources => environment.saveCoachOfflineResources(profile.id, context, resources),
     setOfflineWarning: value => { state.offlineWarning = value },
     getCoachFriendlyError: error => error.message,
+      isTransientConnectionMessage,
     ...Object.fromEntries(['Data', 'Error', 'Notice', 'Loading', 'Refreshing', 'Stale', 'InvitesRefreshing'].map(name => [`set${name}`, value => { state[name.charAt(0).toLowerCase() + name.slice(1)] = typeof value === 'function' ? value(state[name.charAt(0).toLowerCase() + name.slice(1)]) : value }])),
   }
   return { state, next, environment, load: vm.runInNewContext(`(${screenSource.slice(callback.start, callback.end)})`, environment) }

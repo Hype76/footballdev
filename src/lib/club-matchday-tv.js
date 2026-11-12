@@ -58,7 +58,7 @@ export function activeTvSponsors(ads, today = clubTvDate()) {
 
 // Explicit display DTO: never spread raw match/event records into the TV response.
 export function toClubTvMatch(row, clubId) {
-  if (row?.club_id !== clubId || row.deleted_at) return null
+  if (row?.club_id !== clubId || row.deleted_at || text(row.status).toLowerCase() === 'cancelled') return null
   const team = Array.isArray(row.teams) ? row.teams[0] : row.teams
   if (!team || team.club_id !== clubId) return null
   const events = (row.match_day_events ?? []).filter((event) =>

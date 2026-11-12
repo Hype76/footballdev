@@ -112,7 +112,7 @@ test('official tooling updates preserve unrelated dependencies and the exact app
     const { overrides: oldOverrides, ...oldPackage } = before
     const { overrides, ...newPackage } = current
     assert.deepEqual(newPackage, oldPackage, `${scope} direct dependencies and scripts match the exact mobile feature additions`)
-    assert.deepEqual(overrides, { ...oldOverrides, minimatch: '11.0.8', 'glob@>=9.0.0 <=14.0.1': '14.0.4', ...(scope === '.' ? { '@eslint/config-array': '0.23.5' } : { 'test-exclude': '8.0.0', 'node-forge': '1.4.3' }) })
+    assert.deepEqual(overrides, { ...oldOverrides, minimatch: '11.0.8', 'glob@>=9.0.0 <=14.0.1': '14.0.5', ...(scope === '.' ? { '@eslint/config-array': '0.23.5' } : { 'test-exclude': '8.0.0', 'node-forge': '1.4.3' }) })
     const oldLock = previousLock.packages
     const newLock = JSON.parse(fs.readFileSync(`${prefix}package-lock.json`)).packages
     for (const file of new Set([...Object.keys(oldLock), ...Object.keys(newLock)])) {
@@ -145,15 +145,15 @@ test('the current glob and minimatch update changes only reviewed tooling packag
     if (scope === '.') applyApprovedXmlParserDelta(oldPackage, oldLock)
     if (scope === 'apps/coach-mobile') applyApprovedCoachFileTools(oldPackage, oldLock)
     oldPackage.overrides.minimatch = '11.0.8'
-    oldPackage.overrides['glob@>=9.0.0 <=14.0.1'] = '14.0.4'
+    oldPackage.overrides['glob@>=9.0.0 <=14.0.1'] = '14.0.5'
     assert.deepEqual(newPackage, oldPackage)
     const newLock = JSON.parse(fs.readFileSync(`${prefix}package-lock.json`))
     assert.deepEqual(Object.keys(newLock.packages).sort(), Object.keys(oldLock.packages).sort(), `${scope}: dependency set changed`)
     for (const [name, entry] of Object.entries(newLock.packages)) {
       if (!changedPackages.has(name)) assert.deepEqual(entry, oldLock.packages[name], `${scope}: unrelated dependency changed at ${name}`)
-      if (name.endsWith('/glob')) assert.ok(['7.2.3', '14.0.4'].includes(entry.version), `${scope}: affected glob version at ${name}`)
+      if (name.endsWith('/glob')) assert.ok(['7.2.3', '14.0.5'].includes(entry.version), `${scope}: affected glob version at ${name}`)
     }
-    assert.equal(newLock.packages['node_modules/glob'].version, '14.0.4')
+    assert.equal(newLock.packages['node_modules/glob'].version, '14.0.5')
     assert.equal(newLock.packages['node_modules/minimatch'].version, '11.0.8')
     assert.equal(newLock.packages['node_modules/@isaacs/nonrecursive-glob-match'].version, '1.1.0')
   }
@@ -180,7 +180,7 @@ for (const scope of ['.', 'apps/coach-mobile', 'apps/parent-mobile']) {
           const files = await new Promise((resolve, reject) => glob('src/**/*.js', options, (error, result) => error ? reject(error) : resolve(result)))
           assert.deepEqual(normalize(files), expectedFiles)
         } else {
-          assert.equal(pkg.version, '14.0.4', 'Modern glob entrypoints must use the official fixed release')
+          assert.equal(pkg.version, '14.0.5', 'Modern glob entrypoints must use the official fixed release')
           assert.deepEqual(normalize(glob.globSync('src/**/*.js', options)), expectedFiles)
           assert.deepEqual(normalize(await glob.glob('src/**/*.js', options)), expectedFiles)
           const controller = new AbortController()
@@ -233,4 +233,19 @@ test('the installed ESLint flat-configuration dependency supports its public ESM
   const config = new ConfigArray([{ files: ['**/*.js'] }], { basePath: root })
   await config.normalize()
   assert.equal(config.isFileIgnored(path.join(root, 'src', 'index.js')), false)
+})
+
+test('glob 14.0.5 changes only the reviewed package in each lock graph', () => {
+  const candidate = 'ca880ce883791c6c8661dd7a2eeacd0eb84c73a6'
+  for (const scope of ['.', 'apps/coach-mobile', 'apps/parent-mobile']) {
+    const prefix = scope === '.' ? '' : `${scope}/`
+    const before = JSON.parse(execFileSync('git', ['show', `${candidate}:${prefix}package-lock.json`], { encoding: 'utf8', maxBuffer: 8 * 1024 * 1024 }))
+    const after = JSON.parse(fs.readFileSync(`${prefix}package-lock.json`))
+    const reviewed = after.packages['node_modules/glob']
+    assert.equal(reviewed.version, '14.0.5')
+    assert.equal(reviewed.integrity, 'sha512-nbKW5Sl53DEM5PkmZ5Jwfeyss1ohuqcgOBjOarSjz1fp8W4ss4EOOvKADQRbApD6JmVBX+HkpZYfBez4wXbeQQ==')
+    assert.equal(before.packages['node_modules/glob'].version, '14.0.4')
+    before.packages['node_modules/glob'] = reviewed
+    assert.deepEqual(after, before, `${scope}: only the glob package may change`)
+  }
 })
