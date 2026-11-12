@@ -216,9 +216,9 @@
     "upstreamLatest": {
       "glob": {
         "name": "glob",
-        "version": "14.0.4",
-        "registryIntegrity": "sha512-mMiwNKoJZ4HAIRVJxotO6LsNRReA30gQwP9E2/p94tfLv+jygCNpKDjhhSL6OLY6LE371EZm5EAf7RpYuUqlsw==",
-        "gitHead": "f26bdacd642324afde39e201c9b63d1496384ced"
+        "version": "14.0.5",
+        "registryIntegrity": "sha512-nbKW5Sl53DEM5PkmZ5Jwfeyss1ohuqcgOBjOarSjz1fp8W4ss4EOOvKADQRbApD6JmVBX+HkpZYfBez4wXbeQQ==",
+        "gitHead": "7473a9c87e0176de81d8a4b05f8c040568452d63"
       },
       "minimatch": {
         "name": "minimatch",
