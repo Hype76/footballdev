@@ -214,6 +214,20 @@ for (const direct of [false, true]) test(`formation attachment retains published
   if (direct) assert.equal(JSON.parse((await f.call('resources')).body).resources[0].eventId, undefined)
 })
 
+test('Parent-linked Player cannot list or open a raw board but can still open a shared PDF', async () => {
+  const f = playerResourceFixture()
+  f.tables.parent_player_links.push({ ...f.tables.parent_player_links[0], id: id(50), auth_user_id: id(2) })
+  f.tables.formation_board_publications = [{ resource_id: f.item.id, club_id: id(6), team_id: id(7), board_id: id(40), board_version_id: id(41), publication_number: 1 }]
+  assert.equal(JSON.parse((await f.call('schedule')).body).schedule[0].resources.length, 0)
+  assert.equal(JSON.parse((await f.call('resources')).body).resources.length, 0)
+  assert.equal((await f.call('open_resource', { resourceId: f.item.id })).statusCode, 403)
+  f.tables.formation_board_publications = []
+  f.item.mime_type = 'application/pdf'
+  const opened = await f.call('open_resource', { resourceId: f.item.id })
+  assert.equal(opened.statusCode, 200)
+  assert.equal(JSON.parse(opened.body).accessUrl, 'https://synthetic.test/card.pdf')
+})
+
 test('Fans receive authoritative clock state only for accessible Game Day fixtures', async () => {
   const { client, tables, selections } = fixture()
   tables.fan_connections[0].permissions.game_day = true

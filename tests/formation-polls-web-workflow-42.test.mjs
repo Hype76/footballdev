@@ -36,11 +36,11 @@ test('Match Plan publication is immutable, parent scoped, and excludes private s
   assert.match(migration, /revoke all on table public\.formation_board_match_publications from public, anon, authenticated/)
   assert.match(domain, /publishFormationBoardMatchPlan/)
   assert.match(page, /Save and link to match/)
-  assert.match(page, /Publish update to parents/)
-  assert.match(page, /Withdraw parent plan/)
+  assert.match(page, /Publish update to Players/)
+  assert.match(page, /Withdraw Player plan/)
   assert.match(parentPage, /parent-match-formation-plan/)
   assert.match(parentPage, /Only the shared pitch and Bench are shown/)
-  assert.match(matchDayDomain, /get_parent_portal_match_formation_plans/)
+  assert.doesNotMatch(matchDayDomain, /get_parent_portal_match_formation_plans/)
 })
 
 test('Atomic Coach Match Formation save contract protects audience and board history', async () => {

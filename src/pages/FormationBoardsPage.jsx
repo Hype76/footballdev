@@ -1116,7 +1116,7 @@ export function FormationBoardsPage() {
       }
       setCurrentBoard(linkedBoard)
       await refreshBoards()
-      showToast({ title: submitStartingSquad ? 'Starting squad submitted' : 'Match linked', message: 'The saved plan is still private until you publish it to parents.' })
+      showToast({ title: submitStartingSquad ? 'Starting squad submitted' : 'Match linked', message: 'The saved plan is still private until you publish it to Players.' })
     } catch (error) {
       console.error(error)
       setErrorMessage(error.message || 'The Formation Board could not be linked to that match.')
@@ -1145,10 +1145,10 @@ export function FormationBoardsPage() {
         versionId: currentBoard.currentVersionId,
       })
       setMatchPublications(await getFormationBoardMatchPublications(currentBoard.id))
-      showToast({ title: latestSelectedMatchPublication ? 'Parent plan updated' : 'Parent plan published', message: 'Parents can now see the read-only pitch and Bench for this match.' })
+      showToast({ title: latestSelectedMatchPublication ? 'Player plan updated' : 'Player plan published', message: 'Authorised Players can see the read-only pitch and Bench. Share a PDF with parents.' })
     } catch (error) {
       console.error(error)
-      setErrorMessage(error.message || 'The match plan could not be published to parents.')
+      setErrorMessage(error.message || 'The match plan could not be published to Players.')
     } finally {
       setIsPublishingMatchPlan(false)
     }
@@ -1161,10 +1161,10 @@ export function FormationBoardsPage() {
     try {
       await withdrawFormationBoardMatchPlan({ boardId: currentBoard.id, matchDayId: selectedMatchId, user })
       setMatchPublications(await getFormationBoardMatchPublications(currentBoard.id))
-      showToast({ title: 'Parent plan withdrawn', message: 'Parents can no longer see the Formation Board for this match.' })
+      showToast({ title: 'Player plan withdrawn', message: 'The match plan is no longer visible to Players.' })
     } catch (error) {
       console.error(error)
-      setErrorMessage(error.message || 'The parent match plan could not be withdrawn.')
+      setErrorMessage(error.message || 'The Player match plan could not be withdrawn.')
     } finally {
       setIsPublishingMatchPlan(false)
     }
@@ -1772,7 +1772,7 @@ export function FormationBoardsPage() {
               <details className="border-t border-[var(--border-color)] pt-4">
                 <summary className="min-h-11 cursor-pointer py-2 text-sm font-black">Match plan</summary>
                 <div className="mt-3 space-y-3">
-                  <p className="text-sm font-semibold leading-6 text-[var(--text-muted)]">Link the private board to a match, then publish only the read-only pitch and Bench to parents. Coach notes, availability, and unselected squad members stay private.</p>
+                  <p className="text-sm font-semibold leading-6 text-[var(--text-muted)]">Link the private board to a match. To share it with parents, export a PDF and share that file. Publishing makes the read-only pitch and Bench available to authorised Players. Coach notes, availability, and unselected squad members stay private when you publish to Players.</p>
                   <label className="block">
                     <span className="mb-2 block text-sm font-black">Match</span>
                     <select value={selectedMatchId} disabled={isPublishingMatchPlan} onChange={(event) => setSelectedMatchId(event.target.value)} className={fieldClass}>
@@ -1787,10 +1787,10 @@ export function FormationBoardsPage() {
                   </label>
                   <div className="grid gap-2">
                     <button type="button" disabled={!selectedMatchId || isSaving || isPublishingMatchPlan || pitchCapacity.isOverCapacity} onClick={() => void saveAndLinkMatch()} className={secondaryButtonClass}>{isSaving ? 'Saving...' : 'Save and link to match'}</button>
-                    <button type="button" disabled={!selectedMatchId || isNewBoard || hasUnsavedChanges || currentBoard?.linkedMatchDayId !== selectedMatchId || isPublishingMatchPlan} onClick={() => void publishMatchPlan()} className={primaryButtonClass}>{isPublishingMatchPlan ? 'Working...' : latestSelectedMatchPublication && !latestSelectedMatchPublication.withdrawnAt ? 'Publish update to parents' : 'Publish to parents'}</button>
-                    {latestSelectedMatchPublication && !latestSelectedMatchPublication.withdrawnAt ? <button type="button" disabled={isPublishingMatchPlan} onClick={() => void withdrawMatchPlan()} className={dangerButtonClass}>Withdraw parent plan</button> : null}
+                    <button type="button" disabled={!selectedMatchId || isNewBoard || hasUnsavedChanges || currentBoard?.linkedMatchDayId !== selectedMatchId || isPublishingMatchPlan} onClick={() => void publishMatchPlan()} className={primaryButtonClass}>{isPublishingMatchPlan ? 'Working...' : latestSelectedMatchPublication && !latestSelectedMatchPublication.withdrawnAt ? 'Publish update to Players' : 'Publish to Players'}</button>
+                    {latestSelectedMatchPublication && !latestSelectedMatchPublication.withdrawnAt ? <button type="button" disabled={isPublishingMatchPlan} onClick={() => void withdrawMatchPlan()} className={dangerButtonClass}>Withdraw Player plan</button> : null}
                   </div>
-                  {latestSelectedMatchPublication ? <p className="text-xs font-semibold text-[var(--text-muted)]">Publication {latestSelectedMatchPublication.publicationNumber} {latestSelectedMatchPublication.withdrawnAt ? `was withdrawn ${formatDateTime(latestSelectedMatchPublication.withdrawnAt)}` : `is visible to parents from ${formatDateTime(latestSelectedMatchPublication.publishedAt)}`}.</p> : null}
+                  {latestSelectedMatchPublication ? <p className="text-xs font-semibold text-[var(--text-muted)]">Publication {latestSelectedMatchPublication.publicationNumber} {latestSelectedMatchPublication.withdrawnAt ? `was withdrawn ${formatDateTime(latestSelectedMatchPublication.withdrawnAt)}` : `is visible to authorised Players from ${formatDateTime(latestSelectedMatchPublication.publishedAt)}`}.</p> : null}
                 </div>
               </details>
             ) : null}

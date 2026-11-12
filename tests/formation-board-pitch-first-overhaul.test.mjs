@@ -61,7 +61,7 @@ test('advanced capabilities remain reachable without changing permission or publ
     'Coach notes',
     'Match plan',
     'Save and link to match',
-    'Publish to parents',
+    'Publish to Players',
     'Version history',
     'Publish to Team Resources',
     'Export PNG',

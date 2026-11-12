@@ -463,7 +463,7 @@ try {
     await page.getByRole('button', { name: /#1 Player One.*Add/ }).click()
     await page.getByRole('button', { name: 'Save', exact: true }).click()
     await page.getByLabel('Formation plan title', { exact: true }).fill('Board B revised')
-    await page.getByRole('radio', { name: 'Parents and players', exact: true }).click()
+    await page.getByRole('radio', { name: 'Players', exact: true }).click()
     await page.getByRole('button', { name: 'Save to match', exact: true }).click()
     await page.waitForFunction(() => window.__formationTest.saveCalls > 0)
     assert.equal(await page.evaluate(() => window.__formationTest.serverBoards.find(item => item.id === 'board-b')?.title), 'Board B revised')
@@ -509,7 +509,7 @@ try {
     } else await page.getByRole('button', { name: 'Save', exact: true }).click()
     if (process.env.FORMATION_ASYNC_SCENARIO === 'queue-resume') {
       await page.getByLabel('Formation plan title', { exact: true }).fill('Queued lineup')
-      await page.getByRole('radio', { name: 'Parents and players', exact: true }).click()
+      await page.getByRole('radio', { name: 'Players', exact: true }).click()
     }
     if (process.env.FORMATION_ASYNC_SCENARIO === 'conflict') {
       await page.getByLabel('Formation plan title', { exact: true }).fill('Conflicted lineup')
@@ -547,14 +547,14 @@ try {
       }
       assert.deepEqual(errors, [])
     } else if (process.env.FORMATION_ASYNC_SCENARIO === 'recover-audience') {
-      await page.getByRole('radio', { name: 'Parents and players', exact: true }).click()
+      await page.getByRole('radio', { name: 'Players', exact: true }).click()
       await page.getByRole('button', { name: 'Save to match', exact: true }).click()
       await page.getByText(/^Saved on this phone\. Saving to the match has not been confirmed\./).waitFor()
       await page.getByRole('radio', { name: 'Coaches only', exact: true }).click()
       await page.getByRole('button', { name: 'Save to match', exact: true }).click()
       await page.getByRole('dialog', { name: 'share options', exact: true }).waitFor({ state: 'hidden' })
       await page.getByRole('button', { name: 'Save', exact: true }).click()
-      await page.getByText(/Visible to parents and players\. Save again to apply your new sharing choice\./).waitFor()
+      await page.getByText(/Visible to players\. Save again to apply your new sharing choice\./).waitFor()
       assert.equal(await page.evaluate(() => window.__formationTest.saveCalls), 1)
       await page.getByRole('button', { name: 'Save to match', exact: true }).click()
       await page.getByRole('dialog', { name: 'share options', exact: true }).waitFor({ state: 'hidden' })
@@ -601,13 +601,13 @@ try {
     if (process.env.FORMATION_ASYNC_SCENARIO.startsWith('fast-save')) {
       const shared = process.env.FORMATION_ASYNC_SCENARIO === 'fast-save'
       await page.getByLabel('Formation plan title', { exact: true }).fill('Starting lineup')
-      if (shared) await page.getByRole('radio', { name: 'Parents and players', exact: true }).click()
+      if (shared) await page.getByRole('radio', { name: 'Players', exact: true }).click()
       const writesBeforeSave = await page.evaluate(() => window.__formationTest.formationWrites)
       await page.getByRole('button', { name: 'Save to match', exact: true }).click()
       await page.getByRole('dialog', { name: 'share options', exact: true }).waitFor({ state: 'hidden' })
       const savedLineups = page.getByRole('button', { name: 'Saved lineups (1)', exact: true })
       await savedLineups.click({ timeout: 3000 })
-      const status = shared ? 'Visible to parents and players' : 'Saved to match | Coaches only'
+      const status = shared ? 'Visible to players' : 'Saved to match | Coaches only'
       await page.getByText(`${status} | 1 on pitch | 0 Subs`, { exact: true }).waitFor()
       const calls = await page.evaluate(() => {
         const { boardCalls, publicationCalls, saveCalls, startingSquadCalls, lastShared } = window.__formationTest

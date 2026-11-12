@@ -14,11 +14,12 @@ function stub(tables = {}, rpcRows = {}) {
   const calls = []
   function query(key, args, rpc = false) {
     const call = { key, args, rpc, steps: [] }; calls.push(call)
-    const result = { data: (rpc ? rpcRows : tables)[key] ?? (rpc ? [] : null), error: null }
+    const result = { data: (rpc ? rpcRows : tables)[key] ?? (rpc || key === 'formation_board_publications' ? [] : null), error: null }
     const value = new Proxy({}, { get(_, method) {
       if (method === 'then') return (resolve, reject) => Promise.resolve(result).then(resolve, reject)
       return (...params) => {
         call.steps.push([method, ...params])
+        if (method === 'maybeSingle' && Array.isArray(result.data)) result.data = result.data[0] || null
         if (method === 'range') result.data = (result.data || []).slice(params[0], params[1] + 1)
         return value
       }
@@ -100,4 +101,15 @@ test('metadata lists null-date derived links with current source dates and no pr
   assert.ok(rows.every(row => !Object.hasOwn(row, 'storage_path')))
   assert.ok(parent.calls.every(call => call.steps.some(step => step[0] === 'gte')))
   assert.ok(admin.calls.find(call => call.key === 'resource_library_links').steps.some(step => step[0] === 'range'))
+})
+
+
+test('Parent resource access rejects published boards but accepts shared PDF files', async () => {
+  const base = { parent_player_links: parentLink, players: player, resource_library_links: fixture('match_day').resourceLink, resource_library_items: resource }
+  const parent = stub({}, { get_parent_portal_match_days: [match] })
+  const params = { authUserId: 'auth', parentLinkId: 'family', resourceId: 'resource', calendarEventId: match.id, calendarOccurrenceDate: match.match_date, calendarSourceType: 'match_day', parentClient: parent }
+  const pdf = await loadAuthorisedResource({ ...params, supabaseAdmin: stub({ ...base, resource_library_items: { ...resource, mime_type: 'application/pdf' } }) })
+  assert.equal(pdf.access.accessType, 'file')
+  await assert.rejects(loadAuthorisedResource({ ...params, supabaseAdmin: stub({ ...base, formation_board_publications: [{ resource_id: 'resource' }] }) }), /not available/)
+  await assert.rejects(loadAuthorisedResource({ ...params, supabaseAdmin: stub({ ...base, resource_library_items: { ...resource, mime_type: 'application/vnd.footballplayer.formation-board+json' } }) }), /not available/)
 })
