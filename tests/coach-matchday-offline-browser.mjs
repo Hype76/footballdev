@@ -65,6 +65,8 @@ const dataMock = `
   ${names.filter(name=>!implemented.has(name)).map(name=>`export async function ${name}(){throw new Error('Unexpected call: ${name}')}`).join('\n')}
 `
 const mocks = [
+  [/^\.\/supabase$/, `export const supabase={storage:{from:()=>({getPublicUrl:()=>({data:{publicUrl:''}})})}}`],
+  [/mobileKitImageStorage$/, `export const mobileKitImageStorage={resolve:async uri=>uri}`],
   [/coachFormationBoardData$/, `export const getCoachFormationBoards=async()=>[];export const deleteCoachFormationBoard=async()=>{throw new Error('No saved boards in this fixture')}`],
   // Kit rendering and permissions have their own browser and database checks.
   [/ClubKitDisplay(?:\.js)?$/, 'export const ClubKitDisplay=()=>null;'],

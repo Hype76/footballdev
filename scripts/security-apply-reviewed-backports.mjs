@@ -10,7 +10,7 @@ const writes = []
 for (const copy of copies) {
   if (copy.target.mode === 'official-maintained') {
     assert.equal(copy.target.name, 'node-forge', 'Unapproved official replacement')
-    assert.equal(copy.target.version, '1.4.2', 'Unapproved official replacement version')
+    assert.equal(copy.target.version, '1.4.3', 'Unapproved official replacement version')
     assert.deepEqual(copy.target.files, [], 'Official packages must not receive source patches')
     assert.equal(copy.target.originalTreeSha256, copy.target.patchedTreeSha256, 'Official package postimage must be unchanged')
     assert.equal(hash(Buffer.from(JSON.stringify(inventory(copy.dir)))), copy.target.originalTreeSha256, 'Official package tree drift: no writes')

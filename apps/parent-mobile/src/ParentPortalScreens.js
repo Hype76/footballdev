@@ -1182,7 +1182,7 @@ function ParentMatchFormationPlan({ error = '', onFocusBoard, plan = null, plans
   )
 }
 
-export function MatchdayScreen({ activeActionId, clubKits, formationViewportHeight = 0, invitations = [], isOffline, link, onAddToCalendar, onBack, onDismiss, onFocusFormation, onLiveRefresh, onOpen, onOpenLink, onRespond, onTransport, onScorerAction, onVolunteer, players = [], resource, scorerSync, selectedMatch, themeTokens }) {
+export function MatchdayScreen({ suppressParentFormation = false, activeActionId, clubKits, formationViewportHeight = 0, invitations = [], isOffline, link, onAddToCalendar, onBack, onDismiss, onFocusFormation, onLiveRefresh, onOpen, onOpenLink, onRespond, onTransport, onScorerAction, onVolunteer, players = [], resource, scorerSync, selectedMatch, themeTokens }) {
   const { colors, styles } = usePortalStyles(themeTokens)
   const [matchSection, setMatchSection] = useState('upcoming')
   const [squadOpenMatchId, setSquadOpenMatchId] = useState('')
@@ -1212,7 +1212,7 @@ export function MatchdayScreen({ activeActionId, clubKits, formationViewportHeig
     const attendanceInvitation = getParentMatchAttendanceInvitation(selectedMatch, invitations, link)
     const canChangeAvailability = canChangeParentMatchAvailability(selectedMatch, attendanceInvitation, link, now)
     const availabilityKey = `${link?.id}:${selectedMatch.id}`
-    const hasFormation = !selectedMatch.formationPlanError && Boolean(selectedMatch.formationPlans?.length || selectedMatch.formationPlan)
+    const hasFormation = !suppressParentFormation && !selectedMatch.formationPlanError && Boolean(selectedMatch.formationPlans?.length || selectedMatch.formationPlan)
     const formationOpen = formationOpenKey === availabilityKey
     const availabilityOpen = availabilityOpenKey === availabilityKey && canChangeAvailability
     const scorerInvitation = getParentScorerInterestInvitation(selectedMatch, invitations, new Date(now))
@@ -1268,7 +1268,7 @@ export function MatchdayScreen({ activeActionId, clubKits, formationViewportHeig
             {getParentMatchDirectionsUrl(selectedMatch, Platform.OS) ? <MatchdayAction accessibilityLabel="Get directions" label="Directions" iconKey="parent.directions" onPress={() => onOpenLink?.(getParentMatchDirectionsUrl(selectedMatch, Platform.OS), 'directions')} colors={colors} styles={styles} /> : null}
           </View>
         </View>
-        {formationOpen || selectedMatch.formationPlanError ? <ParentMatchFormationPlan key={availabilityKey} colors={colors} error={selectedMatch.formationPlanError} onFocusBoard={onFocusFormation} plan={selectedMatch.formationPlan} plans={selectedMatch.formationPlans} styles={styles} viewportHeight={formationViewportHeight} /> : null}
+        {!suppressParentFormation && (formationOpen || selectedMatch.formationPlanError) ? <ParentMatchFormationPlan key={availabilityKey} colors={colors} error={selectedMatch.formationPlanError} onFocusBoard={onFocusFormation} plan={selectedMatch.formationPlan} plans={selectedMatch.formationPlans} styles={styles} viewportHeight={formationViewportHeight} /> : null}
         {(!selectedMatch.isFanView || selectedMatch.canViewSelectedSquad) && squadOpenMatchId === selectedMatch.id ? (
           <View ref={squadFocusRef} collapsable={false} onLayout={() => {
             if (focusedSquadKeyRef.current === availabilityKey || !onFocusFormation) return
@@ -1433,7 +1433,7 @@ export function DevelopmentScreen({ isOffline, onDismiss, onOpen, onPrepare, pen
   )
 }
 
-export function ResourcesScreen({ formationBoard, formationViewportHeight = 0, formationBackLabel = 'Back to Resources', isOffline, onCloseFormation, onDismiss, onOpen, resource, themeTokens }) {
+export function ResourcesScreen({ suppressParentFormation = false, formationBoard, formationViewportHeight = 0, formationBackLabel = 'Back to Resources', isOffline, onCloseFormation, onDismiss, onOpen, resource, themeTokens }) {
   const { colors, styles } = usePortalStyles(themeTokens)
   const [resourceCategory, setResourceCategory] = useState('all')
   const [resourceScopeState, setResourceScopeState] = useState('')
@@ -1452,7 +1452,7 @@ export function ResourcesScreen({ formationBoard, formationViewportHeight = 0, f
     setResourceScopeState(resourceScope)
     if (resourceCategory !== 'all') setResourceCategory('all')
   }
-  if (formationBoard) {
+  if (formationBoard && !suppressParentFormation) {
     const placements = getNamedParentFormationPlayers(formationBoard.placements)
     const bench = getNamedParentFormationPlayers(formationBoard.bench)
     return (

@@ -23,7 +23,7 @@ try {
     const original = require(directory)
     if (target.mode === 'official-maintained') {
       assert.equal(target.name, 'node-forge')
-      assert.equal(target.version, '1.4.2')
+      assert.equal(target.version, '1.4.3')
       assert.equal(target.originalTreeSha256, target.patchedTreeSha256)
       assert.deepEqual(target.files, [])
       copies.push({ target, relative, original, patched: original, originalAvailable: false })

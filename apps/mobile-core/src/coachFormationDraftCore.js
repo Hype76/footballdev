@@ -13,7 +13,7 @@ export function formationContentKey(draft, title) {
     ? draft.unplaced
     : (draft?.bench || []).filter((item) => item?.state === 'unplaced')
   return JSON.stringify([
-    text(title), draft?.gameFormat, draft?.presetKey, Number(draft?.registryVersion || 1),
+    text(title), draft?.shirtKit?.type || '', draft?.gameFormat, draft?.presetKey, Number(draft?.registryVersion || 1),
     (draft?.customSlots || []).map((slot) => [slot.id, Number(slot.x), Number(slot.y)]).sort(),
     (draft?.placements || []).map((item) => [...player(item), item.slotId || '', item.positionGroup || '', Number(item.x), Number(item.y)]).sort(),
     (draft?.bench || []).map(player).sort(),
@@ -30,7 +30,7 @@ export function getFormationSaveLabel({ board, dirty, localState, publication })
   if (!board) return 'Not saved'
   if (!publication) return 'Saved to match | Coaches only'
   const publishedVersion = publication.board_version_id ?? publication.boardVersionId
-  return publishedVersion === board.currentVersionId ? 'Visible to parents and players' : 'Shared lineup update needed'
+  return publishedVersion === board.currentVersionId ? 'Visible to players' : 'Shared lineup update needed'
 }
 
 export function findFormationLocalDraft(formation, matchId = '', boardId = '') {

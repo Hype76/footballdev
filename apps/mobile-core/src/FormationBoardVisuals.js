@@ -1,3 +1,8 @@
+import { useEffect, useState } from 'react'
+import { kitImageUrl } from '../../../src/lib/club-kits.js'
+import { formationBoardShirtNumberColour } from '../../../src/lib/formation-board-shirt.js'
+import { supabase } from './supabase'
+import { mobileKitImageStorage } from './mobileKitImageStorage'
 import { Image, Text, View } from 'react-native'
 
 const WHITE_SHIRT = require('../assets/formation-shirt-white.png')
@@ -62,20 +67,37 @@ export function FormationPitchLines({ styles }) {
   )
 }
 
-export function FormationPlayerArtwork({ name, number, goalkeeper = false, children, styles = formationVisualStyles }) {
+function useShirtImage(kit) {
+  const remote = kitImageUrl(supabase, kit)
+  const [image, setImage] = useState({ remote: '', uri: '' })
+  useEffect(() => {
+    let active = true
+    if (remote) void mobileKitImageStorage.resolve(remote).then(uri => { if (active) setImage({ remote, uri }) }).catch(() => {})
+    return () => { active = false }
+  }, [remote])
+  return image.remote === remote ? image.uri : ''
+}
+
+function ShirtImage({ goalkeeper, kit, style }) {
+  const uri = useShirtImage(goalkeeper ? null : kit)
+  const [failed, setFailed] = useState('')
+  return <Image accessibilityIgnoresInvertColors source={uri && failed !== uri ? { uri } : goalkeeper ? GOLD_SHIRT : WHITE_SHIRT} onError={() => setFailed(uri)} style={[style, !goalkeeper && kit?.colour && (!uri || failed === uri) ? { tintColor: kit.colour } : null]} />
+}
+
+export function FormationPlayerArtwork({ name, number, goalkeeper = false, shirtKit = null, children, styles = formationVisualStyles }) {
   return <>
-    <Image accessibilityIgnoresInvertColors source={goalkeeper ? GOLD_SHIRT : WHITE_SHIRT} style={styles.markerImage} />
-    {number ? <Text style={[styles.markerNumber, goalkeeper && styles.markerNumberGoalkeeper]}>{number}</Text> : null}
+    <ShirtImage goalkeeper={goalkeeper} kit={shirtKit} style={styles.markerImage} />
+    {number ? <Text style={[styles.markerNumber, goalkeeper && styles.markerNumberGoalkeeper, !goalkeeper && shirtKit && { color: formationBoardShirtNumberColour(shirtKit), textShadowColor: shirtKit.imagePath ? '#000000' : 'transparent', textShadowRadius: shirtKit.imagePath ? 2 : 0 }]}>{number}</Text> : null}
     {children}
     <Text numberOfLines={1} style={styles.markerName}>{name}</Text>
   </>
 }
 
-export function FormationSubArtwork({ goalkeeper = false, name, number, styles = formationVisualStyles }) {
+export function FormationSubArtwork({ goalkeeper = false, name, number, shirtKit = null, styles = formationVisualStyles }) {
   return <View style={styles.benchPlayer}>
     <View style={styles.shirtWrap}>
-      <Image accessibilityIgnoresInvertColors source={goalkeeper ? GOLD_SHIRT : WHITE_SHIRT} style={styles.shirtSmall} />
-      {number ? <Text style={styles.shirtSmallNumber}>{number}</Text> : null}
+      <ShirtImage goalkeeper={goalkeeper} kit={shirtKit} style={styles.shirtSmall} />
+      {number ? <Text style={[styles.shirtSmallNumber, !goalkeeper && shirtKit && { color: formationBoardShirtNumberColour(shirtKit), textShadowColor: shirtKit.imagePath ? '#000000' : 'transparent', textShadowRadius: shirtKit.imagePath ? 2 : 0 }]}>{number}</Text> : null}
     </View>
     <Text numberOfLines={1} style={styles.shirtSmallName}>{name}</Text>
   </View>

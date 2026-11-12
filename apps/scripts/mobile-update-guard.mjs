@@ -12,6 +12,9 @@ const supportedUpdatePlatforms = new Set(['all', 'ios', 'android'])
 const updateConfirmed = String(process.env.MOBILE_OTA_UPDATE_CONFIRMED || '').trim().toLowerCase() === 'true'
 const updateMessage = String(process.env.MOBILE_OTA_UPDATE_MESSAGE || '').trim()
 const productionProfile = 'store-live'
+const legacyIosRelease = runtimeVersion === '1.1.1' && updatePlatform === 'ios'
+const releaseSource = legacyIosRelease ? 'origin/codex/ios-1.1.1-maintenance' : 'origin/main'
+const legacyIosBaseline = 'a9de799a2fef0b5ac4915a3c1c3417f877354421'
 
 if (!app) {
   console.error('Unknown mobile app role. Expected coach or parent.')
@@ -64,14 +67,18 @@ const headCommit = execFileSync('git', ['rev-parse', 'HEAD'], {
   cwd: repoRoot,
   encoding: 'utf8',
 }).trim()
-const originMainCommit = execFileSync('git', ['rev-parse', 'origin/main'], {
+const releaseCommit = execFileSync('git', ['rev-parse', releaseSource], {
   cwd: repoRoot,
   encoding: 'utf8',
 }).trim()
 
-if (!headCommit || headCommit !== originMainCommit) {
-  console.error('Production mobile update is blocked because HEAD does not exactly match origin/main.')
+if (!headCommit || headCommit !== releaseCommit) {
+  console.error(`Production mobile update is blocked because HEAD does not exactly match ${releaseSource}.`)
   process.exit(1)
+}
+
+if (legacyIosRelease) {
+  execFileSync('git', ['merge-base', '--is-ancestor', legacyIosBaseline, headCommit], { cwd: repoRoot })
 }
 
 assertEasLogin()
@@ -81,6 +88,19 @@ const updateEnvironment = {
   ...loadMobileLocalEnv(repoRoot, app.path),
   EXPO_PUBLIC_BUILD_PROFILE: productionProfile,
   MOBILE_OTA_RUNTIME_VERSION: runtimeVersion,
+}
+
+if (legacyIosRelease) {
+  const configScript = "const config = require('./app.config.js').expo; process.stdout.write(String(config.runtimeVersion))"
+  const resolvedRuntime = execFileSync(process.execPath, ['-e', configScript], {
+    cwd: resolve(repoRoot, app.path),
+    env: updateEnvironment,
+    encoding: 'utf8',
+  }).trim()
+  if (resolvedRuntime !== runtimeVersion) {
+    console.error('Production mobile update is blocked because the selected iOS runtime did not resolve.')
+    process.exit(1)
+  }
 }
 
 console.log(`Validating the resolved ${appRole} ${productionProfile} update environment without printing values.`)

@@ -266,6 +266,7 @@ function FansScreenContent({ embedded = false, themeTokens, themeMode, onBack, s
     const currentView = state.view
     const result = await request({ action: 'open_resource', connectionId: currentView.connectionId, resourceId: resource.id })
     if (viewRef.current !== currentView) return
+    if (result.formationBoard && parents.length) throw new Error('Ask your Coach to share a PDF.')
     if (result.formationBoard) setFormation({ ...result.formationBoard, resourceId: resource.id })
     else if (/^https:\/\//.test(result.accessUrl || '')) await Linking.openURL(result.accessUrl)
     else throw new Error('This resource could not be opened.')
@@ -312,11 +313,12 @@ function FansScreenContent({ embedded = false, themeTokens, themeMode, onBack, s
       <Action label="Back to Fans" icon="action.back" onPress={closeContent} />
       <Text style={styles.label}>{brandSource?.player_name}</Text>
       {state.error && !isTransientConnectionMessage(state.error) ? <Text accessibilityRole="alert" style={styles.error}>{state.error}</Text> : null}
-      {state.contentError && !state.content ? <View><Text accessibilityRole="alert" style={styles.error}>{state.contentError}</Text><Action label="Try again" onPress={() => state.open(state.view.connectionId, state.view.action, state.view.matchId ? { matchId: state.view.matchId } : {})} /></View> : !state.content ? <MobileLoadingStatus message="Loading shared items" /> : <FanContent key={`${state.view.connectionId}:${state.view.action}`} connection={brandSource} view={state.view} content={state.content} formation={formation} onCloseFormation={() => setFormation(null)} onOpenResource={openResource} onOpenLink={(url) => run(() => Linking.openURL(url))} onOpen={(action, details) => state.open(state.view.connectionId, action, details)} themeTokens={tokens} />}
+      {state.contentError && !state.content ? <View><Text accessibilityRole="alert" style={styles.error}>{state.contentError}</Text><Action label="Try again" onPress={() => state.open(state.view.connectionId, state.view.action, state.view.matchId ? { matchId: state.view.matchId } : {})} /></View> : !state.content ? <MobileLoadingStatus message="Loading shared items" /> : <FanContent suppressParentFormation={parents.length > 0} key={`${state.view.connectionId}:${state.view.action}`} connection={brandSource} view={state.view} content={state.content} formation={formation} onCloseFormation={() => setFormation(null)} onOpenResource={openResource} onOpenLink={(url) => run(() => Linking.openURL(url))} onOpen={(action, details) => state.open(state.view.connectionId, action, details)} themeTokens={tokens} />}
       <MobileFailureNotice message={state.content && state.contentError ? state.contentError : ''} scopeKey={`${user.id}:${state.view.connectionId}:${state.view.action}`} onRetry={() => state.open(state.view.connectionId, state.view.action, state.view.matchId ? { matchId: state.view.matchId } : {})} />
     </> : <>
     {onBack ? <Action label="Back to Parent app" icon="action.back" onPress={onBack} /> : null}
-    {!viewerShell ? <View style={styles.playersHeading}><View style={styles.copy}><Text accessibilityRole="header" style={styles.title}>Players</Text><Text style={styles.helper}>{parents.length ? 'Players linked to this account.' : 'Follow your players and view what has been shared with you.'}</Text></View>{parents.length ? <Action compact primary icon="person-add" label="Invite a Fan" disabled={busy} onPress={() => begin()} /> : null}</View> : null}
+    {!viewerShell ? <View style={styles.playersHeading}><View style={styles.copy}><Text accessibilityRole="header" style={styles.title}>Players</Text><Text style={styles.helper}>{parents.length ? 'Players linked to this account.' : 'Follow your players and view what has been shared with you.'}</Text></View>{parents.length ? <Action compact primary icon="person-add" label="Invite a Fan" disabled={busy} onPress={() => begin()} /> : null}</View>
+ : null}
     {state.error && !isTransientConnectionMessage(state.error) ? <Text accessibilityRole="alert" style={styles.error}>{state.error}</Text> : null}
     {state.loading ? <MobileLoadingStatus message="Loading your players" /> : null}
     {parents.length ? <>
