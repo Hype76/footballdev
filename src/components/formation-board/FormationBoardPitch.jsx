@@ -44,7 +44,7 @@ function PitchLines() {
   )
 }
 
-function PlayerMarker({ canEdit, isSelected, marker, onMove, onRemove, onSelect, selectionMode }) {
+function PlayerMarker({ shirtKit, canEdit, isSelected, marker, onMove, onRemove, onSelect, selectionMode }) {
   const [livePosition, setLivePosition] = useState(null)
   const dragRef = useRef(null)
   const suppressClickRef = useRef(false)
@@ -197,7 +197,7 @@ function PlayerMarker({ canEdit, isSelected, marker, onMove, onRemove, onSelect,
       onPointerMove={handlePointerMove}
       onPointerUp={finishPointer}
     >
-      <FormationPlayerMarkerVisual isGoalkeeper={marker.positionGroup === 'goalkeeper'} shirtNumber={marker.shirtNumber} />
+      <FormationPlayerMarkerVisual shirtKit={shirtKit} isGoalkeeper={marker.positionGroup === 'goalkeeper'} shirtNumber={marker.shirtNumber} />
       <span className="pointer-events-none -mt-2 max-w-24 truncate rounded-md bg-[#03150e]/90 px-2 py-0.5 text-[0.66rem] font-black text-white shadow" title={marker.displayName}>
         {marker.displayName}
       </span>
@@ -218,6 +218,7 @@ export const FormationBoardPitch = forwardRef(function FormationBoardPitch({
   selectedMarkerId,
   selectedMarkerIds = [],
   selectionMode = false,
+  shirtKit = null,
   slots = [],
 }, ref) {
   const [announcement, setAnnouncement] = useState('')
@@ -282,6 +283,7 @@ export const FormationBoardPitch = forwardRef(function FormationBoardPitch({
             canEdit={canEdit}
             isSelected={selectionMode ? selectedIds.has(marker.playerId) : marker.playerId === selectedMarkerId}
             marker={marker}
+            shirtKit={shirtKit}
             onMove={(playerId, coordinates, message) => {
               setAnnouncement(message)
               onMove(playerId, coordinates)

@@ -4243,6 +4243,7 @@ function ParentFormationPlan({ plan }) {
           onRemove={() => {}}
           onSelectMarker={() => {}}
           placements={plan.placements}
+          shirtKit={plan.shirtKit}
           selectedPlayerName=""
           selectedMarkerId=""
         />
@@ -4255,7 +4256,7 @@ function ParentFormationPlan({ plan }) {
             <ul className="mt-3 space-y-2">
               {plan.bench.map((player) => (
                 <li key={player.playerId} className="flex items-center gap-3 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-2 text-sm font-black text-[#101828]">
-                  <FormationPlayerMarkerVisual size="sm" shirtNumber={player.shirtNumber} />
+                  <FormationPlayerMarkerVisual size="sm" shirtKit={plan.shirtKit} shirtNumber={player.shirtNumber} />
                   <span className="min-w-0 truncate">{player.displayName}</span>
                 </li>
               ))}

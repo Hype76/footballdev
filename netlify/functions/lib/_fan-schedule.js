@@ -75,7 +75,7 @@ export async function addPublishedFormationPlans(client, scope, matches) {
   const latest = [...latestByBoard.values()].filter((row) => !row.withdrawn_at)
   const versionIds = latest.map((row) => row.board_version_id).filter(Boolean)
   const { data: versions, error: versionError } = versionIds.length
-    ? await client.from('formation_board_versions').select('id, game_format, formation_preset_key, pitch_orientation, placements, bench').in('id', versionIds)
+    ? await client.from('formation_board_versions').select('id, game_format, formation_preset_key, pitch_orientation, placements, bench, shirt_kit').in('id', versionIds)
     : { data: [], error: null }
   if (versionError) throw versionError
   const versionsById = new Map((versions || []).map((version) => [String(version.id), version]))
@@ -95,6 +95,7 @@ export async function addPublishedFormationPlans(client, scope, matches) {
       formation_preset_key: String(version.formation_preset_key ?? version.formationPresetKey ?? '').trim(),
       game_format: String(version.game_format ?? version.gameFormat ?? '').trim(),
       pitch_orientation: String(version.pitch_orientation ?? version.pitchOrientation ?? 'portrait').trim() || 'portrait',
+      shirt_kit: version.shirt_kit || null,
       placements: (Array.isArray(version.placements) ? version.placements : []).map(normalizeSharedFormationPlayer).filter(Boolean),
       publication_id: publicationId,
       publication_number: Number(row.publication_number ?? row.publicationNumber ?? 0),

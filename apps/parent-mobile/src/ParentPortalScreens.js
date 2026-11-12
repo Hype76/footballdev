@@ -1137,7 +1137,7 @@ function formationShirtNumber(player = {}) {
   return normalizeText(player.shirtNumber || player.shirt_number || player.displayedShirtNumber)
 }
 
-function FormationSubsStrip({ bench = [], colors, styles }) {
+function FormationSubsStrip({ bench = [], colors, shirtKit, styles }) {
   const [expanded, setExpanded] = useState(true)
   return (
     <View style={styles.formationSubs}>
@@ -1149,7 +1149,7 @@ function FormationSubsStrip({ bench = [], colors, styles }) {
         {bench.map((player, index) => {
           const number = formationShirtNumber(player)
           return <View key={`${player.playerId || player.parentDisplayName}:bench:${index}`} accessibilityLabel={`${player.parentDisplayName}${number ? `, shirt ${number}` : ''}`} style={styles.formationSub}>
-            <FormationSubArtwork name={player.parentDisplayName} number={number} />
+            <FormationSubArtwork name={player.parentDisplayName} number={number} shirtKit={shirtKit} />
           </View>
         })}
       </ScrollView> : <Text style={styles.formationSubsEmpty}>No named substitutes have been published.</Text>) : null}
@@ -1157,7 +1157,7 @@ function FormationSubsStrip({ bench = [], colors, styles }) {
   )
 }
 
-function FormationPresentation({ bench = [], colors, emptyCopy, onFocusBoard, placements = [], styles, title, viewportHeight = 0 }) {
+function FormationPresentation({ bench = [], colors, emptyCopy, onFocusBoard, placements = [], shirtKit, styles, title, viewportHeight = 0 }) {
   const [pitchLayout, setPitchLayout] = useState({ width: 0, height: 0 })
   const pitchRef = useRef(null)
   const focusedRef = useRef(false)
@@ -1191,12 +1191,12 @@ function FormationPresentation({ bench = [], colors, emptyCopy, onFocusBoard, pl
         const isGoalkeeper = isConfirmedGoalkeeperPlacement(player)
         const position = getFormationMarkerVisualPosition({ x: getParentFormationPitchPercent(player.x) / 100, y: getParentFormationPitchPercent(player.y) / 100 }, pitchLayout, { markerWidth: markerPresentation.width, markerHeight: markerPresentation.height, anchorY: markerPresentation.anchorY })
         return <View key={`${player.playerId || player.parentDisplayName}:${index}`} accessibilityLabel={`${player.parentDisplayName}${number ? `, shirt ${number}` : ''}${isGoalkeeper ? ', goalkeeper' : ''}`} style={[markerPresentation.styles.marker, { left: `${position.x * 100}%`, top: `${position.y * 100}%` }]}>
-          <FormationPlayerArtwork name={player.parentDisplayName} number={number} goalkeeper={isGoalkeeper} styles={markerPresentation.styles} />
+          <FormationPlayerArtwork name={player.parentDisplayName} number={number} goalkeeper={isGoalkeeper} shirtKit={shirtKit} styles={markerPresentation.styles} />
         </View>
       })}
       {!placements.length ? <Text style={styles.formationEmpty}>{emptyCopy || 'No named lineup has been published.'}</Text> : null}
     </View>
-    <FormationSubsStrip bench={bench} colors={colors} styles={styles} />
+    <FormationSubsStrip bench={bench} colors={colors} shirtKit={shirtKit} styles={styles} />
   </View>
 }
 
@@ -1219,7 +1219,7 @@ function ParentMatchFormationPlan({ error = '', onFocusBoard, plan = null, plans
             <View style={styles.compactCopy}><Text style={styles.cardTitle}>{currentPlan.title || `Match plan ${index + 1}`}</Text><Text style={styles.meta}>{[currentPlan.gameFormat, currentPlan.formation].filter(Boolean).join(' | ')}</Text></View>
             <Text style={styles.cardLink}>{expanded ? 'Hide' : 'Show'}</Text>
           </Pressable>
-          {expanded ? <FormationPresentation bench={bench} colors={colors} emptyCopy="No named lineup has been published with this plan." onFocusBoard={onFocusBoard} placements={placements} styles={styles} title={title} viewportHeight={viewportHeight} /> : null}
+          {expanded ? <FormationPresentation bench={bench} colors={colors} emptyCopy="No named lineup has been published with this plan." onFocusBoard={onFocusBoard} placements={placements} shirtKit={currentPlan.shirtKit} styles={styles} title={title} viewportHeight={viewportHeight} /> : null}
         </View>
       })}
     </View>
@@ -1505,7 +1505,7 @@ export function ResourcesScreen({ formationBoard, formationViewportHeight = 0, f
       <View style={styles.stack}>
         <View><Text accessibilityRole="header" style={styles.header}>{formationBoard.title}</Text><Text style={styles.helper}>{formationBoard.gameFormat} | {formationBoard.formation}</Text></View>
         {formationBoard.description ? <Text style={styles.body}>{formationBoard.description}</Text> : null}
-        <FormationPresentation bench={bench} colors={colors} emptyCopy="No named lineup has been published with this board." placements={placements} styles={styles} title={formationBoard.title} viewportHeight={formationViewportHeight} />
+        <FormationPresentation bench={bench} colors={colors} emptyCopy="No named lineup has been published with this board." placements={placements} shirtKit={formationBoard.shirtKit || formationBoard.shirt_kit} styles={styles} title={formationBoard.title} viewportHeight={formationViewportHeight} />
         <Button label={formationBackLabel} onPress={onCloseFormation} outline styles={styles} />
       </View>
     )

@@ -1,4 +1,6 @@
+import { normalizeFormationBoardShirtKit } from '../../src/lib/formation-board-shirt.js'
 import { createHash, randomUUID } from 'node:crypto'
+import { Buffer } from 'node:buffer'
 import sharp from 'sharp'
 import {
   buildFormationBoardPngBuffer,
@@ -122,7 +124,7 @@ async function resolvePayload(request, requestId) {
   return data
 }
 
-function createDocument(payload) {
+function createDocument(payload, shirtKit) {
   const board = payload.board
   const version = adaptFormationVersionToPortrait(payload.version)
   const roster = Array.isArray(payload.version.bench) ? payload.version.bench : []
@@ -144,6 +146,7 @@ function createDocument(payload) {
     formation: version.formation_preset_key,
     orientation: version.pitch_orientation,
     placements: version.placements,
+    shirtKit,
     bench,
     unplaced,
     notes: version.notes,
@@ -200,7 +203,18 @@ export function createFormationBoardExportHandler({
         throw Object.assign(new Error('The export request format is not valid.'), { statusCode: 400 })
       }
 
-      const document = createDocument(payload)
+      const kit = normalizeFormationBoardShirtKit(payload.version.shirt_kit ?? payload.version.shirtKit)
+      let shirtKit = kit
+      if (kit?.imagePath && kit.imagePath.startsWith(`${payload.board.club_id}/${kit.type}/`) && !kit.imagePath.includes('..')) {
+        try {
+          const { data, error } = await database.storage.from('club-kits').download(kit.imagePath)
+          if (!error && data && data.size <= 2_000_000) {
+            const image = await sharp(Buffer.from(await data.arrayBuffer()), { limitInputPixels: 4_000_000 }).resize({ width: 256, height: 256, fit: 'inside', withoutEnlargement: true }).png().toBuffer()
+            shirtKit = { ...kit, imageData: `data:image/png;base64,${image.toString('base64')}` }
+          }
+        } catch { /* A removed or invalid image uses the saved colour. */ }
+      }
+      const document = createDocument(payload, shirtKit)
       const branding = await brandingBuilder({
         supabaseAdmin: database,
         club: payload.club,
@@ -219,6 +233,7 @@ export function createFormationBoardExportHandler({
           gameFormat: document.gameFormat,
           formation: document.formation,
           orientation: document.orientation,
+          shirtKit: document.shirtKit,
           placements: document.placements,
           bench: document.bench,
           unplaced: document.unplaced,

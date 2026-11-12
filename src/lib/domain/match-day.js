@@ -1,3 +1,4 @@
+import { normalizeFormationBoardShirtKit } from '../formation-board-shirt.js'
 import { validateMotmExpiryHours } from '../expiry-duration.js'
 import { supabase } from '../supabase-client.js'
 import { clearViewCaches, invalidateMemoryCacheByPrefix } from './cache-store.js'
@@ -2129,6 +2130,7 @@ export async function getParentPortalMatchDays({ parentLinkId, clubName }) {
       gameFormat: normalizeText(row.game_format ?? row.gameFormat),
       formationPresetKey: normalizeText(row.formation_preset_key ?? row.formationPresetKey),
       pitchOrientation: normalizeText(row.pitch_orientation ?? row.pitchOrientation) || 'portrait',
+      shirtKit: normalizeFormationBoardShirtKit(row.shirt_kit ?? row.shirtKit),
       placements: Array.isArray(row.placements) ? row.placements : [],
       bench: Array.isArray(row.bench) ? row.bench : [],
     }

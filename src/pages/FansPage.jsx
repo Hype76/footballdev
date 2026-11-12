@@ -149,7 +149,7 @@ function FanContent({ state, run }) {
     {(data.resources || []).map((r) => <button className="fans-person" key={r.id} onClick={() => openResource(r)}><FanIcon name="resources" /><span>{r.title}</span></button>)}
     {resource && (data.resources?.some((r) => r.id === resource.id) || data.schedule?.some(event => event.resources?.some(r => r.id === resource.id))) ? <div>
       <h3>{resource.title}</h3><button onClick={() => setResource(null)}>Close resource</button>
-      {board ? <><p>{board.description}</p><FormationBoardPitch canEdit={false} hasPlacementSource={false} placements={board.placements || []} /><h4>Bench</h4>{(board.bench || []).map((p) => <p key={p.playerId}>{p.displayName || p.playerName}</p>)}<p>{board.notes}</p></> : /^https:\/\//.test(resource.accessUrl || '') ? <a href={resource.accessUrl} target="_blank" rel="noopener noreferrer">Open {resource.title}</a> : <p>This resource could not be opened.</p>}
+      {board ? <><p>{board.description}</p><FormationBoardPitch canEdit={false} hasPlacementSource={false} placements={board.placements || []} shirtKit={board.shirtKit || board.shirt_kit} /><h4>Bench</h4>{(board.bench || []).map((p) => <p key={p.playerId}>{p.displayName || p.playerName}</p>)}<p>{board.notes}</p></> : /^https:\/\//.test(resource.accessUrl || '') ? <a href={resource.accessUrl} target="_blank" rel="noopener noreferrer">Open {resource.title}</a> : <p>This resource could not be opened.</p>}
     </div> : null}
     {!Object.values(data).some((v) => Array.isArray(v) && v.length) ? <p>No shared items are available.</p> : null}
   </>}</section>

@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises'
 import test from 'node:test'
 import { parse } from '@babel/parser'
 import { normalizePersonName } from '../src/lib/person-name.js'
+import { normalizeFormationBoardShirtKit } from '../src/lib/formation-board-shirt.js'
 
 const dataPath = new URL('../apps/parent-mobile/src/parentPortalData.js', import.meta.url)
 const screenPath = new URL('../apps/parent-mobile/src/ParentPortalScreens.js', import.meta.url)
@@ -19,13 +20,13 @@ function declarationSource(source, name) {
   return source.slice(declaration.start, declaration.end)
 }
 
-const normalizeParentMatchFormationPlan = new Function('normalizePersonName', `
+const normalizeParentMatchFormationPlan = new Function('normalizePersonName', 'normalizeFormationBoardShirtKit', `
   const normalizeText = (value) => String(value ?? '').trim()
   ${declarationSource(dataSource, 'normalizeParentFormationPlayer')}
   ${declarationSource(dataSource, 'normalizeParentFormationPlayers')}
   ${declarationSource(dataSource, 'normalizeParentMatchFormationPlan')}
   return normalizeParentMatchFormationPlan
-`)(normalizePersonName)
+`)(normalizePersonName, normalizeFormationBoardShirtKit)
 
 test('Parent fixture formation normalizer keeps only shared pitch and Bench data', () => {
   const plan = normalizeParentMatchFormationPlan({
@@ -92,4 +93,10 @@ test('Parent web Matchday renders every shared board with singular fallback supp
   assert.match(webSource, /function ParentFormationPlans/)
   assert.match(webSource, /availablePlans\.map/)
   assert.doesNotMatch(webSource.slice(webSource.indexOf('function ParentFormationPlan')), /plan\.notes/)
+})
+
+test('Parent match plans preserve the published shirt snapshot', () => {
+  const shirtKit = { type: 'away', colour: '#123456', imagePath: '12345678-1234-1234-1234-123456789abc/away/shirt.png' }
+  assert.deepEqual(normalizeParentMatchFormationPlan({ publication_id: 'p1', shirt_kit: shirtKit }).shirtKit, shirtKit)
+  assert.equal(normalizeParentMatchFormationPlan({ publication_id: 'p2' }).shirtKit, null)
 })

@@ -258,3 +258,24 @@ test('append-only thumbnail policy repair authorises only linked Formation Board
   assert.match(migration, /item\.archived_at is null/)
   assert.doesNotMatch(migration, /bucket_id\s*=\s*'[^']*public/i)
 })
+
+test('formation export retains saved kit colour and artwork, with distinct goalkeeper', async () => {
+  const database = createDatabase()
+  const sharp = (await import('sharp')).default
+  const artwork = await sharp({ create: { width: 2, height: 2, channels: 4, background: '#123456' } }).png().toBuffer()
+  database.storage.from = () => ({ download: async () => ({ data: new Blob([artwork]), error: null }) })
+  const payload = createPayload()
+  payload.version.shirt_kit = { type: 'home', colour: '#123456', imagePath: `${CLUB_ID}/home/kit.png` }
+  payload.version.placements[0].positionGroup = 'goalkeeper'
+  let rendered
+  const handler = createFormationBoardExportHandler({
+    adminFactory: () => database, payloadResolver: async () => payload,
+    pngRenderer: async (value) => { rendered = value; return Buffer.from('png') },
+    brandingBuilder: async () => ({}),
+  })
+  const response = await handler(new Request('https://example.test/export', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ requestId: REQUEST_ID }) }))
+  assert.equal(response.status, 200)
+  assert.equal(rendered.shirtKit.colour, '#123456')
+  assert.match(rendered.shirtKit.imageData, /^data:image\/png;base64,/)
+  assert.equal(rendered.placements[0].positionGroup, 'goalkeeper')
+})
