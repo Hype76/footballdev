@@ -1,3 +1,4 @@
+import { normalizeFormationBoardShirtKit } from '../../../src/lib/formation-board-shirt.js'
 export const normalize = (value) => String(value ?? '').trim()
 export const array = (value) => Array.isArray(value) ? value : []
 
@@ -14,6 +15,7 @@ function normalizeVersion(row) {
     gameFormat: normalize(row.game_format ?? row.gameFormat),
     id: row.id ?? '',
     notes: normalize(row.notes),
+    shirtKit: normalizeFormationBoardShirtKit(row.shirt_kit ?? row.shirtKit),
     placements: array(row.placements),
     presetRegistryVersion: Number(row.preset_registry_version ?? row.presetRegistryVersion ?? 1),
     unplaced: roster.filter((player) => player?.state === 'unplaced'),
@@ -110,6 +112,7 @@ export function buildCoachFormationBoardCreatePayload(match, draft, title) {
     notes_value: normalize(draft?.notes),
     pitch_orientation_value: 'portrait',
     placements_value: array(draft.placements),
+    ...(draft.shirtKit?.type ? { shirt_kit_type_value: draft.shirtKit.type } : {}),
     preset_key_value: draft.presetKey,
     registry_version_value: draft.registryVersion || 1,
     title_value: normalize(title) || (match?.id ? `${match.teamName} v ${match.opponent}` : 'Formation Board'),
@@ -131,6 +134,7 @@ export function buildCoachFormationBoardSavePayload(board, draft, title) {
     notes_value: normalize(board.currentVersion?.notes),
     pitch_orientation_value: 'portrait',
     placements_value: array(draft.placements),
+    ...(draft.shirtKit?.type && draft.shirtKit.type !== board.currentVersion?.shirtKit?.type ? { shirt_kit_type_value: draft.shirtKit.type } : {}),
     preset_key_value: draft.presetKey,
     registry_version_value: draft.registryVersion || 1,
     target_board_id: board.id,

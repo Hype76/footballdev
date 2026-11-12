@@ -65,13 +65,10 @@ test('Parent plans retain only recognised published position groups for shirt co
   assert.equal(plan.placements[0].notes, undefined)
 })
 
-test('Parent match loader uses the canonical published-plan RPC and clears unavailable plans', () => {
-  assert.match(dataSource, /get_parent_portal_match_formation_plans/)
-  assert.match(dataSource, /formationPlanResult\.error \? \[\]/)
-  assert.match(dataSource, /const formationPlanError = formationPlanResult\.error \? 'The match plan could not be refreshed\./)
-  assert.match(dataSource, /formationPlansByMatchId/)
-  assert.match(dataSource, /formationPlans: formationPlansByMatchId\.get\(String\(row\.id\)\) \|\| \[\]/)
-  assert.match(dataSource, /formationPlanError,/)
+test('Parent match loader does not request published plans', () => {
+  const loader = dataSource.slice(dataSource.indexOf('export async function getParentPortalMatchDays'), dataSource.indexOf('export async function', dataSource.indexOf('export async function getParentPortalMatchDays') + 1))
+  assert.doesNotMatch(loader, /get_parent_portal_match_formation_plans/)
+  assert.match(loader, /Promise\.resolve\(\{ data: \[\], error: null \}\)/)
   assert.equal(normalizeParentMatchFormationPlan({ match_day_id: 'withdrawn-match' }), null)
 })
 
@@ -81,6 +78,7 @@ test('Parent match screen renders the plan inline and excludes coach notes from 
   assert.ok(start >= 0 && end > start)
   const component = screenSource.slice(start, end)
   assert.match(component, /FormationPresentation/)
+  assert.match(screenSource, /!suppressParentFormation && \(formationOpen \|\| selectedMatch\.formationPlanError\)/)
   assert.match(screenSource, /formationVisualStyles\.pitch/)
   assert.match(screenSource, /formationSubs/)
   assert.match(component, /Match plan unavailable/)
