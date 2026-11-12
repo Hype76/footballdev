@@ -372,10 +372,14 @@ test('private Matchday TV settings and aliases are saved atomically by authorize
   assert.equal((await view(cedarfield, 'cedar-fc')).settings.preferences.appearance, 'light')
   assert.equal((await view(cedarfield, 'cedarfield')).settings.revision, 2)
   assert.equal((await availability(oakfield, 'cedar-fc')).availability, 'taken')
-  const lookup = slug => endpoint({ httpMethod: 'HEAD', queryStringParameters: { displayPath: slug } })
-  assert.equal((await lookup('CEDAR-FC')).statusCode, 204)
-  assert.equal((await lookup('CEDAR-FC')).body, '')
-  assert.equal((await lookup('unclaimed')).statusCode, 404)
+  const lookup = (slug, httpMethod = 'HEAD') => endpoint({ httpMethod, queryStringParameters: { displayPath: slug } })
+  for (const httpMethod of ['HEAD', 'GET']) {
+    const found = await lookup('CEDAR-FC', httpMethod)
+    assert.equal(found.statusCode, 204)
+    assert.equal(found.body, '')
+    assert.equal((await lookup('unclaimed', httpMethod)).statusCode, 404)
+  }
+  assert.equal((await endpoint({ httpMethod: 'GET' })).statusCode, 405)
   const anonymousFeed = () => request(undefined, { slug: 'cedar-fc', date: '2026-10-21' })
   assert.equal((await anonymousFeed()).status, 401)
   assert.equal((await save(cedarfield, null, 2, { ...preferences, accessMode: 'public' })).status, 200)
