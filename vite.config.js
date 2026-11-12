@@ -1,4 +1,5 @@
 /* global process */
+import { fileURLToPath } from 'node:url'
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
@@ -109,6 +110,10 @@ export default defineConfig(({ mode }) => {
     ],
     build: {
       rollupOptions: {
+        input: {
+          index: fileURLToPath(new URL('./index.html', import.meta.url)),
+          matchdayTv: fileURLToPath(new URL('./matchday-tv-view.html', import.meta.url)),
+        },
         output: {
           manualChunks(id) {
             if (id.includes('node_modules/@supabase')) {

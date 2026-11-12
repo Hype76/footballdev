@@ -26,7 +26,10 @@ if (
   )
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+const standaloneMatchdayTv = globalThis.document?.documentElement?.dataset?.appSurface === 'matchday-tv'
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, standaloneMatchdayTv
+  ? { auth: { storageKey: 'fp-matchday-tv-auth', detectSessionInUrl: false } }
+  : undefined)
 export const CLUB_LOGOS_BUCKET = 'club-logos'
 export const MAX_LOGO_FILE_SIZE_BYTES = 2 * 1024 * 1024
 export const EVALUATION_SECTIONS = ['Trial', 'Squad']

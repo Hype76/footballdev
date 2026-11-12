@@ -40,7 +40,7 @@ import { isRecoveryModuleVisible, isRecoveryPathVisible } from '../../lib/recove
 const coachNavigationPaths = ['/calendar', '/sessions', '/players', '/assess-player', '/feedback-forms', '/parent-linking', '/staff-chat', '/parent-chat-staff', '/resources', '/polls', '/match-day']
 
 const navIcons = {
-  '/club-matchday-tv': 'whistle',
+  '/club-matchday-tv/settings': 'whistle',
   '/activity-log': 'activity',
   '/add-player': 'player-add',
   '/archived-players': 'archive',
@@ -88,7 +88,7 @@ const groupDescriptions = {
 
 const coreNavigationPaths = ['/calendar', '/players', '/assess-player', '/feedback-forms']
 const communicationNavigationPaths = ['/staff-chat', '/parent-chat-staff', '/parent-linking', '/polls']
-const matchOperationsNavigationPaths = ['/match-day', '/club-matchday-tv', '/resources']
+const matchOperationsNavigationPaths = ['/match-day', '/club-matchday-tv/settings', '/resources']
 
 function getSidebarTourId(path) {
   return `sidebar-${String(path ?? '').replace(/^\//, '').replace(/\//g, '-') || 'home'}`
@@ -403,7 +403,7 @@ export function Sidebar({ isOpen, onClose }) {
       return item.path === '/parent-portal' || item.path === '/parent-chat' || item.path === '/parent-polls'
     }
 
-    if (item.path === '/club-matchday-tv') return canViewClubMatchdayTv(displayUser)
+    if (item.path === '/club-matchday-tv/settings') return canViewClubMatchdayTv(displayUser)
 
     if (item.path === '/calendar') {
       return (canUseTeamWorkflow && canCreateEvaluation(displayUser) && canUseUiFeature(displayUser, getRouteCapability(item.path)))
@@ -498,7 +498,7 @@ export function Sidebar({ isOpen, onClose }) {
 
   const navigationItems = getVisibleNavigationItems(primaryNavigation)
   const visibleClubNavigationItems = getVisibleNavigationItems(clubNavigation)
-  const clubNavigationItems = visibleClubNavigationItems.filter((item) => item.path !== '/club-matchday-tv')
+  const clubNavigationItems = visibleClubNavigationItems.filter((item) => item.path !== '/club-matchday-tv/settings')
   const coachNavigationItems = navigationItems.filter((item) => coachNavigationPaths.includes(item.path))
   const teamNavigationItems = isCoachOnly ? [] : navigationItems.filter((item) => !coachNavigationPaths.includes(item.path))
   const parentPortalItems = useMemo(() => {

@@ -116,7 +116,7 @@ jobs:
       - name: Native calendar subscriptions and background invitation commands
         run: node --test tests/mobile-calendar-subscriptions.test.mjs tests/mobile-background-invitation-actions.test.mjs tests/mobile-qa-upload-guard.test.mjs tests/mobile-eas-toolchain.test.mjs tests/parent-calendar-ota-compat.test.mjs tests/mobile-connection-invites-72.test.mjs tests/mobile-calendar-resource-occurrences-111.test.mjs
       - name: Club Admin own-club matchday TV
-        run: node --test tests/club-matchday-tv.test.mjs tests/club-matchday-tv-weather.test.mjs && node tests/club-matchday-tv-browser.mjs
+        run: node --test tests/club-matchday-tv.test.mjs tests/club-matchday-tv-weather.test.mjs tests/club-matchday-tv-settings-pglite.test.mjs && node tests/club-matchday-tv-browser.mjs
       - name: Season awards, calendar poll results and compact team pagination
         run: node --test tests/season-potential-award-counts-pglite.test.mjs tests/season-stats-date-range.test.mjs tests/calendar-poll-results.test.mjs tests/hidden-feature-batch4-resurface.test.mjs && node tests/season-stats-date-range-browser.mjs && node tests/calendar-poll-modal-browser.mjs && node tests/team-pagination-browser.mjs
       - name: Event cancellation reasons and recipient authority

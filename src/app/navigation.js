@@ -79,8 +79,8 @@ export const primaryNavigation = [
 export const clubNavigation = [
   {
     label: 'Matchday TV',
-    path: '/club-matchday-tv',
-    helper: 'Your club scores on screen',
+    path: '/club-matchday-tv/settings',
+    helper: 'Set up and preview your club display',
   },
   {
     label: 'Data Transfer',

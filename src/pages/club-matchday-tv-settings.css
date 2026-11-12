@@ -1,0 +1,47 @@
+.club-tv-admin {
+  max-width: 54rem;
+  margin: 0 auto;
+  display: grid;
+  gap: 1rem;
+  color: var(--text-primary);
+}
+
+.club-tv-admin h1 { font-size: 1.75rem; font-weight: 700; }
+.club-tv-admin fieldset { display: grid; gap: .7rem; min-width: 0; }
+.club-tv-admin legend { margin-bottom: .75rem; font-weight: 700; }
+.club-tv-admin label { display: grid; gap: .35rem; font-weight: 600; }
+.club-tv-admin .club-tv-check { display: flex; align-items: center; min-height: 44px; }
+.club-tv-admin input[type=checkbox] { width: 1.15rem; height: 1.15rem; accent-color: var(--accent); }
+.club-tv-admin .club-tv-upload {
+  border: 1px dashed var(--border-color);
+  padding: .75rem;
+}
+.club-tv-admin .club-tv-upload-active { outline: 2px solid var(--accent); }
+.club-tv-admin .club-tv-map-preview { max-height: 150px; object-fit: contain; object-position: left; }
+.club-tv-admin .club-tv-url { overflow-wrap: anywhere; }
+.club-tv-admin small { color: var(--text-secondary); }
+.club-tv-admin [role=alert] { color: var(--danger-text, #d14343); }
+.club-tv-admin input:not([type=checkbox]):not([type=file]),
+.club-tv-admin select {
+  width: min(100%, 32rem);
+  min-height: 44px;
+  padding: .55rem .65rem;
+  border: 1px solid var(--border-color);
+  border-radius: .35rem;
+  color: var(--text-primary);
+  background: var(--panel-bg);
+}
+.club-tv-admin-actions { display: flex; flex-wrap: wrap; gap: .65rem; }
+.club-tv-admin button,
+.club-tv-admin-actions a {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  min-height: 44px;
+  padding: .5rem .8rem;
+  border: 1px solid var(--border-color);
+  border-radius: .35rem;
+  font-weight: 600;
+}
+.club-tv-admin button[type=submit] { background: var(--accent); color: var(--accent-text); }
+.club-tv-admin button:disabled { opacity: .55; cursor: default; }
