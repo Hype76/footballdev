@@ -179,6 +179,16 @@ try {
     await page.waitForFunction(()=>window.server.status==='full_time');
     assert.equal(await page.evaluate(()=>window.shootoutExitCalls),1);
     await setFixture(shootout);
+    await page.getByRole('button',{name:'Exit Game Mode',exact:true}).click();
+    await page.getByRole('button',{name:'More match options',exact:true}).click();
+    await page.getByRole('button',{name:'Shootout',exact:true}).click();
+    await page.getByRole('button',{name:'End match without shootout result',exact:true}).click();
+    await page.getByText(/Recorded shootout kicks will be voided/).waitFor();
+    assert.equal(await page.evaluate(()=>window.shootoutExitCalls||0),0);
+    await page.getByRole('button',{name:'Confirm',exact:true}).click();
+    await page.waitForFunction(()=>window.server.status==='full_time');
+    assert.equal(await page.evaluate(()=>window.shootoutExitCalls),1);
+    await setFixture(shootout);
     await page.evaluate(()=>{
       const journal=window.readJournal();
       journal.pending=[{id:'pending-goal',matchId:'fixture',kind:'event',payload:{eventType:'goal',minute:40,teamSide:'club',scorerName:'FP TEST'},capturedAt:new Date().toISOString(),expectedUpdatedAt:journal.baseMatch.updatedAt,previousCommandId:null}];
