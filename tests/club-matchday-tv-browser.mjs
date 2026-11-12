@@ -12,6 +12,8 @@ const browser = await chromium.launch({ headless: true })
 const output = 'output/playwright/club-matchday-tv'
 await mkdir(output, { recursive: true })
 const date = '2026-10-21'
+const fixtureEmail = 'club.fixture@footballplayer.test'
+const fixtureSession = { access_token: 'fixture-token', refresh_token: 'fixture-refresh', expires_at: 4102444800, expires_in: 31536000, token_type: 'bearer', user: { id: 'fixture-user', aud: 'authenticated', role: 'authenticated', email: fixtureEmail } }
 const clubBadge = `data:image/webp;base64,${(await readFile('src/assets/football-player-logo.webp')).toString('base64')}`
 const makeMatch = (index) => ({ id: `match-${index}`, teamName: `U${index + 7} Blue`, opponent: `Visitors ${index + 1}`, homeAway: index % 2 ? 'away' : 'home', matchDate: date, kickoff: '10:00', kickoffTbc: false, venue: `Pitch ${index + 1}`, status: index < 3 ? 'live' : index < 6 ? 'full_time' : 'scheduled', homeScore: index % 3, awayScore: 0, timerStatus: index < 3 ? 'running' : index < 6 ? 'full_time' : 'not_started', elapsed: 1200, timerStartedAt: '2026-10-21T09:00:00Z', events: [{ id: `event-${index}`, type: 'goal', side: 'club', shirt: '9', minute: 12 }, { id: `red-${index}`, type: 'red_card', side: 'opponent', shirt: '4', minute: 19 }] })
 let matches = Array.from({ length: 19 }, (_, index) => makeMatch(index)), denied = false, unavailable = false, requests = [], unlockAccepted = false
@@ -21,21 +23,52 @@ matches[2] = { ...matches[2], venue: 'Cambourne Fitness and Sports Centre' }
 matches[4] = { ...matches[4], homeScore: 16, awayScore: 13 }
 matches[7] = { ...matches[7], kickoffTbc: true }
 let displayWindow
+let settings = { slug: null, preferences: null, revision: 0 }
+const firstAvailabilityCheck = Promise.withResolvers()
+let failFirstCedarfieldCheck = true
 const errors = []
 try {
-  const context = await browser.newContext({ viewport: { width: 1920, height: 1080 } })
-  await context.addInitScript(() => {
+  const context = await browser.newContext({ viewport: { width: 1920, height: 1080 }, permissions: ['clipboard-read', 'clipboard-write'] })
+  await context.addInitScript((session) => {
     if (!sessionStorage.getItem('auth-access-browser-fixture-email')) sessionStorage.setItem('auth-access-browser-fixture-email', 'club.fixture@footballplayer.test')
     sessionStorage.setItem('selected-access-mode', 'team')
     sessionStorage.setItem('selected-access-mode-explicit', 'true')
-    const session = { access_token: 'fixture-token', refresh_token: 'fixture-refresh', expires_at: 4102444800, expires_in: 31536000, token_type: 'bearer', user: { id: 'fixture-user', aud: 'authenticated', role: 'authenticated', email: 'club.fixture@footballplayer.test' } }
     localStorage.setItem('sb-fixture-auth-token', JSON.stringify(session))
-  })
+  }, fixtureSession)
   await context.route('**/*', async (route) => {
     const url = new URL(route.request().url())
-    if (url.hostname === 'fixture.supabase.test') return route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
+    if (url.pathname.startsWith('/club-matchday-tv/view/')) {
+      return route.fulfill({ response: await route.fetch({ url: `${origin}/matchday-tv-view.html` }) })
+    }
+    if (url.hostname === 'fixture.supabase.test') {
+      const headers = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': '*' }
+      if (route.request().method() === 'OPTIONS') return route.fulfill({ status: 204, headers })
+      if (url.pathname === '/auth/v1/token') {
+        assert.equal(url.searchParams.get('grant_type'), 'password')
+        assert.deepEqual(route.request().postDataJSON(), { email: fixtureEmail, password: 'Fixture-Club-Password', gotrue_meta_security: {} })
+        return route.fulfill({ json: fixtureSession, headers })
+      }
+      return route.fulfill({ json: [], headers })
+    }
     if (url.pathname === '/.netlify/functions/club-matchday-tv') {
       const body = route.request().postDataJSON(); requests.push(body)
+      if (body.action === 'settings') return route.fulfill({ json: { club: { id: body.clubId }, settings } })
+      if (body.action === 'availability') {
+        if (body.slug === 'cedarfield-fc' && failFirstCedarfieldCheck) {
+          failFirstCedarfieldCheck = false
+          await firstAvailabilityCheck.promise
+          return route.fulfill({ status: 503, json: { message: 'Availability could not be checked.' } })
+        }
+        return route.fulfill({ json: { club: { id: body.clubId }, availability: body.slug === 'oakfield-town' ? 'taken' : 'available' } })
+      }
+      if (body.action === 'save') {
+        settings = { slug: body.slug || settings.slug, preferences: body.preferences, revision: settings.revision + 1 }
+        return route.fulfill({ json: { club: { id: body.clubId }, settings } })
+      }
+      if (body.action === 'view') {
+        if (body.slug !== settings.slug) return route.fulfill({ status: 403, json: { message: 'This link is unavailable for your Club Admin account.' } })
+        return route.fulfill({ json: { club: { id: 'club-fixture' }, settings } })
+      }
       if (body.action === 'unlock') return route.fulfill({ status: unlockAccepted ? 200 : 401, contentType: 'application/json', body: JSON.stringify(unlockAccepted ? { club: { id: body.clubId }, unlocked: true } : { message: 'Password not accepted. The display stays locked.' }) })
       const payload = denied ? { message: 'Access is restricted to your own active Club Admin workspace.' } : unavailable ? { message: 'Scores could not be refreshed.' } : body.action === 'weather' ? { club: { id: body.clubId }, weather: { temperature: 13, windMph: 7, location: 'Club ground', condition: 'cloudy', time: '2026-10-21T09:00:00Z' } } : { club: { id: body.clubId, name: 'Test Club United', logoUrl: clubBadge, accent: '#1465c0' }, date: body.date, window: body.period && body.period !== 'day' ? tvPeriodWindow(body.date, body.period) : displayWindow, matches, refreshedAt: '2026-10-21T09:00:00Z' }
       return route.fulfill({ status: denied ? 403 : unavailable ? 503 : 200, contentType: 'application/json', body: JSON.stringify(payload) })
@@ -61,6 +94,16 @@ try {
     }
     assert.fail(`Goal celebration missing: ${selector}`)
   }
+  async function openSettings() {
+    await page.goto(`${origin}/club-matchday-tv/settings`)
+    await page.getByLabel('Appearance', { exact: true }).waitFor()
+  }
+  async function saveAndPreview() {
+    await page.getByRole('button', { name: 'Save settings' }).click()
+    await page.getByText('Display settings saved.', { exact: true }).waitFor()
+    await page.getByRole('link', { name: 'Preview saved display' }).click()
+    await page.getByRole('heading', { name: 'Test Club United' }).waitFor()
+  }
   page.on('pageerror', (error) => errors.push(error.message))
   await page.clock.install({ time: new Date('2026-10-21T09:00:00Z') })
   await page.goto(`${origin}/coach`)
@@ -70,6 +113,9 @@ try {
   assert.equal(await page.locator('details').filter({ has: page.locator('summary').filter({ hasText: 'Club setup' }) }).getByRole('link', { name: 'Matchday TV' }).count(), 0)
   await page.screenshot({ path: `${output}/match-operations-menu.png` })
   await matchOperations.getByRole('link', { name: 'Matchday TV' }).click()
+  await page.getByRole('heading', { name: 'Matchday TV', exact: true }).waitFor()
+  await page.getByRole('link', { name: 'Preview saved display' }).waitFor()
+  await page.goto(`${origin}/club-matchday-tv`)
   await page.getByRole('heading', { name: 'Test Club United' }).waitFor()
   assert.equal(await page.locator('.club-tv-identity small').textContent(), 'WELCOME TO')
   assert.equal(await page.locator('.club-tv-light').count(), 1)
@@ -207,7 +253,35 @@ try {
   await page.screenshot({ path: `${output}/goal-large.png` })
   await page.clock.runFor(8000)
   assert.equal(await page.locator('.club-tv-goal-large').count(), 0)
-  await page.getByRole('button', { name: 'Display settings' }).click()
+  await page.evaluate((key) => localStorage.setItem(key, JSON.stringify({ appearance: 'dark' })), `fp:club-matchday-tv:user-${fixtureEmail}:club-fixture`)
+  await page.goto(`${origin}/club-matchday-tv`)
+  await page.locator('.club-tv-dark').waitFor()
+  await openSettings()
+  assert.equal(await page.getByLabel('Appearance', { exact: true }).inputValue(), 'dark')
+  await page.getByLabel('Appearance', { exact: true }).selectOption('light')
+  await page.getByLabel('Club link ending').fill('A1B2')
+  await page.getByText('Use at least four letters. Numbers and single hyphens are also allowed.', { exact: true }).waitFor()
+  await page.getByLabel('Club link ending').fill('Settings')
+  await page.getByText('Reserved', { exact: true }).waitFor()
+  assert.equal(await page.getByRole('button', { name: 'Save settings' }).isDisabled(), true)
+  await page.getByLabel('Club link ending').fill('Oakfield-Town')
+  await page.getByText('Already taken', { exact: true }).waitFor()
+  assert.equal(await page.getByRole('button', { name: 'Save settings' }).isDisabled(), true)
+  await page.getByLabel('Club link ending').fill('Cedarfield-FC')
+  await page.getByText('Checking availability…', { exact: true }).waitFor()
+  assert.equal(await page.getByRole('button', { name: 'Save settings' }).isDisabled(), true)
+  await page.locator('.club-tv-admin form').dispatchEvent('submit')
+  assert.equal(requests.some(request => request.action === 'save'), false)
+  firstAvailabilityCheck.resolve()
+  await page.getByText('Availability could not be checked. Try again to save this ending.', { exact: true }).waitFor()
+  assert.equal(await page.getByRole('button', { name: 'Save settings' }).isDisabled(), true)
+  await page.getByRole('button', { name: 'Check availability again' }).click()
+  await page.getByText('Available', { exact: true }).waitFor()
+  assert.equal(await page.getByRole('button', { name: 'Save settings' }).isEnabled(), true)
+  await page.getByLabel('Club link ending').fill('CEDARFIELD-FC')
+  assert.equal(await page.getByLabel('Club link ending').inputValue(), 'cedarfield-fc')
+  assert.equal(await page.getByRole('button', { name: 'Save settings' }).isEnabled(), true)
+  assert.equal(await page.getByLabel('Full viewing link').textContent(), `${origin}/club-matchday-tv/view/cedarfield-fc`)
   await page.getByLabel('Large goal celebration').uncheck()
   await page.getByLabel('Club ground postcode').fill('CB23 6FY')
   const png = process.env.CLUB_TV_TEST_MAP ? await readFile(process.env.CLUB_TV_TEST_MAP) : Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aL1sAAAAASUVORK5CYII=', 'base64')
@@ -257,7 +331,7 @@ try {
   assert.ok(firstSponsor.startsWith('data:image/webp;base64,') && firstSponsor.length < 700000, 'Large artwork is converted to WebP and fits browser storage')
   assert.ok((await page.getByAltText('Uploaded pitch map preview').getAttribute('src')).startsWith('data:image/webp;base64,'), 'Pitch maps are converted to WebP')
   await page.getByLabel('Show pitchside ordering').check()
-  await page.getByRole('button', { name: 'Save settings' }).click()
+  await saveAndPreview()
   assert.equal(await page.locator('.club-tv-match').count(), 8)
   await page.locator('.club-tv-pitch').waitFor()
   assert.equal(await page.getByAltText('Club sponsor advert').getAttribute('src'), firstSponsor)
@@ -272,33 +346,32 @@ try {
   await page.clock.runFor(11000)
   assert.equal(await page.getByAltText('Club sponsor advert').getAttribute('src'), secondSponsor)
   await page.getByRole('button', { name: 'Pause carousel' }).click()
-  await page.getByRole('button', { name: 'Display settings' }).click()
+  await openSettings()
   assert.equal(await page.getByLabel('Time per advert').inputValue(), '10')
   assert.equal(await page.getByLabel('Sponsor 1 start date').inputValue(), '2026-10-21')
   await page.getByLabel('Show advert 1').uncheck()
   await page.getByLabel('Sponsor 2 start date').fill('2026-10-22')
-  await page.getByRole('button', { name: 'Save settings' }).click()
+  await saveAndPreview()
   await page.getByText('Your company could advertise here.').waitFor()
-  await page.getByRole('button', { name: 'Display settings' }).click()
+  await openSettings()
   await page.getByLabel('Show advert 1').check()
   await page.getByLabel('Sponsor 2 start date').fill('')
   await page.getByLabel('Show pitchside ordering').uncheck()
-  await page.getByRole('button', { name: 'Save settings' }).click()
+  await saveAndPreview()
   assert.equal(await page.locator('.club-tv-ordering').count(), 0)
   assert.equal(await page.locator('.club-tv-goal-alert-ad').count(), 0, 'The goal advert shares the sponsor area when a map is shown')
   await page.setViewportSize({ width: 1366, height: 650 })
   const mapArea = await page.locator('.club-tv-pitch img').boundingBox()
   await page.screenshot({ path: `${output}/short-screen-map.png` })
   assert.ok(mapArea.height >= 150, `Pitch map remains legible on a short screen: ${JSON.stringify(mapArea)}`)
-  await page.getByRole('button', { name: 'Resume carousel' }).click()
   for (let i = 0; i < 3 && !(await page.getByAltText('Free live goal alerts for grassroots football. Scan the QR code to get started.').count()); i++) await page.clock.runFor(11000)
   await page.getByAltText('Free live goal alerts for grassroots football. Scan the QR code to get started.').waitFor()
   await page.screenshot({ path: `${output}/goal-alert-ad.png` })
   await page.getByRole('button', { name: 'Pause carousel' }).click()
   await page.setViewportSize({ width: 1920, height: 1080 })
-  await page.getByRole('button', { name: 'Display settings' }).click()
+  await openSettings()
   await page.getByLabel('Show pitchside ordering').check()
-  await page.getByRole('button', { name: 'Save settings' }).click()
+  await saveAndPreview()
   await page.getByText('Coming soon').waitFor()
   await page.getByText('13°C', { exact: false }).waitFor()
   await page.getByRole('img', { name: 'cloudy', exact: true }).waitFor()
@@ -312,30 +385,30 @@ try {
   await page.clock.runFor(11000)
   assert.equal(await page.locator('.club-tv-match').count(), 0)
   await page.screenshot({ path: `${output}/compact-map-light.png` })
-  await page.getByRole('button', { name: 'Display settings' }).click()
+  await openSettings()
   await page.getByLabel('Appearance', { exact: true }).selectOption('dark')
-  await page.getByRole('button', { name: 'Save settings' }).click()
+  await saveAndPreview()
   assert.equal(await page.locator('.club-tv-dark').count(), 1)
   await page.screenshot({ path: `${output}/compact-map-dark.png` })
   await page.reload()
   await page.locator('.club-tv-dark').waitFor()
-  await page.getByRole('button', { name: 'Display settings' }).click()
+  await openSettings()
   assert.equal(await page.getByLabel('Appearance', { exact: true }).inputValue(), 'dark')
   await page.getByLabel('Appearance', { exact: true }).selectOption('light')
-  await page.getByRole('button', { name: 'Save settings' }).click()
+  await saveAndPreview()
   await page.locator('.club-tv-light').waitFor()
   matches = mappedMatchday; displayWindow = undefined
   await page.clock.runFor(11000)
-  await page.getByRole('button', { name: 'Display settings' }).click()
+  await openSettings()
   await page.getByLabel('Show map on half the display').uncheck()
-  await page.getByRole('button', { name: 'Save settings' }).click()
+  await saveAndPreview()
   const weatherFooter = await page.locator('.club-tv-footer').boundingBox()
   const weatherLastRow = await page.locator('.club-tv-match').last().boundingBox()
   assert.ok(weatherLastRow.y + weatherLastRow.height <= weatherFooter.y + 1, 'Weather and full-width matches fit above the footer')
   await page.screenshot({ path: `${output}/full-width-weather-light.png` })
-  await page.getByRole('button', { name: 'Display settings' }).click()
+  await openSettings()
   await page.getByLabel('Show map on half the display').check()
-  await page.getByRole('button', { name: 'Save settings' }).click()
+  await saveAndPreview()
   matches = matches.map((match, index) => index ? match : { ...match, homeScore: match.homeScore + 1, events: [...match.events, { id: 'small-goal', type: 'goal', side: 'club', shirt: '7', minute: 25 }] })
   await nextGoal('.club-tv-goal-small')
   assert.equal(await page.locator('.club-tv-goal-large').count(), 0)
@@ -358,6 +431,29 @@ try {
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false)
   await assertScoreFits()
   await page.setViewportSize({ width: 1920, height: 1080 })
+  await openSettings()
+  await page.getByRole('button', { name: 'Copy viewing link' }).click()
+  await page.getByText('Viewing link copied.', { exact: true }).waitFor()
+  const copiedUrl = await page.evaluate(() => navigator.clipboard.readText())
+  assert.equal(copiedUrl, `${origin}/club-matchday-tv/view/cedarfield-fc`)
+  const previousViewRequests = requests.filter(request => request.action === 'view').length
+  await page.goto(copiedUrl.replace('cedarfield-fc', 'Cedarfield-FC'))
+  await page.waitForURL(copiedUrl)
+  await page.getByText('Sign in with your Club Admin account to open this display.').waitFor()
+  assert.equal(requests.filter(request => request.action === 'view').length, previousViewRequests)
+  await page.getByLabel('Email', { exact: true }).fill(fixtureEmail)
+  await page.getByLabel('Password', { exact: true }).fill('Fixture-Club-Password')
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click()
+  await page.getByRole('heading', { name: 'Test Club United' }).waitFor()
+  await page.locator('.club-tv-pitch').waitFor()
+  assert.equal(await page.getByText('Display settings', { exact: true }).count(), 0)
+  assert.equal(await page.getByRole('link', { name: 'Back to Club Admin' }).count(), 0)
+  assert.equal(await page.getByAltText('Club sponsor advert').getAttribute('src'), firstSponsor)
+  matches = matches.map((match, index) => index ? match : { ...match, homeScore: match.homeScore + 1, events: [...match.events, { id: 'copied-link-goal', type: 'goal', side: 'club', shirt: '10', minute: 28 }] })
+  await nextGoal('.club-tv-goal-small')
+  assert.match(await page.locator('.club-tv-goal-small').textContent(), /#10/)
+  await page.goto(`${origin}/club-matchday-tv`)
+  await page.getByRole('heading', { name: 'Test Club United' }).waitFor()
   await page.getByRole('button', { name: 'Full screen and lock' }).click()
   await page.getByRole('button', { name: 'Unlock Club Admin', exact: true }).waitFor()
   assert.equal(await page.locator('.club-tv-controls').count(), 0)
@@ -417,7 +513,9 @@ try {
   await page.goto(`${origin}/coach`)
   await page.getByRole('heading', { name: 'Coach Home', exact: true }).waitFor()
   assert.equal(await page.getByRole('link', { name: 'Matchday TV' }).count(), 0)
+  await page.goto(`${origin}/club-matchday-tv/settings`)
+  await page.getByRole('heading', { name: 'This feature is not available' }).waitFor()
   assert.deepEqual(errors, [])
-  console.log('PASS: club matchday display, rotating scores and sponsors, scrolling away fixtures, optional pitchside panel, map, narrow layout, reconnect, revocation and timed masked password lock.')
+  console.log('PASS: club admin settings and copied viewer link, live scores, rotating sponsors, scrolling away fixtures, pitchside panel, map, narrow layout, reconnect, revocation and timed masked password lock.')
   await context.close()
 } finally { await browser.close(); await server.close() }

@@ -72,6 +72,7 @@ const CoachAppHandoffPage = lazyRoute(() => import('../pages/CoachAppHandoffPage
 const CoachAppUpgradePage = lazyRoute(() => import('../pages/CoachAppUpgradePage.jsx'), 'CoachAppUpgradePage')
 const ClubSettingsPage = lazyRoute(() => import('../pages/ClubSettingsPage.jsx'), 'ClubSettingsPage')
 const ClubMatchdayTvPage = lazyRoute(() => import('../pages/ClubMatchdayTvPage.jsx'), 'ClubMatchdayTvPage')
+const ClubMatchdayTvSettingsPage = lazyRoute(() => import('../pages/ClubMatchdayTvSettingsPage.jsx'), 'ClubMatchdayTvSettingsPage')
 const ClubSignupPage = lazyRoute(() => import('../pages/ClubSignupPage.jsx'), 'ClubSignupPage')
 const DataTransferPage = lazyRoute(() => import('../pages/DataTransferPage.jsx'), 'DataTransferPage')
 const CoachHomePage = lazyRoute(() => import('../pages/CoachHomePage.jsx'), 'CoachHomePage')
@@ -1934,6 +1935,14 @@ export const router = createBrowserRouter([
       {
         element: <Layout />,
         children: [
+          {
+            element: <RequireClubMatchdayTvAccess />,
+            children: [{
+              path: 'club-matchday-tv/settings',
+              element: <PageSuspense><ClubMatchdayTvSettingsPage /></PageSuspense>,
+              handle: { title: 'Matchday TV' },
+            }],
+          },
           {
             element: <RequireAdultPlayerAccess />,
             children: [

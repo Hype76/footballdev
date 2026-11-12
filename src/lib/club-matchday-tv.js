@@ -5,6 +5,14 @@ import { canUseFeature, CAPABILITIES } from './paywall-access.js'
 export const TV_PAGE_SIZE = 8
 export const TV_ROTATION_SECONDS = 30
 export const TV_REFRESH_MS = 10000
+export const CLUB_TV_VIEW_PATH = '/club-matchday-tv/view/'
+export const CLUB_TV_VIEW_HOST = 'v1.fpmd.online'
+const reservedTvSlugs = new Set([
+  'admin', 'api', 'app', 'assets', 'auth', 'club-admin', 'club-matchday-tv', 'club-settings',
+  'coach', 'dashboard', 'favicon', 'health', 'help', 'home', 'index', 'login', 'logout',
+  'manifest', 'matchday', 'netlify', 'parent', 'preview', 'privacy', 'robots', 'settings',
+  'sign-in', 'sign-out', 'sign-up', 'sitemap', 'status', 'support', 'terms', 'viewer',
+])
 const text = (value) => String(value ?? '').trim()
 const number = (value) => Number.isFinite(Number(value)) ? Math.max(0, Math.min(999, Math.floor(Number(value)))) : 0
 const liveStatuses = new Set(['live', 'half_time', 'second_half', 'extra_time', 'penalties'])
@@ -12,6 +20,27 @@ const liveStatuses = new Set(['live', 'half_time', 'second_half', 'extra_time', 
 export function canViewClubMatchdayTv(user) {
   return isClubAdmin(user) && isPlanAccessActive(user)
     && canUseFeature(user, CAPABILITIES.clubAdministration)
+}
+
+export function normalizeClubTvSlug(value) {
+  return typeof value === 'string' ? value.trim().toLowerCase() : ''
+}
+
+export function clubTvSlugStatus(slug) {
+  // V2 codes are 22-character base64url strings ending in A, Q, g or w.
+  if (reservedTvSlugs.has(slug) || /^[a-z0-9-]{21}[aqgw]$/.test(slug)) return 'reserved'
+  if (slug.length > 63 || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug) || (slug.match(/[a-z]/g) || []).length < 4) return 'invalid'
+  return 'valid'
+}
+
+export function clubTvViewerUrl(slug, origin = window.location.origin, configuredOrigin = import.meta.env?.VITE_CLUB_MATCHDAY_TV_ORIGIN) {
+  const customOrigin = typeof configuredOrigin === 'string' ? configuredOrigin.trim().replace(/\/$/, '') : ''
+  if (customOrigin === 'https://fpmd.online' || customOrigin === `https://${CLUB_TV_VIEW_HOST}`) return `${customOrigin}/${slug}`
+  return `${origin}${CLUB_TV_VIEW_PATH}${slug}`
+}
+
+export function clubTvStorageKey(user) {
+  return `fp:club-matchday-tv:${user.id}:${user.clubId}`
 }
 
 export function clubTvDate(now = new Date()) {
@@ -130,12 +159,31 @@ export function newTvGoals(previous, next) {
 
 export function readTvPreferences(key) {
   try {
-    const saved = JSON.parse(localStorage.getItem(key) || '{}')
-    const map = /^data:image\/(png|jpeg|webp);base64,[a-z0-9+/=]+$/i.test(saved.map ?? '') && saved.map.length < 2850000 ? saved.map : ''
-    const sponsorAds = (Array.isArray(saved.sponsorAds) ? saved.sponsorAds : []).slice(0, 3)
-      .filter(ad => /^data:image\/(png|jpeg|webp);base64,[a-z0-9+/=]+$/i.test(ad?.image ?? '') && ad.image.length < 750000)
-      .map(ad => ({ image: ad.image, name: text(ad.name).slice(0, 80), enabled: ad.enabled !== false, startDate: text(ad.startDate), endDate: text(ad.endDate) }))
-    const sponsorSeconds = [10, 15, 30, 60].includes(saved.sponsorSeconds) ? saved.sponsorSeconds : 30
-    return { appearance: saved.appearance === 'dark' ? 'dark' : 'light', bigGoal: saved.bigGoal !== false, showMap: saved.showMap !== false, weatherPostcode: text(saved.weatherPostcode).slice(0, 10), map, sponsorAds, sponsorSeconds, showPitchsideOrdering: saved.showPitchsideOrdering === true }
-  } catch { return { appearance: 'light', bigGoal: true, showMap: true, weatherPostcode: '', map: '', sponsorAds: [], sponsorSeconds: 30, showPitchsideOrdering: false } }
+    return normalizeTvPreferences(JSON.parse(localStorage.getItem(key) || 'null'))
+  } catch { return normalizeTvPreferences() }
+}
+
+export function hasLocalTvPreferences(key) {
+  try {
+    const saved = JSON.parse(localStorage.getItem(key) || 'null')
+    return Boolean(saved && typeof saved === 'object' && !Array.isArray(saved))
+  } catch { return false }
+}
+
+export function validTvSponsorSchedule({ startDate, endDate }) {
+  return (!startDate || validTvDate(startDate)) && (!endDate || validTvDate(endDate))
+    && (!startDate || !endDate || startDate <= endDate)
+}
+
+const isTvArtwork = (value, limit) => typeof value === 'string' && value.length < limit
+  && /^data:image\/(png|jpeg|webp);base64,[a-z0-9+/=]+$/i.test(value)
+
+export function normalizeTvPreferences(value) {
+  const saved = value ?? {}
+  const map = isTvArtwork(saved.map, 2850000) ? saved.map : ''
+  const sponsorAds = (Array.isArray(saved.sponsorAds) ? saved.sponsorAds : []).slice(0, 3)
+    .filter(ad => isTvArtwork(ad?.image, 750000))
+    .map(ad => ({ image: ad.image, name: text(ad.name).slice(0, 80), enabled: ad.enabled !== false, startDate: text(ad.startDate), endDate: text(ad.endDate) }))
+  const sponsorSeconds = [10, 15, 30, 60].includes(saved.sponsorSeconds) ? saved.sponsorSeconds : 30
+  return { appearance: saved.appearance === 'dark' ? 'dark' : 'light', bigGoal: saved.bigGoal !== false, showMap: saved.showMap !== false, weatherPostcode: text(saved.weatherPostcode).slice(0, 10), map, sponsorAds, sponsorSeconds, showPitchsideOrdering: saved.showPitchsideOrdering === true }
 }
