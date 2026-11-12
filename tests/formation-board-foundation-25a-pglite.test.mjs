@@ -1083,3 +1083,93 @@ test('optional starting squad saves the pitch snapshot, rejects other teams and 
   await setActor(IDS.coach)
   await assert.rejects(rpc('public.submit_match_day_starting_squad($1,$2,$3)', [matchId, created.board.id, changed.board.current_version_id]), /starting_squad_match_already_started/)
 })
+
+test('club shirts follow saved versions, duplicate and restore, exports and authorised Parent plans', async () => {
+  await resetActor()
+  const kitSchema = await readFile(new URL('../supabase/migrations/20260910103719_club_kit_artwork.sql', import.meta.url), 'utf8')
+  await db.exec(`
+    create table storage.buckets (id text primary key, name text, public boolean, file_size_limit integer, allowed_mime_types text[]);
+    create function storage.foldername(name text) returns text[] language sql immutable as $$
+      select (string_to_array(name, '/'))[1:cardinality(string_to_array(name, '/'))-1]
+    $$;
+    create function public.current_user_club_id() returns uuid language sql stable security definer as $$
+      select club_id from public.users where id = auth.uid()
+    $$;
+    alter function public.current_user_role() security definer;
+    grant usage on schema storage to authenticated;
+    grant select, insert, delete on storage.objects to authenticated;
+    alter table storage.objects enable row level security;
+  `)
+  await db.exec(kitSchema)
+  await db.exec("create function public.get_team_carpool_default(uuid) returns boolean language sql as 'select false'")
+  await db.exec(await readFile(new URL('../supabase/migrations/20261018162711_fix_carpool_read_and_5v5_label.sql', import.meta.url), 'utf8'))
+
+  const authority = await readFile(new URL('../supabase/migrations/20260727044834_restore_parent_link_authority.sql', import.meta.url), 'utf8')
+  const linkStart = authority.indexOf('create or replace function public.current_user_can_access_parent_link(')
+  const linkEnd = authority.indexOf('create or replace function public.current_user_can_access_parent_club(', linkStart)
+  await db.exec(authority.slice(linkStart, linkEnd))
+  await db.exec(await readFile(new URL('../supabase/migrations/20261112094705_formation_board_club_shirts.sql', import.meta.url), 'utf8'))
+
+  const home = { type: 'home', colour: '#112233', imagePath: IDS.clubA + '/home/shirt.png' }
+  const away = { type: 'away', colour: '#778899', imagePath: null }
+  await db.query('insert into public.club_kits values ($1,$2,$3,$4), ($1,$5,$6,null), ($7,$5,$8,null)', [
+    IDS.clubA, home.type, home.colour, home.imagePath, away.type, away.colour, IDS.clubB, '#abcdef',
+  ])
+  const parentLinkId = '60000000-0000-4000-8000-000000000001'
+  await db.query('update public.parent_player_links set player_id = $1 where id = $2', [IDS.playerA1, parentLinkId])
+  const replacementPath = IDS.clubA + '/home/replacement.png'
+  const unusedPath = IDS.clubA + '/home/unused.png'
+  await db.query("insert into storage.objects (bucket_id, name) values ('club-kits', $1), ('club-kits', $2), ('club-kits', $3)", [
+    home.imagePath, replacementPath, unusedPath,
+  ])
+
+  const standaloneArgs = [IDS.teamA, 'Shirt example', '', '5v5', '5v5-custom', 'portrait', '[]', '[]', '[]', '', 'shared', 1]
+  const create = 'public.create_formation_board_v2($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)'
+  await setActor(IDS.assistant)
+  await assert.rejects(rpc(create, [...standaloneArgs, 'home']), /formation_board_create_forbidden/)
+
+  await setActor(IDS.coach)
+  await assert.rejects(rpc(create, [...standaloneArgs, 'third']), /formation_board_shirt_kit_invalid/)
+  const created = (await rpc(create, [...standaloneArgs, 'home'])).rows[0].result
+  assert.deepEqual(created.currentVersion.shirt_kit, home)
+  const boardId = created.board.id
+
+  await resetActor()
+  await db.query("update public.club_kits set colour = '#335577', image_path = $2 where club_id = $1 and kit_type = 'home'", [IDS.clubA, replacementPath])
+  await setActor(IDS.clubAdmin)
+  assert.equal((await db.query("delete from storage.objects where name = $1 returning name", [home.imagePath])).rows.length, 0)
+  assert.equal((await db.query("delete from storage.objects where name = $1 returning name", [replacementPath])).rows.length, 0)
+  assert.deepEqual((await db.query("delete from storage.objects where name = $1 returning name", [unusedPath])).rows, [{ name: unusedPath }])
+  await setActor(IDS.coach)
+  const saveArgs = [boardId, 1, 'Edited', '', '5v5', '5v5-custom', 'portrait', '[]', '[]', '[]', '', 'shared', 'kit_test', 1]
+  const legacySave = (await rpc('public.save_formation_board_editor_v2($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)', saveArgs)).rows[0].result
+  assert.deepEqual(legacySave.currentVersion.shirt_kit, home, 'Legacy callers preserve the original saved design')
+
+  const matchId = '50000000-0000-4000-8000-000000000002'
+  const atomic = 'public.save_coach_match_formation_v2($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)'
+  const matchArgs = ['Shirts for Saturday', '', '5v5', '5v5-custom', 'portrait', '[]', '[]', '[]', '', 1, matchId, boardId, 2, true, 'kit_test', 'away']
+  const published = (await rpc(atomic, matchArgs)).rows[0].result
+  assert.deepEqual(published.currentVersion.shirt_kit, away)
+  await assert.rejects(rpc(atomic, matchArgs), /formation_board_version_conflict/)
+  const publication = (await db.query('select * from public.list_formation_board_match_publications($1)', [boardId])).rows[0]
+  assert.deepEqual(publication.list_formation_board_match_publications.shirt_kit, away)
+
+  const copy = (await rpc('public.duplicate_formation_board($1,$2)', [boardId, 'Shirt copy'])).rows[0].result
+  assert.deepEqual(copy.currentVersion.shirt_kit, away)
+  const restored = (await rpc('public.restore_formation_board_version($1,$2,$3)', [boardId, created.currentVersion.id, 3])).rows[0].result
+  assert.deepEqual(restored.currentVersion.shirt_kit, home)
+  const exportRequest = (await rpc('public.request_formation_board_export($1,$2,$3)', [boardId, restored.currentVersion.id, 'pdf'])).rows[0].result.request
+  const exported = (await rpc('public.get_formation_board_export_payload($1)', [exportRequest.id])).rows[0].result
+  assert.deepEqual(exported.version.shirt_kit, home)
+
+  await setActor(IDS.parent)
+  const parentPlans = await db.query('select board_id, shirt_kit from public.get_parent_portal_match_formation_plans($1)', [parentLinkId])
+  assert.deepEqual(parentPlans.rows.find(row => row.board_id === boardId)?.shirt_kit, away, 'Parents see the published version, not a later private edit')
+  await setActor(IDS.coachB)
+  assert.equal((await db.query('select * from public.get_parent_portal_match_formation_plans($1)', [parentLinkId])).rows.length, 0)
+  await assert.rejects(rpc(create, [IDS.teamB, ...standaloneArgs.slice(1), 'home']), /formation_board_shirt_kit_unavailable/)
+  await resetActor()
+  await db.exec('set role anon')
+  await assert.rejects(rpc(create, [...standaloneArgs, 'home']), /permission denied/)
+  await resetActor()
+})

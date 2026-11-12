@@ -151,6 +151,9 @@ function createMockState({ seedLandscapeBoard = false, seedSharedBoard = false }
   const versionHistory = []
   const publications = []
   const exportRequests = new Map()
+  const kit = { type: 'away', colour: '#c23045', imagePath: null }
+  const homeKit = { type: 'home', colour: '#123456', imagePath: null }
+  const mutations = []
 
   function payloadFrom(parameters, existing = null) {
     const currentVersion = {
@@ -166,6 +169,8 @@ function createMockState({ seedLandscapeBoard = false, seedSharedBoard = false }
       placements: parameters.placements_value || existing?.currentVersion?.placements || [],
       bench: parameters.bench_value || existing?.currentVersion?.bench || [],
       notes: parameters.notes_value || existing?.currentVersion?.notes || '',
+      custom_slots: parameters.custom_slots_value ?? existing?.currentVersion?.custom_slots ?? [],
+      shirt_kit: parameters.shirt_kit_type_value === 'away' ? { ...kit } : parameters.shirt_kit_type_value === 'home' ? { ...homeKit } : existing?.currentVersion?.shirt_kit || null,
       created_by_profile_id: 'user-manager.fixture@footballplayer.test',
       created_at: new Date().toISOString(),
       version_reason: 'save',
@@ -214,6 +219,8 @@ function createMockState({ seedLandscapeBoard = false, seedSharedBoard = false }
     boards,
     publications,
     versionHistory,
+    mutations,
+    setAwayColour(colour) { kit.colour = colour },
     setConflict() { shouldConflict = true },
     failNextVersionRefresh() { shouldFailVersionRefresh = true },
     async handle(route) {
@@ -223,6 +230,9 @@ function createMockState({ seedLandscapeBoard = false, seedSharedBoard = false }
       let parameters = {}
       try { parameters = request.postDataJSON() || {} } catch { parameters = {} }
 
+      if (path.endsWith('/club_kits')) {
+        return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([{ kit_type: 'away', colour: kit.colour, image_path: null }, { kit_type: 'home', colour: homeKit.colour, image_path: null }]) })
+      }
       if (path.endsWith('/formation_board_presets')) {
         return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(presets) })
       }
@@ -271,14 +281,16 @@ function createMockState({ seedLandscapeBoard = false, seedSharedBoard = false }
         const board = boards.find((item) => item.board.id === parameters.target_board_id) || boards[0] || null
         return route.fulfill({ status: board ? 200 : 404, contentType: 'application/json', body: JSON.stringify(board || { message: 'formation_board_not_found' }) })
       }
-      if (path.endsWith('/rpc/create_formation_board')) {
+      if (path.endsWith('/rpc/create_formation_board') || path.endsWith('/rpc/create_formation_board_v2')) {
+        mutations.push(parameters)
         versionNumber = 1
         const board = payloadFrom(parameters)
         boards.splice(0, boards.length, board)
         versionHistory.splice(0, versionHistory.length, board.currentVersion)
         return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(board) })
       }
-      if (path.endsWith('/rpc/save_formation_board_editor')) {
+      if (path.endsWith('/rpc/save_formation_board_editor') || path.endsWith('/rpc/save_formation_board_editor_v2')) {
+        mutations.push(parameters)
         if (shouldConflict) {
           shouldConflict = false
           return route.fulfill({ status: 409, contentType: 'application/json', body: JSON.stringify({ code: 'P0001', message: 'formation_board_version_conflict' }) })
@@ -411,6 +423,7 @@ try {
   await desktopPage.getByRole('button', { name: 'Untitled Formation Board', exact: true }).click()
   await desktopPage.getByLabel('Board title').fill('Browser test board')
   assert.equal(await desktopPage.getByLabel('Board title').inputValue(), 'Browser test board')
+  await desktopPage.getByLabel('Player shirts').selectOption('away')
   assert.equal(await desktopPage.getByLabel('Board title').evaluate((element) => document.activeElement === element), true)
   await desktopPage.getByRole('dialog', { name: 'Board details and options' }).getByRole('button', { name: 'Close' }).click()
   await desktopPage.getByRole('button', { name: 'Formation', exact: true }).first().click()
@@ -484,6 +497,7 @@ try {
   await desktopPage.getByRole('button', { name: 'Undo', exact: true }).click()
   assert.equal(await desktopPage.locator('[data-formation-player-marker]').count(), 3)
 
+  assert.ok(await desktopPage.locator('[data-formation-player-marker] svg path[fill="#c23045"]').count() > 0)
   const desktopMarker = desktopPage.getByRole('button', { name: /Synthetic One, displayed shirt number 1/ })
   const markerBounds = await desktopMarker.boundingBox()
   assert.ok(markerBounds)
@@ -500,13 +514,37 @@ try {
   assert.equal(desktopFixture.state.boards.length, 1)
   assert.equal(desktopFixture.state.boards[0].currentVersion.placements.length, 3)
   assert.equal(desktopFixture.state.boards[0].currentVersion.pitch_orientation, 'portrait')
+  assert.equal(desktopFixture.state.mutations[0].shirt_kit_type_value, 'away')
   const firstPublishedVersionId = desktopFixture.state.boards[0].currentVersion.id
-
+  if (process.env.FORMATION_KIT_ONLY === '1') {
+    desktopFixture.state.setAwayColour('#00aa00')
+    await desktopPage.goto(`${baseUrl}/resources/formation-boards?board=${desktopFixture.state.boards[0].board.id}`, { waitUntil: 'networkidle' })
+    await desktopPage.getByRole('button', { name: 'More Formation Board options' }).click()
+    assert.equal(await desktopPage.getByLabel('Player shirts').inputValue(), 'away')
+    await desktopPage.getByLabel('Player shirts').selectOption('home')
+    await desktopPage.getByLabel('Player shirts').selectOption('away')
+    await desktopPage.getByRole('dialog', { name: 'Board details and options' }).getByRole('button', { name: 'Close' }).click()
+    assert.ok(await desktopPage.locator('[data-formation-player-marker] svg path[fill="#c23045"]').count() > 0)
+    const retainedSlots = [{ id: 'custom-1', group: 'defender', x: 0.4, y: 0.7 }]
+    desktopFixture.state.boards[0].currentVersion.custom_slots = retainedSlots
+    await desktopPage.goto(`${baseUrl}/resources/formation-boards?board=${desktopFixture.state.boards[0].board.id}`, { waitUntil: 'networkidle' })
+    await desktopPage.getByRole('button', { name: 'More Formation Board options' }).click()
+    await desktopPage.getByLabel('Player shirts').selectOption('home')
+    await desktopPage.getByRole('dialog', { name: 'Board details and options' }).getByRole('button', { name: 'Save to Team' }).click()
+    assert.equal(desktopFixture.state.mutations.at(-1).shirt_kit_type_value, 'home')
+    assert.deepEqual(desktopFixture.state.mutations.at(-1).custom_slots_value, retainedSlots)
+    await desktopFixture.context.close()
+    await browser.close()
+    await stopServer(server)
+    console.log('Formation kit selection, saving, reopening and custom positions passed.')
+    process.exit(0)
+  }
   await desktopShareActions.getByRole('button', { name: 'Publish to Team Resources', exact: true }).click()
   await desktopPage.getByRole('dialog', { name: 'Publish to Team Resources' }).waitFor()
   await desktopPage.getByLabel('Team Resource category').selectOption('training')
   await desktopPage.getByText('Review this preview before publishing.', { exact: false }).waitFor()
   await desktopPage.getByRole('button', { name: 'Publish immutable version' }).click()
+  await desktopPage.getByRole('dialog', { name: 'Publish to Team Resources' }).waitFor({ state: 'hidden' })
   await desktopPage.getByText('Published to Team Resources').waitFor()
   assert.equal(desktopFixture.state.publications.length, 1)
   assert.equal(desktopFixture.state.publications[0].board_version_id, firstPublishedVersionId)
@@ -581,6 +619,7 @@ try {
   await desktopPage.getByLabel('Publication action').selectOption('update_resource')
   await desktopPage.getByLabel('Linked Team Resource').selectOption('dddddddd-dddd-4ddd-8ddd-dddddddddddd')
   await desktopPage.getByRole('button', { name: 'Publish immutable version' }).click()
+  await desktopPage.getByRole('dialog', { name: 'Publish to Team Resources' }).waitFor({ state: 'hidden' })
   await desktopPage.getByText('Published to Team Resources').waitFor()
   assert.equal(desktopFixture.state.publications.length, 2)
   assert.equal(desktopFixture.state.publications[1].board_version_id, firstPublishedVersionId)

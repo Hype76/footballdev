@@ -506,7 +506,7 @@ export async function loadResourceFormationBoard({ resource, resourceId = resour
     const version = await maybeSingle(
       supabaseAdmin
         .from('formation_board_versions')
-        .select('id, board_id, club_id, team_id, game_format, formation_preset_key, pitch_orientation, placements, bench, notes, created_at')
+        .select('id, board_id, club_id, team_id, game_format, formation_preset_key, pitch_orientation, placements, bench, shirt_kit, notes, created_at')
         .eq('id', publication.board_version_id)
         .eq('board_id', publication.board_id)
         .eq('club_id', clubId)
@@ -521,6 +521,7 @@ export async function loadResourceFormationBoard({ resource, resourceId = resour
       id: normalizeText(version.id),
       notes: normalizeText(version.notes),
       orientation: normalizeText(version.pitch_orientation) || 'portrait',
+      shirtKit: version.shirt_kit || null,
       placements: Array.isArray(version.placements) ? version.placements : [],
       title: normalizeText(publication.board_title_snapshot || resource.title) || 'Formation Board',
     }

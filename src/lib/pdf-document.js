@@ -1,3 +1,4 @@
+import { KIT_SHIRT_PATH } from './club-kits.js'
 import { buildProgressionChartMarkup } from './progression-chart-markup.js'
 import {
   DEFAULT_ASSESSMENT_SCORE_GUIDE,
@@ -343,7 +344,7 @@ function normalizeFormationPlayer(item, { placement = false } = {}) {
   assertAllowedKeys(
     item,
     placement
-      ? ['displayName', 'playerId', 'shirtNumber', 'x', 'y']
+      ? ['displayName', 'playerId', 'shirtNumber', 'positionGroup', 'x', 'y']
       : ['displayName', 'playerId', 'shirtNumber'],
     placement ? 'Formation Board placement' : 'Formation Board bench Player',
   )
@@ -374,7 +375,7 @@ function normalizeFormationPlayer(item, { placement = false } = {}) {
     invalid('Formation Board marker positions must stay within the pitch.')
   }
 
-  return { ...normalized, x, y }
+  return { ...normalized, positionGroup: item.positionGroup === 'goalkeeper' ? 'goalkeeper' : '', x, y }
 }
 
 function validateFormationBoardDocument(value) {
@@ -387,6 +388,7 @@ function validateFormationBoardDocument(value) {
     'gameFormat',
     'formation',
     'orientation',
+    'shirtKit',
     'placements',
     'bench',
     'unplaced',
@@ -435,6 +437,7 @@ function validateFormationBoardDocument(value) {
       required: true,
     }),
     orientation: FORMATION_BOARD_CANONICAL_ORIENTATION,
+    shirtKit: value.shirtKit && /^#[0-9a-f]{6}$/i.test(value.shirtKit.colour || '') ? { colour: value.shirtKit.colour, imageData: /^data:image\/png;base64,[a-z0-9+/=]+$/i.test(value.shirtKit.imageData || '') && value.shirtKit.imageData.length <= 1500000 ? value.shirtKit.imageData : '' } : null,
     placements,
     bench,
     unplaced,
@@ -580,6 +583,7 @@ export function buildFormationBoardDocument({
   gameFormat = '',
   formation = '',
   orientation = 'portrait',
+  shirtKit = null,
   placements = [],
   bench = [],
   unplaced = [],
@@ -594,10 +598,12 @@ export function buildFormationBoardDocument({
     gameFormat,
     formation,
     orientation,
+    shirtKit,
     placements: placements.map((item) => ({
       displayName: item.displayName,
       playerId: item.playerId,
       shirtNumber: item.shirtNumber,
+      positionGroup: item.positionGroup,
       x: item.x,
       y: item.y,
     })),
@@ -843,8 +849,12 @@ function renderProgressionChartDocument(document) {
 function renderFormationBoardDocument(document, branding) {
   const formationLabel = document.formation.split('-').slice(1).join('-') || document.formation
   const renderPlayerVisual = (player, compact = false) => `
-    <span class="formation-player-visual${compact ? ' formation-player-visual-compact' : ''}">
-      ${renderFormationPlayerSilhouetteSvg()}
+    <span class="formation-player-visual${compact ? ' formation-player-visual-compact' : ''}"${document.shirtKit && player.positionGroup === 'goalkeeper' ? ' style="background:#eab308;color:#101828"' : ''}>
+      ${document.shirtKit && player.positionGroup !== 'goalkeeper'
+        ? document.shirtKit.imageData
+          ? `<img class="formation-kit-art" src="${document.shirtKit.imageData}" alt="">`
+          : `<svg viewBox="0 0 64 64"><path d="${KIT_SHIRT_PATH}" style="fill:${document.shirtKit.colour}" stroke="#1f2937" stroke-width="1.5" /></svg>`
+        : renderFormationPlayerSilhouetteSvg()}
       ${player.shirtNumber ? `<span class="formation-shirt-badge">${escapeHtml(player.shirtNumber)}</span>` : ''}
     </span>`
   const markerMarkup = document.placements.map((player) => `
@@ -1019,6 +1029,7 @@ export function renderPdfDocumentHtml(value, { branding: brandingValue = null } 
           .pitch-box-bottom { bottom: 18px; border-bottom: 0; }
           .formation-marker { position: absolute; z-index: 3; width: 106px; transform: translate(-50%,-50%); text-align: center; }
           .formation-player-visual { position: relative; display: flex; width: 44px; height: 44px; margin: 0 auto; align-items: center; justify-content: center; border: 3px solid #ffffff; border-radius: 50%; background: #f7faf8; color: #344054; box-shadow: 0 3px 7px rgba(16,24,40,.25); }
+          .formation-player-visual .formation-kit-art { width: 100%; height: 100%; object-fit: contain; }
           .formation-player-visual svg { width: 72%; height: 72%; fill: currentColor; }
           .formation-shirt-badge { position: absolute; right: -7px; top: -4px; display: flex; min-width: 19px; height: 19px; padding: 0 4px; align-items: center; justify-content: center; border: 1px solid #ffffff; border-radius: 999px; background: #101828; color: #ffffff; font-size: 8px; font-weight: 900; line-height: 1; }
           .formation-player-visual-compact { width: 22px; height: 22px; flex: 0 0 22px; border-width: 1px; box-shadow: none; }

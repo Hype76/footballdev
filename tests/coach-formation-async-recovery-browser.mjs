@@ -6,7 +6,7 @@ import { build } from 'esbuild'
 import { chromium } from 'playwright'
 
 if (!process.env.FORMATION_ASYNC_SCENARIO) {
-  for (const scenario of ['race', 'scope', 'cache', 'cache-missing', 'restored-authority', 'restored-revoked', 'restored-denied', 'stable', 'loading-back', 'back', 'back-offline', 'fast-save', 'fast-save-no-storage', 'readonly', 'panels', 'multiple', 'queue-resume', 'recover-audience', 'conflict', 'ack-refresh', 'queue-switch', 'new-board-isolation']) {
+  for (const scenario of ['race', 'scope', 'cache', 'cache-missing', 'restored-authority', 'restored-revoked', 'restored-denied', 'stable', 'loading-back', 'back', 'back-offline', 'fast-save', 'fast-save-no-storage', 'shirt-kit', 'readonly', 'panels', 'multiple', 'queue-resume', 'recover-audience', 'conflict', 'ack-refresh', 'queue-switch', 'new-board-isolation']) {
     const result = spawnSync(process.execPath, [fileURLToPath(import.meta.url)], {
       env: { ...process.env, FORMATION_ASYNC_SCENARIO: scenario },
       encoding: 'utf8',
@@ -74,7 +74,7 @@ const entry = `
       {scenario === 'back-offline' ? <button type="button" onClick={() => setStale(true)}>Lose connection</button> : null}
       {scenario === 'queue-resume' || scenario === 'ack-refresh' ? <button type="button" onClick={() => { Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'visible' }); document.dispatchEvent(new Event('visibilitychange')) }}>Resume connection</button> : null}
       {visible ? <CoachFormationBoard
-        context={{ id: scopeId === 'a' ? 'club-context-a' : 'club-context-b', authorityId: scopeId === 'a' ? 'authority-a' : 'authority-b', authoritySource: 'team_staff', clubId: 'club-1', teamId: scopeId === 'a' ? 'team-1' : 'team-2', role: 'coach', roleRank: 30, hasActivePlanAccess: true }}
+        context={{ id: scopeId === 'a' ? 'club-context-a' : 'club-context-b', authorityId: scopeId === 'a' ? 'authority-a' : 'authority-b', authoritySource: 'team_staff', clubId: scenario === 'shirt-kit' ? 'club-2' : 'club-1', teamId: scopeId === 'a' ? 'team-1' : 'team-2', role: 'coach', roleRank: 30, hasActivePlanAccess: true }}
         match={scenario === 'race' || scenario === 'queue-switch' ? match : matches.a}
         matches={[]}
         onBack={() => { window.__formationTest.backCount = (window.__formationTest.backCount || 0) + 1; setVisible(false) }}
@@ -101,7 +101,7 @@ const dataMock = `
   ]
   const version = (id, number = 1, draft = {}) => ({
     id, versionNumber: number, gameFormat: '11v11', formationPresetKey: '11v11-4-4-2',
-    presetRegistryVersion: 1, placements: draft.placements || [], bench: draft.bench || [],
+    presetRegistryVersion: 1, placements: draft.placements || [], bench: draft.bench || [], shirtKit: draft.shirtKit || null,
   })
   const board = (id, title, linkedMatchDayId = '') => ({
     id, title, linkedMatchDayId, createdByProfileId: 'coach-1', currentVersionId: id + '-v1',
@@ -244,6 +244,9 @@ const offlineMock = `
 const mocks = [
   [/^react-native-safe-area-context$/, "import React from 'react'; import { View } from 'react-native'; export const SafeAreaProvider = ({children}) => <View style={{flex:1}}>{children}</View>; export const useSafeAreaInsets = () => ({ top: 47, right: 0, bottom: 34, left: 0 }); export const SafeAreaView = ({style,...props}) => <View {...props} style={[style,{paddingTop:47,paddingBottom:34}]} />"],
   [/coachFormationBoardData$/, dataMock],
+  [/mobileKitCache$/, `const getKits = clubId => ({ home: { colour: '#ffffff', imagePath: null }, away: { colour: clubId === 'club-2' ? '#123456' : '#aabbcc', imagePath: null } }); export const peekMobileClubKits = getKits; export const loadMobileClubKits = async (clubId, publish) => { const kits = getKits(clubId); publish?.(kits); return kits }`],
+  [/mobileKitImageStorage$/, `export const mobileKitImageStorage = { resolve: async uri => uri }`],
+  [/^\.\/supabase$/, `export const supabase = { storage: { from: () => ({ getPublicUrl: () => ({ data: { publicUrl: '' } }) }) } }`],
   [/^\.\/offline$/, offlineMock],
   [/^@expo\/vector-icons\/MaterialIcons$/, `export default () => null`],
   [/^@react-native-async-storage\/async-storage$/, `export default { getItem: async () => null, setItem: async () => {} }`],
@@ -485,9 +488,25 @@ try {
   } else {
     await page.getByLabel('Formation pitch', { exact: true }).waitFor()
     assert.equal(await page.getByRole('button', { name: 'Confirm formation', exact: true }).count(), 0)
-    await page.getByRole('button', { name: 'Add Player at Goalkeeper', exact: true }).click()
+    await page.getByRole('button', { name: process.env.FORMATION_ASYNC_SCENARIO === 'shirt-kit' ? 'Add Player at Defender' : 'Add Player at Goalkeeper', exact: true }).first().click()
     await page.getByRole('button', { name: /#1 Player One.*Add/ }).click()
-    await page.getByRole('button', { name: 'Save', exact: true }).click()
+    if (process.env.FORMATION_ASYNC_SCENARIO === 'shirt-kit') {
+      await page.getByRole('button', { name: 'Formation', exact: true }).click()
+      await page.getByRole('button', { name: 'Away', exact: true }).click()
+      await page.getByRole('button', { name: 'Close options', exact: true }).click()
+      const marker = page.getByLabel('Player One, shirt 1', { exact: true })
+      await marker.waitFor()
+      assert.equal(await marker.locator('feFlood').getAttribute('flood-color'), '#123456')
+      await page.getByRole('button', { name: 'Save', exact: true }).click()
+      await page.getByRole('button', { name: 'Save to match', exact: true }).click()
+      await page.getByRole('dialog', { name: 'share options', exact: true }).waitFor({ state: 'hidden' })
+      assert.equal(await page.evaluate(() => window.__formationTest.serverBoard.currentVersion.shirtKit.type), 'away')
+      await page.getByRole('button', { name: 'Formation', exact: true }).click()
+      assert.equal(await page.getByRole('button', { name: 'Away', exact: true }).evaluate(el => getComputedStyle(el).backgroundColor), 'rgb(220, 252, 231)')
+      assert.equal(await marker.locator('feFlood').getAttribute('flood-color'), '#123456')
+      await page.getByRole('button', { name: 'Close options', exact: true }).click()
+      console.log('PASS: Away shirt comes from the active club and is retained on the saved lineup')
+    } else await page.getByRole('button', { name: 'Save', exact: true }).click()
     if (process.env.FORMATION_ASYNC_SCENARIO === 'queue-resume') {
       await page.getByLabel('Formation plan title', { exact: true }).fill('Queued lineup')
       await page.getByRole('radio', { name: 'Parents and players', exact: true }).click()

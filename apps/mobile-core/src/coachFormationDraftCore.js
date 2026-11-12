@@ -13,7 +13,7 @@ export function formationContentKey(draft, title) {
     ? draft.unplaced
     : (draft?.bench || []).filter((item) => item?.state === 'unplaced')
   return JSON.stringify([
-    text(title), draft?.gameFormat, draft?.presetKey, Number(draft?.registryVersion || 1),
+    text(title), draft?.shirtKit?.type || '', draft?.gameFormat, draft?.presetKey, Number(draft?.registryVersion || 1),
     (draft?.customSlots || []).map((slot) => [slot.id, Number(slot.x), Number(slot.y)]).sort(),
     (draft?.placements || []).map((item) => [...player(item), item.slotId || '', item.positionGroup || '', Number(item.x), Number(item.y)]).sort(),
     (draft?.bench || []).map(player).sort(),

@@ -1,3 +1,4 @@
+import { normalizeFormationBoardShirtKit } from '../../../src/lib/formation-board-shirt.js'
 import { applyParentInvitationCancellations } from '../../mobile-core/src/parentCalendarCore.js'
 import { excludeDeletedParentOccurrences, expandCancelledParentSeries } from '../../../src/lib/parent-cancelled-series.js'
 import { mergeMatchDayParticipantEventIdentities, normalizeMatchDayParticipantRoster } from '../../mobile-core/src/matchDayParticipantRoster.js'
@@ -316,6 +317,7 @@ export function normalizeParentMatchFormationPlan(row = {}) {
     gameFormat: normalizeText(row.game_format ?? row.gameFormat),
     id: publicationId,
     pitchOrientation: normalizeText(row.pitch_orientation ?? row.pitchOrientation) || 'portrait',
+    shirtKit: normalizeFormationBoardShirtKit(row.shirt_kit ?? row.shirtKit),
     placements: normalizeParentFormationPlayers(row.placements),
     publicationNumber: Number(row.publication_number ?? row.publicationNumber ?? 0),
     publishedAt: row.published_at ?? row.publishedAt ?? '',

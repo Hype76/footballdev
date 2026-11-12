@@ -102,6 +102,9 @@ const offlineMock = `
 `
 
 const mocks = [
+  [/mobileKitCache$/, 'export const peekMobileClubKits = () => ({}); export const loadMobileClubKits = async () => ({})'],
+  [/mobileKitImageStorage$/, 'export const mobileKitImageStorage = { resolve: async uri => uri }'],
+  [/^\.\/supabase$/, 'export const supabase = {}'],
   [/coachFormationBoardData$/, dataMock],
   [/^\.\/offline$/, offlineMock],
   [/^@expo\/vector-icons\/MaterialIcons$/, `import React from 'react'; import { Text } from 'react-native'; const glyphs = ${JSON.stringify(materialIconGlyphs)}; export default function MaterialIcons({ color, name, size = 24, style }) { return <Text aria-hidden="true" style={[{ color, fontFamily: 'MaterialIcons', fontSize: size }, style]}>{String.fromCodePoint(glyphs[name] || glyphs.help)}</Text> }`],

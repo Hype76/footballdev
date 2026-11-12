@@ -1,3 +1,4 @@
+import { normalizeFormationBoardShirtKit } from '../formation-board-shirt.js'
 import { supabase } from '../supabase-client.js'
 import { clearViewCaches, invalidateMemoryCacheByPrefix } from './cache-store.js'
 import { blockDemoMutation } from './demo-guards.js'
@@ -37,6 +38,8 @@ const FORMATION_BOARD_ERROR_MESSAGES = Object.freeze({
   formation_board_resource_category_invalid: 'Choose an available Team Resource category.',
   formation_board_resource_not_linked: 'Choose a Team Resource already linked to this Formation Board.',
   formation_board_restore_forbidden: 'You do not have permission to restore this Formation Board.',
+  formation_board_shirt_kit_unavailable: 'This club kit is no longer available. Choose an available kit and try again.',
+  formation_board_shirt_kit_invalid: 'Choose a valid club kit.',
   formation_board_shirt_number_invalid: 'Use a shirt number from 0 to 999, or leave it blank.',
   formation_board_snapshot_invalid: 'Check the Player positions and bench, then try again.',
   formation_board_snapshot_must_be_arrays: 'The saved pitch and bench data is not valid.',
@@ -74,6 +77,8 @@ function normalizeFormationBoardVersion(row) {
     formationPresetKey: normalizeText(row.formation_preset_key ?? row.formationPresetKey),
     presetRegistryVersion: Number(row.preset_registry_version ?? row.presetRegistryVersion ?? FORMATION_BOARD_REGISTRY_VERSION),
     pitchOrientation: normalizeText(row.pitch_orientation ?? row.pitchOrientation) || 'portrait',
+    shirtKit: normalizeFormationBoardShirtKit(row.shirt_kit ?? row.shirtKit),
+    customSlots: normalizeArray(row.custom_slots ?? row.customSlots),
     placements: normalizeArray(row.placements),
     bench: roster.filter((item) => item?.state !== 'unplaced'),
     unplaced: roster.filter((item) => item?.state === 'unplaced'),
@@ -142,6 +147,7 @@ export function normalizeFormationBoardMatchPublication(row) {
     gameFormat: normalizeText(row.game_format ?? row.gameFormat),
     formationPresetKey: normalizeText(row.formation_preset_key ?? row.formationPresetKey),
     pitchOrientation: normalizeText(row.pitch_orientation ?? row.pitchOrientation) || 'portrait',
+    shirtKit: normalizeFormationBoardShirtKit(row.shirt_kit ?? row.shirtKit),
     placements: normalizeArray(row.placements),
     bench: roster.map((item) => ({ ...item, state: 'bench' })),
   }
@@ -257,12 +263,14 @@ export async function getFormationBoard(boardId) {
 
 export async function createFormationBoard({
   bench = [],
+  customSlots = [],
   description = '',
   gameFormat,
   notes = '',
   placements = [],
   presetKey,
   registryVersion = FORMATION_BOARD_REGISTRY_VERSION,
+  shirtKit = null,
   teamId = '',
   title,
   unplaced = [],
@@ -270,7 +278,8 @@ export async function createFormationBoard({
   visibility = 'draft',
 } = {}) {
   await prepareFormationBoardMutation(user)
-  const data = await callFormationBoardRpc('create_formation_board', {
+  const data = await callFormationBoardRpc(shirtKit?.type ? 'create_formation_board_v2' : 'create_formation_board', {
+    ...(shirtKit?.type ? { custom_slots_value: customSlots, shirt_kit_type_value: shirtKit.type } : {}),
     bench_value: serializeFormationBoardRoster(bench, unplaced),
     description_value: description,
     game_format_value: gameFormat,
@@ -289,6 +298,7 @@ export async function createFormationBoard({
 
 export async function saveFormationBoardVersion({
   bench = [],
+  customSlots = [],
   boardId,
   expectedVersionNumber,
   gameFormat,
@@ -296,13 +306,15 @@ export async function saveFormationBoardVersion({
   placements = [],
   presetKey,
   registryVersion = FORMATION_BOARD_REGISTRY_VERSION,
+  shirtKit = null,
   user,
   unplaced = [],
   versionReason = 'save',
   visibility = null,
 } = {}) {
   await prepareFormationBoardMutation(user)
-  const data = await callFormationBoardRpc('save_formation_board_version', {
+  const data = await callFormationBoardRpc(shirtKit?.type ? 'save_formation_board_version_v2' : 'save_formation_board_version', {
+    ...(shirtKit?.type ? { custom_slots_value: customSlots, shirt_kit_type_value: shirtKit.type } : {}),
     bench_value: serializeFormationBoardRoster(bench, unplaced),
     expected_version_number: expectedVersionNumber,
     game_format_value: gameFormat,
@@ -321,6 +333,7 @@ export async function saveFormationBoardVersion({
 
 export async function saveFormationBoardEditor({
   bench = [],
+  customSlots = [],
   boardId,
   description = '',
   expectedVersionNumber,
@@ -329,6 +342,7 @@ export async function saveFormationBoardEditor({
   placements = [],
   presetKey,
   registryVersion = FORMATION_BOARD_REGISTRY_VERSION,
+  shirtKit = null,
   title,
   unplaced = [],
   user,
@@ -336,7 +350,8 @@ export async function saveFormationBoardEditor({
   visibility,
 } = {}) {
   await prepareFormationBoardMutation(user)
-  const data = await callFormationBoardRpc('save_formation_board_editor', {
+  const data = await callFormationBoardRpc(shirtKit?.type ? 'save_formation_board_editor_v2' : 'save_formation_board_editor', {
+    ...(shirtKit?.type ? { custom_slots_value: customSlots, shirt_kit_type_value: shirtKit.type } : {}),
     bench_value: serializeFormationBoardRoster(bench, unplaced),
     description_value: description,
     expected_version_number: expectedVersionNumber,
