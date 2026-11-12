@@ -29,6 +29,7 @@ async function verifyProductionEntries() {
     await context.route('**/club-matchday-tv/view/**', async route => {
       await route.fulfill({ response: await route.fetch({ url: `${base}/matchday-tv-view.html` }) })
     })
+    await context.route('**/.netlify/functions/club-matchday-tv', route => route.fulfill({ status: 401, json: { message: 'Sign in to open the club matchday display.' } }))
     const viewer = await context.newPage()
     viewer.on('pageerror', error => errors.push(error.message))
     await viewer.goto(`${base}/club-matchday-tv/view/cedarfield-fc`)
@@ -89,6 +90,10 @@ try {
     }
     if (url.pathname === '/.netlify/functions/club-matchday-tv') {
       const body = route.request().postDataJSON(); requests.push(body)
+      if (body.slug && (!body.action || ['view', 'weather'].includes(body.action))
+        && settings.preferences?.accessMode !== 'public' && !route.request().headers().authorization) {
+        return route.fulfill({ status: 401, json: { message: 'Sign in to open the club matchday display.' } })
+      }
       if (body.action === 'settings') return route.fulfill({ json: { club: { id: body.clubId }, settings } })
       if (body.action === 'availability') {
         if (body.slug === 'cedarfield-fc' && failFirstCedarfieldCheck) {
@@ -318,7 +323,12 @@ try {
   await page.getByLabel('Club link ending').fill('CEDARFIELD-FC')
   assert.equal(await page.getByLabel('Club link ending').inputValue(), 'cedarfield-fc')
   assert.equal(await page.getByRole('button', { name: 'Save settings' }).isEnabled(), true)
-  assert.equal(await page.getByLabel('Full viewing link').textContent(), `${origin}/club-matchday-tv/view/cedarfield-fc`)
+  const previewUrl = `${origin}/club-matchday-tv/view/cedarfield-fc`
+  assert.equal(await page.getByLabel('Full viewing link').inputValue(), previewUrl)
+  await page.getByRole('button', { name: 'Copy link preview' }).click()
+  await page.getByText('Link copied. Save settings to activate it.', { exact: true }).waitFor()
+  assert.equal(await page.evaluate(() => navigator.clipboard.readText()), previewUrl)
+  assert.equal(await page.getByLabel('Viewing access').inputValue(), 'admin')
   await page.getByLabel('Large goal celebration').uncheck()
   await page.getByLabel('Club ground postcode').fill('CB23 6FY')
   const png = process.env.CLUB_TV_TEST_MAP ? await readFile(process.env.CLUB_TV_TEST_MAP) : Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aL1sAAAAASUVORK5CYII=', 'base64')
@@ -477,7 +487,7 @@ try {
   await page.goto(copiedUrl.replace('cedarfield-fc', 'Cedarfield-FC'))
   await page.waitForURL(copiedUrl)
   await page.getByText('Sign in with your Club Admin account to open this display.').waitFor()
-  assert.equal(requests.filter(request => request.action === 'view').length, previousViewRequests)
+  assert.ok(requests.filter(request => request.action === 'view').length > previousViewRequests)
   await page.getByLabel('Email', { exact: true }).fill(fixtureEmail)
   await page.getByLabel('Password', { exact: true }).fill('Fixture-Club-Password')
   await page.getByRole('button', { name: 'Sign in', exact: true }).click()
@@ -489,6 +499,21 @@ try {
   matches = matches.map((match, index) => index ? match : { ...match, homeScore: match.homeScore + 1, events: [...match.events, { id: 'copied-link-goal', type: 'goal', side: 'club', shirt: '10', minute: 28 }] })
   await nextGoal('.club-tv-goal-small')
   assert.match(await page.locator('.club-tv-goal-small').textContent(), /#10/)
+  await openSettings()
+  await page.getByLabel('Viewing access').selectOption('public')
+  await saveAndPreview()
+  assert.equal(settings.preferences.accessMode, 'public')
+  await page.evaluate(() => localStorage.removeItem('fp-matchday-tv-auth'))
+  await page.goto(copiedUrl)
+  await page.getByRole('heading', { name: 'Test Club United' }).waitFor()
+  await page.locator('.club-tv-pitch').waitFor()
+  assert.equal(await page.getByRole('button', { name: 'Sign in', exact: true }).count(), 0)
+  settings = { ...settings, preferences: { ...settings.preferences, accessMode: 'admin' } }
+  for (let i = 0; i < 15 && !(await page.getByRole('button', { name: 'Sign in', exact: true }).isVisible()); i++) {
+    await page.clock.runFor(1000)
+  }
+  await page.getByText('Sign in with your Club Admin account to open this display.').waitFor()
+  assert.equal(await page.locator('.club-tv-match').count(), 0)
   await page.goto(`${origin}/club-matchday-tv`)
   await page.getByRole('heading', { name: 'Test Club United' }).waitFor()
   await page.getByRole('button', { name: 'Full screen and lock' }).click()

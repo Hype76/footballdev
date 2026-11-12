@@ -44,7 +44,7 @@ function DisplaySettings({ clubId, settings, storageKey }) {
   const [hasLegacySettings] = useState(() => hasLocalTvPreferences(storageKey))
   const [usesLegacySettings, setUsesLegacySettings] = useState(hasLegacySettings && !settings.preferences)
   const [draft, setDraft] = useState(() => settings.preferences
-    ? normalizeTvPreferences(settings.preferences) : readTvPreferences(storageKey))
+    ? normalizeTvPreferences(settings.preferences) : { ...readTvPreferences(storageKey), accessMode: 'admin' })
   const [savedSlug, setSavedSlug] = useState(settings.slug || '')
   const [revision, setRevision] = useState(settings.revision)
   const [slug, setSlug] = useState(savedSlug)
@@ -61,7 +61,8 @@ function DisplaySettings({ clubId, settings, storageKey }) {
   const slugStatus = clubTvSlugStatus(slug)
   const availability = slugStatus !== 'valid' ? slugStatus
     : slug === savedSlug ? 'available' : checked?.slug === slug ? checked.status : 'checking'
-  const canSave = !saving && !mapUploading && !sponsorsUploading && (!slug || availability === 'available')
+  const needsLink = draft.accessMode === 'public' && !slug && !savedSlug
+  const canSave = !saving && !mapUploading && !sponsorsUploading && !needsLink && (!slug || availability === 'available')
   const link = savedSlug ? clubTvViewerUrl(savedSlug) : ''
 
   useEffect(() => {
@@ -94,12 +95,6 @@ function DisplaySettings({ clubId, settings, storageKey }) {
     setMessage('')
   }
 
-  async function copyLink() {
-    try {
-      await navigator.clipboard.writeText(link)
-      setMessage('Viewing link copied.')
-    } catch { setMessage('Select the viewing link and copy it from the address field.') }
-  }
   async function upload(file) {
     const version = ++uploadVersion.current
     if (!file) { setMapUploading(false); return }
@@ -180,20 +175,27 @@ function DisplaySettings({ clubId, settings, storageKey }) {
   return <>
     <div className="club-tv-admin-actions">
       <Link to="/club-matchday-tv?preview=1">Preview saved display</Link>
-      {link ? <button type="button" onClick={copyLink}>Copy viewing link</button> : null}
     </div>
-    {link ? <label>Saved viewing link <input value={link} readOnly onFocus={(event) => event.target.select()} /></label> : null}
+    {link ? <ViewingLink id="club-tv-saved-link" label="Saved viewing link" url={link} copyLabel="Copy viewing link" /> : null}
     <form onSubmit={save}>
       <fieldset disabled={saving}>
         <legend>Display settings</legend>
         {hasLegacySettings ? <p>{usesLegacySettings
           ? 'This browser’s existing settings are ready to save for the club.'
-          : <button type="button" onClick={() => { setDraft(readTvPreferences(storageKey)); setPreviewIndex(null); setUsesLegacySettings(true) }}>Use this browser’s previous settings</button>}</p> : null}
+          : <button type="button" onClick={() => { setDraft({ ...readTvPreferences(storageKey), accessMode: draft.accessMode }); setPreviewIndex(null); setUsesLegacySettings(true) }}>Use this browser’s previous settings</button>}</p> : null}
         <label>Club link ending <input value={slug} maxLength={63} autoCapitalize="none" autoComplete="off" spellCheck={false} placeholder="e.g. ctfc" aria-describedby="club-tv-slug-help club-tv-slug-status" onChange={changeSlug} /></label>
-        <small id="club-tv-slug-help">Use at least four letters. An active Club Admin for your club must sign in on the viewing browser.</small>
-        {slug && slugStatus !== 'invalid' ? <output aria-label="Full viewing link" className="club-tv-url">{clubTvViewerUrl(slug)}</output> : null}
+        <small id="club-tv-slug-help">Use at least four letters.</small>
+        {slug && slug !== savedSlug && slugStatus === 'valid' ? <ViewingLink id="club-tv-draft-link" label="Full viewing link" url={clubTvViewerUrl(slug)}
+          copyLabel="Copy link preview" disabled={availability !== 'available'} pending /> : null}
         <small id="club-tv-slug-status" role="status">{slug ? availabilityMessages[availability] : ''}</small>
         {availability === 'unavailable' ? <button type="button" onClick={() => { setChecked(null); setCheckAttempt(attempt => attempt + 1) }}>Check availability again</button> : null}
+        <label>Viewing access <select aria-describedby="club-tv-access-help" value={draft.accessMode} onChange={(event) => setDraft({ ...draft, accessMode: event.target.value })}>
+          <option value="admin">Club Admin sign-in</option>
+          <option value="public">Public</option>
+        </select></label>
+        <small id="club-tv-access-help">{needsLink ? 'Choose a link ending to make the display public.' : draft.accessMode === 'public'
+          ? 'Anyone with the link can see your club’s fixtures, live scores and display artwork after you save.'
+          : 'An active Club Admin for your club must sign in on the viewing browser.'}</small>
         <label>Appearance <select aria-label="Appearance" value={draft.appearance} onChange={(event) => setDraft({ ...draft, appearance: event.target.value })}><option value="light">Light</option><option value="dark">Dark</option></select></label>
         <label>Club ground postcode <input value={draft.weatherPostcode} maxLength={10} placeholder="e.g. CB23 6FY" onChange={(event) => setDraft({ ...draft, weatherPostcode: event.target.value.toUpperCase() })} /></label>
         <small>Weather uses this ground, wherever the screen is running. Great Britain postcodes supported.</small>
@@ -221,6 +223,30 @@ function DisplaySettings({ clubId, settings, storageKey }) {
       </fieldset>
     </form>
   </>
+}
+
+function ViewingLink({ id, label, url, copyLabel, disabled = false, pending = false }) {
+  const input = useRef(null)
+  const [copied, setCopied] = useState(null)
+
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(url)
+      setCopied({ url, message: pending ? 'Link copied. Save settings to activate it.' : 'Viewing link copied.' })
+    } catch {
+      input.current?.focus()
+      setCopied({ url, message: 'Link selected. Use your device’s copy command.' })
+    }
+  }
+
+  return <div>
+    <label htmlFor={id}>{label}</label>
+    <div className="club-tv-link-row">
+      <input id={id} ref={input} value={url} readOnly onFocus={(event) => event.target.select()} />
+      <button type="button" disabled={disabled} onClick={copy}>{copyLabel}</button>
+    </div>
+    {copied?.url === url ? <small role="status">{copied.message}</small> : null}
+  </div>
 }
 
 export function ClubMatchdayTvSettingsPage() {

@@ -33,11 +33,11 @@ function TeamBadge({ src, muted = false }) {
   return <img className={`club-tv-team-badge${muted || !src ? ' club-tv-team-badge-fallback' : ''}`} src={src || fpLogo} alt="" onError={(event) => { event.currentTarget.onerror = null; event.currentTarget.src = fpLogo; event.currentTarget.classList.add('club-tv-team-badge-fallback') }} />
 }
 
-function GroundWeather({ clubId, postcode }) {
+function GroundWeather({ clubId, postcode, viewerSlug, configured }) {
   const [forecast, setForecast] = useState(null)
   const [error, setError] = useState('')
   useEffect(() => {
-    if (!postcode) return
+    if (!configured) return
     let active = true, busy = false
     let controller
     async function refresh() {
@@ -46,7 +46,7 @@ function GroundWeather({ clubId, postcode }) {
       controller = new AbortController()
       const timeout = setTimeout(() => controller.abort(), 12000)
       try {
-        const result = await getClubMatchdayTv({ clubId, action: 'weather', postcode, signal: controller.signal })
+        const result = await getClubMatchdayTv({ clubId, action: 'weather', postcode, slug: viewerSlug, signal: controller.signal })
         if (active) { setForecast(result.weather); setError('') }
       } catch {
         if (active) { setForecast(null); setError('Ground weather unavailable') }
@@ -56,8 +56,8 @@ function GroundWeather({ clubId, postcode }) {
     const timer = setInterval(refresh, 15 * 60000)
     document.addEventListener('visibilitychange', refresh)
     return () => { active = false; controller?.abort(); clearInterval(timer); document.removeEventListener('visibilitychange', refresh) }
-  }, [clubId, postcode])
-  if (!postcode) return <div className="club-tv-weather"><small>LOCAL WEATHER</small><span>Ground postcode not set</span></div>
+  }, [clubId, configured, postcode, viewerSlug])
+  if (!configured) return <div className="club-tv-weather"><small>LOCAL WEATHER</small><span>Ground postcode not set</span></div>
   return <div className="club-tv-weather" aria-label="Club ground weather">
     <small>GROUND FORECAST</small>
     {forecast ? <><div className="club-tv-weather-reading"><WeatherIcon condition={forecast.condition} /><div className="club-tv-weather-details"><strong>{forecast.temperature}°C</strong><span>{forecast.condition.replace(/clearsky/g, 'Clear sky').replace(/partlycloudy/g, 'Partly cloudy').replace(/heavyrain/g, 'Heavy rain').replace(/lightrain/g, 'Light rain')}</span></div></div><span>{forecast.location} · Wind {forecast.windMph} mph</span><small className="club-tv-weather-source">{timeLabel(forecast.time)} · <a href="https://api.met.no/" target="_blank" rel="noreferrer">MET Norway</a></small></> : <span>{error || 'Loading ground weather…'}</span>}
@@ -149,7 +149,7 @@ function UnlockDisplay({ clubId, onUnlocked, onClose }) {
   </form></dialog>
 }
 
-export function ClubMatchdayTvDisplay({ user, preferences, standalone = false, preview = false }) {
+export function ClubMatchdayTvDisplay({ user, preferences, standalone = false, preview = false, viewerSlug, onAccessDenied, weatherConfigured = Boolean(preferences.weatherPostcode) }) {
   const [date, setDate] = useState(() => clubTvDate())
   const [period, setPeriod] = useState('day')
   useEffect(() => {
@@ -160,10 +160,10 @@ export function ClubMatchdayTvDisplay({ user, preferences, standalone = false, p
     }, 30000)
     return () => clearInterval(timer)
   }, [])
-  return <ClubDayDisplay key={`${date}:${period}`} user={user} preferences={preferences} standalone={standalone} preview={preview} date={date} setDate={setDate} period={period} setPeriod={setPeriod} />
+  return <ClubDayDisplay key={`${date}:${period}`} user={user} preferences={preferences} standalone={standalone} preview={preview} date={date} setDate={setDate} period={period} setPeriod={setPeriod} viewerSlug={viewerSlug} onAccessDenied={onAccessDenied} weatherConfigured={weatherConfigured} />
 }
 
-function ClubDayDisplay({ user, preferences, standalone, preview, date, setDate, period, setPeriod }) {
+function ClubDayDisplay({ user, preferences, standalone, preview, date, setDate, period, setPeriod, viewerSlug, onAccessDenied, weatherConfigured }) {
   const navigate = useNavigate()
   const [feed, setFeed] = useState(null)
   const [error, setError] = useState('')
@@ -235,7 +235,7 @@ function ClubDayDisplay({ user, preferences, standalone, preview, date, setDate,
       controller = new AbortController()
       const timeout = setTimeout(() => controller.abort(), 15000)
       try {
-        const result = await getClubMatchdayTv({ clubId: user.clubId, date, period, signal: controller.signal })
+        const result = await getClubMatchdayTv({ clubId: user.clubId, date, period, slug: viewerSlug, signal: controller.signal })
         if (!active) return
         const fresh = newTvGoals(previous, result.matches).filter(({ event, match }) => match.matchDate === clubTvDate() && !seen.has(event.id))
         for (const match of result.matches) for (const event of match.events) seen.add(event.id)
@@ -246,7 +246,12 @@ function ClubDayDisplay({ user, preferences, standalone, preview, date, setDate,
         previous = null
         if (!active) return
         setGoals([])
-        if ([401, 403].includes(failure.status)) { revoked = true; setFeed(null); setDenied(true) }
+        if ([401, 403].includes(failure.status)) {
+          revoked = true
+          setFeed(null)
+          setDenied(true)
+          onAccessDenied?.(failure)
+        }
         setError(failure.message || 'Scores could not be refreshed.')
       } finally { clearTimeout(timeout); busy = false }
     }
@@ -254,7 +259,7 @@ function ClubDayDisplay({ user, preferences, standalone, preview, date, setDate,
     const timer = setInterval(refresh, TV_REFRESH_MS)
     document.addEventListener('visibilitychange', refresh)
     return () => { active = false; controller?.abort(); clearInterval(timer); document.removeEventListener('visibilitychange', refresh) }
-  }, [date, period, user.clubId])
+  }, [date, onAccessDenied, period, user.clubId, viewerSlug])
   useEffect(() => { const timer = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(timer) }, [])
   useEffect(() => {
     const timer = setInterval(() => {
@@ -295,7 +300,7 @@ function ClubDayDisplay({ user, preferences, standalone, preview, date, setDate,
   </main>
   return <main ref={root} className={`club-tv club-tv-${preferences.appearance} ${hasMap ? 'club-tv-split' : ''}`} style={{ '--tv-accent': theme.accent, '--tv-accent-text': theme.accentText, '--tv-accent-readable': theme.textSecondary, '--tv-soft': theme.accentSoft }}>
     <header className="club-tv-header"><div className="club-tv-identity"><img src={club?.logoUrl || user.clubLogoUrl || fpLogo} alt="" onError={(event) => { event.currentTarget.onerror = null; event.currentTarget.src = fpLogo }} /><div><small>WELCOME TO</small><h1>{club?.name || user.clubName || 'Your club'}</h1></div></div>
-      {!denied ? <GroundWeather key={preferences.weatherPostcode} clubId={user.clubId} postcode={preferences.weatherPostcode} /> : null}
+      {!denied ? <GroundWeather key={preferences.weatherPostcode} clubId={user.clubId} postcode={preferences.weatherPostcode} viewerSlug={viewerSlug} configured={weatherConfigured} /> : null}
       <div className="club-tv-clock"><strong>{timeLabel(now)}</strong><span>{new Date(now).toLocaleDateString('en-GB', { timeZone: 'Europe/London', day: 'numeric', month: 'short' })} · UK time</span></div>
     </header>
     <div className="club-tv-day"><h2>{weekAhead ? 'Week ahead' : period === 'weekend' ? 'Weekend' : period === 'week' ? 'Week' : period === 'month' ? 'Month' : dayLabel(date)}</h2>{rangeView && feed?.window ? <span className="club-tv-period">{fixtureDayLabel(feed.window.startDate)} to {fixtureDayLabel(feed.window.endDate)}</span> : null}<span>{fixtures.length} matches · {liveCount} live</span><span className={error ? 'club-tv-warning' : 'club-tv-feed-state'} role="status">{error ? `${error}${feed ? ` Last updated ${timeLabel(feed.refreshedAt)}.` : ''}` : feed ? `Scores updated ${timeLabel(feed.refreshedAt)}` : 'Connecting to your club…'}</span></div>

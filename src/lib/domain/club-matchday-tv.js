@@ -3,10 +3,14 @@ import { tvPeriodWindow } from '../club-matchday-tv.js'
 
 export async function getClubMatchdayTv({ clubId, date, period, signal, action, postcode, password, slug, preferences, revision }) {
   const { data, error } = await supabase.auth.getSession()
-  if (error || !data?.session?.access_token) throw Object.assign(new Error('Sign in again to refresh the display.'), { status: 401 })
+  const token = error ? '' : data?.session?.access_token
+  const linkedRead = Boolean(slug) && (!action || action === 'view' || action === 'weather')
+  if (!token && !linkedRead) throw Object.assign(new Error('Sign in again to refresh the display.'), { status: 401 })
+  const headers = { 'Content-Type': 'application/json' }
+  if (token) headers.Authorization = `Bearer ${token}`
   const response = await fetch('/.netlify/functions/club-matchday-tv', {
     method: 'POST', cache: 'no-store', signal,
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${data.session.access_token}` },
+    headers,
     body: JSON.stringify({ clubId, date, period, action, postcode, password, slug, preferences, revision }),
   })
   const payload = await response.json()

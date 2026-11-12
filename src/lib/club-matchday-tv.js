@@ -7,6 +7,7 @@ export const TV_ROTATION_SECONDS = 30
 export const TV_REFRESH_MS = 10000
 export const CLUB_TV_VIEW_PATH = '/club-matchday-tv/view/'
 export const CLUB_TV_VIEW_HOST = 'v1.fpmd.online'
+export const CLUB_TV_EMBED_PATH = '/club-matchday-tv/embed/'
 const reservedTvSlugs = new Set([
   'admin', 'api', 'app', 'assets', 'auth', 'club-admin', 'club-matchday-tv', 'club-settings',
   'coach', 'dashboard', 'favicon', 'health', 'help', 'home', 'index', 'login', 'logout',
@@ -185,5 +186,5 @@ export function normalizeTvPreferences(value) {
     .filter(ad => isTvArtwork(ad?.image, 750000))
     .map(ad => ({ image: ad.image, name: text(ad.name).slice(0, 80), enabled: ad.enabled !== false, startDate: text(ad.startDate), endDate: text(ad.endDate) }))
   const sponsorSeconds = [10, 15, 30, 60].includes(saved.sponsorSeconds) ? saved.sponsorSeconds : 30
-  return { appearance: saved.appearance === 'dark' ? 'dark' : 'light', bigGoal: saved.bigGoal !== false, showMap: saved.showMap !== false, weatherPostcode: text(saved.weatherPostcode).slice(0, 10), map, sponsorAds, sponsorSeconds, showPitchsideOrdering: saved.showPitchsideOrdering === true }
+  return { accessMode: saved.accessMode === 'public' ? 'public' : 'admin', appearance: saved.appearance === 'dark' ? 'dark' : 'light', bigGoal: saved.bigGoal !== false, showMap: saved.showMap !== false, weatherPostcode: text(saved.weatherPostcode).slice(0, 10), map, sponsorAds, sponsorSeconds, showPitchsideOrdering: saved.showPitchsideOrdering === true }
 }

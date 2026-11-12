@@ -1,12 +1,14 @@
 import { useEffect, useState } from 'react'
-import { CLUB_TV_VIEW_HOST, CLUB_TV_VIEW_PATH, clubTvSlugStatus, normalizeClubTvSlug, normalizeTvPreferences } from '../lib/club-matchday-tv.js'
+import { CLUB_TV_EMBED_PATH, CLUB_TV_VIEW_HOST, CLUB_TV_VIEW_PATH, clubTvSlugStatus, normalizeClubTvSlug, normalizeTvPreferences } from '../lib/club-matchday-tv.js'
 import { getClubMatchdayTv } from '../lib/domain/club-matchday-tv.js'
 import { supabase } from '../lib/supabase-client.js'
 import { ClubMatchdayTvDisplay } from './ClubMatchdayTvDisplay.jsx'
 
 function getViewerLink() {
   const { hostname, pathname } = window.location
-  const prefix = hostname === CLUB_TV_VIEW_HOST || hostname === 'fpmd.online' ? '/' : CLUB_TV_VIEW_PATH
+  const prefix = hostname === CLUB_TV_VIEW_HOST
+    ? pathname.startsWith(CLUB_TV_EMBED_PATH) ? CLUB_TV_EMBED_PATH : '/'
+    : hostname === 'fpmd.online' ? '/' : CLUB_TV_VIEW_PATH
   if (!pathname.startsWith(prefix)) return null
   const raw = pathname.slice(prefix.length).replace(/\/$/, '')
   const slug = normalizeClubTvSlug(raw)
@@ -29,7 +31,6 @@ export function StandaloneClubMatchdayTv() {
 
   if (!link) return <ViewerStatus><p>This Matchday TV link is unavailable. Check the link with your Club Admin.</p></ViewerStatus>
   if (userId === null) return <ViewerStatus><p role="status">Connecting to your club…</p></ViewerStatus>
-  if (!userId) return <ViewerSignIn />
   return <AuthorizedViewer key={userId} userId={userId} slug={link.slug} />
 }
 
@@ -86,11 +87,13 @@ function AuthorizedViewer({ userId, slug }) {
     return () => { controller.abort(); clearTimeout(timer) }
   }, [slug, attempt])
 
+  if (error?.status === 401 && !userId) return <ViewerSignIn />
   if (error) return <ViewerStatus>
     <p role="alert">{error.message}</p>
     {error.status !== 403 ? <button className="min-h-11 rounded border px-3" onClick={() => { setError(null); setAttempt(attempt + 1) }}>Try again</button> : null}
-    <button className="min-h-11 rounded border px-3" onClick={() => { void supabase.auth.signOut({ scope: 'local' }) }}>Sign in with a different account</button>
+    {userId ? <button className="min-h-11 rounded border px-3" onClick={() => { void supabase.auth.signOut({ scope: 'local' }) }}>Sign in with a different account</button> : null}
   </ViewerStatus>
   if (!result) return <ViewerStatus><p role="status">Opening Matchday TV…</p></ViewerStatus>
-  return <ClubMatchdayTvDisplay standalone user={{ id: userId, clubId: result.club.id }} preferences={normalizeTvPreferences(result.settings?.preferences)} />
+  return <ClubMatchdayTvDisplay standalone viewerSlug={slug} onAccessDenied={setError} weatherConfigured={result.weatherConfigured}
+    user={{ id: userId, clubId: result.club.id }} preferences={normalizeTvPreferences(result.settings?.preferences)} />
 }
