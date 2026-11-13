@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { mkdir, readFile } from 'node:fs/promises'
 import { build, createServer, preview } from 'vite'
 import { chromium } from 'playwright'
-import { tvPeriodWindow } from '../src/lib/club-matchday-tv.js'
+import { TV_RECOVERY_MS, TV_REFRESH_MS, tvPeriodWindow } from '../src/lib/club-matchday-tv.js'
 
 const port = Number(process.env.CLUB_TV_BROWSER_PORT || 43136), origin = `http://127.0.0.1:${port}`
 Object.assign(process.env, { VITE_AUTH_ACCESS_BROWSER_FIXTURES: 'true', VITE_APP_URL: origin, VITE_PARENT_APP_URL: origin, VITE_SUPABASE_URL: 'http://fixture.supabase.test', VITE_SUPABASE_ANON_KEY: 'fixture-anon-key' })
@@ -63,6 +63,7 @@ let displayWindow
 let settings = { slug: null, preferences: null, revision: 0 }
 const firstAvailabilityCheck = Promise.withResolvers()
 let failFirstCedarfieldCheck = true
+let holdNextScorePoll
 const errors = []
 try {
   await verifyProductionEntries()
@@ -113,6 +114,11 @@ try {
       }
       if (body.action === 'unlock') return route.fulfill({ status: unlockAccepted ? 200 : 401, contentType: 'application/json', body: JSON.stringify(unlockAccepted ? { club: { id: body.clubId }, unlocked: true } : { message: 'Password not accepted. The display stays locked.' }) })
       const payload = denied ? { message: 'Access is restricted to your own active Club Admin workspace.' } : unavailable ? { message: 'Scores could not be refreshed.' } : body.action === 'weather' ? { club: { id: body.clubId }, weather: { temperature: 13, windMph: 7, location: 'Club ground', condition: 'cloudy', time: '2026-10-21T09:00:00Z' } } : { club: { id: body.clubId, name: 'Test Club United', logoUrl: clubBadge, accent: '#1465c0' }, date: body.date, window: body.period && body.period !== 'day' ? tvPeriodWindow(body.date, body.period) : displayWindow, matches, refreshedAt: '2026-10-21T09:00:00Z' }
+      if (!body.action && holdNextScorePoll) {
+        const hold = holdNextScorePoll
+        holdNextScorePoll = null
+        await hold.promise
+      }
       return route.fulfill({ status: denied ? 403 : unavailable ? 503 : 200, contentType: 'application/json', body: JSON.stringify(payload) })
     }
     if (url.pathname.startsWith('/.netlify/functions/')) return route.fulfill({ status: 200, contentType: 'application/json', body: '{}' })
@@ -295,6 +301,74 @@ try {
   await page.screenshot({ path: `${output}/goal-large.png` })
   await page.clock.runFor(8000)
   assert.equal(await page.locator('.club-tv-goal-large').count(), 0)
+
+  matches = fullMatchday.map(match => ({ ...match, status: 'live', timerStatus: 'running' }))
+  await page.goto(`${origin}/club-matchday-tv`)
+  const carousel = page.locator('.club-tv-pages')
+  const firstFixture = page.locator('.club-tv-match .club-tv-own .club-tv-team-name').first()
+  await firstFixture.waitFor()
+  await page.clock.pauseAt(new Date(await page.evaluate(() => Date.now() + 200)))
+  await page.getByRole('button', { name: 'Next match page' }).click()
+  assert.match(await carousel.textContent(), /Page 2 \/ 3/)
+  const previousFixture = await firstFixture.textContent()
+  const scorePollCount = () => requests.filter(request => !request.action).length
+  const polls = scorePollCount()
+  await page.clock.runFor(TV_REFRESH_MS - 1000)
+  assert.equal(scorePollCount(), polls)
+  const beforeGoal = await carousel.textContent()
+  const goalFixture = matches[17].teamName
+  assert.notEqual(previousFixture, goalFixture)
+  matches = matches.map((match, index) => index === 17 || index === 18 ? {
+    ...match, homeScore: match.homeScore + 1,
+    events: [...match.events, { id: `cross-page-goal-${index}`, type: 'goal', side: 'club', shirt: String(index), minute: 29,
+      createdAt: index === 17 ? '2026-10-21T09:01:02Z' : '2026-10-21T09:01:01Z' }],
+  } : match)
+  await page.clock.runFor(1000)
+  await page.locator('.club-tv-goal-large').waitFor()
+  assert.equal(scorePollCount(), polls + 1)
+  assert.equal(await firstFixture.textContent(), goalFixture)
+  assert.match(await page.locator('.club-tv-goal-large').textContent(), /#17/)
+  const duringGoal = await carousel.textContent()
+  assert.match(duringGoal, /Page 2 \/ 3/)
+  assert.ok(Number(duringGoal.match(/(\d+)s/)[1]) >= Number(beforeGoal.match(/(\d+)s/)[1]) - 1)
+  await page.clock.runFor(7000)
+  assert.equal(await page.locator('.club-tv-goal-large').count(), 0)
+  assert.equal(await firstFixture.textContent(), previousFixture)
+  assert.equal(await carousel.textContent(), duringGoal)
+  await page.clock.runFor(1000)
+  assert.notEqual(await carousel.textContent(), duringGoal)
+
+  await page.clock.fastForward(TV_RECOVERY_MS - 19000)
+  assert.match(await carousel.textContent(), /Page 2 \/ 3/)
+  const holdRecovery = Promise.withResolvers()
+  holdNextScorePoll = holdRecovery
+  const movedFixture = matches.find(match => match.teamName === previousFixture)
+  matches = [...matches.filter(match => match !== movedFixture), movedFixture]
+  await page.clock.runFor(1000)
+  await page.waitForFunction(() => document.querySelector('.club-tv-pages')?.textContent.includes('Page 2 / 3'))
+  const duringRecovery = await carousel.textContent()
+  await page.clock.runFor(3000)
+  assert.equal(holdNextScorePoll, null)
+  assert.equal(await carousel.textContent(), duringRecovery)
+  holdRecovery.resolve()
+  await page.waitForFunction(() => document.querySelector('.club-tv-pages')?.textContent.includes('Page 3 / 3'))
+  assert.equal((await carousel.textContent()).split('Next in ')[1], duringRecovery.split('Next in ')[1])
+  assert.equal(await page.getByText(previousFixture, { exact: true }).first().isVisible(), true)
+
+  await page.clock.fastForward(TV_RECOVERY_MS - 4000)
+  await page.getByRole('button', { name: 'Pause carousel' }).click()
+  const fallbackRefresh = Promise.withResolvers()
+  holdNextScorePoll = fallbackRefresh
+  matches = matches.slice(0, 12)
+  await page.clock.runFor(1000)
+  assert.equal(holdNextScorePoll, null)
+  fallbackRefresh.resolve()
+  await page.waitForFunction(() => document.querySelector('.club-tv-pages')?.textContent.includes('Page 2 / 2 · Paused'))
+  assert.equal(await page.locator('.club-tv-goal-large,.club-tv-goal-small').count(), 0)
+  matches = fullMatchday.map((match, index) => index ? match : { ...match, homeScore: match.homeScore + 1, events: [...match.events, { id: 'new-goal', type: 'goal', side: 'club', shirt: '11', minute: 22 }] })
+  await page.clock.resume()
+  console.log('PASS: 10-second score checks, newest goal on another page, and 15-minute recovery preserve carousel position and rotation time.')
+
   await page.evaluate((key) => localStorage.setItem(key, JSON.stringify({ appearance: 'dark' })), `fp:club-matchday-tv:user-${fixtureEmail}:club-fixture`)
   await page.goto(`${origin}/club-matchday-tv`)
   await page.locator('.club-tv-dark').waitFor()

@@ -1,8 +1,8 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useEffectEvent, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { createThemeColorTokens } from '../lib/theme.js'
 import { getClubMatchdayTv } from '../lib/domain/club-matchday-tv.js'
-import { activeTvSponsors, clubTvDate, newTvGoals, TV_PAGE_SIZE, TV_REFRESH_MS, TV_ROTATION_SECONDS, tvMatchSides, tvMatchStatus, tvPitchNumber } from '../lib/club-matchday-tv.js'
+import { activeTvSponsors, clubTvDate, newTvGoals, TV_PAGE_SIZE, TV_RECOVERY_MS, TV_REFRESH_MS, TV_ROTATION_SECONDS, tvMatchSides, tvMatchStatus, tvPitchNumber } from '../lib/club-matchday-tv.js'
 import fpLogo from '../assets/football-player-logo.webp'
 import { isClubTvLocked, setClubTvLocked } from '../lib/club-tv-lock.js'
 import './club-matchday-tv.css'
@@ -10,6 +10,7 @@ import './club-matchday-tv.css'
 const timeLabel = (value) => new Date(value).toLocaleTimeString('en-GB', { timeZone: 'Europe/London', hour: '2-digit', minute: '2-digit' })
 const dayLabel = (value) => new Date(`${value}T12:00:00Z`).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
 const fixtureDayLabel = (value) => new Date(`${value}T12:00:00Z`).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })
+const goalTime = (goal) => Date.parse(goal.event.createdAt) || 0
 
 function BrandCredit() {
   return <div className="club-tv-credit"><img src={fpLogo} alt="Football Player" /><span>footballplayer.online</span></div>
@@ -181,12 +182,12 @@ function ClubDayDisplay({ user, preferences, standalone, preview, date, setDate,
     if (denied) return []
     return hasMap && !preferences.showPitchsideOrdering ? [...activeSponsors, { image: '/club-tv-goal-alerts.webp', goalAlerts: true }] : activeSponsors
   }, [activeSponsors, denied, hasMap, preferences.showPitchsideOrdering])
-  const [page, setPage] = useState(0)
+  const [carousel, setCarousel] = useState({ page: 0, seconds: TV_ROTATION_SECONDS, anchor: null })
   const [sponsorIndex, setSponsorIndex] = useState(0)
   const [paused, setPaused] = useState(false)
-  const [seconds, setSeconds] = useState(TV_ROTATION_SECONDS)
   const [fullscreenError, setFullscreenError] = useState('')
-  const [goals, setGoals] = useState([])
+  const [goal, setGoal] = useState(null)
+  const [recovering, setRecovering] = useState(false)
   const [locked, setLocked] = useState(() => !standalone && isClubTvLocked(user))
   const [unlocking, setUnlocking] = useState(false)
   useEffect(() => {
@@ -207,8 +208,25 @@ function ClubDayDisplay({ user, preferences, standalone, preview, date, setDate,
   const scorePages = Math.max(1, Math.ceil(scores.length / pageSize))
   const homePages = Math.max(1, Math.ceil(homeFixtures.length / homePageSize))
   const totalPages = Math.max(scorePages, homePages)
-  const currentPage = Math.min(page, totalPages - 1)
-  const goal = goals[0]
+  const { anchor, seconds } = carousel
+  const anchorIndex = !anchor ? -1 : anchor.home
+    ? homeFixtures.findIndex(match => match.id === anchor.id)
+    : scores.findIndex(({ match }) => match.id === anchor.id)
+  const currentPage = anchorIndex < 0 ? Math.min(carousel.page, totalPages - 1)
+    : Math.floor(anchorIndex / (anchor.home ? homePageSize : pageSize))
+  const firstScore = (currentPage % scorePages) * pageSize
+  const firstHome = (currentPage % homePages) * homePageSize
+  const pageScores = scores.slice(firstScore, firstScore + pageSize)
+  const latestGoalScore = goal && scores.find(({ match }) => match.id === goal.match.id)
+  const visibleScores = latestGoalScore
+    ? [latestGoalScore, ...pageScores.filter(({ match }) => match.id !== latestGoalScore.match.id)].slice(0, pageSize)
+    : pageScores
+  const rememberCurrentPage = useEffectEvent(() => {
+    if (goal || recovering) return
+    const home = currentPage >= scorePages || !pageScores.length
+    const fixture = home ? homeFixtures[firstHome] : pageScores[0]?.match
+    setCarousel(current => ({ ...current, page: currentPage, anchor: fixture ? { id: fixture.id, home } : null }))
+  })
   useLayoutEffect(() => {
     if (!root.current || window.innerWidth <= 1000) return
     const fitRows = (panelSelector, rowSelector, setLimit) => {
@@ -220,59 +238,80 @@ function ClubDayDisplay({ user, preferences, standalone, preview, date, setDate,
     }
     fitRows('.club-tv-fixtures', '.club-tv-match', setCapacity)
     fitRows('.club-tv-home-panel', '.club-tv-home-row', setHomeCapacity)
-  }, [feed, currentPage, pageSize, homePageSize, hasMap, viewportVersion])
+  }, [feed, currentPage, goal, pageSize, homePageSize, hasMap, viewportVersion])
   useEffect(() => {
     const resize = () => { setCapacity(TV_PAGE_SIZE); setHomeCapacity(6); setViewportVersion((version) => version + 1) }
     window.addEventListener('resize', resize)
     return () => window.removeEventListener('resize', resize)
   }, [])
   useEffect(() => {
-    let active = true, busy = false, previous = null, controller, revoked = false
+    let previous = null, controller, revoked = false
     const seen = new Set()
-    async function refresh() {
-      if (busy || document.hidden || revoked) return
-      busy = true
-      controller = new AbortController()
-      const timeout = setTimeout(() => controller.abort(), 15000)
+    async function refresh(recovery = false) {
+      if (document.hidden || revoked || (controller && !recovery)) return
+      controller?.abort()
+      const request = new AbortController()
+      controller = request
+      if (recovery) {
+        rememberCurrentPage()
+        setRecovering(true)
+      }
+      const timeout = setTimeout(() => request.abort(), 15000)
       try {
-        const result = await getClubMatchdayTv({ clubId: user.clubId, date, period, slug: viewerSlug, signal: controller.signal })
-        if (!active) return
+        const result = await getClubMatchdayTv({ clubId: user.clubId, date, period, slug: viewerSlug, signal: request.signal })
+        if (controller !== request || request.signal.aborted) return
         const fresh = newTvGoals(previous, result.matches).filter(({ event, match }) => match.matchDate === clubTvDate() && !seen.has(event.id))
         for (const match of result.matches) for (const event of match.events) seen.add(event.id)
-        if (fresh.length) setGoals((queue) => [...queue, ...fresh].slice(0, 10))
+        if (fresh.length) {
+          rememberCurrentPage()
+          const latest = fresh.reduce((current, next) => goalTime(next) >= goalTime(current) ? next : current)
+          setGoal(current => current && goalTime(current) > goalTime(latest) ? current : latest)
+        }
         previous = result.matches
         setFeed(result); setError('')
       } catch (failure) {
+        if (controller !== request) return
         previous = null
-        if (!active) return
-        setGoals([])
         if ([401, 403].includes(failure.status)) {
           revoked = true
+          setGoal(null)
           setFeed(null)
           setDenied(true)
           onAccessDenied?.(failure)
         }
         setError(failure.message || 'Scores could not be refreshed.')
-      } finally { clearTimeout(timeout); busy = false }
+      } finally {
+        clearTimeout(timeout)
+        if (controller === request) {
+          controller = null
+          if (recovery) setRecovering(false)
+        }
+      }
     }
+    const refreshScores = () => { void refresh() }
     refresh()
-    const timer = setInterval(refresh, TV_REFRESH_MS)
-    document.addEventListener('visibilitychange', refresh)
-    return () => { active = false; controller?.abort(); clearInterval(timer); document.removeEventListener('visibilitychange', refresh) }
+    const recoveryTimer = setInterval(() => { void refresh(true) }, TV_RECOVERY_MS)
+    const timer = setInterval(refreshScores, TV_REFRESH_MS)
+    document.addEventListener('visibilitychange', refreshScores)
+    return () => {
+      controller?.abort()
+      controller = null
+      clearInterval(timer)
+      clearInterval(recoveryTimer)
+      document.removeEventListener('visibilitychange', refreshScores)
+    }
   }, [date, onAccessDenied, period, user.clubId, viewerSlug])
   useEffect(() => { const timer = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(timer) }, [])
+  const rotate = useEffectEvent(() => {
+    if (paused || goal || recovering || document.hidden || totalPages <= 1) return
+    setCarousel(current => current.seconds <= 1
+      ? { page: (currentPage + 1) % totalPages, seconds: TV_ROTATION_SECONDS, anchor: null }
+      : { ...current, seconds: current.seconds - 1 })
+  })
   useEffect(() => {
-    const timer = setInterval(() => {
-      if (paused || goal || document.hidden || totalPages <= 1) return
-      setSeconds((value) => { if (value <= 1) return TV_ROTATION_SECONDS; return value - 1 })
-    }, 1000)
+    const timer = setInterval(() => rotate(), 1000)
     return () => clearInterval(timer)
-  }, [paused, goal, totalPages])
-  const previousSeconds = useRef(seconds)
-  useEffect(() => {
-    if (previousSeconds.current === 1 && seconds === TV_ROTATION_SECONDS) setPage((value) => (value + 1) % totalPages)
-    previousSeconds.current = seconds
-  }, [seconds, totalPages])
+  }, [paused, goal, recovering, totalPages])
   useEffect(() => {
     if (sponsorSlides.length < 2) return undefined
     const timer = setInterval(() => { if (!document.hidden && !paused) setSponsorIndex(current => (current + 1) % sponsorSlides.length) }, preferences.sponsorSeconds * 1000)
@@ -280,12 +319,12 @@ function ClubDayDisplay({ user, preferences, standalone, preview, date, setDate,
   }, [paused, sponsorSlides, preferences.sponsorSeconds])
   useEffect(() => {
     if (!goal) return
-    const timer = setTimeout(() => setGoals((queue) => queue.slice(1)), 7000)
+    const timer = setTimeout(() => setGoal(current => current === goal ? null : current), 7000)
     return () => clearTimeout(timer)
   }, [goal])
   const club = feed?.club
   const theme = createThemeColorTokens(club?.accent || user.themeAccent || 'green', preferences.appearance)
-  const changePage = (direction) => { setPage((currentPage + direction + totalPages) % totalPages); setSeconds(TV_ROTATION_SECONDS) }
+  const changePage = (direction) => setCarousel({ page: (currentPage + direction + totalPages) % totalPages, seconds: TV_ROTATION_SECONDS, anchor: null })
   async function fullScreen() {
     try {
       if (!standalone) { setClubTvLocked(user, true); setLocked(true) }
@@ -308,13 +347,13 @@ function ClubDayDisplay({ user, preferences, standalone, preview, date, setDate,
       <section className="club-tv-fixtures" aria-label="Live scores and results">
         <div className="club-tv-section-head"><h2>Live scores &amp; results</h2><span>{liveCount} LIVE</span></div>
         <div className="club-tv-table-head"><span>STATUS</span><span>HOME</span><span>SCORE</span><span>AWAY</span></div>
-        {scores.slice((currentPage % scorePages) * pageSize, ((currentPage % scorePages) + 1) * pageSize).map(({ match, status }) => <MatchRow key={match.id} match={match} status={status} showDate={period !== 'day'} clubLogo={club?.logoUrl || user.clubLogoUrl} />)}
+        {visibleScores.map(({ match, status }) => <MatchRow key={match.id} match={match} status={status} showDate={period !== 'day'} clubLogo={club?.logoUrl || user.clubLogoUrl} />)}
         {!scores.length ? <div className="club-tv-empty"><h2>{denied ? 'Club access required' : feed ? period !== 'day' ? 'No matches in this period' : 'No live scores or results yet' : error ? 'Unable to load matches' : 'Loading your club’s matches'}</h2><p>{feed ? period !== 'day' ? 'Choose another date or period.' : 'Scores appear here when matches start.' : 'The display will reconnect automatically.'}</p></div> : null}
       </section>
       <section className="club-tv-home-panel" aria-label="Home fixtures">
         <div className="club-tv-section-head"><h2>{period === 'weekend' ? 'At home this weekend' : period === 'month' ? 'At home this month' : rangeView ? 'At home this week' : selectedToday ? 'At home today' : 'At home on this date'}</h2><small>KICK-OFF &amp; PITCH GUIDE</small></div>
         <div className={`club-tv-home-head${rangeView ? ' club-tv-home-row-week' : ''}`}><span>KO</span><span>TEAM / OPPOSITION</span><span>PITCH</span>{rangeView ? <span>DATE</span> : null}</div>
-        {homeFixtures.slice((currentPage % homePages) * homePageSize, ((currentPage % homePages) + 1) * homePageSize).map(match => <HomeFixtureRow key={match.id} match={match} showDate={rangeView} clubLogo={club?.logoUrl || user.clubLogoUrl} />)}
+        {homeFixtures.slice(firstHome, firstHome + homePageSize).map(match => <HomeFixtureRow key={match.id} match={match} showDate={rangeView} clubLogo={club?.logoUrl || user.clubLogoUrl} />)}
         {!homeFixtures.length ? <p className="club-tv-home-empty">No home fixtures {period === 'weekend' ? 'this weekend' : period === 'month' ? 'this month' : rangeView ? 'this week' : selectedToday ? 'today' : 'on this date'}.</p> : null}
       </section>
       <aside className="club-tv-side-panel" aria-label="Club information">

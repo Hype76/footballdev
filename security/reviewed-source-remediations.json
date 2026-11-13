@@ -559,7 +559,7 @@
   "implementationHashes": {
     "scripts/security-supply-chain-gate.mjs": "dcf722bc6cbf2015da4250ea60cbb81e34d3c5c64ec7bb6059671cbae5ab4207",
     "scripts/security-apply-reviewed-backports.mjs": "7f0e9de0add15a121a0f60f89f71656b503450010b8b9c8d4aaf58bc355fc5ec",
-    "scripts/security-verify-reviewed-backports.mjs": "d215da6f454424eeb729b7d80c289dab3a4a776357bd1b27ac9660491230fc9a",
+    "scripts/security-verify-reviewed-backports.mjs": "c495a64625c0651edd53eb32e3bd30c9b0ef11f5272db08e2ba31ea14cc24361",
     "security/patches/braces-3.0.3.patch": "e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699",
     "security/patches/node-forge-1.4.0.patch": "2de065ac998bf58917a14d0935112d97ec2957ac41b5f06958d500934f188ed4",
     "security/patches/reviewed-source-manifest.json": "facb364bbac44a8276d082068e8ed8415ca89777d24f4c7a05ff370f71e5a54d",
@@ -1995,14 +1995,14 @@
       "netlify/functions/club-matchday-tv.js": "a0d0e0200db14fbbbe686eb84a44dc12da16e672d8b4bb585ce3c074db3f8bd7",
       "netlify/functions/lib/_club-tv-weather.js": "ce350cc229545436044f707a40ebf66aaf0004f8ead52dc800104caba547a552",
       "src/app/navigation.js": "04a5634941969fe5bdfbd9335ac3f157d88ef0f73b6e8d3f27037b2a9a03dc03",
-      "src/lib/club-matchday-tv.js": "635962d4eeea3e8364c543420bd396cb613b9b03e81088ed6aa4e545b1dc88a0",
+      "src/lib/club-matchday-tv.js": "658832c36795a4c03da165d4bc3719ed4bd0dc3551d7802f7a3fa6943d1ea46a",
       "src/lib/club-tv-lock.js": "cb09e40bf0143ec894d240e0d80d1ac287c5fa82d3d4781760b7e62a1bd2b0b8",
       "src/lib/domain/club-matchday-tv.js": "3a60f97c264c3ef7e326d96c5339259d40c53e2fead13cbfe5fc0c7d2e21196b",
       "src/lib/paywall-ui.js": "2c2920a44a03eeffd59ad428fa4faf1a7db7494401d6157417fbc9cb5bec23d4",
       "src/lib/recovery-phase.js": "766ddc9a287d3bdff8f8d9fc32efed6c9541bad9c62018f894ee46b95f4e4766",
       "src/pages/ClubMatchdayTvPage.jsx": "26620fb3d5d9d05efbe0a3c24c5360d5338e9a28832bdfe1671768dd0f4899e8",
       "src/pages/club-matchday-tv.css": "bea7504652e147d529f353bb66906e9835d3cc7e7b639b99c60924715b376b9e",
-      "tests/club-matchday-tv-browser.mjs": "a1a4ce727d8a3643d6f412fd4866d613cf866e347c8bac5141619b37c8fc58a1",
+      "tests/club-matchday-tv-browser.mjs": "0ea7da065ff3bf78f38a7a36079c960667a310774ef775e5038094a58ee57a3f",
       "tests/club-matchday-tv-weather.test.mjs": "967df9819b3d087dc3576d9768abd42e18ecdf7cfc2bd4df0e9add545fc854bb",
       "tests/club-matchday-tv.test.mjs": "a5a562525bb8975d577fe7c8111d040f56e6928b5cd7efa59c9938268d78a4e7",
       "tests/security-tooling-updates.test.mjs": "1d78c188aed7037fdea62dac2aed45aac0e8bcc3c4b9b2d9bb28dbebc30ad536",
@@ -2286,7 +2286,7 @@
       "matchday-tv-view.html": "8a5c393d0a52ef7365b16ad613b515e06e47084677181b03a906ee1f96488f9c",
       "public/_redirects": "0697607cbbef250875b142e5ec09e88daa38053204beae6c1c1748fab23f1df9",
       "src/club-matchday-tv-main.jsx": "4c409f172aa1e0f1ce1008cb2681839a663691abf100c27ebd05b5dd8d49a581",
-      "src/pages/ClubMatchdayTvDisplay.jsx": "1da1dc930a81d1f0a3622ca17694b697399ec588bce7d7645d5325681baf4fff",
+      "src/pages/ClubMatchdayTvDisplay.jsx": "a0dfa9e42b7cccd2663a3af59e03dba48ef73f7637772f96a4aa9d06d1924a1b",
       "src/pages/ClubMatchdayTvSettingsPage.jsx": "eb79f187eb27ed78dd719d8ac557a753df5e75c187ffc7274138bfea70b70b99",
       "src/pages/StandaloneClubMatchdayTv.jsx": "f01003751cb272de2567d71e090cce49c83f722073c4e8bc8ca5c8a74c44c09d",
       "src/pages/club-matchday-tv-settings.css": "5730b7aa2fa1d1357f389ad5193c4b4345c206b931a46d7a8baa9a4d29ed2080",
@@ -3802,7 +3802,7 @@
       "independentExactSourceAcceptanceRequired": true
     }
   },
-  "releasePreparationSha256": "4b8a18c07f2cac1a3963a651d178724ac5c3f2cf00b221dd9b6c846d9a0ceba7",
+  "releasePreparationSha256": "54088a24e6c30d1353017f5357d26c8024286ad774cdb7f7b7c405c893acc7c0",
   "rootOnlyProposalSha256": "45c3b7352c7328c84982e114b7e87e09cf79514d02d102297ae75ec0925812eb",
   "remediationMode": "maintained-source-fixes",
   "officialCompatibilityDependencies": [
