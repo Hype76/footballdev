@@ -30,10 +30,12 @@ import {
 } from '../lib/email-templates.js'
 import {
   confirmDevelopmentSubmission,
+  sendAdultPlayerSetupInvite,
   sendParentEmail,
   sendParentPasswordReset,
   sendParentPortalInvite,
 } from '../lib/email-builder.js'
+import { getAdultPlayerSetupEmail, isAdultPlayerBirthDate } from '../lib/adult-player-setup.js'
 import { sendParentMobilePushNotification } from '../lib/push-notifications.js'
 import { isDemoUser } from '../lib/demo.js'
 import { CAPABILITIES } from '../lib/paywall-access.js'
@@ -47,7 +49,7 @@ import {
 import { DEVELOPMENT_INTERNAL_TEST_OUTPUT_CONTEXT } from '../lib/development-email-output-policy.js'
 import {
   isParentPortalInviteEligiblePlayer,
-  normalizeParentPortalInviteEmail,
+  getPlayerParentInviteContacts,
 } from '../lib/parent-portal-invite-actions.js'
 import { buildPlayerProfilePath } from '../hooks/players/playersPageUtils.js'
 import { normalizePersonName } from '../lib/person-name.js'
@@ -134,19 +136,6 @@ import {
   writeViewCache,
 } from '../lib/supabase.js'
 
-function getPlayerPortalContacts(player) {
-  const contacts = Array.isArray(player?.parentContacts) && player.parentContacts.length > 0
-    ? player.parentContacts
-    : [{ name: player?.parentName || '', email: player?.parentEmail || '' }]
-
-  return contacts
-    .map((contact) => ({
-      name: String(contact?.name ?? '').trim(),
-      email: String(contact?.email ?? '').trim().toLowerCase(),
-    }))
-    .filter((contact) => contact.email)
-}
-
 export function PlayerProfile() {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -203,6 +192,7 @@ export function PlayerProfile() {
   const [noteDraft, setNoteDraft] = useState('')
   const [editingPlayerId, setEditingPlayerId] = useState('')
   const [playerDrafts, setPlayerDrafts] = useState({})
+  const playerSaveLock = useRef(false)
   const [isLoading, setIsLoading] = useState(() => evaluations.length === 0 || (shouldLoadSavedPlayerById && players.length === 0))
   const [isSavingPlayer, setIsSavingPlayer] = useState(false)
   const [isSavingNote, setIsSavingNote] = useState(false)
@@ -242,7 +232,6 @@ export function PlayerProfile() {
   const [addFutureEventsOnPromote, setAddFutureEventsOnPromote] = useState(false)
   const [sendEventInvitationsOnPromote, setSendEventInvitationsOnPromote] = useState(true)
   const [parentPortalLinksByPlayerId, setParentPortalLinksByPlayerId] = useState({})
-  const [parentPortalInviteSendingKey, setParentPortalInviteSendingKey] = useState('')
   const [parentPortalRevokeTarget, setParentPortalRevokeTarget] = useState(null)
   const [parentPortalRevokingLinkId, setParentPortalRevokingLinkId] = useState('')
   const [parentPortalRevokeError, setParentPortalRevokeError] = useState('')
@@ -1537,22 +1526,19 @@ export function PlayerProfile() {
   const handleSavePlayer = async (playerId) => {
     const draft = playerDrafts[playerId]
 
-    if (!draft) {
-      return
-    }
-
+    if (!draft || playerSaveLock.current) return
+    playerSaveLock.current = true
     setIsSavingPlayer(true)
     setErrorMessage('')
 
     try {
+      if (draft.contactType === 'self' && draft.dateOfBirth && !isAdultPlayerBirthDate(draft.dateOfBirth)) {
+        throw new Error('Enter a date of birth confirming the player is 18 or over.')
+      }
       const savedPlayer = await updatePlayer({
         user,
         playerId,
-        player: {
-          ...draft,
-          contactType: PLAYER_CONTACT_TYPES.parent,
-          parentContacts: getEditableParentContacts(draft),
-        },
+        player: { ...draft, parentContacts: getEditableParentContacts(draft) },
       })
       const nextPlayers = players.map((player) => (player.id === playerId ? savedPlayer : player))
       setPlayers(nextPlayers)
@@ -1561,16 +1547,37 @@ export function PlayerProfile() {
         evaluations,
         players: nextPlayers,
       })
+      const adultReady = Boolean(getAdultPlayerSetupEmail(savedPlayer)) && isAdultPlayerBirthDate(savedPlayer.dateOfBirth)
+      const [parents, adult] = await Promise.allSettled([
+        canUseUiFeature(user, CAPABILITIES.parentInvitations, { teamId: savedPlayer.teamId })
+          ? sendParentPortalInvitesForPlayer(savedPlayer, { automatic: true }) : [],
+        adultReady ? sendAdultPlayerSetupInvite(savedPlayer.id) : null,
+      ])
+      if (getPlayerParentInviteContacts(savedPlayer).length > 0) {
+        await refreshParentPortalLinksForPlayer(playerId).catch(() => {})
+      }
+      const failure = [parents, adult].find(result => result.status === 'rejected')
+      if (failure && savedPlayer.playerName === routePlayerName) {
+        setErrorMessage(`Player saved. ${failure.reason?.message || 'An invitation could not be sent.'} Select Save to try again.`)
+        return
+      }
       setEditingPlayerId('')
 
       if (savedPlayer.playerName !== routePlayerName) {
         navigate(buildPlayerProfilePath(savedPlayer))
       }
-      showToast({ title: 'Player saved', message: `${savedPlayer.playerName} details have been updated.` })
+      const message = failure ? 'An invitation could not be sent. Edit the player and save again to retry.'
+        : adult.value?.state === 'sent' ? 'Player login invitation sent.'
+        : parents.value.length ? 'Parent app invitation sent.'
+          : savedPlayer.contactType === 'self' && !adultReady
+            ? 'Player login requires one Player email and a date of birth confirming they are 18 or over.'
+            : `${savedPlayer.playerName} details have been updated.`
+      showToast({ title: 'Player saved', message, ...(failure ? { tone: 'error' } : {}) })
     } catch (error) {
       console.error(error)
       setErrorMessage(error.message || 'Could not save player details.')
     } finally {
+      playerSaveLock.current = false
       setIsSavingPlayer(false)
     }
   }
@@ -1584,13 +1591,13 @@ export function PlayerProfile() {
     }
 
     setPromoteConfirmTarget(targetPlayer)
-    setSendParentPortalLinkOnPromote(getPlayerPortalContacts(targetPlayer).length > 0)
+    setSendParentPortalLinkOnPromote(getPlayerParentInviteContacts(targetPlayer).length > 0)
     setAddFutureEventsOnPromote(false)
     setSendEventInvitationsOnPromote(true)
   }
 
-  const sendParentPortalInvitesForPlayer = async (player) => {
-    const contacts = getPlayerPortalContacts(player)
+  const sendParentPortalInvitesForPlayer = async (player, { automatic = false } = {}) => {
+    const contacts = getPlayerParentInviteContacts(player)
 
     if (contacts.length === 0) {
       return []
@@ -1600,27 +1607,15 @@ export function PlayerProfile() {
       user,
       player,
       contacts,
+      automatic,
     })
 
-    await Promise.all(
-      invites.map((invite) =>
-        sendParentPortalInvite({
-          clubId: invite.clubId,
-          inviteLinkId: invite.id,
-          parentEmail: invite.email,
-          senderEmail: user.email,
-          displayName: user.displayName || user.username || user.name,
-          existingParentPortalUser: invite.existingParentPortalUser,
-          teamName: invite.teamName,
-          clubName: invite.clubName || user.clubName,
-          playerName: invite.playerName,
-          subject: `Family portal invite for ${invite.playerName}`,
-          inviteUrl: invite.inviteUrl,
-        }),
-      ),
-    )
+    const results = await Promise.allSettled(invites.map(invite =>
+      sendParentPortalInvite({ inviteLinkId: invite.id, senderEmail: user.email, automatic }),
+    ))
+    if (results.some(result => result.status === 'rejected')) throw new Error('A Parent app invitation could not be sent.')
 
-    return invites
+    return invites.filter((_, index) => results[index].status === 'fulfilled' && !results[index].value.skipped)
   }
 
   const refreshParentPortalLinksForPlayer = async (playerId) => {
@@ -1638,66 +1633,6 @@ export function PlayerProfile() {
       ...current,
       [playerId]: nextLinks,
     }))
-  }
-
-  const handleSendParentPortalInviteForContact = async (player, contact) => {
-    const email = normalizeParentPortalInviteEmail(contact?.email)
-
-    if (!isParentPortalInviteEligiblePlayer(player)) {
-      setErrorMessage('Parent portal invites require an active player.')
-      return
-    }
-
-    if (!email) {
-      setErrorMessage('Add a parent email before sending a parent portal invite.')
-      return
-    }
-
-    const sendingKey = `${player.id}:${email}`
-    setParentPortalInviteSendingKey(sendingKey)
-    setErrorMessage('')
-
-    try {
-      const invites = await createParentPortalInvites({
-        user,
-        player,
-        contacts: [contact],
-        includeSentPending: true,
-      })
-
-      if (invites.length > 0) {
-        await Promise.all(
-          invites.map((invite) =>
-            sendParentPortalInvite({
-              clubId: invite.clubId,
-              inviteLinkId: invite.id,
-              parentEmail: invite.email,
-              senderEmail: user.email,
-              displayName: user.displayName || user.username || user.name,
-              existingParentPortalUser: invite.existingParentPortalUser,
-              teamName: invite.teamName,
-              clubName: invite.clubName || user.clubName,
-              playerName: invite.playerName,
-              subject: `Parent portal invite for ${invite.playerName}`,
-              inviteUrl: invite.inviteUrl,
-            }),
-          ),
-        )
-      }
-
-      await refreshParentPortalLinksForPlayer(player.id)
-      showToast({
-        title: invites.length > 0 ? 'Parent invite sent' : 'No new invite needed',
-        message: invites.length > 0
-          ? `Parent portal invite sent to ${email}.`
-          : 'This parent already has active portal access for this player.',
-      })
-    } catch (error) {
-      console.error(error)
-      setErrorMessage(error.message || 'Parent portal invite could not be sent.')
-    } finally {
-      setParentPortalInviteSendingKey('')
-    }
   }
 
   const confirmRemoveParentPortalAccess = async () => {
@@ -2092,10 +2027,8 @@ export function PlayerProfile() {
             [`direct:${playerId}`]: value,
           }))
         }
-        onSendParentPortalInviteForContact={(player, contact) => void handleSendParentPortalInviteForContact(player, contact)}
         onSendDirectEmail={(player) => void handleSendDirectEmail(player)}
         onStartEditingPlayer={handleStartEditingPlayer}
-        parentPortalInviteSendingKey={parentPortalInviteSendingKey}
         parentPasswordResetSendingLinkId={parentPasswordResetSendingLinkId}
         parentPortalRevokingLinkId={parentPortalRevokingLinkId}
         parentPortalLinksByPlayerId={parentPortalLinksByPlayerId}
@@ -2225,14 +2158,14 @@ export function PlayerProfile() {
           <input
             type="checkbox"
             checked={sendParentPortalLinkOnPromote}
-            disabled={getPlayerPortalContacts(promoteConfirmTarget).length === 0}
+            disabled={getPlayerParentInviteContacts(promoteConfirmTarget).length === 0}
             onChange={(event) => setSendParentPortalLinkOnPromote(event.target.checked)}
             className="mt-1 h-4 w-4 accent-[#047857] disabled:cursor-not-allowed"
           />
           <span>
             <span className="block font-black">Send Parent app invite</span>
             <span className="mt-1 block text-xs font-semibold leading-5 text-[#4b5f55]">
-              {getPlayerPortalContacts(promoteConfirmTarget).length > 0
+              {getPlayerParentInviteContacts(promoteConfirmTarget).length > 0
                 ? 'Parent contacts saved on this player will receive secure Parent app access.'
                 : 'Add a parent email before sending Parent app access.'}
             </span>

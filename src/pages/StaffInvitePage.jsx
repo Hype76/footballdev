@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import fallbackLogo from '../assets/football-player-logo.webp'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
+import { SignupAppLinks } from '../components/login/SignupAppLinks.jsx'
 import { assertPasswordPolicy, PASSWORD_MIN_LENGTH, PASSWORD_POLICY_SUMMARY } from '../lib/password-policy.js'
 
 const inputClass = 'min-h-11 w-full rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 text-sm font-semibold text-[#101828] outline-none transition focus:border-[#047857] focus:bg-white focus:ring-2 focus:ring-[#bbf7d0]'
@@ -200,12 +201,10 @@ export function StaffInvitePage() {
                 </button>
               </>
             ) : (
-              <Link
-                to="/sign-in"
-                className={primaryButtonClass}
-              >
-                Go to sign in
-              </Link>
+              <>
+                <SignupAppLinks role="coach" />
+                <Link to="/sign-in/coach" className={primaryButtonClass}>Continue on website</Link>
+              </>
             )}
           </form>
         )}

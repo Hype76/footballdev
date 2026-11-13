@@ -54,6 +54,7 @@ export function buildEmailAppAccess({ role = 'both', copyRole = '' } = {}) {
 export function addEmailAppAccess(email = {}) {
   // Internal presentation metadata must never reach the email provider API.
   const { emailAppRole, emailCcAppRole, ...payload } = email
+  if (emailAppRole === 'none') return payload
   const originalHtml = typeof payload.html === 'string' ? payload.html : ''
   const originalText = typeof payload.text === 'string' ? payload.text : ''
   const stored = readStoredAudience(originalHtml, originalText)

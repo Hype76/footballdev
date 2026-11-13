@@ -36,6 +36,7 @@ export function normalizePlayerRow(row) {
     ? row.positions.map((position) => String(position ?? '').trim()).filter(Boolean)
     : []
   const parentContacts = normalizeParentContacts(row.parent_contacts, {
+    contactType: row.contact_type ?? row.contactType,
     parentName: row.parent_name ?? row.parentName,
     parentEmail: row.parent_email ?? row.parentEmail,
   })
@@ -50,6 +51,7 @@ export function normalizePlayerRow(row) {
     team: String(row.team ?? '').trim(),
     positions,
     contactType: normalizePlayerContactType(row.contact_type ?? row.contactType ?? (row.is_adult || row.isAdult ? 'self' : 'parent')),
+    dateOfBirth: row.date_of_birth ?? row.dateOfBirth ?? '',
     parentName: parentContacts[0]?.name ?? '',
     parentEmail: parentContacts[0]?.email ?? '',
     parentContacts,
@@ -92,6 +94,7 @@ export function mapPlayerToRow(player, user) {
     team: String(player.team ?? '').trim(),
     positions,
     contact_type: normalizePlayerContactType(player.contactType ?? player.contact_type ?? (player.isAdult || player.is_adult ? 'self' : 'parent')),
+    ...((player.contactType === 'self' && player.dateOfBirth !== undefined) ? { date_of_birth: player.dateOfBirth || null } : {}),
     parent_name: primaryParent.name,
     parent_email: primaryParent.email,
     parent_contacts: parentContacts,

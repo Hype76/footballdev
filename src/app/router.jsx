@@ -122,6 +122,7 @@ const ResourceLibraryPage = lazyRoute(() => import('../pages/ResourceLibraryPage
 const SessionsPage = lazyRoute(() => import('../pages/SessionsPage.jsx'), 'SessionsPage')
 const StaffChatPage = lazyRoute(() => import('../pages/StaffChatPage.jsx'), 'StaffChatPage')
 const StaffInvitePage = lazyRoute(() => import('../pages/StaffInvitePage.jsx'), 'StaffInvitePage')
+const AdultPlayerInvitePage = lazyRoute(() => import('../pages/AdultPlayerInvitePage.jsx'), 'AdultPlayerInvitePage')
 const TeamManagementPage = lazyRoute(() => import('../pages/TeamManagementPage.jsx'), 'TeamManagementPage')
 const TeamBrandingSetupPage = lazyRoute(() => import('../pages/TeamBrandingSetupPage.jsx'), 'TeamBrandingSetupPage')
 const CoachResourceUploadPage = lazyRoute(() => import('../pages/CoachResourceUploadPage.jsx'), 'CoachResourceUploadPage')
@@ -1411,6 +1412,20 @@ function PublicOnly() {
   return <Outlet />
 }
 
+function CoachSignupWelcome() {
+  const { isLoading, isProfileLoading, session, user } = useAuth()
+  if (isLoading || (session?.user && isProfileLoading)) return <LoadingScreen />
+  return (
+    <main className="mx-auto max-w-lg space-y-5 p-6">
+      <h1 className="text-2xl font-bold">Welcome to Football Player</h1>
+      <SignupAppLinks role="coach" />
+      <a className="inline-flex min-h-11 items-center font-bold underline" href={session?.user && user ? '/' : '/sign-in/coach'}>
+        {session?.user && user ? 'Continue on website' : 'Sign in on the website'}
+      </a>
+    </main>
+  )
+}
+
 function RequireFormBuilderAccess() {
   const { element, user } = useWorkspaceRouteGate()
 
@@ -1654,6 +1669,8 @@ function RequirePlatformAdminAccess() {
 
 export const router = createBrowserRouter([
   { path: '/club-signup', element: <PageSuspense><ClubSignupPage /></PageSuspense> },
+  { path: '/welcome/coach', element: <CoachSignupWelcome /> },
+  { path: '/player-invite', element: <PageSuspense><AdultPlayerInvitePage /></PageSuspense> },
   { path: '/sign-in/choose', element: <PublicOnly />, children: [{ index: true, element: <PageSuspense><MarketingPage page="sign-in" /></PageSuspense> }] },
   { path: '/matchday', element: <PublicOnly />, children: [{ index: true, element: <PageSuspense><MarketingPage page="matchday" /></PageSuspense> }] },
   { path: '/for-teams', element: <PublicOnly />, children: [{ index: true, element: <PageSuspense><MarketingPage page="teams" /></PageSuspense> }] },
@@ -2645,3 +2662,4 @@ export const router = createBrowserRouter([
     ),
   },
 ])
+import { SignupAppLinks } from '../components/login/SignupAppLinks.jsx'

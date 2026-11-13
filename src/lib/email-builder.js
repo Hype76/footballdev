@@ -614,6 +614,21 @@ export function buildParentPortalInviteHtml({
   })
 }
 
+export async function sendAdultPlayerSetupInvite(playerId) {
+  const { data } = await supabase.auth.getSession()
+  const response = await fetch('/.netlify/functions/adult-player-setup', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${data?.session?.access_token || ''}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ action: 'send', playerId }),
+  })
+  const result = await response.json().catch(() => ({}))
+  if (!response.ok || !result.success) throw new Error(result.message || 'Player invitation could not be sent.')
+  return result
+}
+
 export async function sendParentPortalInvite(data) {
   const { data: sessionData } = await supabase.auth.getSession()
   const accessToken = sessionData?.session?.access_token || ''
@@ -626,6 +641,7 @@ export async function sendParentPortalInvite(data) {
     },
     body: JSON.stringify({
       copySender: data.copySender === true,
+      automatic: data.automatic === true,
       inviteLinkId: data.inviteLinkId,
       senderEmail: data.senderEmail,
     }),

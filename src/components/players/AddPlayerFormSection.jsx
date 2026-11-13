@@ -17,6 +17,7 @@ export function AddPlayerFormSection({
   normalizedContactType,
   onAddParentContact,
   onAddPlayer,
+  onSkipFailedInvitation,
   onAddPosition,
   onChange,
   onParentContactChange,
@@ -66,6 +67,7 @@ export function AddPlayerFormSection({
         </div>
       ) : (
         <form className="grid gap-5 px-5 py-5 sm:px-6 md:grid-cols-2 xl:grid-cols-4" onSubmit={onAddPlayer}>
+          <fieldset className="contents" disabled={Boolean(onSkipFailedInvitation) || isAddingPlayer}>
           <label className="block xl:col-span-2">
             <span className={labelClass}>Player name</span>
             <input
@@ -190,6 +192,14 @@ export function AddPlayerFormSection({
             </div>
           </div>
 
+          {normalizedContactType === 'self' ? (
+            <label className="block xl:col-span-2">
+              <span className={labelClass}>Player date of birth</span>
+              <input type="date" name="dateOfBirth" value={playerForm.dateOfBirth} onChange={onChange} className={fieldClass} />
+              <span className="mt-1 block text-xs text-[#4b5f55]">Required to email the player an invitation to their own login.</span>
+            </label>
+          ) : null}
+
           {contactGroups.map((group) => {
             const contacts = preparedContacts.filter((contact) => contact.type === group.type)
 
@@ -249,14 +259,20 @@ export function AddPlayerFormSection({
             )
           })}
 
-          <div className="flex items-end md:col-span-2 xl:col-span-4">
+          </fieldset>
+          <div className="flex flex-wrap items-center gap-3 md:col-span-2 xl:col-span-4">
+            {onSkipFailedInvitation ? (
+              <button type="button" onClick={onSkipFailedInvitation} disabled={isAddingPlayer} className="min-h-11 px-3 font-bold underline">
+                Continue without emailing
+              </button>
+            ) : null}
             <button
               type="submit"
               disabled={isAddingPlayer || !canAddMorePlayers}
               title={canAddMorePlayers ? undefined : playerLimitMessage}
               className="inline-flex min-h-12 w-full items-center justify-center rounded-lg bg-[#047857] px-5 py-3 text-sm font-black text-white shadow-sm shadow-[#047857]/20 transition hover:bg-[#065f46] disabled:cursor-not-allowed disabled:opacity-60 sm:ml-auto sm:w-auto sm:min-w-48"
             >
-              {isAddingPlayer ? 'Adding...' : 'Add player'}
+              {isAddingPlayer ? 'Saving...' : 'Save Player'}
             </button>
           </div>
         </form>

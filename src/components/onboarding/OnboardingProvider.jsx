@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { ConfirmModal } from '../ui/ConfirmModal.jsx'
+import { useToast } from '../ui/toast-context.js'
 import { getRoleLabel, useAuth } from '../../lib/auth.js'
 import {
   createAssessmentSession,
@@ -25,6 +26,8 @@ import {
   uploadClubLogo,
 } from '../../lib/supabase.js'
 import { sendParentPortalInvite } from '../../lib/email-builder.js'
+import { CAPABILITIES } from '../../lib/paywall-access.js'
+import { canUseUiFeature } from '../../lib/paywall-ui.js'
 import {
   ONBOARDING_EVENT,
   ONBOARDING_OPEN_EVENT,
@@ -403,6 +406,7 @@ function OnboardingActionModal({
   user,
   wizard = null,
 }) {
+  const { showToast } = useToast()
   const [clubForm, setClubForm] = useState({
     name: user?.clubName || '',
     logoUrl: user?.clubLogoUrl || '',
@@ -421,7 +425,6 @@ function OnboardingActionModal({
   const [playerSection, setPlayerSection] = useState('Squad')
   const [parentContactName, setParentContactName] = useState('')
   const [parentContactEmail, setParentContactEmail] = useState('')
-  const [sendParentInviteOnAdd, setSendParentInviteOnAdd] = useState(true)
   const [addFutureEventsOnAdd, setAddFutureEventsOnAdd] = useState(false)
   const [sendEventInvitationsOnAdd, setSendEventInvitationsOnAdd] = useState(true)
   const [parentInvitePlayers, setParentInvitePlayers] = useState([])
@@ -659,17 +662,19 @@ function OnboardingActionModal({
           },
         })
 
-        if (sendParentInviteOnAdd && parentContactEmail.trim()) {
+        if (parentContactEmail.trim() && canUseUiFeature(user, CAPABILITIES.parentInvitations, { teamId: selectedTeamId })) {
           const invites = await createParentPortalInvites({
             user,
             player: createdPlayer,
             contacts: [{ name: parentContactName, email: parentContactEmail }],
+            automatic: true,
           })
 
-          await Promise.all(
+          const deliveries = await Promise.allSettled(
             invites.map((invite) => sendParentPortalInvite({
               clubId: invite.clubId,
               inviteLinkId: invite.id,
+              automatic: true,
               parentEmail: invite.email,
               senderEmail: user.email,
               displayName: user.displayName || user.username || user.name,
@@ -681,6 +686,9 @@ function OnboardingActionModal({
               inviteUrl: invite.inviteUrl,
             })),
           )
+          if (deliveries.some(delivery => delivery.status === 'rejected')) {
+            showToast({ title: 'Player saved', message: 'A Parent app invitation failed. Open the player and save again to retry.', tone: 'error' })
+          }
         }
 
         if (addFutureEventsOnAdd) {
@@ -1165,23 +1173,9 @@ function OnboardingActionModal({
                 <span className={modalLabelClass}>Parent or guardian email</span>
                 <input type="email" value={parentContactEmail} onChange={(event) => setParentContactEmail(event.target.value)} className={modalInputClass} />
               </label>
-              <label className="flex items-start gap-3 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 sm:col-span-2">
-                <input
-                  type="checkbox"
-                  checked={sendParentInviteOnAdd}
-                  disabled={!parentContactEmail.trim()}
-                  onChange={(event) => setSendParentInviteOnAdd(event.target.checked)}
-                  className="mt-1 h-4 w-4 accent-[#047857] disabled:cursor-not-allowed"
-                />
-                <span>
-                  <span className="block text-sm font-black text-[#101828]">Send Parent app invite</span>
-                  <span className="mt-1 block text-xs font-semibold leading-5 text-[#4b5f55]">
-                    {parentContactEmail.trim()
-                      ? 'Send secure access for this Trial or Squad player after saving.'
-                      : 'Add a parent or guardian email to send Parent app access.'}
-                  </span>
-                </span>
-              </label>
+              {canUseUiFeature(user, CAPABILITIES.parentInvitations, { teamId: selectedTeamId }) ? (
+                <p className="text-sm text-[#4b5f55] sm:col-span-2">Saving sends a Parent app invitation to the email entered.</p>
+              ) : null}
               <label className="flex items-start gap-3 rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 sm:col-span-2">
                 <input
                   type="checkbox"

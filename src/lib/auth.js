@@ -1152,7 +1152,7 @@ function RuntimeAuthProvider({ children }) {
       }
     }
 
-    const emailRedirectTo = `${window.location.origin.replace(/\/$/, '')}${clubSignup ? '/club-signup' : '/sign-in'}`
+    const emailRedirectTo = `${window.location.origin.replace(/\/$/, '')}${clubSignup ? '/club-signup' : '/welcome/coach'}`
     const { data, error } = await supabase.auth.signUp({
       email: normalizedEmail,
       password,
