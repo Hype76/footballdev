@@ -18,6 +18,17 @@ export function isParentPortalInviteEligiblePlayer(player) {
   return ['trial', 'squad'].includes(section) && status !== 'archived'
 }
 
+export function getPlayerParentInviteContacts(player) {
+  if (player?.contactType === 'self') return []
+  const contacts = player?.parentContacts?.length ? player.parentContacts : [{ name: player?.parentName, email: player?.parentEmail }]
+  const unique = new Map()
+  for (const contact of contacts) {
+    const email = normalizeParentPortalInviteEmail(contact.email)
+    if (contact.type !== 'self' && /^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(email)) unique.set(email, { ...contact, email })
+  }
+  return [...unique.values()]
+}
+
 export function getParentPortalInviteActionForContact({
   contact,
   isSending = false,
@@ -26,7 +37,7 @@ export function getParentPortalInviteActionForContact({
 } = {}) {
   const email = normalizeParentPortalInviteEmail(contact?.email)
 
-  if (!email || !isParentPortalInviteEligiblePlayer(player)) {
+  if (!email || contact?.type === 'self' || player?.contactType === 'self' || !isParentPortalInviteEligiblePlayer(player)) {
     return {
       canSend: false,
       label: '',
