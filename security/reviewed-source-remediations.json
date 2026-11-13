@@ -559,7 +559,7 @@
   "implementationHashes": {
     "scripts/security-supply-chain-gate.mjs": "dcf722bc6cbf2015da4250ea60cbb81e34d3c5c64ec7bb6059671cbae5ab4207",
     "scripts/security-apply-reviewed-backports.mjs": "7f0e9de0add15a121a0f60f89f71656b503450010b8b9c8d4aaf58bc355fc5ec",
-    "scripts/security-verify-reviewed-backports.mjs": "02c5ea412079d7f3fb85af930ec7e1eaab52bb57a3c4c5b529ee7582f0ce969c",
+    "scripts/security-verify-reviewed-backports.mjs": "33d00ecc8a00f4331983fc3a20850e3cc76bcaa21f20d7adb7d2a9ab5c0c15d8",
     "security/patches/braces-3.0.3.patch": "e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699",
     "security/patches/node-forge-1.4.0.patch": "2de065ac998bf58917a14d0935112d97ec2957ac41b5f06958d500934f188ed4",
     "security/patches/reviewed-source-manifest.json": "facb364bbac44a8276d082068e8ed8415ca89777d24f4c7a05ff370f71e5a54d",
@@ -2328,14 +2328,14 @@
       "src/components/login/SignupAppLinks.jsx": "6158e8bf08c03d1483258dcdec293c4395dd2dc105eb60653b87cffe882ea513",
       "src/components/onboarding/OnboardingProvider.jsx": "9bf24666b026875da19ab66ee511709279c344bb46c46024a3e023b9b0801f25",
       "src/hooks/players/addPlayerUtils.js": "e5bd02d807df0e7f0b92af8f16f8a235bbb2c26af7ec39f8ef8e7de995fa6fcc",
-      "src/hooks/players/playerProfileUtils.js": "5859f6e2196964e5db4ff73373f12f4e9b19ee4824b57b530fa157d1f13b02e1",
+      "src/hooks/players/playerProfileUtils.js": "4c1078c678dc50d53fe4fced6e376cbde6863c4e9be4d306ff9ca80ada7dccd7",
       "src/lib/adult-player-setup.js": "23ce48d45e2262adb9725a5469cdf89cc244b6bdcb6b0a4a974ac37b765c68f9",
       "src/lib/email-builder.js": "ffe701c7beee0aea53c78848420df89d305500a2ba86513668379159d3c8a309",
       "src/pages/AdultPlayerInvitePage.jsx": "3e1b57964f6b78d97ebc9fa7ebc742ec114c805782c5317c7d358f1690f5aa52",
       "supabase/migrations/20261113114647_adult_player_setup_invites.sql": "2e1ed7ad7bb69ff4b68daf1e44bc0fb3213f84e753b76abe25deaf7facc1113a",
       "tests/adult-player-setup.test.mjs": "7115d2a653a0482a9fe0cdff0d82981b66e5dd5a365a51a0f645c0aa1abc22b2",
       "tests/coach-parent-auto-invite.test.mjs": "8dfc3e94d976bee2df523e97fa8ce427a83ba5ab7c1c2f98202d4c7c7911fe44",
-      "tests/player-contact-layout-browser.mjs": "feb44d73d0e808d5c73cc6098ef0dd7018ff4187c497c3bbec1ce68beeebe67b",
+      "tests/player-contact-layout-browser.mjs": "ee5477399531cdafd7eaf4622f39b96d880feab86e1991fc205a1571510ead3f",
       "tests/coach-parent-contacts.test.mjs": "d47d2f8b91395391ebc600c1a17e44a0ff6fac2285c8f7d20a2c33a05db4406e",
       "netlify/functions/data-transfer.js": "d470e729ff701dd67d528eaeeec5293dca843d4f4dc3953dc36b572ba25ff793",
       "netlify/functions/lib/_data-transfer-tabular.js": "8c41eae12db31df6283eb094d2bdb746d77c2677bcf62f47699ca9c4121f722c",
@@ -3827,7 +3827,7 @@
       "independentExactSourceAcceptanceRequired": true
     }
   },
-  "releasePreparationSha256": "5374b0f828aa9fd588e8300313b456016f36ddd8e58e0a31428b8717a7289c19",
+  "releasePreparationSha256": "fc00436d9babe5f8858da122e26cda55b8e01748c50dcdc3257dfa72c965b45b",
   "rootOnlyProposalSha256": "45c3b7352c7328c84982e114b7e87e09cf79514d02d102297ae75ec0925812eb",
   "remediationMode": "maintained-source-fixes",
   "officialCompatibilityDependencies": [
