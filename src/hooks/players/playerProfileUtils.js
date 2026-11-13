@@ -68,7 +68,7 @@ export function calculateMergedAverage(formResponses) {
 }
 
 export function getDraftParentContacts(player) {
-  return getEditableParentContacts(player)
+  return player?.parentContacts ?? getEditableParentContacts(player)
 }
 
 export function getContactEmailAddresses(contact) {
