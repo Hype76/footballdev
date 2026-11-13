@@ -1,6 +1,7 @@
 import { formatUkDateTime } from '../lib/date-format.js'
 import { useEffect, useMemo, useState } from 'react'
-import { isSuperAdmin, useAuth } from '../lib/auth.js'
+import { PitcheroImportSection, PitcheroChecklist } from '../components/club-settings/PitcheroImportSection.jsx'
+import { isClubAdmin, isSuperAdmin, useAuth } from '../lib/auth.js'
 import {
   confirmDataTransfer,
   DATA_TRANSFER_ACCEPT,
@@ -418,6 +419,15 @@ export function DataTransferPage() {
       {error ? <div role="alert" className={`${dangerPanelClass} px-4 py-3 text-sm font-bold`}>{error}</div> : null}
       {notice ? <div role="status" className={`${successPanelClass} px-4 py-3 text-sm font-bold`}>{notice}</div> : null}
 
+      {scope?.club && isClubAdmin(user) && Number(user.roleRank) >= 90 ? (
+        <PitcheroImportSection
+          key={`${userId}:${scope.club.id}`}
+          club={scope.club}
+          teams={scope.teams}
+          onCommitted={() => refreshHistory({ clubId: scope.club.id })}
+        />
+      ) : null}
+
       <section className={panelClass}>
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
@@ -540,7 +550,7 @@ export function DataTransferPage() {
         <div className={panelClass}>
           <h2 className="text-xl font-black text-[var(--text-primary)]">4. Choose a spreadsheet</h2>
           <p className="mt-2 text-sm font-semibold leading-6 text-[var(--text-muted)]">The server validates the real file contents and rejects mismatched, encrypted, macro-enabled, formula-bearing, oversized, or damaged spreadsheets.</p>
-          <input type="file" accept={DATA_TRANSFER_ACCEPT} onChange={(event) => { setFile(event.target.files?.[0] || null); clearSourceInspection() }} className={`mt-4 block w-full p-3 text-sm font-semibold file:mr-3 file:rounded-md file:border-0 file:bg-[var(--accent-soft)] file:px-3 file:py-2 file:font-black file:text-[var(--text-primary)] ${controlClass}`} />
+          <input type="file" aria-label="Club spreadsheet file" accept={DATA_TRANSFER_ACCEPT} onChange={(event) => { setFile(event.target.files?.[0] || null); clearSourceInspection() }} className={`mt-4 block w-full p-3 text-sm font-semibold file:mr-3 file:rounded-md file:border-0 file:bg-[var(--accent-soft)] file:px-3 file:py-2 file:font-black file:text-[var(--text-primary)] ${controlClass}`} />
           {file ? <p className="mt-2 text-xs font-bold text-[var(--text-muted)]">{file.name}, {Math.max(1, Math.ceil(file.size / 1024))} KB</p> : null}
           <div className="mt-4"><ActionButton disabled={!scope?.club || !hasConfirmedScope || !file || Boolean(actionBusy)} onClick={inspectSource}>{actionBusy === 'source-inspect' ? 'Reading safely...' : 'Read columns and worksheets'}</ActionButton></div>
         </div>
@@ -673,6 +683,9 @@ export function DataTransferPage() {
       {selectedBatch?.batch ? (
         <section className={panelClass}>
           <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-xl font-black text-[var(--text-primary)]">Transfer details</h2><p className="mt-1 text-sm font-semibold text-[var(--text-muted)]">Batch {selectedBatch.batch.id}</p></div><StatusPill value={selectedBatch.batch.state} /></div>
+          {selectedBatch.batch.templateVersion === 'FP-V1-PITCHERO-1' && (
+            <PitcheroChecklist warnings={selectedBatch.batch.warnings} />
+          )}
           {selectedBatch.batch.rollbackBlockedReason ? <p className={`mt-4 p-3 text-sm font-bold ${warningPanelClass}`}>Manual review required: {selectedBatch.batch.rollbackBlockedReason}</p> : null}
           {selectedBatch.affectedRecords?.length ? <div className={`mt-4 ${tableShellClass}`}><table className="min-w-[44rem] text-left text-sm"><thead className="bg-[var(--panel-alt)] text-[var(--text-primary)]"><tr><th className="px-3 py-2">Record type</th><th className="px-3 py-2">Import action</th><th className="px-3 py-2">Public reference</th><th className="px-3 py-2">Rollback state</th></tr></thead><tbody className={tableBodyClass}>{selectedBatch.affectedRecords.map((record, index) => <tr key={`${record.entityType}-${record.reference}-${index}`}><td className="px-3 py-2">{record.entityType}</td><td className="px-3 py-2">{record.action}</td><td className="px-3 py-2 font-mono text-xs">{record.reference}</td><td className="px-3 py-2"><StatusPill value={record.rollbackState} /></td></tr>)}</tbody></table></div> : <p className="mt-4 text-sm font-semibold text-[var(--text-muted)]">No business records were written by this transfer.</p>}
         </section>
