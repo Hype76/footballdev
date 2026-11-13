@@ -559,7 +559,7 @@
   "implementationHashes": {
     "scripts/security-supply-chain-gate.mjs": "dcf722bc6cbf2015da4250ea60cbb81e34d3c5c64ec7bb6059671cbae5ab4207",
     "scripts/security-apply-reviewed-backports.mjs": "7f0e9de0add15a121a0f60f89f71656b503450010b8b9c8d4aaf58bc355fc5ec",
-    "scripts/security-verify-reviewed-backports.mjs": "8d4f426ddf52bd87baf5c2b0218bfa1446030a5f3d9b69abaebc3549aa5d77f3",
+    "scripts/security-verify-reviewed-backports.mjs": "4b578af52cf7c8f4a5bea1e00038542ff5cdd4fd34dd385b97dfe09b0a75eea8",
     "security/patches/braces-3.0.3.patch": "e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699",
     "security/patches/node-forge-1.4.0.patch": "2de065ac998bf58917a14d0935112d97ec2957ac41b5f06958d500934f188ed4",
     "security/patches/reviewed-source-manifest.json": "facb364bbac44a8276d082068e8ed8415ca89777d24f4c7a05ff370f71e5a54d",
@@ -2066,10 +2066,11 @@
       "tests/security-glob-compatibility.test.mjs": "b9825fa59c8e40ac02293e5797fc60ac7ce0c5bba6d007d262033aa70c618a11",
       "tests/coach-calendar-fixture-edit.test.mjs": "c364c8b1a46f93a8fcb4df980ff2481aac47642ea1d4e096b7b6ecfd087696b6",
       "apps/mobile-core/src/coachParentAutoInvite.js": "82305749b0d43c9857a582cb3773a62e14adab314ec2a4a2af8cd6d6fe03227e",
-      "apps/mobile-core/src/coachParentContactsData.js": "7710649f27ec537e459643d7e8932b5a4699fdd1bc9c9df0c09adf532b87225d",
+      "apps/mobile-core/src/coachParentContactsData.js": "d09682d5383e62e2dee94395b904952905e0c7a3441d49668b1cb48c225adbfd",
       "src/lib/adult-player-setup.js": "23ce48d45e2262adb9725a5469cdf89cc244b6bdcb6b0a4a974ac37b765c68f9",
-      "src/lib/parent-portal-invite-actions.js": "913a84738ea8d087918c2b2476056a866a016f11ba25f75f891b4264ab7510bc",
-      "tests/coach-parent-auto-invite.test.mjs": "e730a89b15dcf9e13eba1bc671b5ca906efe313c64630ef051b9153b566c96b3"
+      "src/lib/parent-portal-invite-actions.js": "589890eec8908f7ab27cd70c14c6f727c53833817cc2d8b2517962caf6533144",
+      "tests/coach-parent-auto-invite.test.mjs": "8dfc3e94d976bee2df523e97fa8ce427a83ba5ab7c1c2f98202d4c7c7911fe44",
+      "tests/coach-parent-contacts.test.mjs": "d47d2f8b91395391ebc600c1a17e44a0ff6fac2285c8f7d20a2c33a05db4406e"
     },
     "externalTrustInputs": [
       "FOOTBALL_REVIEW_RECEIPT_BASE64",
@@ -3490,7 +3491,7 @@
       "nodeEngine": "20 || >=22"
     }
   },
-  "releasePreparationSha256": "0b15f0a7945cdbe670f804f3dca8bd414b7b7a67e7aa8d3a3fb0ac985acc934c",
+  "releasePreparationSha256": "502829cb5abaed72d81a308890b41008d93ce64446fa12e939a821d7c743a0b2",
   "rootOnlyProposalSha256": "45c3b7352c7328c84982e114b7e87e09cf79514d02d102297ae75ec0925812eb",
   "remediationMode": "maintained-source-fixes",
   "officialCompatibilityDependencies": [

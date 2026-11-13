@@ -32,7 +32,7 @@ test('Save skips revoked contacts and retries an outstanding unsent invitation',
   const existingLinks = [
     { email: 'parent@example.test', status: 'pending' },
     { email: 'parent@example.test', status: 'revoked' },
-    { email: 'second@example.test', status: 'pending', expires_at: '2026-01-01T00:00:00Z' },
+    { email: 'second@example.test', status: 'pending', expires_at: '2026-01-01T00:00:00Z', invite_sent_at: '2025-12-31T00:00:00Z' },
   ]
   const result = await sendNewMatchdayParentInvites({
     user, player, previousPlayer: player, existingLinks,
