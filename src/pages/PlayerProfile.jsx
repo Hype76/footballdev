@@ -1535,10 +1535,11 @@ export function PlayerProfile() {
       if (draft.contactType === 'self' && draft.dateOfBirth && !isAdultPlayerBirthDate(draft.dateOfBirth)) {
         throw new Error('Enter a date of birth confirming the player is 18 or over.')
       }
-      const savedPlayer = await updatePlayer({ user, playerId, player: {
-        ...draft,
-        parentContacts: getEditableParentContacts(draft),
-      } })
+      const savedPlayer = await updatePlayer({
+        user,
+        playerId,
+        player: { ...draft, parentContacts: getEditableParentContacts(draft) },
+      })
       const nextPlayers = players.map((player) => (player.id === playerId ? savedPlayer : player))
       setPlayers(nextPlayers)
       setPlayerDrafts(Object.fromEntries(nextPlayers.map((player) => [player.id, createPlayerDraft(player)])))
@@ -1556,7 +1557,7 @@ export function PlayerProfile() {
         await refreshParentPortalLinksForPlayer(playerId).catch(() => {})
       }
       const failure = [parents, adult].find(result => result.status === 'rejected')
-      if (failure) {
+      if (failure && savedPlayer.playerName === routePlayerName) {
         setErrorMessage(`Player saved. ${failure.reason?.message || 'An invitation could not be sent.'} Select Save to try again.`)
         return
       }
@@ -1565,12 +1566,13 @@ export function PlayerProfile() {
       if (savedPlayer.playerName !== routePlayerName) {
         navigate(buildPlayerProfilePath(savedPlayer))
       }
-      const message = adult.value?.state === 'sent' ? 'Player login invitation sent.'
+      const message = failure ? 'An invitation could not be sent. Edit the player and save again to retry.'
+        : adult.value?.state === 'sent' ? 'Player login invitation sent.'
         : parents.value.length ? 'Parent app invitation sent.'
           : savedPlayer.contactType === 'self' && !adultReady
             ? 'Player login requires one Player email and a date of birth confirming they are 18 or over.'
             : `${savedPlayer.playerName} details have been updated.`
-      showToast({ title: 'Player saved', message })
+      showToast({ title: 'Player saved', message, ...(failure ? { tone: 'error' } : {}) })
     } catch (error) {
       console.error(error)
       setErrorMessage(error.message || 'Could not save player details.')

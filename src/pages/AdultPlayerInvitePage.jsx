@@ -40,7 +40,8 @@ export function AdultPlayerInvitePage() {
       }
       const result = await signInWithPassword({ email: address, password })
       if (existingAccount) {
-        await submitInvite({ action: 'accept', token }, result.session?.access_token)
+        if (!result.session?.access_token) throw new Error('Sign in again to accept your invitation.')
+        await submitInvite({ action: 'accept', token }, result.session.access_token)
       }
       window.location.replace('/player')
     } catch (failure) {
