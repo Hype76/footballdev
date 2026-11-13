@@ -153,7 +153,7 @@ export async function getCoachCalendarResources(user, { homeSummary = false, inc
   const matchesPromise = user.activeTeamId
     ? supabase
       .from('match_days')
-      .select('id, team_id, opponent, match_date, kickoff_time, kickoff_time_tbc, home_away, shirt_choice, match_duration_minutes, status, venue_name, venue_address, notes, updated_at, teams:team_id(name,notification_display_name)')
+      .select('id, club_id, team_id, opponent, match_date, kickoff_time, kickoff_time_tbc, home_away, shirt_choice, match_duration_minutes, status, venue_name, venue_address, notes, updated_at, teams:team_id(name,notification_display_name)')
       .eq('club_id', user.clubId)
       .eq('team_id', user.activeTeamId)
       .order('match_date', { ascending: true })
