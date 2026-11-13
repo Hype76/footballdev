@@ -1,3 +1,4 @@
+import { getFormationBoardShirtKit, sortFormationBench } from '../lib/formation-board-shirt.js'
 import { readClubKits } from '../lib/club-kits.js'
 import { supabase } from '../lib/supabase-client.js'
 import { formatUkDateTime, formatUkDate } from '../lib/date-format.js'
@@ -644,6 +645,8 @@ export function FormationBoardsPage() {
     return () => { active = false }
   }, [user?.clubId])
   const clubKits = clubKitState.clubId === (user?.clubId || '') ? clubKitState.kits : {}
+  const boardMatch = matches.find(match => match.id === (selectedMatchId || currentBoard?.linkedMatchDayId))
+  const displayedShirtKit = getFormationBoardShirtKit(snapshot?.shirtKit, clubKits, boardMatch?.shirtChoice)
   const activeTeamName = String(user?.activeTeamName ?? '').trim() || 'Selected Team'
   const canOpen = canUseFormationBoards(user)
   const canCreate = canCreateFormationBoard(user)
@@ -1038,14 +1041,14 @@ export function FormationBoardsPage() {
     try {
       let savedBoard
       if (isNewBoard) {
-        savedBoard = await createFormationBoard({ ...snapshot, presetKey: snapshot.presetKey, teamId: activeTeamId, user })
+        savedBoard = await createFormationBoard({ ...snapshot, shirtKit: displayedShirtKit, teamId: activeTeamId, user })
       } else {
         savedBoard = await saveFormationBoardEditor({
           ...snapshot,
           boardId: currentBoard.id,
           description: snapshot.description,
           expectedVersionNumber: snapshot.baseVersionNumber,
-          shirtKit: snapshot.shirtKit?.type === savedSnapshot?.shirtKit?.type ? null : snapshot.shirtKit,
+          shirtKit: displayedShirtKit?.type === savedSnapshot?.shirtKit?.type ? null : displayedShirtKit,
           presetKey: snapshot.presetKey,
           title: snapshot.title,
           user,
@@ -1607,8 +1610,20 @@ export function FormationBoardsPage() {
                   </div>
                 </section>
               ) : null}
+              <div role="group" aria-label="Player shirts" className="mb-3 flex flex-wrap items-center gap-2">
+                <span className="text-sm font-black">Shirt</span>
+                {['home', 'away'].map((type) => {
+                  const savedKit = savedSnapshot?.shirtKit
+                  const kit = savedKit?.type === type ? savedKit : clubKits[type] && { ...clubKits[type], type }
+                  return <button key={type} type="button" aria-pressed={displayedShirtKit?.type === type}
+                    disabled={!canEdit || !kit} onClick={() => updateSnapshot({ ...snapshot, shirtKit: kit })}
+                    className={displayedShirtKit?.type === type ? primaryButtonClass : secondaryButtonClass}>
+                    {type === 'home' ? 'Home kit' : 'Away kit'}
+                  </button>
+                })}
+              </div>
               <FormationBoardPitch
-                shirtKit={snapshot.shirtKit}
+                shirtKit={displayedShirtKit}
                 ref={pitchRef}
                 canEdit={canEdit}
                 hasPlacementSource={!isLineupEditMode && ['bench', 'marker', 'unplaced'].includes(selectedSource?.type)}
@@ -1640,7 +1655,7 @@ export function FormationBoardsPage() {
               ) : null}
               {selectedSource && !isLineupEditMode ? <p className="mt-4 rounded-lg bg-[var(--accent-soft)] px-4 py-3 text-sm font-black">Selected: {selectedBoardPlayer?.displayName || selectedMarker?.displayName}. Tap the pitch to position.</p> : null}
               <BenchPlayersTray
-                shirtKit={snapshot.shirtKit}
+                shirtKit={displayedShirtKit}
                 canEdit={canEdit}
                 isExpanded={isBenchExpanded}
                 onDragStart={handlePlayerDragStart}
@@ -1652,7 +1667,7 @@ export function FormationBoardsPage() {
                   setSelectedMarkerId('')
                 }}
                 onToggle={() => setIsBenchExpanded((current) => !current)}
-                players={[...snapshot.unplaced, ...snapshot.bench]}
+                players={sortFormationBench([...snapshot.unplaced, ...snapshot.bench])}
                 selectedPlayerId={selectedSource?.type === 'unplaced' ? selectedSource.playerId : ''}
               />
             </section>
@@ -1734,17 +1749,6 @@ export function FormationBoardsPage() {
               <label className="block">
                 <span className="mb-2 block text-sm font-black">Board title</span>
                 <input autoFocus value={snapshot.title} maxLength={120} disabled={!canEdit} onChange={(event) => updateSnapshot({ ...snapshot, title: event.target.value })} className={fieldClass} placeholder="Saturday match shape" />
-              </label>
-              <label className="block">
-                <span className="mb-2 block text-sm font-black">Player shirts</span>
-                <select value={snapshot.shirtKit?.type || ''} disabled={!canEdit} onChange={(event) => {
-                  const type = event.target.value
-                  if (type === savedSnapshot?.shirtKit?.type) updateSnapshot({ ...snapshot, shirtKit: savedSnapshot.shirtKit })
-                  else if (clubKits[type]) updateSnapshot({ ...snapshot, shirtKit: { ...clubKits[type], type } })
-                }} className={fieldClass}>
-                  <option value="" disabled>Default shirts</option>
-                  {['home', 'away'].map((type) => <option key={type} value={type} disabled={!clubKits[type] && type !== savedSnapshot?.shirtKit?.type}>{type === 'home' ? 'Home kit' : 'Away kit'}{clubKits[type] ? '' : ' (not configured)'}</option>)}
-                </select>
               </label>
               <label className="block">
                 <span className="mb-2 block text-sm font-black">Team visibility</span>

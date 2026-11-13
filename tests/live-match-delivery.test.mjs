@@ -84,7 +84,7 @@ test('a quiet match remains current while its clock runs locally', async () => {
     send: async request => { requests.push(request); return { accepted: true } },
   })
   const payload = JSON.parse(requests[0].body).aps
-  assert.equal(payload['stale-date'] - payload.timestamp, 4 * 60 * 60)
+  assert.equal(payload['stale-date'] - payload.timestamp, 4 * 60)
   assert.equal(payload['content-state'].running, true)
   assert.equal(payload['content-state'].homeScore, 2)
 })
@@ -106,6 +106,7 @@ test('a prepared iPhone follow starts once after kick-off and is then left for t
     send: async request => { requests.push(request); return { accepted: true } } })
   assert.deepEqual(result, { delivered: 1, failed: 0 })
   assert.equal(JSON.parse(requests[0].body).aps.event, 'start')
+  assert.equal(JSON.parse(requests[0].body).aps['input-push-token'], 1)
   assert.match(JSON.parse(requests[0].body).aps.attributes.handoffToken, /^[0-9a-f]{64}$/)
   assert.equal(marked[0].follow_id_value, follower.follow_id)
   follower.remote_start_sent_at = '2026-11-03T08:40:00Z'
@@ -163,4 +164,23 @@ test('a prepared follow with revoked access never receives match details', async
     send: async request => { requests.push(request); return { accepted: true } } })
   assert.deepEqual(result, { delivered: 1, failed: 0 })
   assert.equal(requests.length, 0)
+})
+
+test('concluded iPhone match sends the final score and stops its clock', async () => {
+  const requests = []
+  const result = await deliverLiveMatchChange(matchId, {
+    client: clientFor([{ app_role: 'parent', platform: 'ios', activity_token: 'ab'.repeat(32), access_allowed: true }], {
+      ...match, home_score: 1, away_score: 0, status: 'full_time', timer_status: 'full_time',
+      current_match_phase: 'full_time', concluded_at: '2026-11-03T08:40:00Z',
+    }),
+    provider, now: () => Date.parse('2026-11-03T08:41:00Z'),
+    send: async request => { requests.push(request); return { accepted: true } },
+  })
+  assert.deepEqual(result, { delivered: 1, failed: 0 })
+  const { aps } = JSON.parse(requests[0].body)
+  assert.equal(aps.event, 'end')
+  assert.equal(aps['content-state'].phase, 'Full time')
+  assert.equal(aps['content-state'].running, false)
+  assert.equal(aps['content-state'].homeScore, 1)
+  assert.equal(aps['content-state'].awayScore, 0)
 })

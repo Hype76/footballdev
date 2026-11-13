@@ -734,7 +734,7 @@ function assertStaffMatchDayAccess(user) {
   if (
     !user?.clubId ||
     !user.activeTeamId ||
-    user.role === 'admin' ||
+    user.role === 'adult_player' ||
     user.role === 'parent_portal' ||
     user.role === 'super_admin' ||
     Number(user.roleRank ?? 0) < 20

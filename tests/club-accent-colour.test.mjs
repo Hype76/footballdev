@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import { test } from 'node:test'
+import { normalizeClubSettingsRow } from '../src/lib/domain/club-settings-normalizers.js'
+import { mapClubToSettingsFormData } from '../src/hooks/club-settings/clubSettingsUtils.js'
 
 import {
   normalizeClubMembershipRow,
@@ -35,6 +37,26 @@ const displaySettingsUrl = new URL('../src/components/user-settings/DisplaySetti
 const onboardingUrl = new URL('../src/components/onboarding/OnboardingProvider.jsx', import.meta.url)
 const parentPortalUrl = new URL('../src/lib/domain/parent-portal.js', import.meta.url)
 const settingsUrl = new URL('../src/pages/UserSettingsPage.jsx', import.meta.url)
+
+test('Club settings display and save an optional multi-line club address', async () => {
+  const address = 'Club Pavilion\nHigh Street\nCB23 6AA'
+  assert.equal(mapClubToSettingsFormData(normalizeClubSettingsRow({ contact_address: address })).contactAddress, address)
+  assert.equal(mapClubToSettingsFormData(normalizeClubSettingsRow({ contact_address: null })).contactAddress, '')
+  const source = await readFile(actionUrl, 'utf8')
+  const begin = source.indexOf('export async function updateClubSettings(')
+  const end = source.indexOf('export async function updateClubAccentColour(', begin)
+  const updateSource = source.slice(begin, end).replace('export ', '')
+  const updateClubSettings = new Function('blockDemoMutation', 'fetchClubDetails', 'supabase', 'CLUB_SELECT', 'invalidateMemoryCacheByPrefix', 'normalizeClubSettingsRow', `${updateSource}\nreturn updateClubSettings`)
+  const stored = { contact_address: address }
+  const supabase = { from: () => ({ update: payload => ({
+    eq: () => ({ select: () => ({ single: async () => ({ data: Object.assign(stored, payload) }) }) }),
+  }) }) }
+  const save = updateClubSettings(async () => {}, async () => stored, supabase, '', () => {}, normalizeClubSettingsRow)
+  assert.equal((await save({ clubId: 'club', data: {} })).contactAddress, address)
+  assert.equal((await save({ clubId: 'club', data: { contactAddress: '  ' } })).contactAddress, '')
+  assert.equal(stored.contact_address, null)
+  assert.equal((await save({ clubId: 'club', data: { contactAddress: address } })).contactAddress, address)
+})
 
 test('staff profile and membership hydration prefer club display authority', () => {
   const profile = normalizeUserProfile({

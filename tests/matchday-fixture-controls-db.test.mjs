@@ -595,7 +595,16 @@ test('Coach fixture lifecycle locks old details, corrects the timeline and keeps
     create function public.current_user_is_match_day_scorer(uuid) returns boolean language sql as $$ select false $$;
     create function public.current_user_has_match_day_scorer_assignment(uuid) returns boolean language sql as $$ select false $$;
     create function public.can_manage_match_day(uuid) returns boolean language sql as $$
-      select exists (select 1 from public.team_staff where team_id = $1 and user_id = auth.uid())
+      select exists (
+        select 1 from public.teams team join public.users actor on actor.id=auth.uid() and actor.club_id=team.club_id
+        where team.id=$1 and actor.status='active' and (
+          actor.role='admin' or exists (select 1 from public.team_staff where team_id=$1 and user_id=actor.id)
+        )
+      )
+    $$;
+    create function public.can_read_match_day(uuid) returns boolean language sql as $$ select public.can_manage_match_day($1) $$;
+    create function public.current_user_has_club_wide_authority(uuid) returns boolean language sql as $$
+      select exists (select 1 from public.users where id=auth.uid() and club_id=$1 and status='active' and role='admin')
     $$;
     alter function public.set_match_day_timer_state(uuid,text) rename to fixture_test_apply_timer;
     create function public.apply_match_day_timer_action(uuid,text,uuid,text,text,uuid)
@@ -719,4 +728,19 @@ test('Coach fixture lifecycle locks old details, corrects the timeline and keeps
     (select count(*)::int from public.audit_logs where entity_id=$1 and action='match_day_fixture_deleted') as audited
   `, [historic])).rows[0]
   assert.deepEqual(counts, { visible: 0, retained: 3, audited: 1 })
+
+  await db.exec(migrationText('20260907112202_coach_match_day_offline_commands').split('create or replace function public.apply_coach_match_day_command(')[0])
+  await db.exec(migrationText('20261107193737_coach_match_day_command_no_wait'))
+  await db.exec('alter table public.match_day_final_reports rename to fixture_test_final_reports')
+  await db.exec(migrationText('20260710183205_match_day_final_reports'))
+  const authorityMigration = migrationText('20261113085415_prioritise_current_live_match_updates')
+  await db.exec(authorityMigration.slice(authorityMigration.indexOf('-- A Club Admin acts'), authorityMigration.indexOf('create or replace function app_private.formation_board_team_role_rank')))
+  await db.query("update public.users set role='admin', role_rank=90 where id=$1", [ACTOR_ID])
+  await db.query("update public.user_club_memberships set role='admin', role_rank=90 where auth_user_id=$1", [ACTOR_ID])
+  await db.query('delete from public.team_staff where user_id=$1', [ACTOR_ID])
+  const foreignMatchId = randomUUID()
+  await db.query("insert into public.match_days (id,club_id,team_id,match_date,status,timer_status) values ($1,$2,$3,'2025-03-15','cancelled','not_started')",
+    [foreignMatchId, CLUB_B_ID, TEAM_C_ID])
+  await assert.rejects(db.query(remove, [foreignMatchId, TEAM_C_ID]), /assigned Coach or Manager/)
+  assert.equal((await db.query(remove, [otherTeam, TEAM_B_ID])).rows[0].result.deleted, true)
 })

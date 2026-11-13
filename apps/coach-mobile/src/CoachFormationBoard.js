@@ -1,3 +1,4 @@
+import { getFormationBoardShirtKit, sortFormationBench } from '../../../src/lib/formation-board-shirt.js'
 import { loadMobileClubKits, peekMobileClubKits } from '../../mobile-core/src/mobileKitCache'
 import { FormationPitchLines, FormationPlayerArtwork, FormationSubArtwork, formationVisualStyles } from '../../mobile-core/src/FormationBoardVisuals'
 import { BrandLoader } from '../../mobile-core/src/BrandLoader'
@@ -317,9 +318,10 @@ export function CoachFormationBoard({ context, initialBoardId = '', match = null
   const clubKits = loadedClubKits.clubId === clubId ? loadedClubKits.kits : peekMobileClubKits(clubId) || {}
   useEffect(() => {
     let active = true
-    if (clubId) void loadMobileClubKits(clubId, kits => {
+    const updateKits = kits => {
       if (active) setLoadedClubKits({ clubId, kits })
-    }).catch(() => {})
+    }
+    if (clubId) void loadMobileClubKits(clubId, updateKits).then(updateKits).catch(() => {})
     return () => { active = false }
   }, [clubId])
   const [board, setBoard] = useState(null)
@@ -605,10 +607,12 @@ export function CoachFormationBoard({ context, initialBoardId = '', match = null
   const activeSlot = currentPresetSlots.find((slot) => slot.id === activeSlotId) || null
   const activeSlotPlayer = draft.placements.find((player) => player.slotId === activeSlotId) || null
   const selectedBenchPlayer = draft.bench.find((player) => player.playerId === selectedPlayerId) || null
+  const displayedBench = sortFormationBench(draft.bench)
   const filteredSlotPlayers = players.filter((player) => player.playerName.toLowerCase().includes(slotSearch.trim().toLowerCase()))
   const linkedMatchId = board?.linkedMatchDayId || ''
   const linkedMatch = (match?.id === linkedMatchId ? match : null) || matches.find((candidate) => candidate.id === linkedMatchId) || null
   const availabilityMatch = linkedMatch || match || null
+  const displayedShirtKit = getFormationBoardShirtKit(draft.shirtKit, clubKits, availabilityMatch?.shirtChoice)
   const availabilityRows = availabilityMatch?.playerAvailability || []
   const activePublication = getActiveFormationPublication(matchPublications, linkedMatchId)
   const hasEditAuthority = !stale && canEditCoachFormationBoard(user)
@@ -769,7 +773,7 @@ export function CoachFormationBoard({ context, initialBoardId = '', match = null
     if (!canEdit && !(queuedSave?.acknowledged && hasEditAuthority && !refreshPending && !serverBoardUnavailable)) throw new Error(board?.isLocked ? 'Saved boards cannot be edited. Create a new board for a different lineup.' : 'Coach or manager plan access is required to save formations.')
     if (!match?.id) throw new Error('Open a match before saving a Formation Board.')
     const saveBoard = queuedSave ? queuedSave.board || null : board
-    const saveDraft = queuedSave?.draft || draft
+    const saveDraft = queuedSave?.draft || (displayedShirtKit === draft.shirtKit ? draft : { ...draft, shirtKit: displayedShirtKit })
     const saveTitle = queuedSave?.title || title
     const saveShared = queuedSave ? queuedSave.shared === true : shared
     const saveStartingSquad = queuedSave ? queuedSave.submitStartingSquad === true : submitStartingSquad
@@ -788,7 +792,7 @@ export function CoachFormationBoard({ context, initialBoardId = '', match = null
     const previousPendingSave = queuedSave || (String(cachedFormation?.matchDayId || '') === String(match?.id || '')
       && String(cachedPending?.boardId || '') === String(saveBoard?.id || '')
       && cachedPending?.draft
-      && formationContentKey(cachedPending.draft, cachedPending.title) === formationContentKey(saveDraft, saveTitle)
+      && [saveDraft, draft].some(candidate => formationContentKey(cachedPending.draft, cachedPending.title) === formationContentKey(candidate, saveTitle))
       && cachedPending.submitStartingSquad === saveStartingSquad
       ? cachedPending : null)
     const pendingSave = queuedSave || {
@@ -865,9 +869,12 @@ export function CoachFormationBoard({ context, initialBoardId = '', match = null
       }
       requireActiveBoard()
       const currentEditor = editorSnapshotRef.current
+      const currentDraftForComparison = saveDraft.shirtKit && !currentEditor.draft.shirtKit
+        ? { ...currentEditor.draft, shirtKit: getFormationBoardShirtKit(null, clubKits, availabilityMatch?.shirtChoice) }
+        : currentEditor.draft
       const preserveCurrentDraft = queuedSave && (
         queuedEditorRevision !== editorRevision.current
-        || formationContentKey(currentEditor.draft, currentEditor.title) !== formationContentKey(saveDraft, saveTitle)
+        || formationContentKey(currentDraftForComparison, currentEditor.title) !== formationContentKey(saveDraft, saveTitle)
         || currentEditor.shared !== saveShared
       )
       const savedDraft = createMobileFormationDraft({ board: nextBoard })
@@ -1080,7 +1087,7 @@ export function CoachFormationBoard({ context, initialBoardId = '', match = null
             canEdit={canEdit}
             canMove={canEdit && !removalMode}
             key={player.playerId}
-            shirtKit={draft.shirtKit}
+            shirtKit={displayedShirtKit}
             layout={pitchLayout}
             onGestureEnd={onMarkerGestureEnd}
             onGestureStart={onMarkerGestureStart}
@@ -1120,8 +1127,19 @@ export function CoachFormationBoard({ context, initialBoardId = '', match = null
           <Text style={[styles.heading, fullScreen && { color: 'white', fontSize: 16, paddingHorizontal: 12 }]}>Subs ({draft.bench.length})</Text>
           <MaterialIcons color={fullScreen ? 'white' : palette.textPrimary} name={benchExpanded ? 'expand-less' : 'expand-more'} size={28} />
         </Pressable>
-        {benchExpanded ? draft.bench.length ? <ScrollView contentContainerStyle={styles.benchContent} horizontal showsHorizontalScrollIndicator={false}>{draft.bench.map((player) => { const selected = selectedPlayerId === player.playerId; return <ScrollSafePressable accessibilityHint={canEdit ? draft.placements.length >= capacity ? 'Select this substitute for a swap from the pitch.' : 'Moves this substitute into the next empty pitch position.' : 'This substitute is read-only.'} accessibilityLabel={`${player.displayName}${player.shirtNumber ? `, shirt ${player.shirtNumber}` : ''}, substitute`} accessibilityRole="button" accessibilityState={{ disabled: !canEdit, selected }} disabled={!canEdit} key={player.playerId} onPress={() => draft.placements.length < capacity ? moveBenchPlayerToPitch(player.playerId) : selectPlayer(player.playerId, 'bench')} style={[styles.benchPlayerButton, selected && styles.benchPlayerButtonSelected]}><FormationSubArtwork name={player.displayName} number={player.shirtNumber} shirtKit={draft.shirtKit} styles={styles} /></ScrollSafePressable> })}</ScrollView> : <Text style={[styles.body, fullScreen && styles.canvasText]}>No substitutes selected.</Text> : null}
+        {benchExpanded ? draft.bench.length ? <ScrollView contentContainerStyle={styles.benchContent} horizontal showsHorizontalScrollIndicator={false}>{displayedBench.map((player) => { const selected = selectedPlayerId === player.playerId; return <ScrollSafePressable accessibilityHint={canEdit ? draft.placements.length >= capacity ? 'Select this substitute for a swap from the pitch.' : 'Moves this substitute into the next empty pitch position.' : 'This substitute is read-only.'} accessibilityLabel={`${player.displayName}${player.shirtNumber ? `, shirt ${player.shirtNumber}` : ''}, substitute`} accessibilityRole="button" accessibilityState={{ disabled: !canEdit, selected }} disabled={!canEdit} key={player.playerId} onPress={() => draft.placements.length < capacity ? moveBenchPlayerToPitch(player.playerId) : selectPlayer(player.playerId, 'bench')} style={[styles.benchPlayerButton, selected && styles.benchPlayerButtonSelected]}><FormationSubArtwork name={player.displayName} number={player.shirtNumber} shirtKit={displayedShirtKit} styles={styles} /></ScrollSafePressable> })}</ScrollView> : <Text style={[styles.body, fullScreen && styles.canvasText]}>No substitutes selected.</Text> : null}
         {benchExpanded && selectedBenchPlayer ? <Text accessibilityLiveRegion="polite" style={[styles.body, fullScreen && styles.canvasText]}>{selectedBenchPlayer.displayName} selected. Tap a starter to swap.</Text> : null}
+      </View>
+
+      <View accessibilityLabel="Formation shirt" style={[styles.row, fullScreen && { paddingHorizontal: 12 }]}>
+        <Text style={[styles.label, fullScreen && styles.canvasText]}>Shirt</Text>
+        {['home', 'away'].map(type => {
+          const savedShirt = board?.currentVersion?.shirtKit
+          const kit = savedShirt?.type === type ? savedShirt : clubKits[type] && { ...clubKits[type], type }
+          return <Choice key={type} label={type === 'home' ? 'Home' : 'Away'} disabled={!canEdit || !kit}
+            selected={displayedShirtKit?.type === type} onPress={() => setDraft({ ...draft, shirtKit: kit })} styles={styles} />
+        })}
+        {!displayedShirtKit ? <Text style={[styles.body, fullScreen && styles.canvasText]}>No club shirts loaded</Text> : null}
       </View>
 
       <ScrollView style={fullScreen ? styles.canvasAlert : null}>
@@ -1162,13 +1180,6 @@ export function CoachFormationBoard({ context, initialBoardId = '', match = null
 
             {activeSheet === 'formation' ? <ScrollView contentContainerStyle={styles.stack}>
               <Text style={styles.body}>Change the shape at any time. Your goalkeeper stays in goal, and outfield players keep their positions as closely as the new shape allows.</Text>
-              <Text style={styles.label}>Shirt</Text>
-              <View style={styles.row}>{['home', 'away'].map(type => <Choice disabled={!canEdit || (!clubKits[type] && board?.currentVersion?.shirtKit?.type !== type)} key={type} label={type === 'home' ? 'Home' : 'Away'} onPress={() => {
-                if (draft.shirtKit?.type === type) return
-                const savedShirt = board?.currentVersion?.shirtKit
-                setDraft({ ...draft, shirtKit: savedShirt?.type === type ? savedShirt : { ...clubKits[type], type } })
-              }} selected={draft.shirtKit?.type === type} styles={styles} />)}</View>
-              {!clubKits.home && !clubKits.away ? <Text style={styles.body}>Club shirts are unavailable. Set them up in club settings.</Text> : null}
               <Text style={styles.label}>Game format</Text>
               <View style={styles.row}>{MOBILE_FORMATION_GAME_FORMATS.map((format) => <Choice disabled={!canEdit} key={format.value} label={format.label} onPress={() => chooseFormat(format.value)} selected={draft.gameFormat === format.value} styles={styles} />)}</View>
               <Text style={styles.label}>Formation</Text>

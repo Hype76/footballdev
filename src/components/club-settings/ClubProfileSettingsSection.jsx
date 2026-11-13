@@ -123,6 +123,19 @@ export function ClubProfileSettingsSection({
                   className={inputClass}
                 />
               </label>
+
+              <label className="block md:col-span-2">
+                <span className={labelClass}>Club address</span>
+                <textarea
+                  name="contactAddress"
+                  value={formData.contactAddress ?? ''}
+                  onChange={onChange}
+                  autoComplete="street-address"
+                  maxLength={500}
+                  rows={3}
+                  className={inputClass}
+                />
+              </label>
             </div>
 
             <div className="mt-5">

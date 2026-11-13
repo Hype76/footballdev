@@ -394,8 +394,8 @@ test('Assistant Coach, Parent, Player, revoked staff, and unrelated staff cannot
   )
 })
 
-test('Assistant Coach and Club Admin can view a shared board but cannot edit it', async () => {
-  for (const actorId of [IDS.assistant, IDS.clubAdmin]) {
+test('Assistant Coach can view a shared board but cannot edit it', async () => {
+  for (const actorId of [IDS.assistant]) {
     await setActor(actorId)
     const readResult = await rpc('public.get_formation_board($1)', [sharedBoard.board.id])
     assert.equal(readResult.rows[0].result.board.id, sharedBoard.board.id)
@@ -407,6 +407,33 @@ test('Assistant Coach and Club Admin can view a shared board but cannot edit it'
       /formation_board_edit_forbidden/,
     )
   }
+})
+
+test('Club Admin inherits formation authority only for an active team in their club', async () => {
+  await resetActor()
+  await db.exec(`
+    alter table public.teams add column archived_at timestamptz;
+    create function public.current_user_has_club_wide_authority(uuid) returns boolean language sql as $$
+      select exists (
+        select 1 from public.user_club_memberships membership
+        join public.users actor on actor.id=membership.auth_user_id and actor.club_id=membership.club_id
+        where membership.auth_user_id=auth.uid() and membership.club_id=$1
+          and membership.role='admin' and actor.role='admin' and actor.status='active'
+      )
+    $$;
+    create function public.current_user_can_access_team(uuid,uuid) returns boolean language sql as $$
+      select exists (select 1 from public.teams team where team.id=$2 and team.club_id=$1 and team.status='active')
+    $$;
+  `)
+  const migration = await readFile(new URL('../supabase/migrations/20261113085415_prioritise_current_live_match_updates.sql', import.meta.url), 'utf8')
+  await db.exec(migration.slice(migration.indexOf('create or replace function app_private.formation_board_team_role_rank('), migration.indexOf('-- Optional address')))
+  await setActor(IDS.clubAdmin)
+  const rpcName = 'public.create_formation_board($1, $2, $3, $4, $5, $6, $7::jsonb, $8::jsonb, $9, $10, $11)'
+  const args = [IDS.teamA, 'Club Admin board', '', '5v5', '5v5-custom', 'portrait', '[]', '[]', '', 'shared', 1]
+  const created = await rpc(rpcName, args)
+  assert.equal(created.rows[0].result.board.created_by_profile_id, IDS.clubAdmin)
+  await assert.rejects(rpc(rpcName, [IDS.teamB, ...args.slice(1)]), /forbidden/)
+  await resetActor()
 })
 
 test('Parent, Player, cross-team, and cross-club reads fail closed', async () => {

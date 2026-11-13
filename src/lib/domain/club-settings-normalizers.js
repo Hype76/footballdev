@@ -8,6 +8,7 @@ export function normalizeClubSettingsRow(row) {
     logoUrl: String(row.logo_url ?? '').trim(),
     contactEmail: String(row.contact_email ?? '').trim(),
     contactPhone: String(row.contact_phone ?? '').trim(),
+    contactAddress: String(row.contact_address ?? '').trim(),
     requireApproval: Boolean(row.require_approval ?? true),
     themeAccent: normalizeThemeAccent(row.theme_accent ?? row.themeAccent),
     themeButtonStyle: normalizeThemeButtonStyle(row.theme_button_style ?? row.themeButtonStyle),

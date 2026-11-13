@@ -87,7 +87,7 @@ test('club admin without a selected team is blocked from the team workflow path'
   assert.equal(canManageMatchDay(clubAdmin), false)
   assert.equal(hasTeamWorkflowContext(clubAdmin), false)
   assert.equal(needsTeamWorkflowContext(clubAdmin), true)
-  assert.equal(canManageMatchDay(clubAdminWithTeamContext), false)
+  assert.equal(canManageMatchDay(clubAdminWithTeamContext), true)
 })
 
 test('sidebar keeps match day behind team workflow context and staff permission', async () => {
@@ -172,7 +172,7 @@ test('match day domain scopes reads and mutations to the active team', async () 
   const source = await readFile(matchDayDomainUrl, 'utf8')
 
   assert.match(source, /!user\.activeTeamId/)
-  assert.match(source, /user\.role === 'admin'/)
+  assert.match(source, /user\.role === 'adult_player'/)
   assert.match(source, /function scopeMatchDayQueryToActiveTeam\(query, user\)/)
   assert.match(source, /return query\.or\(`team_id\.is\.null,team_id\.eq\.\$\{activeTeamId\}`\)/)
 

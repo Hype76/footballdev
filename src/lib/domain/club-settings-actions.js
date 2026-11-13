@@ -74,6 +74,10 @@ export async function updateClubSettings({ clubId, data, user = null }) {
     contact_phone: String(data.contactPhone ?? '').trim(),
   }
 
+  if (data.contactAddress !== undefined) {
+    payload.contact_address = String(data.contactAddress ?? '').trim() || null
+  }
+
   if (data.requireApproval !== undefined) {
     payload.require_approval = Boolean(data.requireApproval)
   }
