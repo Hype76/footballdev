@@ -3,7 +3,7 @@ import { createSupabaseAdminClient } from './lib/_supabase.js'
 function jsonResponse(statusCode, payload) {
   return {
     statusCode,
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
     body: JSON.stringify(payload),
   }
 }
@@ -36,7 +36,7 @@ export async function handler(event) {
     }
 
     if (data.accepted_at) {
-      return failureResponse(409, 'This Coach invite has already been accepted.')
+      return jsonResponse(409, { success: false, code: 'invite_accepted', message: 'This Coach invite has already been accepted. Sign in to open your Coach access.' })
     }
 
     if ((data.status && data.status !== 'pending') || data.cancelled_at || data.replaced_at) {

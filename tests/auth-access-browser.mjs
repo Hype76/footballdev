@@ -2342,7 +2342,7 @@ try {
         label: 'valid',
         message: '',
         status: 200,
-        visibleText: 'Create your family portal login',
+        visibleText: 'Accept your Parent invitation',
       },
       {
         invite: null,
@@ -2562,7 +2562,9 @@ try {
   await runScenario('signed-out existing parent login accepts the invite once before opening the portal', async () => {
     const context = await browser.newContext()
     const { getAcceptanceCallCount, page } = await prepareParentInvitePage(context)
-    await page.goto(`${mainBaseUrl}/sign-in?tab=parent&parentInvite=fixture-parent-invite`, { waitUntil: 'domcontentloaded', timeout: 60000 })
+    await page.goto(`${mainBaseUrl}/parent-invite/fixture-parent-invite`, { waitUntil: 'domcontentloaded', timeout: 60000 })
+    await page.getByRole('link', { name: 'Sign in with your existing account' }).click()
+    assert.equal(new URL(page.url()).searchParams.get('parentInvite'), 'fixture-parent-invite')
     await page.getByPlaceholder('you@club.com').fill('parent.fixture@footballplayer.test')
     await page.getByPlaceholder('Enter password').fill(fixturePassword)
     await page.locator('form').filter({ has: page.getByPlaceholder('Enter password') }).getByRole('button', { name: /^Log in$/i }).click()
@@ -2575,6 +2577,27 @@ try {
     assert.equal(getAcceptanceCallCount(), 1)
     await assertVisibleText(page, 'Player linked')
     await assertVisibleTextContaining(page, 'Fixture Child is now available')
+    await context.close()
+  })
+
+  await runScenario('existing Parent can sign in from the Coach invitation and add Coach access', async () => {
+    const context = await browser.newContext()
+    const { page } = await preparePage(context)
+    const email = 'parent.fixture@footballplayer.test'
+    let accepted = false
+    await context.route('**/.netlify/functions/get-staff-invite?*', route => route.fulfill({ json: { success: true, invite: { email, clubName: 'Fixture United', roleLabel: 'Coach' } } }))
+    await context.route('**/.netlify/functions/create-staff-account', async route => {
+      assert.deepEqual(route.request().postDataJSON(), { action: 'accept', token: 'fixture-coach-invite' })
+      assert.equal(route.request().headers().authorization, `Bearer fixture-token-${email}`)
+      accepted = true
+      await route.fulfill({ json: { success: true } })
+    })
+    await page.goto(`${mainBaseUrl}/staff-invite/fixture-coach-invite`, { waitUntil: 'domcontentloaded', timeout: 60000 })
+    await page.getByRole('button', { name: 'I already have an account' }).click()
+    await page.getByLabel('Existing password').fill(fixturePassword)
+    await page.getByRole('button', { name: 'Sign in and add Coach access' }).click()
+    await assertVisibleText(page, 'Coach access added to your account.')
+    assert.equal(accepted, true)
     await context.close()
   })
 

@@ -102,9 +102,11 @@ test('acceptance has one app call, waits for its result, then refreshes parent a
 
   assert.equal(acceptanceCalls.length, 1)
   assert.match(inviteSource, /const link = await acceptParentPortalInvite\(token\)/)
-  assert.match(inviteSource, /await selectAccessMode\('parent'\)[\s\S]*buildParentInviteSuccessPath\(link\.id\)/)
+  assert.match(inviteSource, /const refreshParentAccess = useEffectEvent\(async \(\) => \{[\s\S]*await selectAccessMode\('parent'\)/)
+  assert.match(inviteSource, /await refreshParentAccess\(\)[\s\S]*buildParentInviteSuccessPath\(link\.id\)/)
   assert.doesNotMatch(inviteSource, /withTimeout\(\s*acceptParentPortalInvite/)
   assert.match(domainSource, /supabase\.rpc\('accept_parent_player_link', \{\s*invite_token_value: token,\s*\}\)/)
+  assert.match(domainSource, /invalidateMemoryCacheByPrefix\(`user-profile:\$\{acceptedRow\.auth_user_id\}:`\)/)
 })
 
 test('parent portal selects the accepted child and shows a clear success state', async () => {

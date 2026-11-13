@@ -1,8 +1,10 @@
-import { useEffect, useState } from 'react'
-import { Link, useParams, useSearchParams } from 'react-router-dom'
+import { useEffect, useRef, useState } from 'react'
+import { useParams, useSearchParams } from 'react-router-dom'
 import fallbackLogo from '../assets/football-player-logo.webp'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
 import { SignupAppLinks } from '../components/login/SignupAppLinks.jsx'
+import { useAuth } from '../lib/auth.js'
+import { rememberLoginAccessIntent } from '../lib/login-access-intent.js'
 import { assertPasswordPolicy, PASSWORD_MIN_LENGTH, PASSWORD_POLICY_SUMMARY } from '../lib/password-policy.js'
 
 const inputClass = 'min-h-11 w-full rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 text-sm font-semibold text-[#101828] outline-none transition focus:border-[#047857] focus:bg-white focus:ring-2 focus:ring-[#bbf7d0]'
@@ -12,6 +14,7 @@ export function StaffInvitePage() {
   const { token: pathToken } = useParams()
   const [searchParams] = useSearchParams()
   const token = pathToken || searchParams.get('token') || ''
+  const { session, signInWithPassword } = useAuth()
   const [invite, setInvite] = useState(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
@@ -20,6 +23,18 @@ export function StaffInvitePage() {
   const [confirmPassword, setConfirmPassword] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
   const [successMessage, setSuccessMessage] = useState('')
+  const [useExistingAccount, setUseExistingAccount] = useState(false)
+  const [alreadyAccepted, setAlreadyAccepted] = useState(false)
+  const submitting = useRef(false)
+  const matchingSession = Boolean(invite?.email && session?.user?.email?.trim().toLowerCase() === invite.email)
+  const existingAccount = useExistingAccount || matchingSession
+
+  function openCoachWorkspace(event) {
+    if (!matchingSession) return
+    event.preventDefault()
+    rememberLoginAccessIntent('team')
+    window.location.assign('/coach')
+  }
 
   useEffect(() => {
     let isCurrent = true
@@ -27,12 +42,14 @@ export function StaffInvitePage() {
     async function loadInvite() {
       setIsLoading(true)
       setErrorMessage('')
+      setAlreadyAccepted(false)
 
       try {
         const response = await fetch(`/.netlify/functions/get-staff-invite?token=${encodeURIComponent(token || '')}`)
         const result = await response.json().catch(() => ({}))
 
         if (!response.ok || result.success === false) {
+          if (isCurrent && result.code === 'invite_accepted') setAlreadyAccepted(true)
           throw new Error(result.message || 'Coach invite could not be loaded.')
         }
 
@@ -62,6 +79,7 @@ export function StaffInvitePage() {
 
   const handleSubmit = async (event) => {
     event.preventDefault()
+    if (submitting.current) return
     setErrorMessage('')
     setSuccessMessage('')
 
@@ -70,43 +88,54 @@ export function StaffInvitePage() {
       return
     }
 
-    try {
-      assertPasswordPolicy(password)
-    } catch (error) {
-      setErrorMessage(error.message)
-      return
+    if (!existingAccount) {
+      try {
+        assertPasswordPolicy(password)
+      } catch (error) {
+        setErrorMessage(error.message)
+        return
+      }
+      if (password !== confirmPassword) {
+        setErrorMessage('Passwords do not match.')
+        return
+      }
     }
 
-    if (password !== confirmPassword) {
-      setErrorMessage('Passwords do not match.')
-      return
-    }
-
+    submitting.current = true
     setIsSaving(true)
 
     try {
+      const signedInSession = matchingSession ? session : existingAccount
+        ? (await signInWithPassword({ email: invite.email, password, preferredAccessMode: 'team' })).session
+        : null
+      if (existingAccount && !signedInSession?.access_token) throw new Error('Sign in again to accept Coach access.')
       const response = await fetch('/.netlify/functions/create-staff-account', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          token,
-          email: invite.email,
-          password,
-        }),
+        headers: {
+          'Content-Type': 'application/json',
+          ...(signedInSession?.access_token ? { Authorization: `Bearer ${signedInSession.access_token}` } : {}),
+        },
+        body: JSON.stringify(existingAccount ? { action: 'accept', token } : { action: 'create', token, email: invite.email, password }),
       })
       const result = await response.json().catch(() => ({}))
 
       if (!response.ok || result.success === false) {
+        if (result.code === 'existing_account') {
+          setUseExistingAccount(true)
+          setPassword('')
+          setConfirmPassword('')
+        }
         throw new Error(result.message || 'Coach account could not be created.')
       }
 
-      setSuccessMessage('Coach access created. You can now sign in.')
+      setSuccessMessage(existingAccount ? 'Coach access added to your account.' : 'Coach access created. You can now sign in.')
       setPassword('')
       setConfirmPassword('')
     } catch (error) {
       console.error(error)
       setErrorMessage(error.message || 'Coach account could not be created.')
     } finally {
+      submitting.current = false
       setIsSaving(false)
     }
   }
@@ -122,9 +151,9 @@ export function StaffInvitePage() {
           className="mb-6 h-16 w-16 rounded-lg border border-[#d7e5dc] bg-white object-contain p-1 shadow-sm shadow-[#047857]/10"
         />
         <p className="mb-3 text-xs font-black uppercase tracking-[0.18em] text-[#047857]">Coach invite</p>
-        <h1 className="text-2xl font-black text-[#101828]">Create Coach access</h1>
+        <h1 className="text-2xl font-black text-[#101828]">Accept Coach access</h1>
         <p className="mt-3 text-sm font-semibold leading-6 text-[#4b5f55]">
-          Create your own login for the club role shown below. Do not share another Coach's account.
+          Use your Football Player account or create one with the invited email.
         </p>
 
         {isLoading ? (
@@ -134,6 +163,7 @@ export function StaffInvitePage() {
         ) : errorMessage && !invite ? (
           <div className="mt-6">
             <NoticeBanner title="Coach invite not opened" message={errorMessage} />
+            {alreadyAccepted ? <a href="/sign-in/coach" className={`${primaryButtonClass} mt-4`}>Continue to Coach sign in</a> : null}
           </div>
         ) : (
           <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
@@ -153,18 +183,18 @@ export function StaffInvitePage() {
 
             {!successMessage ? (
               <>
-                <label className="block">
-                  <span className="mb-2 block text-sm font-black text-[#101828]">Create password</span>
+                {!matchingSession ? <label className="block">
+                  <span className="mb-2 block text-sm font-black text-[#101828]">{existingAccount ? 'Existing password' : 'Create password'}</span>
                   <div className="flex rounded-lg border border-[#d7e5dc] bg-[#f7faf8] focus-within:border-[#047857] focus-within:bg-white focus-within:ring-2 focus-within:ring-[#bbf7d0]">
                     <input
                       type={isPasswordVisible ? 'text' : 'password'}
                       value={password}
                       onChange={(event) => setPassword(event.target.value)}
                       required
-                      minLength={PASSWORD_MIN_LENGTH}
-                      autoComplete="new-password"
+                      minLength={existingAccount ? undefined : PASSWORD_MIN_LENGTH}
+                      autoComplete={existingAccount ? 'current-password' : 'new-password'}
                       className="min-h-11 min-w-0 flex-1 bg-transparent px-4 py-3 text-sm font-semibold text-[#101828] outline-none"
-                      placeholder="Create a password"
+                      placeholder={existingAccount ? 'Enter your password' : 'Create a password'}
                     />
                     <button
                       type="button"
@@ -174,9 +204,9 @@ export function StaffInvitePage() {
                       {isPasswordVisible ? 'Hide' : 'Show'}
                     </button>
                   </div>
-                </label>
+                </label> : null}
 
-                <label className="block">
+                {!existingAccount ? <><label className="block">
                   <span className="mb-2 block text-sm font-black text-[#101828]">Confirm password</span>
                   <input
                     type={isPasswordVisible ? 'text' : 'password'}
@@ -190,20 +220,26 @@ export function StaffInvitePage() {
                   />
                 </label>
 
-                  <p className="text-sm font-semibold leading-6 text-[#4b5f55]">{PASSWORD_POLICY_SUMMARY}</p>
+                  <p className="text-sm font-semibold leading-6 text-[#4b5f55]">{PASSWORD_POLICY_SUMMARY}</p></> : null}
 
                   <button
                   type="submit"
                   disabled={isSaving}
                   className={primaryButtonClass}
                 >
-                  {isSaving ? 'Creating access...' : 'Create Coach Access'}
+                  {isSaving ? 'Setting up access...' : matchingSession ? 'Add Coach access' : existingAccount ? 'Sign in and add Coach access' : 'Create account and add Coach access'}
                 </button>
+                {!matchingSession ? <button type="button" disabled={isSaving} className="block min-h-11 text-sm font-bold text-[#047857] underline" onClick={() => {
+                  setUseExistingAccount(!useExistingAccount)
+                  setPassword('')
+                  setConfirmPassword('')
+                  setErrorMessage('')
+                }}>{existingAccount ? 'Create a new account' : 'I already have an account'}</button> : null}
               </>
             ) : (
               <>
                 <SignupAppLinks role="coach" />
-                <Link to="/sign-in/coach" className={primaryButtonClass}>Continue on website</Link>
+                <a href="/sign-in/coach" className={primaryButtonClass} onClick={openCoachWorkspace}>Continue on website</a>
               </>
             )}
           </form>

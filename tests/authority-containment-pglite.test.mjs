@@ -5,6 +5,7 @@ import { test } from 'node:test'
 import { PGlite } from '@electric-sql/pglite'
 
 const migrationUrl = new URL('../supabase/migrations/20260719071505_p0_shared_authority_profile_containment.sql', import.meta.url)
+const staffInviteMigration = new URL('../supabase/migrations/20261113165700_v1_staff_invite_existing_accounts.sql', import.meta.url)
 
 const IDS = Object.freeze({
   clubA: '10000000-0000-0000-0000-000000000001',
@@ -33,6 +34,9 @@ async function createDatabase() {
     create table auth.users (
       id uuid primary key,
       email text,
+      email_confirmed_at timestamptz default now(),
+      banned_until timestamptz,
+      deleted_at timestamptz,
       raw_user_meta_data jsonb not null default '{}'::jsonb
     );
 
@@ -105,12 +109,14 @@ async function createDatabase() {
     create table public.teams (
       id uuid primary key,
       club_id uuid not null references public.clubs(id),
+      status text not null default 'active',
       name text not null
     );
 
     create table public.team_staff (
       team_id uuid not null references public.teams(id),
       user_id uuid not null references public.users(id),
+      role_key text,
       primary key (team_id, user_id)
     );
 
@@ -121,10 +127,20 @@ async function createDatabase() {
       role_key text not null,
       role_label text not null,
       role_rank integer not null,
+      invite_token uuid not null unique default gen_random_uuid(),
+      status text not null default 'pending',
+      cancelled_at timestamptz,
+      replaced_at timestamptz,
       team_id uuid references public.teams(id),
       expires_at timestamptz,
       accepted_at timestamptz,
       created_at timestamptz not null default timezone('utc', now())
+    );
+
+    create table public.club_user_invite_teams (
+      invite_id uuid not null references public.club_user_invites(id),
+      team_id uuid not null references public.teams(id),
+      primary key (invite_id, team_id)
     );
 
     create table public.audit_logs (
@@ -197,6 +213,60 @@ async function createDatabase() {
   await db.exec(await readFile(migrationUrl, 'utf8'))
   return db
 }
+
+test('existing Parent accepts only their Coach invitation and retains their profile and multi-team access', async (t) => {
+  const db = await createDatabase()
+  t.after(() => db.close())
+  const secondTeam = '20000000-0000-0000-0000-000000000003'
+  const token = '50000000-0000-0000-0000-000000000001'
+  const cancelledToken = '50000000-0000-0000-0000-000000000002'
+  const otherToken = '50000000-0000-0000-0000-000000000003'
+  const lowerRoleToken = '50000000-0000-0000-0000-000000000004'
+  const states = await readFile(new URL('../supabase/migrations/20260725174533_platform_club_access_management.sql', import.meta.url), 'utf8')
+  await db.exec(states.slice(states.indexOf('create or replace function public.enforce_club_user_invite_state_v1()'), states.indexOf('for each row execute function public.enforce_club_user_invite_state_v1();') + 'for each row execute function public.enforce_club_user_invite_state_v1();'.length))
+  await db.exec(await readFile(staffInviteMigration, 'utf8'))
+  await db.exec(`
+    insert into public.teams(id, club_id, name) values ('${secondTeam}', '${IDS.clubA}', 'Second team');
+    insert into public.club_user_invites(invite_token, club_id, email, role_key, role_label, role_rank, team_id, status, cancelled_at) values
+      ('${token}', '${IDS.clubA}', 'parent@example.test', 'head_manager', 'Team Admin', 70, '${IDS.teamA}', 'pending', null),
+      ('${cancelledToken}', '${IDS.clubB}', 'parent@example.test', 'coach', 'Coach', 30, '${IDS.teamB}', 'cancelled', now()),
+      ('${otherToken}', '${IDS.clubB}', 'parent@example.test', 'assistant_coach', 'Assistant Coach', 20, '${IDS.teamB}', 'pending', null);
+    insert into public.club_user_invite_teams(invite_id, team_id)
+      select i.id, t.id from public.club_user_invites i cross join public.teams t
+      where i.invite_token = '${token}' and t.id in ('${secondTeam}', '${IDS.teamB}');
+  `)
+  const accept = (id, inviteToken) => db.query('select public.claim_staff_invitations_v1($1, $2) as memberships', [id, inviteToken])
+  await setActor(db, IDS.parent)
+  await assert.rejects(accept(IDS.coach, token), /permission denied/)
+  await setActor(db, null, 'service_role')
+  assert.deepEqual((await accept(IDS.coach, token)).rows[0].memberships, [])
+  assert.deepEqual((await accept(IDS.parent, cancelledToken)).rows[0].memberships, [])
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const { rows } = await accept(IDS.parent, token)
+    assert.equal(rows[0].memberships[0].auth_user_id, IDS.parent)
+    assert.equal(rows[0].memberships[0].role, 'head_manager')
+  }
+  await asOwner(db)
+  assert.deepEqual((await db.query('select role, name, display_name from public.users where id = $1', [IDS.parent])).rows, [{ role: 'parent_portal', name: 'Parent', display_name: 'Parent' }])
+  assert.deepEqual((await db.query('select team_id, role_key from public.team_staff where user_id = $1 order by team_id', [IDS.parent])).rows, [IDS.teamA, secondTeam].map(team_id => ({ team_id, role_key: 'head_manager' })))
+  assert.equal((await db.query('select status from public.club_user_invites where invite_token = $1', [otherToken])).rows[0].status, 'pending')
+  await db.query(`insert into public.club_user_invites(invite_token, club_id, email, role_key, role_label, role_rank, team_id)
+    values ($1, $2, 'parent@example.test', 'assistant_coach', 'Assistant Coach', 20, $3)`, [lowerRoleToken, IDS.clubA, IDS.teamA])
+  await setActor(db, null, 'service_role')
+  assert.equal((await accept(IDS.parent, lowerRoleToken)).rows[0].memberships[0].role, 'head_manager')
+  await asOwner(db)
+  assert.equal((await db.query('select role_key from public.team_staff where user_id = $1 and team_id = $2', [IDS.parent, IDS.teamA])).rows[0].role_key, 'head_manager')
+  await db.query('update auth.users set email_confirmed_at = null where id = $1', [IDS.parent])
+  await setActor(db, IDS.parent)
+  assert.deepEqual((await db.query('select public.accept_own_club_user_invites() as memberships')).rows[0].memberships, [])
+  await asOwner(db)
+  await db.query('update auth.users set email_confirmed_at = now() where id = $1', [IDS.parent])
+  await setActor(db, IDS.parent)
+  assert.equal((await db.query('select public.accept_own_club_user_invites() as memberships')).rows[0].memberships[0].club_id, IDS.clubB)
+  const { rows: [{ profile }] } = await db.query('select public.activate_own_club_membership($1) as profile', [IDS.clubA])
+  assert.equal(profile.role, 'head_manager')
+  assert.equal(profile.name, 'Parent')
+})
 
 async function setActor(db, actorId, role = 'authenticated') {
   await db.exec('reset role')
