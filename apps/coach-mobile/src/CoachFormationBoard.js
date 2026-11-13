@@ -1122,6 +1122,15 @@ export function CoachFormationBoard({ context, initialBoardId = '', match = null
 
       {undoMove && canEdit && undoMove.after === draft ? <View style={[styles.rowBetween, fullScreen && styles.canvasUndo]} accessibilityLiveRegion="polite"><Text style={[styles.body, fullScreen && styles.canvasText]}>Lineup changed</Text><Pressable accessibilityRole="button" accessibilityLabel="Undo last player move" onPress={() => { setDraft(undoMove.before); setSelectedPlayerId(''); setNotice(''); }} style={styles.topIcon}><Text style={[styles.count, fullScreen && styles.canvasText]}>Undo</Text></Pressable></View> : null}
       <View onLayout={fullScreen ? (event) => setFooterHeight(event.nativeEvent.layout.height) : undefined} style={fullScreen ? styles.canvasFooter : null}>
+      <View style={styles.bench}>
+        <Pressable accessibilityLabel={`${benchExpanded ? 'Collapse' : 'Expand'} substitutes, ${draft.bench.length} Players`} accessibilityRole="button" onPress={() => setBenchExpanded((current) => !current)} style={styles.benchHeader}>
+          <Text style={[styles.heading, fullScreen && { color: 'white', fontSize: 16, paddingHorizontal: 12 }]}>Subs ({draft.bench.length})</Text>
+          <MaterialIcons color={fullScreen ? 'white' : palette.textPrimary} name={benchExpanded ? 'expand-less' : 'expand-more'} size={28} />
+        </Pressable>
+        {benchExpanded ? draft.bench.length ? <ScrollView contentContainerStyle={styles.benchContent} horizontal showsHorizontalScrollIndicator={false}>{displayedBench.map((player) => { const selected = selectedPlayerId === player.playerId; return <ScrollSafePressable accessibilityHint={canEdit ? draft.placements.length >= capacity ? 'Select this substitute for a swap from the pitch.' : 'Moves this substitute into the next empty pitch position.' : 'This substitute is read-only.'} accessibilityLabel={`${player.displayName}${player.shirtNumber ? `, shirt ${player.shirtNumber}` : ''}, substitute`} accessibilityRole="button" accessibilityState={{ disabled: !canEdit, selected }} disabled={!canEdit} key={player.playerId} onPress={() => draft.placements.length < capacity ? moveBenchPlayerToPitch(player.playerId) : selectPlayer(player.playerId, 'bench')} style={[styles.benchPlayerButton, selected && styles.benchPlayerButtonSelected]}><FormationSubArtwork name={player.displayName} number={player.shirtNumber} shirtKit={displayedShirtKit} styles={styles} /></ScrollSafePressable> })}</ScrollView> : <Text style={[styles.body, fullScreen && styles.canvasText]}>No substitutes selected.</Text> : null}
+        {benchExpanded && selectedBenchPlayer ? <Text accessibilityLiveRegion="polite" style={[styles.body, fullScreen && styles.canvasText]}>{selectedBenchPlayer.displayName} selected. Tap a starter to swap.</Text> : null}
+      </View>
+
       <View accessibilityLabel="Formation shirt" style={[styles.row, fullScreen && { paddingHorizontal: 12 }]}>
         <Text style={[styles.label, fullScreen && styles.canvasText]}>Shirt</Text>
         {['home', 'away'].map(type => {
@@ -1131,14 +1140,6 @@ export function CoachFormationBoard({ context, initialBoardId = '', match = null
             selected={displayedShirtKit?.type === type} onPress={() => setDraft({ ...draft, shirtKit: kit })} styles={styles} />
         })}
         {!displayedShirtKit ? <Text style={[styles.body, fullScreen && styles.canvasText]}>No club shirts loaded</Text> : null}
-      </View>
-      <View style={styles.bench}>
-        <Pressable accessibilityLabel={`${benchExpanded ? 'Collapse' : 'Expand'} substitutes, ${draft.bench.length} Players`} accessibilityRole="button" onPress={() => setBenchExpanded((current) => !current)} style={styles.benchHeader}>
-          <Text style={[styles.heading, fullScreen && { color: 'white', fontSize: 16, paddingHorizontal: 12 }]}>Subs ({draft.bench.length})</Text>
-          <MaterialIcons color={fullScreen ? 'white' : palette.textPrimary} name={benchExpanded ? 'expand-less' : 'expand-more'} size={28} />
-        </Pressable>
-        {benchExpanded ? draft.bench.length ? <ScrollView contentContainerStyle={styles.benchContent} horizontal showsHorizontalScrollIndicator={false}>{displayedBench.map((player) => { const selected = selectedPlayerId === player.playerId; return <ScrollSafePressable accessibilityHint={canEdit ? draft.placements.length >= capacity ? 'Select this substitute for a swap from the pitch.' : 'Moves this substitute into the next empty pitch position.' : 'This substitute is read-only.'} accessibilityLabel={`${player.displayName}${player.shirtNumber ? `, shirt ${player.shirtNumber}` : ''}, substitute`} accessibilityRole="button" accessibilityState={{ disabled: !canEdit, selected }} disabled={!canEdit} key={player.playerId} onPress={() => draft.placements.length < capacity ? moveBenchPlayerToPitch(player.playerId) : selectPlayer(player.playerId, 'bench')} style={[styles.benchPlayerButton, selected && styles.benchPlayerButtonSelected]}><FormationSubArtwork name={player.displayName} number={player.shirtNumber} shirtKit={displayedShirtKit} styles={styles} /></ScrollSafePressable> })}</ScrollView> : <Text style={[styles.body, fullScreen && styles.canvasText]}>No substitutes selected.</Text> : null}
-        {benchExpanded && selectedBenchPlayer ? <Text accessibilityLiveRegion="polite" style={[styles.body, fullScreen && styles.canvasText]}>{selectedBenchPlayer.displayName} selected. Tap a starter to swap.</Text> : null}
       </View>
 
       <ScrollView style={fullScreen ? styles.canvasAlert : null}>
