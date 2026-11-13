@@ -8,7 +8,8 @@ import {
   inspectTransferWorkbookMode,
   parseTransferWorkbook,
 } from '../netlify/functions/lib/_data-transfer-workbook.js'
-import { buildImportPlan, toWorkbookExportData } from '../netlify/functions/lib/_data-transfer-plan.js'
+import { buildPitcheroPlan, PITCHERO_TEMPLATE, readPitcheroMembers } from '../netlify/functions/lib/_pitchero-import.js'
+import { buildImportPlan, sha256Json, toWorkbookExportData } from '../netlify/functions/lib/_data-transfer-plan.js'
 
 const migrationUrl = new URL('../supabase/migrations/20260717102324_data_transfer_v1.sql', import.meta.url)
 const storageMimeMigrationUrl = new URL('../supabase/migrations/20260723121825_data_transfer_storage_mime_allowlist_portable_season_recovery_08.sql', import.meta.url)
@@ -18,7 +19,7 @@ async function createDatabase() {
   await db.exec(`
     create role anon;
     create role authenticated;
-    create role service_role;
+    create role service_role bypassrls;
     create schema auth;
     create schema storage;
     create table auth.users (id uuid primary key default gen_random_uuid());
@@ -651,4 +652,125 @@ test('a material source change after preview fails the whole confirmed update pl
   } finally {
     await db.close()
   }
+})
+
+test('Pitchero missing fields, duplicate identities and unresolved relationships stay in the checklist', async () => {
+  const source = await readPitcheroMembers(Buffer.from([
+    'First name,Last name,Registered,Children,Parents,Email',
+    'Sam,Example,Yes,"Jo Example,Ash Example",,sam@example.test',
+    'Pat,Example,Yes,Jo Example,,pat@example.test',
+    'Ari,Example,Yes,,,',
+  ].join('\n')), { fileName: 'pitchero.csv' })
+  const scope = { clubId: 'club' }
+  const existing = { teams: [], players: [], guardians: [], links: [] }
+  const base = { source, existing, scope, season: '2026/27' }
+  const noTeams = buildPitcheroPlan({ ...base, decisions: {} })
+  assert.equal(noTeams.plan.players.length, 0)
+  assert.ok(noTeams.warnings.some((issue) => issue.message.includes('Team Unknown')))
+  assert.ok(noTeams.warnings.some((issue) => issue.message.includes('Player role Unknown')))
+
+  const decisions = Object.fromEntries(source.players.map((player) => [player.id, { team: 'U14' }]))
+  const unconfirmed = buildPitcheroPlan({ ...base, decisions })
+  assert.deepEqual(unconfirmed.plan.players.map((player) => player.values.first_name), ['Ash'])
+  assert.ok(unconfirmed.warnings.some((issue) => issue.code === 'PITCHERO_RELATIONSHIP_REVIEW'))
+  const player = source.players.find((entry) => entry.name === 'Jo Example')
+  decisions[player.id].confirmRelationships = true
+  const confirmed = buildPitcheroPlan({ ...base, decisions })
+  assert.equal(confirmed.plan.links.length, 3)
+  assert.equal(confirmed.plan.guardians.length, 2)
+
+  existing.teams.push({ id: 'team', name: 'U14', status: 'active' })
+  existing.players.push({ id: 'existing-player', player_name: 'Jo Example', team_id: 'team', status: 'active', contact_type: 'parent' })
+  const duplicate = buildPitcheroPlan({ ...base, decisions })
+  assert.ok(duplicate.warnings.some((issue) => issue.code === 'PITCHERO_DUPLICATE_PLAYER'))
+  assert.ok(duplicate.plan.players.every((entry) => entry.values.first_name !== 'Jo'))
+  decisions[player.id].confirmExisting = true
+  assert.equal(buildPitcheroPlan({ ...base, decisions }).plan.players.find((entry) => entry.entity_id === 'existing-player').pitchero_update, true)
+
+  await assert.rejects(readPitcheroMembers(Buffer.from('First name,Last name,Registered\nA,B,Yes,Unexpected'), { fileName: 'pitchero.csv' }), { code: 'CSV_EXTRA_VALUES' })
+})
+
+test('Pitchero confirmation imports team rosters, one parent for two children and adult self contact atomically', async (t) => {
+  const db = await createDatabase()
+  t.after(() => db.close())
+  const { actorId, clubId } = await seedBatch(db, 'PITCHERO')
+  await db.exec(`
+    alter table auth.users add column deleted_at timestamptz, add column banned_until timestamptz;
+    alter table public.clubs add column archived_at timestamptz, add column status text default 'active',
+      add column plan_key text default 'small_club', add column plan_status text default 'active',
+      add column is_plan_comped boolean default false, add column tester_access_expires_at timestamptz,
+      add column subscription_team_capacity integer;
+    alter table public.teams add column archived_at timestamptz;
+    alter table public.players add column archived_at timestamptz, add column contact_type text not null default 'parent',
+      add column parent_contacts jsonb not null default '[]';
+    create table public.club_team_limit_overrides(club_id uuid primary key, team_limit_override integer);
+    create table public.user_club_memberships(auth_user_id uuid, club_id uuid, role text, role_rank integer);
+    insert into public.user_club_memberships select id, club_id, role, role_rank from public.users;
+    create table public.player_team_memberships(id uuid primary key default gen_random_uuid(),
+      club_id uuid references public.clubs(id), team_id uuid references public.teams(id),
+      player_id uuid references public.players(id), status text default 'active');
+    create function public.synthetic_membership() returns trigger language plpgsql as $$
+    begin
+      insert into public.player_team_memberships(club_id, team_id, player_id) values (new.club_id, new.team_id, new.id);
+      return new;
+    end; $$;
+    create trigger synthetic_membership after insert on public.players for each row execute function public.synthetic_membership();
+    create schema app_private;
+    grant usage on schema app_private to service_role;
+    grant select on public.players, public.parent_player_links, public.player_team_memberships to service_role;
+  `)
+  const migration = await readFile(new URL('../supabase/migrations/20261113145726_club_admin_pitchero_and_league.sql', import.meta.url), 'utf8')
+  await db.exec(migration.slice(0, migration.indexOf('create function app_private.can_edit_team_league')))
+
+  const csv = Buffer.from([
+    'First name,Last name,Registered,Children,Parents,Email,Roles,Team,Date of birth',
+    'Jo,Family,Yes,"Casey Family,Morgan Family",,jo@example.test,Parent,,',
+    'Casey,Family,No,,Jo Family,,Player,U12,04/05/2015',
+    'Morgan,Family,No,,Jo Family,,Player,U14,10/03/2013',
+    'Avery,Senior,Yes,,,avery@example.test,Player,First Team,09/02/1999',
+  ].join('\n'))
+  const source = await readPitcheroMembers(csv, { fileName: 'pitchero.csv' })
+  const { plan, warnings } = buildPitcheroPlan({
+    source, existing: { teams: [], players: [], guardians: [], links: [] },
+    scope: { clubId }, decisions: {}, season: '2026/27',
+  })
+  const planHash = sha256Json(plan)
+  async function newBatch(targetPlan = plan) {
+    const hash = sha256Json(targetPlan)
+    const { rows } = await db.query(`
+      insert into public.data_transfer_batches (actor_id, actor_role, club_id, transfer_type, state,
+        template_version, workbook_name, workbook_sha256, workbook_size_bytes, raw_expires_at, plan, plan_sha256, options, warnings)
+      values ($1,'admin',$2,'import','awaiting_confirmation',$3,'pitchero.csv','synthetic',1,now(),$4::jsonb,$5,
+        '{"planKey":"small_club","teamLimit":5}', $6::jsonb) returning id
+    `, [actorId, clubId, PITCHERO_TEMPLATE, JSON.stringify(targetPlan), hash, JSON.stringify(warnings)])
+    return rows[0].id
+  }
+  const batchId = await newBatch()
+  assert.equal((await db.query("select has_function_privilege('authenticated', 'public.execute_pitchero_import(uuid,text)', 'execute') as allowed")).rows[0].allowed, false)
+  await db.exec('set role service_role')
+  const apply = (id, hash = planHash) => db.query('select public.execute_pitchero_import($1, $2) as result', [id, hash]).then(({ rows }) => rows[0].result)
+  const imported = await apply(batchId)
+  if (imported.state === 'failed') {
+    const { rows } = await db.query('select error_summary from public.data_transfer_batches where id = $1', [batchId])
+    assert.fail(JSON.stringify(rows[0].error_summary))
+  }
+  assert.deepEqual(imported.counts, { clubs: 0, teams: 3, players: 3, guardians: 1, links: 2 })
+  assert.equal((await apply(batchId)).idempotent, true)
+  const adult = (await db.query("select contact_type,parent_contacts,date_of_birth::text from public.players where player_name='Avery Senior'")).rows[0]
+  assert.deepEqual(adult, { contact_type: 'self', parent_contacts: [{ type: 'self', name: 'Avery Senior', email: 'avery@example.test' }], date_of_birth: '1999-02-09' })
+  const family = (await db.query('select count(distinct guardian_id)::int as guardians, count(distinct player_id)::int as players, count(distinct team_id)::int as teams, array_agg(distinct status) as statuses from public.parent_player_links')).rows[0]
+  assert.deepEqual(family, { guardians: 1, players: 2, teams: 2, statuses: ['uninvited'] })
+  assert.equal((await db.query("select count(*)::int as n from public.players where contact_type='parent' and parent_email='jo@example.test'")).rows[0].n, 2)
+  assert.equal((await db.query('select count(*)::int as n from public.player_team_memberships')).rows[0].n, 3)
+  await db.exec('reset role')
+  const staleId = await newBatch()
+  assert.equal((await apply(staleId)).state, 'failed')
+  assert.equal((await db.query('select count(*)::int as n from public.players')).rows[0].n, 3)
+  assert.equal((await db.query('select public.rollback_data_transfer_import($1) as result', [batchId])).rows[0].result.state, 'rolled_back')
+  assert.equal((await db.query('select count(*)::int as n from public.players')).rows[0].n, 0)
+  assert.equal((await db.query('select count(*)::int as n from public.player_team_memberships')).rows[0].n, 0)
+  const deniedId = await newBatch()
+  await db.query("update public.users set role_rank=50 where id=$1", [actorId])
+  assert.equal((await apply(deniedId)).state, 'failed')
+  assert.equal((await db.query('select count(*)::int as n from public.teams')).rows[0].n, 0)
 })

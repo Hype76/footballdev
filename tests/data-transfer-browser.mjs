@@ -4,6 +4,7 @@ import { once } from 'node:events'
 import { mkdir } from 'node:fs/promises'
 import net from 'node:net'
 import { chromium } from 'playwright'
+import { buildPitcheroPlan, previewPitcheroMembers, readPitcheroMembers } from '../netlify/functions/lib/_pitchero-import.js'
 import { buildTransferWorkbook, DATA_TRANSFER_MIME } from '../netlify/functions/lib/_data-transfer-workbook.js'
 
 const port = 4700 + Math.floor(Math.random() * 300)
@@ -158,7 +159,7 @@ async function waitForPort(timeoutMs = 30000) {
 }
 
 function startServer() {
-  const child = spawn(process.env.ComSpec || 'cmd.exe', ['/d', '/s', '/c', `npm.cmd run dev -- --host 0.0.0.0 --port ${port} --strictPort`], {
+  const child = spawn(process.execPath, ['node_modules/vite/bin/vite.js', '--host', '127.0.0.1', '--port', String(port), '--strictPort'], {
     cwd: process.cwd(),
     env: { ...process.env, BROWSER: 'none', VITE_AUTH_ACCESS_BROWSER_FIXTURES: 'true', VITE_APP_URL: baseUrl, VITE_PARENT_APP_URL: baseUrl, VITE_SUPABASE_URL: 'http://fixture.supabase.test', VITE_SUPABASE_ANON_KEY: 'fixture-anon-key' },
     stdio: ['ignore', 'pipe', 'pipe'],
@@ -177,17 +178,20 @@ async function stopServer(server) {
 }
 
 async function signIn(page, email) {
-  await page.goto(`${baseUrl}/sign-in`, { waitUntil: 'domcontentloaded' })
-  await page.getByRole('button', { name: 'Club' }).click()
+  await page.goto(`${baseUrl}/sign-in/coach`, { waitUntil: 'domcontentloaded' })
   await page.getByPlaceholder('you@club.com').fill(email)
   await page.getByPlaceholder('Enter password').fill(password)
-  await page.locator('form').getByRole('button', { name: /^Log in$/i }).click()
+  await page.locator('form').filter({ has: page.getByPlaceholder('Enter password') }).evaluate((form) => form.requestSubmit())
 }
 
 async function prepareContext(browser, workbookBuffer, options = {}) {
   const { fixtureRole = 'admin', ...contextOptions } = options
   const context = await browser.newContext({ acceptDownloads: true, ...contextOptions })
+  await context.addInitScript(() => {
+    localStorage.setItem('auth-access-browser-fixture-profile-patch:club.fixture@footballplayer.test', JSON.stringify({ roleRank: 90 }))
+  })
   let confirmCalls = 0
+  let pitcheroConfirmCalls = 0
   let blankCalls = 0
   let ordinaryExportCalls = 0
   let sourceInspectCalls = 0
@@ -247,6 +251,40 @@ async function prepareContext(browser, workbookBuffer, options = {}) {
       await route.fulfill({ status: 200, contentType: DATA_TRANSFER_MIME, body: workbookBuffer })
       return
     }
+    if (['pitchero-source', 'pitchero-inspect'].includes(body.operation)) {
+      assert.equal(fixtureRole, 'admin')
+      assert.equal(body.clubId, 'club-fixture')
+      const source = await readPitcheroMembers(Buffer.from(body.workbookBase64, 'base64'), body)
+      if (body.operation === 'pitchero-source') {
+        await route.fulfill({ json: { success: true, ...previewPitcheroMembers(source) } })
+        return
+      }
+      const { plan, warnings } = buildPitcheroPlan({
+        source, existing: { teams: [], players: [], guardians: [], links: [] },
+        scope: { clubId: body.clubId }, decisions: body.decisions, season: body.season,
+      })
+      await route.fulfill({ json: {
+        success: true, batch: { id: 'batch-pitchero', planSha256: 'pitchero-plan' }, warnings, errors: [],
+        confirmationToken: plan.players.length ? 'pitchero-confirm' : '',
+        summary: {
+          newTeams: plan.teams.map((team) => team.values.name),
+          newGuardians: plan.guardians.length, links: plan.links.length,
+          players: plan.players.map((player) => ({
+            name: [player.values.first_name, player.values.last_name].join(' '),
+            team: plan.teams.find((team) => team.values.transfer_reference === player.values.team_reference)?.values.name,
+            kind: player.pitchero_kind, contacts: player.pitchero_contacts,
+          })),
+        },
+      } })
+      return
+    }
+    if (body.operation === 'confirm' && body.batchId === 'batch-pitchero') {
+      assert.equal(body.confirmationToken, 'pitchero-confirm')
+      assert.equal(body.planSha256, 'pitchero-plan')
+      pitcheroConfirmCalls += 1
+      await route.fulfill({ json: { success: true, result: { state: 'completed_with_warnings' } } })
+      return
+    }
     if (body.operation === 'source-inspect') {
       sourceInspectCalls += 1
       if (String(body.fileName || '').endsWith('.csv')) {
@@ -299,7 +337,7 @@ async function prepareContext(browser, workbookBuffer, options = {}) {
   })
   await context.route('**/rest/v1/**', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }))
   await context.route('**/auth/v1/**', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: '{}' }))
-  return { context, blankCalls: () => blankCalls, confirmCalls: () => confirmCalls, inspectedTeamIds: () => inspectedTeamIds, lastInspectBody: () => lastInspectBody, lastOrdinaryExportBody: () => lastOrdinaryExportBody, ordinaryExportCalls: () => ordinaryExportCalls, rawCalls: () => rawCalls, sourceInspectCalls: () => sourceInspectCalls }
+  return { context, pitcheroConfirmCalls: () => pitcheroConfirmCalls, blankCalls: () => blankCalls, confirmCalls: () => confirmCalls, inspectedTeamIds: () => inspectedTeamIds, lastInspectBody: () => lastInspectBody, lastOrdinaryExportBody: () => lastOrdinaryExportBody, ordinaryExportCalls: () => ordinaryExportCalls, rawCalls: () => rawCalls, sourceInspectCalls: () => sourceInspectCalls }
 }
 
 const workbookBuffer = await buildTransferWorkbook({
@@ -373,7 +411,7 @@ try {
     assert.equal(fixture.lastOrdinaryExportBody().recordStatus, 'all')
     assert.equal(fixture.lastOrdinaryExportBody().season, '2026/27')
 
-    await page.locator('input[type=file]').setInputFiles({ name: 'footballplayer-online-portable-transfer-v1.xlsx', mimeType: DATA_TRANSFER_MIME, buffer: workbookBuffer })
+    await page.getByLabel('Club spreadsheet file').setInputFiles({ name: 'footballplayer-online-portable-transfer-v1.xlsx', mimeType: DATA_TRANSFER_MIME, buffer: workbookBuffer })
     await page.getByRole('button', { name: 'Read columns and worksheets' }).click()
     await page.getByText('Advanced portable structure verified.').waitFor()
     assert.equal(fixture.sourceInspectCalls(), 1)
@@ -419,7 +457,7 @@ try {
     await page.getByLabel('U12 Fixture Team', { exact: true }).check()
     await page.getByLabel('Confirmed season').fill('2026/27')
     const csv = Buffer.from('\uFEFFPlayer First Name,Player Last Name,Date of Birth,Team\r\nAlex,Example,01/02/2014,U12 Fixture Team\r\n', 'utf8')
-    await page.locator('input[type=file]').setInputFiles({ name: 'players.csv', mimeType: 'text/csv', buffer: csv })
+    await page.getByLabel('Club spreadsheet file').setInputFiles({ name: 'players.csv', mimeType: 'text/csv', buffer: csv })
     await page.getByRole('button', { name: 'Read columns and worksheets' }).click()
     await page.getByRole('heading', { name: '5. Map columns and defaults' }).waitFor()
     assert.equal(await page.getByLabel('Map Player First Name').inputValue(), 'player_first_name')
@@ -441,6 +479,34 @@ try {
   }
 
   {
+    const fixture = await prepareContext(browser, workbookBuffer, { viewport: { width: 420, height: 900 } })
+    const page = await fixture.context.newPage()
+    await signIn(page, 'club.fixture@footballplayer.test')
+    await page.goto(`${baseUrl}/data-transfer`, { waitUntil: 'domcontentloaded' })
+    const pitchero = page.getByRole('region', { name: 'Import from Pitchero' })
+    const csv = Buffer.from('First name,Last name,Registered,Children,Parents,Email\r\nJo,Family,Yes,"Casey Family,Morgan Family",,jo@example.test\r\n')
+    await pitchero.getByLabel('Pitchero CSV file').setInputFiles({ name: 'pitchero.csv', mimeType: 'text/csv', buffer: csv })
+    await pitchero.getByRole('button', { name: 'Read Pitchero CSV' }).click()
+    await pitchero.getByLabel('Team for Casey Family', { exact: true }).waitFor()
+    await pitchero.getByRole('button', { name: 'Preview Pitchero import' }).click()
+    await pitchero.getByText('No new records are ready to import.', { exact: false }).waitFor()
+    await pitchero.getByText(/Follow-up checklist/).click()
+    await pitchero.getByText('Casey Family: Team Unknown.', { exact: false }).waitFor()
+    await pitchero.getByLabel('Team for players with no team in the CSV').fill('U12 Test')
+    await pitchero.getByLabel('Team for Morgan Family', { exact: true }).fill('U14 Test')
+    await pitchero.getByRole('button', { name: 'Preview Pitchero import' }).click()
+    await pitchero.getByText('2 new teams, 2 new players, 1 new parent contact and 2 parent links.', { exact: true }).waitFor()
+    const confirm = pitchero.getByRole('button', { name: 'Confirm Pitchero import' })
+    assert.ok(await confirm.isDisabled())
+    await pitchero.getByLabel(/I checked these teams/).check()
+    await confirm.click()
+    await pitchero.getByRole('heading', { name: 'Pitchero import completed' }).waitFor()
+    assert.equal(fixture.pitcheroConfirmCalls(), 1)
+    await fixture.context.close()
+    console.log('ok Pitchero team review, shared parent and separate confirmation')
+  }
+
+  {
     const fixture = await prepareContext(browser, workbookBuffer, { fixtureRole: 'coach' })
     const page = await fixture.context.newPage()
     await signIn(page, 'coach.fixture@footballplayer.test')
@@ -452,6 +518,7 @@ try {
     assert.equal(await page.getByLabel('U12 Fixture Team', { exact: true }).isChecked(), false)
     assert.equal(await page.getByLabel('U14 Fixture Team', { exact: true }).isChecked(), true)
     assert.equal(await page.getByRole('button', { name: 'Select all' }).count(), 0)
+    assert.equal(await page.getByRole('region', { name: 'Import from Pitchero' }).count(), 0)
     assert.equal(await page.getByLabel('Players and parent contacts').isDisabled(), true)
     await fixture.context.close()
     console.log('ok coach route allows exactly one explicitly selected assigned team and blocks guardian contacts')

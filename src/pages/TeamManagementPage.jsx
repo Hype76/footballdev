@@ -953,8 +953,23 @@ export function TeamManagementPage() {
       ) : null}
 
       {canManageOwnedTeam && selectedTeam?.id && <TeamBrandingOffer key={selectedTeam.id} teamId={selectedTeam.id} teamName={selectedTeam.name} isPlatformAdmin={user?.role === 'super_admin'} />}
+      {selectedTeam && (
+        <section aria-labelledby="team-league-heading" className="rounded-lg border border-[#d7e5dc] bg-white p-5 sm:p-6">
+          <h2 id="team-league-heading" className="text-xl font-black text-[#101828]">Team league link</h2>
+          <label className="mt-3 grid max-w-sm gap-1 text-sm font-bold text-[#101828]">
+            Team
+            <select
+              value={selectedTeam.id}
+              onChange={(event) => setSelectedTeamId(event.target.value)}
+              className="min-h-11 rounded-lg border border-[#d7e5dc] px-3"
+            >
+              {teamAssignments.map((team) => <option key={team.id} value={team.id}>{team.name}</option>)}
+            </select>
+          </label>
+          <TeamLeagueLinkSettings user={user} teamId={selectedTeam.id} />
+        </section>
+      )}
       <TeamStaffAllocationsSection
-        leagueSettings={<TeamLeagueLinkSettings user={user} teamId={selectedTeam?.id} />}
         availableStaff={filteredAvailableStaffForSelectedTeam}
         canDeleteTeam={isClubAdminUser}
         canManageStaffAllocations={canManageOwnedTeam}

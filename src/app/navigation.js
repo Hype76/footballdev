@@ -85,7 +85,7 @@ export const clubNavigation = [
   {
     label: 'Data Transfer',
     path: '/data-transfer',
-    helper: 'Import and export XLSX',
+    helper: 'Import Pitchero and club spreadsheets',
   },
   {
     label: 'Club Profile',

@@ -28,7 +28,7 @@ function TeamLeagueEditor({ scope }) {
       <label className="block text-sm font-semibold">League website URL<input aria-label="Current league website URL" type="url" maxLength={2048} disabled={!canEdit} value={values.url} onChange={event => change({ url: event.target.value })} placeholder="https://" className="mt-2 min-h-12 w-full rounded-lg border border-[#d7e5dc] px-3" /></label>
       <label className="flex min-h-12 items-center gap-3 text-sm font-semibold"><input type="checkbox" disabled={!canEdit} checked={values.enabled} onChange={event => change({ enabled: event.target.checked })} />Show league link</label>
       <button type="button" disabled={!canEdit} onClick={() => { void save() }} className="min-h-12 px-3 font-bold text-[#047857] disabled:opacity-50">{league.status === 'saving' ? 'Saving...' : 'Save league link'}</button>
-    </> : league.status === 'ready' ? <p className="text-sm text-[#4b5f55]">Only an assigned Team Admin can change this team's league link.</p> : null}
+    </> : league.status === 'ready' ? <p className="text-sm text-[#4b5f55]">Only a Club Admin or an assigned Team Admin can change this team's league link.</p> : null}
     {league.error || message ? <p role="status" className="text-sm">{league.error || message}</p> : null}
     {league.status === 'error' ? <button type="button" onClick={() => { void league.load() }} className="min-h-12 font-bold text-[#047857]">Retry league link</button> : null}
   </div>

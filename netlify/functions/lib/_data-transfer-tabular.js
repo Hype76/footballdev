@@ -245,7 +245,7 @@ function parseDelimitedText(text, delimiter) {
   return rows
 }
 
-function normalizedRowsToSheet(name, rows) {
+function normalizedRowsToSheet(name, rows, { rejectOverflow = false } = {}) {
   const headers = (rows[0] || []).map((value) => normalizeText(value))
   while (headers.length && !headers.at(-1)) headers.pop()
   if (!headers.length) throw dataError(`The sheet ${name} has no column headings.`, 'HEADERS_REQUIRED')
@@ -253,6 +253,9 @@ function normalizedRowsToSheet(name, rows) {
   const normalizedHeaderKeys = headers.map(normalizeHeader)
   if (normalizedHeaderKeys.some((header) => !header)) throw dataError(`The sheet ${name} contains a blank column heading.`, 'BLANK_HEADER')
   if (new Set(normalizedHeaderKeys).size !== normalizedHeaderKeys.length) throw dataError(`The sheet ${name} contains duplicate column headings.`, 'DUPLICATE_HEADER')
+  if (rejectOverflow && rows.slice(1).some((row) => row.slice(headers.length).some((cell) => normalizeText(cell)))) {
+    throw dataError('A CSV row contains values beyond the column headings. Check the export and try again.', 'CSV_EXTRA_VALUES')
+  }
   const dataRows = rows.slice(1)
     .filter((row) => row.some((cell) => normalizeText(cell)))
     .map((row) => headers.map((_, index) => row[index] ?? ''))
@@ -260,14 +263,14 @@ function normalizedRowsToSheet(name, rows) {
   return { name, headers, rows: dataRows, rowCount: dataRows.length }
 }
 
-async function inspectDelimited(buffer, format) {
+async function inspectDelimited(buffer, format, options) {
   const text = decodeUtf8(buffer)
   if (/^\s*</.test(text) && /<(?:html|script|xml|office:document)/i.test(text.slice(0, 500))) {
     throw dataError('The text file contains markup instead of spreadsheet rows.', 'UNSAFE_TEXT_CONTENT')
   }
   const delimiter = detectDelimiter(text, format)
   const rows = parseDelimitedText(text, delimiter)
-  return { format, sheets: [normalizedRowsToSheet(format === 'tsv' ? 'TSV Data' : 'CSV Data', rows)] }
+  return { format, sheets: [normalizedRowsToSheet(format === 'tsv' ? 'TSV Data' : 'CSV Data', rows, options)] }
 }
 
 async function inspectXlsx(buffer) {
@@ -418,6 +421,14 @@ function mappingSuggestion(header, samples) {
 function isAmbiguousDate(value) {
   const match = normalizeText(value).match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/)
   return Boolean(match && Number(match[1]) >= 1 && Number(match[1]) <= 12 && Number(match[2]) >= 1 && Number(match[2]) <= 12)
+}
+
+export async function readPitcheroCsv(buffer, options) {
+  if (await detectSpreadsheetFormat(buffer, options) !== 'csv') {
+    throw dataError('Choose a Pitchero CSV export.', 'PITCHERO_CSV_REQUIRED')
+  }
+  const { sheets } = await inspectDelimited(buffer, 'csv', { rejectOverflow: true })
+  return sheets[0]
 }
 
 export async function inspectSpreadsheetSource(buffer, options = {}) {

@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
+import { TeamLeagueLinkSettings } from '../components/teams/TeamLeagueLinkSettings.jsx'
 import { AccountProfileSection } from '../components/user-settings/AccountProfileSection.jsx'
 import { DisplaySettingsSection } from '../components/user-settings/DisplaySettingsSection.jsx'
 import { LoginEmailSection } from '../components/user-settings/LoginEmailSection.jsx'
@@ -62,9 +63,12 @@ export function UserSettingsPage() {
   const showSenderIdentity = canEditEmailTeamName
   const showDisplaySettings = Boolean(user?.id)
   const showSetupChecklistSettings = Boolean(user?.id) && user?.role !== 'super_admin'
+  const showTeamSettings = Boolean(user?.activeTeamId && ['admin', 'head_manager', 'manager', 'coach'].includes(user.role))
+    && !isDemoSettings
   const availableSettingsAreas = [
     'profile',
     ...(showDisplaySettings ? ['display'] : []),
+    ...(showTeamSettings ? ['team'] : []),
     ...(showSetupChecklistSettings ? ['setup'] : []),
     'security',
   ]
@@ -606,9 +610,9 @@ export function UserSettingsPage() {
         <p className="text-xs font-black uppercase tracking-[0.16em] text-[#047857]">Settings workspace</p>
         <h1 className="mt-2 text-2xl font-black tracking-tight text-[#101828]">Open one account area at a time</h1>
         <p className="mt-2 text-sm font-semibold leading-6 text-[#4b5f55]">
-          Profile, display, setup, and security controls remain separate so changes stay clear.
+          Choose the settings you want to update.
         </p>
-        <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <div className="mt-4 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
           {availableSettingsAreas.map((area) => (
             <button
               key={area}
@@ -675,6 +679,13 @@ export function UserSettingsPage() {
             </section>
           ) : null}
         </div>
+      ) : null}
+
+      {settingsArea === 'team' && showTeamSettings ? (
+        <section className="rounded-lg border border-[#d7e5dc] bg-white p-4 sm:p-5">
+          <h2 className="text-xl font-black text-[#101828]">{user.activeTeamName || 'Team settings'}</h2>
+          <TeamLeagueLinkSettings user={user} teamId={user.activeTeamId} />
+        </section>
       ) : null}
 
       {settingsArea === 'display' && showDisplaySettings ? (

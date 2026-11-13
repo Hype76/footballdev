@@ -4,6 +4,7 @@ import {readFile} from 'node:fs/promises'
 import {PGlite} from '@electric-sql/pglite'
 
 const draft=await readFile(new URL('../supabase/migrations/20261006062722_team_current_league_url.sql',import.meta.url),'utf8')
+const clubAdminEdit=await readFile(new URL('../supabase/migrations/20261113145726_club_admin_pitchero_and_league.sql',import.meta.url),'utf8')
 const fanRead=await readFile(new URL('../supabase/migrations/20261012092551_fan_team_league_read_access.sql',import.meta.url),'utf8')
 const id=n=>`00000000-0000-4000-8000-${String(n).padStart(12,'0')}`
 // Execute the unchanged draft against a synthetic local PostgreSQL schema.
@@ -15,7 +16,7 @@ async function setup(t){
  create schema auth;create schema app_private;
  create function auth.uid() returns uuid language sql as $$select '${id(1)}'::uuid$$;
  create table auth.users(id uuid,deleted_at timestamptz,banned_until timestamptz);
- create table public.users(id uuid,display_name text,name text,email text);
+ create table public.users(id uuid,display_name text,name text,email text,club_id uuid,role text,role_rank integer);
  create table public.clubs(id uuid,status text,archived_at timestamptz);
  create table public.teams(id uuid primary key,club_id uuid,name text,status text,archived_at timestamptz,updated_at timestamptz,updated_by uuid,updated_by_name text,updated_by_email text);
  create table public.team_staff(team_id uuid,user_id uuid,role_rank integer);
@@ -105,4 +106,24 @@ test('Fan league reads recheck ownership, account, sharing, player and team stat
  assert.equal((await read()).rows[0].league_url,null)
  await db.exec("reset role;update public.teams set status='archived';set role authenticated")
  assert.equal((await read()).rows.length,0)
+})
+
+test('Club Admins can edit teams in their own club without a team assignment', async t => {
+ const db = await setup(t)
+ await db.exec(clubAdminEdit.slice(clubAdminEdit.indexOf('create function app_private.can_edit_team_league')))
+ await db.query("update public.users set role='admin', role_rank=90, club_id=$1", [id(2)])
+ await db.exec('delete from public.team_staff; set role authenticated')
+ const get = () => db.query('select public.get_team_league_url($1) as value', [id(3)]).then(({rows}) => rows[0].value)
+ const save = () => db.query('select public.set_team_league_url($1,$2,true)', [id(3), 'https://league.example/club'])
+ assert.equal((await get()).can_edit, true)
+ await save()
+ assert.equal((await get()).league_url, 'https://league.example/club')
+ await db.exec("set synthetic.billing='blocked'")
+ await assert.rejects(save(), /Club Admin or assigned Team Admin access/)
+ await db.exec("reset role; set synthetic.billing='allowed'")
+ await db.query("update public.users set club_id=$1", [id(4)])
+ await db.exec('set role authenticated')
+ assert.equal((await get()).can_edit, false)
+ await assert.rejects(save(), /Club Admin or assigned Team Admin access/)
+ await assert.rejects(db.query('update public.teams set league_link_enabled=false where id=$1', [id(3)]), /Club Admin or assigned Team Admin access/)
 })

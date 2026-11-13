@@ -120,6 +120,17 @@ function validateSpreadsheetFile(file) {
   if (file.size > DATA_TRANSFER_MAX_BYTES) throw new Error('The spreadsheet exceeds the 4 MB upload limit.')
 }
 
+export async function requestPitcheroImport(operation, file, payload) {
+  validateSpreadsheetFile(file)
+  if (!file.name.toLowerCase().endsWith('.csv')) throw new Error('Choose a Pitchero CSV export.')
+  return dataTransferRequest(operation, {
+    ...payload,
+    fileName: file.name,
+    mimeType: file.type || '',
+    workbookBase64: await fileToBase64(file),
+  })
+}
+
 export async function confirmDataTransfer(payload) {
   return dataTransferRequest('confirm', payload)
 }

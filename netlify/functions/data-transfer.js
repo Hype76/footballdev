@@ -13,7 +13,7 @@ import {
   createPublicTransferReference,
   parseTransferWorkbook,
 } from './lib/_data-transfer-workbook.js'
-import { buildImportPlan, toWorkbookExportData } from './lib/_data-transfer-plan.js'
+import { buildImportPlan, sha256Json, toWorkbookExportData } from './lib/_data-transfer-plan.js'
 import {
   buildOrdinaryDataExport,
   ORDINARY_EXPORT_VERSION,
@@ -25,6 +25,9 @@ import {
   SIMPLE_TRANSFER_TEMPLATE_VERSION,
   TABULAR_FORMATS,
 } from './lib/_data-transfer-tabular.js'
+import { getPlanLimit } from '../../src/lib/plans.js'
+import { isClubWorkspace } from '../../src/lib/workspace-scope.js'
+import { buildPitcheroPlan, PITCHERO_TEMPLATE, previewPitcheroMembers, readPitcheroMembers } from './lib/_pitchero-import.js'
 import { inspectDataTransferSource } from './lib/_data-transfer-source.js'
 import { uploadDataTransferRawFile } from './lib/_data-transfer-storage.js'
 import {
@@ -562,6 +565,131 @@ async function handleSourceInspect(actor, body) {
   })
 }
 
+export function assertPitcheroAdmin(actor) {
+  if (actor.role !== 'admin' || !(Number(actor.roleRank) >= 90)) {
+    throw statusError('Only Club Admins can import Pitchero members.', 403, 'PITCHERO_CLUB_ADMIN_REQUIRED')
+  }
+}
+
+async function readPitcheroPage(query) {
+  const records = []
+  for (let offset = 0; ; offset += 1000) {
+    const { data, error } = await query.order('id').range(offset, offset + 999)
+    if (error) throw error
+    records.push(...data)
+    if (data.length < 1000) return records
+  }
+}
+
+async function loadPitcheroScope(actor, body) {
+  assertPitcheroAdmin(actor)
+  const scope = await resolveScope(actor, { clubId: body.clubId, clubWideScope: true }, { requireSelection: true })
+  const { data: club, error } = await supabaseAdmin.from('clubs')
+    .select('plan_key, plan_status, is_plan_comped, subscription_team_capacity, archived_at').eq('id', scope.clubId).single()
+  if (error) throw error
+  if (!isClubWorkspace(club) || club.archived_at) {
+    throw statusError('Pitchero import requires an active Club workspace.', 403, 'PITCHERO_CLUB_REQUIRED')
+  }
+  return { ...scope, club }
+}
+
+async function loadPitcheroExisting(clubId) {
+  const read = (table, fields) => readPitcheroPage(supabaseAdmin.from(table).select(fields).eq('club_id', clubId))
+  const [teams, players, guardians, links] = await Promise.all([
+    read('teams', 'id, name, transfer_reference, status, archived_at, updated_at'),
+    read('players', 'id, team_id, player_name, first_name, last_name, date_of_birth, transfer_reference, contact_type, parent_contacts, parent_email, parent_name, status, archived_at, updated_at'),
+    read('guardians', 'id, transfer_reference, first_name, last_name, email, status, updated_at'),
+    read('parent_player_links', 'id, player_id, team_id, guardian_id, email, status, link_type'),
+  ])
+  return { teams, players, guardians, links: links.filter((link) => link.link_type === 'parent') }
+}
+
+async function readPitcheroUpload(body) {
+  const buffer = readUploadedBuffer(body)
+  const fileName = text(body.fileName)
+  try {
+    const source = await readPitcheroMembers(buffer, { fileName, mimeType: text(body.mimeType) })
+    return { buffer, fileName, source }
+  } catch (error) {
+    throw statusError(error.message, spreadsheetErrorStatus(error), error.code || 'PITCHERO_CSV_REJECTED')
+  }
+}
+
+async function handlePitcheroSource(actor, body) {
+  await loadPitcheroScope(actor, body)
+  const { source } = await readPitcheroUpload(body)
+  return response(200, { success: true, ...previewPitcheroMembers(source) })
+}
+
+async function handlePitcheroInspect(actor, body) {
+  const scope = await loadPitcheroScope(actor, body)
+  const season = text(body.season)
+  if (season && !/^\d{4}(?:\/\d{2}(?:\d{2})?)?$/.test(season)) {
+    throw statusError('Enter a season such as 2026/27, or leave it Unknown.', 422, 'PITCHERO_INVALID_SEASON')
+  }
+  const { buffer, fileName, source } = await readPitcheroUpload(body)
+  const existing = await loadPitcheroExisting(scope.clubId)
+  const { plan, warnings } = buildPitcheroPlan({ source, existing, scope, decisions: body.decisions, season })
+  const { data: override, error } = await supabaseAdmin.from('club_team_limit_overrides')
+    .select('team_limit_override').eq('club_id', scope.clubId).maybeSingle()
+  if (error) throw error
+  const newTeams = plan.teams.filter((team) => team.action === 'create')
+  const teamLimit = getPlanLimit({ ...scope.club, team_limit_override: override?.team_limit_override }, 'teams')
+  const errors = []
+  if (newTeams.length && teamLimit != null && existing.teams.length + newTeams.length > teamLimit) {
+    errors.push({ code: 'PITCHERO_TEAM_LIMIT', column: 'Team', message: 'The new teams would exceed this club’s team limit.' })
+  }
+  if (newTeams.length && !season) warnings.push({ code: 'PITCHERO_UNKNOWN', column: 'Season', message: 'Season Unknown for new teams.' })
+  const counts = {
+    create: newTeams.length + plan.players.filter((player) => player.action === 'create').length + plan.guardians.filter((guardian) => guardian.action === 'create').length,
+    link: plan.links.length,
+    update: plan.players.filter((player) => player.pitchero_update).length,
+    unchanged: plan.players.filter((player) => player.action === 'unchanged' && !player.pitchero_update).length,
+  }
+  const teamNames = new Map(plan.teams.map((team) => [team.values.transfer_reference, team.values.name]))
+  const summary = { newTeams: newTeams.map((team) => team.values.name), players: plan.players.map((player) => ({
+    name: [player.values.first_name, player.values.last_name].join(' '),
+    team: teamNames.get(player.values.team_reference),
+    kind: player.pitchero_kind,
+    existing: player.action === 'unchanged',
+    update: Boolean(player.pitchero_update),
+    contacts: player.pitchero_contacts,
+  })), newGuardians: plan.guardians.filter((guardian) => guardian.action === 'create').length, links: plan.links.length }
+  const hasWrites = counts.create + counts.link + counts.update > 0
+  const batchId = randomUUID()
+  const confirmationToken = errors.length || !hasWrites ? '' : randomUUID()
+  const planSha256 = sha256Json(plan)
+  const expiresAt = new Date(Date.now() + DATA_TRANSFER_RAW_RETENTION_DAYS * 86400000).toISOString()
+  const workbookSha256 = sha256(buffer)
+  const state = confirmationToken ? 'ready_for_review' : 'invalid'
+  // Keep the reviewed plan and checklist in the club-only transfer history.
+  // The original Pitchero export does not need to be retained.
+  const { error: batchError } = await supabaseAdmin.from('data_transfer_batches').insert({
+    id: batchId,
+    actor_id: actor.id,
+    actor_role: actor.role,
+    club_id: scope.clubId,
+    authorized_team_ids: scope.authorizedTeamIds,
+    transfer_type: 'import',
+    state,
+    template_version: PITCHERO_TEMPLATE,
+    workbook_name: fileName.slice(0, 180) || 'Pitchero.csv',
+    workbook_sha256: workbookSha256,
+    workbook_size_bytes: buffer.length,
+    raw_expires_at: expiresAt,
+    options: { planningMode: 'pitchero', teamLimit: teamLimit ?? null, planKey: scope.club.plan_key, teamLimitOverride: override?.team_limit_override ?? null, subscriptionTeamCapacity: scope.club.subscription_team_capacity ?? null },
+    plan,
+    plan_sha256: planSha256,
+    confirmation_sha256: confirmationToken ? sha256(confirmationToken) : null,
+    counts,
+    warnings,
+    error_summary: errors,
+  })
+  if (batchError) throw batchError
+  await insertAudit({ action: 'pitchero_import_reviewed', actor, batchId, scope, metadata: { counts, warningCount: warnings.length } })
+  return response(200, { success: true, batch: { id: batchId, state, planSha256 }, summary, errors, warnings, confirmationToken })
+}
+
 async function handleInspect(actor, body) {
   const scope = await resolveScope(actor, body, { requireSelection: true })
   const importOptions = {
@@ -734,6 +862,9 @@ async function loadBatchForActor(actor, batchId) {
   const { data: batch, error } = await supabaseAdmin.from('data_transfer_batches').select('*').eq('id', batchId).maybeSingle()
   if (error || !batch) throw statusError('Transfer batch was not found.', 404, 'BATCH_NOT_FOUND')
   const scope = await resolveScope(actor, { clubId: batch.club_id, auditReason: batch.audit_reason || 'Existing transfer audit' })
+  if (batch.template_version === PITCHERO_TEMPLATE && (actor.role !== 'admin' || actor.roleRank < 90) && actor.role !== 'super_admin') {
+    throw statusError('This Pitchero batch is restricted to Club Admins.', 403, 'BATCH_SCOPE_DENIED')
+  }
   const allowedTeams = new Set(scope.authorizedTeamIds)
   const batchTeamIds = batch.authorized_team_ids || []
   if (!scope.canManageAllTeams && batchTeamIds.some((id) => !allowedTeams.has(id))) throw statusError('This transfer batch is outside your team scope.', 403, 'BATCH_SCOPE_DENIED')
@@ -751,6 +882,12 @@ async function handleConfirm(actor, body) {
   const token = text(body.confirmationToken)
   if (!batchId || !token) throw statusError('Batch confirmation details are required.', 400, 'CONFIRMATION_REQUIRED')
   const { batch, scope } = await loadBatchForActor(actor, batchId)
+  if (batch.template_version === PITCHERO_TEMPLATE) {
+    assertPitcheroAdmin(actor)
+    if (Date.parse(batch.raw_expires_at) <= Date.now() && !['completed', 'completed_with_warnings'].includes(batch.state)) {
+      throw statusError('This Pitchero preview expired. Preview the CSV again.', 409, 'PITCHERO_PREVIEW_EXPIRED')
+    }
+  }
   if (batch.actor_id !== actor.id) throw statusError('The transfer plan is bound to the account that created it.', 403, 'ACTOR_BINDING_MISMATCH')
   if (batch.confirmation_sha256 !== sha256(token)) throw statusError('The confirmation token is invalid.', 403, 'CONFIRMATION_INVALID')
   if (text(body.planSha256) !== text(batch.plan_sha256)) throw statusError('The confirmed transfer plan has changed.', 409, 'CONFIRMATION_PLAN_HASH_MISMATCH')
@@ -763,9 +900,12 @@ async function handleConfirm(actor, body) {
       if (!['awaiting_confirmation', 'processing', 'completed', 'completed_with_warnings'].includes(current?.state)) throw statusError('This transfer was changed before confirmation.', 409, 'STALE_CONFIRMATION')
     }
   }
-  const { data, error } = await supabaseAdmin.rpc('execute_data_transfer_import', { batch_id_value: batch.id, plan_sha256_value: batch.plan_sha256 })
+  const execute = batch.template_version === PITCHERO_TEMPLATE ? 'execute_pitchero_import' : 'execute_data_transfer_import'
+  const { data, error } = await supabaseAdmin.rpc(execute, { batch_id_value: batch.id, plan_sha256_value: batch.plan_sha256 })
   if (error) throw error
-  if (data?.state === 'failed') throw statusError('The import transaction failed without committing business records. Review the batch error report.', 409, data.errorCode || 'IMPORT_TRANSACTION_FAILED')
+  if (data?.state === 'failed') throw statusError(batch.template_version === PITCHERO_TEMPLATE
+    ? 'The Pitchero import could not be applied. Preview the CSV again against the latest club data.'
+    : 'The import transaction failed without committing business records. Review the batch error report.', 409, data.errorCode || 'IMPORT_TRANSACTION_FAILED')
   await insertAudit({ action: data?.idempotent ? 'data_transfer_confirmation_retried' : 'data_transfer_confirmation_accepted', actor, batchId: batch.id, scope, metadata: { planSha256: batch.plan_sha256, idempotent: Boolean(data?.idempotent) } })
   return response(200, { success: true, result: data })
 }
@@ -777,7 +917,9 @@ async function handleHistory(actor, body) {
     .eq('club_id', scope.clubId).order('created_at', { ascending: false }).limit(100)
   if (error) throw error
   const allowed = new Set(scope.authorizedTeamIds)
-  const scopedHistory = (data || []).filter((batch) => scope.isClubWideScope || (batch.authorized_team_ids || []).every((id) => allowed.has(id)))
+  const scopedHistory = (data || []).filter((batch) => batch.template_version === PITCHERO_TEMPLATE
+    ? actor.role === 'super_admin' || (actor.role === 'admin' && actor.roleRank >= 90)
+    : scope.isClubWideScope || (batch.authorized_team_ids || []).every((id) => allowed.has(id)))
   const actorIds = [...new Set(scopedHistory.map((batch) => batch.actor_id).filter(Boolean))]
   const { data: actors, error: actorsError } = actorIds.length
     ? await supabaseAdmin.from('users').select('id, name, username').in('id', actorIds)
@@ -789,7 +931,7 @@ async function handleHistory(actor, body) {
   const history = scopedHistory.map(({ storage_path: storagePath, ...batch }) => {
     const batchTeamIds = batch.authorized_team_ids || []
     const scopedNames = batchTeamIds.map((id) => teamNames.get(id)).filter(Boolean)
-    const clubWide = scope.isClubWideScope && ['super_admin', 'admin'].includes(batch.actor_role) && batchTeamIds.length === scope.teams.length
+    const clubWide = batch.template_version === PITCHERO_TEMPLATE || (scope.isClubWideScope && ['super_admin', 'admin'].includes(batch.actor_role) && batchTeamIds.length === scope.teams.length)
     const scopeLabel = clubWide ? 'Club-wide' : scopedNames.join(', ') || 'Authorized teams'
     return {
       ...batch,
@@ -828,7 +970,7 @@ async function handleDetails(actor, body) {
     }
     return { entityType: record.entity_type, action: record.action, reference: reference || 'No public reference', rollbackState: batch.state === 'rolled_back' ? 'rolled_back' : batch.state === 'rollback_blocked' ? 'manual_review' : 'retained' }
   })
-  return response(200, { success: true, batch: { id: batch.id, state: batch.state, counts: batch.counts, warnings: batch.warnings, errors: batch.error_summary, createdAt: batch.created_at, completedAt: batch.completed_at, rollbackBlockedReason: batch.rollback_blocked_reason }, preview: rows || [], affectedRecords })
+  return response(200, { success: true, batch: { id: batch.id, state: batch.state, counts: batch.counts, warnings: batch.warnings, errors: batch.error_summary, createdAt: batch.created_at, completedAt: batch.completed_at, rollbackBlockedReason: batch.rollback_blocked_reason, templateVersion: batch.template_version }, preview: rows || [], affectedRecords })
 }
 
 async function handleErrorReport(actor, body) {
@@ -892,6 +1034,8 @@ const DEFAULT_OPERATION_HANDLERS = Object.freeze({
   history: handleHistory,
   inspect: handleInspect,
   'ordinary-export': handleOrdinaryExport,
+  'pitchero-source': handlePitcheroSource,
+  'pitchero-inspect': handlePitcheroInspect,
   'raw-workbook': handleRawWorkbook,
   rollback: handleRollback,
   scope: handleScope,

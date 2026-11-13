@@ -28,7 +28,6 @@ const secondaryButtonClass = 'inline-flex min-h-12 w-full items-center justify-c
 const panelClass = 'rounded-lg border border-[#d7e5dc] bg-[#f7faf8] shadow-sm shadow-[#047857]/10'
 
 export function TeamStaffAllocationsSection({
-  leagueSettings,
   availableStaff,
   canDeleteTeam,
   canManageStaffAllocations,
@@ -100,7 +99,6 @@ export function TeamStaffAllocationsSection({
 
           {selectedTeam ? (
             <SelectedTeamPanel
-              leagueSettings={leagueSettings}
               availableStaff={availableStaff}
               canDeleteTeam={canDeleteTeam}
               canManageStaffAllocations={canManageStaffAllocations}
@@ -190,7 +188,6 @@ function TeamList({
 }
 
 function SelectedTeamPanel({
-  leagueSettings,
   availableStaff,
   canDeleteTeam,
   canManageStaffAllocations,
@@ -259,7 +256,6 @@ function SelectedTeamPanel({
               <p className="mt-2 text-xl font-black text-[#101828]">{selectedTeam.name}</p>
             </div>
           )}
-          {leagueSettings}
           <p className="mt-2 text-sm font-semibold text-[#4b5f55]">
             {selectedTeamStaff.length} Coaches allocated to this team.
           </p>
