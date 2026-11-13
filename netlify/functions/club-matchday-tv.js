@@ -1,15 +1,17 @@
+import { randomUUID } from 'node:crypto'
 import { getAuthenticatedPlanProfile, getClubPlanProfile, canUsePlanEntitlement, assertPlanFeature } from './lib/_plan-gate.js'
 import { supabaseAdmin, createPublicSupabaseClient } from './lib/_supabase.js'
 import { BILLING_ACTION_CATEGORIES, isBillingActionAllowed } from '../../src/lib/billing-access.js'
 import { isClubWorkspace } from '../../src/lib/workspace-scope.js'
-import { clubTvSlugStatus, normalizeClubTvSlug, normalizeTvPreferences, toClubTvMatch, tvPitchNumber, validTvDate, validTvSponsorSchedule, tvDateAfter, tvPeriodWindow } from '../../src/lib/club-matchday-tv.js'
+import { activeTvSponsors, clubTvSlugStatus, isTvSponsorPath, normalizeClubTvSlug, normalizeTvPreferences, toClubTvMatch, TV_SPONSOR_BUCKET, TV_SPONSOR_EXTENSIONS, TV_SPONSOR_MAX_BYTES, tvPitchNumber, validTvDate, validTvSponsorSchedule, tvDateAfter, tvPeriodWindow } from '../../src/lib/club-matchday-tv.js'
 import { getClubTvWeather, normaliseWeatherPostcode } from './lib/_club-tv-weather.js'
 
 export const CLUB_TV_MATCH_SELECT = 'id,club_id,team_id,opponent,match_date,kickoff_time,kickoff_time_tbc,home_away,venue_name,status,home_score,away_score,home_shootout_score,away_shootout_score,shootout_winner,timer_status,timer_elapsed_seconds,timer_started_at,concluded_at,deleted_at,teams:team_id(id,club_id,name),match_day_events(id,event_type,team_side,minute,stoppage_minute,scorer_shirt_number,event_status,match_phase,created_at)'
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const reply = (statusCode, payload) => ({ statusCode, headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'private, no-store, max-age=0', 'X-Content-Type-Options': 'nosniff' }, body: JSON.stringify(payload) })
-const settingsActions = new Set(['settings', 'availability', 'save'])
+const settingsActions = new Set(['settings', 'availability', 'save', 'sponsorUpload'])
 const maxSettingsRequest = 5200000
+const sponsorUrlLifetime = 300
 
 export function assertClubTvAuthority(profile, clubId) {
   if (!profile || profile.role !== 'admin' || profile.clubId !== clubId
@@ -49,6 +51,16 @@ async function handleTvSettings(client, profile, body) {
   if (body.action === 'settings') {
     return reply(200, { club, settings: await readTvSettings(client, club.id) })
   }
+  if (body.action === 'sponsorUpload') {
+    const mimeType = body.mimeType
+    if (!Object.hasOwn(TV_SPONSOR_EXTENSIONS, mimeType) || !Number.isInteger(body.bytes) || body.bytes < 1 || body.bytes > TV_SPONSOR_MAX_BYTES) {
+      return reply(400, { message: 'Choose a PNG, JPG or WebP image up to 5 MB.' })
+    }
+    const path = `${club.id}/${randomUUID()}.${TV_SPONSOR_EXTENSIONS[mimeType]}`
+    const { data, error } = await client.storage.from(TV_SPONSOR_BUCKET).createSignedUploadUrl(path)
+    if (error || !data?.token) throw error || new Error('Sponsor upload could not be opened')
+    return reply(200, { club, upload: { path, token: data.token } })
+  }
   if (body.action === 'availability') {
     if (status !== 'valid') return reply(200, { club, availability: status })
     const { data, error } = await client.from('club_matchday_tv_links').select('club_id').eq('slug', slug).maybeSingle()
@@ -63,6 +75,15 @@ async function handleTvSettings(client, profile, body) {
     return reply(400, { message: 'Invalid display settings.' })
   }
   const preferences = normalizeTvPreferences(body.preferences)
+  const sponsorPaths = new Set(preferences.sponsorAds.map(ad => ad.imagePath).filter(Boolean))
+  for (const path of sponsorPaths) {
+    if (!path.startsWith(`${club.id}/`)) return reply(400, { message: 'Choose artwork uploaded for this club.' })
+    const { data, error } = await client.storage.from(TV_SPONSOR_BUCKET).info(path)
+    if (error || !Number.isInteger(data?.size) || data.size < 1 || data.size > TV_SPONSOR_MAX_BYTES
+      || !Object.hasOwn(TV_SPONSOR_EXTENSIONS, data.contentType) || !path.endsWith(`.${TV_SPONSOR_EXTENSIONS[data.contentType]}`)) {
+      return reply(400, { message: 'This sponsor image could not be verified. Upload the original file again.' })
+    }
+  }
   if (!preferences.sponsorAds.every(validTvSponsorSchedule)) {
     return reply(400, { message: 'Each advert end date must be on or after its start date.' })
   }
@@ -96,11 +117,11 @@ export function createClubMatchdayTvHandler({ authenticate = getAuthenticatedPla
       if (!body || typeof body !== 'object' || Array.isArray(body)) return reply(400, { message: 'Invalid display request.' })
       action = body.action
       const requestedClubId = String(body?.clubId ?? '').trim(), date = body?.date, period = body.period === undefined ? 'day' : body.period
-      const linkedRead = action === 'view' || (body.slug !== undefined && (!action || action === 'weather'))
+      const linkedRead = action === 'view' || (body.slug !== undefined && (!action || action === 'weather' || action === 'sponsorArtwork'))
       if (body.action !== 'save' && event.body.length > 2048) return reply(400, { message: 'Invalid display request.' })
       if ((!linkedRead && !uuid.test(requestedClubId))
         || (!body.action && (!validTvDate(date) || !tvPeriodWindow(date, period)))
-        || (body.action && !['view', 'weather', 'unlock'].includes(body.action) && !settingsActions.has(body.action))) return reply(400, { message: 'Choose a valid club and match date.' })
+        || (body.action && !['view', 'weather', 'unlock', 'sponsorArtwork'].includes(body.action) && !settingsActions.has(body.action))) return reply(400, { message: 'Choose a valid club and match date.' })
       const clubId = linkedRead ? await findLinkedClub(client, body.slug) : requestedClubId
       if (linkedRead && (!clubId || (requestedClubId && requestedClubId !== clubId))) return reply(403, { message: 'This display link is unavailable.' })
       const linkAccess = linkedRead ? await readLinkAccess(client, clubId) : null
@@ -124,11 +145,24 @@ export function createClubMatchdayTvHandler({ authenticate = getAuthenticatedPla
         await assertFeature(profile, 'clubAdministration')
       }
       if (settingsActions.has(body.action)) return await handleTvSettings(client, profile, body)
+      if (action === 'sponsorArtwork') {
+        const path = body.imagePath
+        if (!isTvSponsorPath(path) || !path.startsWith(`${clubId}/`)) return reply(404, { message: 'Sponsor artwork is unavailable.' })
+        const { preferences } = await readTvSettings(client, clubId)
+        const saved = normalizeTvPreferences(preferences)
+        if (isPublic && saved.accessMode !== 'public') return reply(401, { message: 'Sign in to open the club matchday display.' })
+        const ads = isPublic ? activeTvSponsors(saved.sponsorAds) : saved.sponsorAds
+        if (!ads.some(ad => ad.imagePath === path)) return reply(404, { message: 'Sponsor artwork is unavailable.' })
+        const { data, error } = await client.storage.from(TV_SPONSOR_BUCKET).createSignedUrl(path, sponsorUrlLifetime)
+        if (error || !data?.signedUrl) throw error || new Error('Sponsor artwork could not be opened')
+        return reply(200, { club: { id: clubId }, imageUrl: data.signedUrl })
+      }
       if (action === 'view') {
         const settings = await readTvSettings(client, clubId)
         if (!isPublic) return reply(200, { club: { id: clubId }, settings })
         if (settings.preferences?.accessMode !== 'public') return reply(401, { message: 'Sign in to open the club matchday display.' })
         const { weatherPostcode, ...preferences } = normalizeTvPreferences(settings.preferences)
+        preferences.sponsorAds = activeTvSponsors(preferences.sponsorAds)
         return reply(200, { club: { id: clubId }, settings: { preferences }, weatherConfigured: Boolean(weatherPostcode) })
       }
       if (body.action === 'unlock') {

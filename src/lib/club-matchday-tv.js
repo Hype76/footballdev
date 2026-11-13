@@ -6,6 +6,9 @@ export const TV_PAGE_SIZE = 8
 export const TV_ROTATION_SECONDS = 30
 export const TV_REFRESH_MS = 10000
 export const TV_RECOVERY_MS = 15 * 60000
+export const TV_SPONSOR_BUCKET = 'club-matchday-tv-sponsors'
+export const TV_SPONSOR_MAX_BYTES = 5 * 1024 * 1024
+export const TV_SPONSOR_EXTENSIONS = Object.freeze({ 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp' })
 export const CLUB_TV_VIEW_PATH = '/club-matchday-tv/view/'
 export const CLUB_TV_VIEW_HOST = 'v1.fpmd.online'
 export const CLUB_TV_EMBED_PATH = '/club-matchday-tv/embed/'
@@ -180,12 +183,16 @@ export function validTvSponsorSchedule({ startDate, endDate }) {
 const isTvArtwork = (value, limit) => typeof value === 'string' && value.length < limit
   && /^data:image\/(png|jpeg|webp);base64,[a-z0-9+/=]+$/i.test(value)
 
+export function isTvSponsorPath(value) {
+  return typeof value === 'string' && /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\/[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\.(png|jpg|webp)$/.test(value)
+}
+
 export function normalizeTvPreferences(value) {
   const saved = value ?? {}
   const map = isTvArtwork(saved.map, 2850000) ? saved.map : ''
   const sponsorAds = (Array.isArray(saved.sponsorAds) ? saved.sponsorAds : []).slice(0, 3)
-    .filter(ad => isTvArtwork(ad?.image, 750000))
-    .map(ad => ({ image: ad.image, name: text(ad.name).slice(0, 80), enabled: ad.enabled !== false, startDate: text(ad.startDate), endDate: text(ad.endDate) }))
+    .filter(ad => isTvSponsorPath(ad?.imagePath) || isTvArtwork(ad?.image, 750000))
+    .map(ad => ({ ...(isTvSponsorPath(ad.imagePath) ? { imagePath: ad.imagePath } : { image: ad.image }), name: text(ad.name).slice(0, 80), enabled: ad.enabled !== false, startDate: text(ad.startDate), endDate: text(ad.endDate) }))
   const sponsorSeconds = [10, 15, 30, 60].includes(saved.sponsorSeconds) ? saved.sponsorSeconds : 30
   return { accessMode: saved.accessMode === 'public' ? 'public' : 'admin', appearance: saved.appearance === 'dark' ? 'dark' : 'light', bigGoal: saved.bigGoal !== false, showMap: saved.showMap !== false, weatherPostcode: text(saved.weatherPostcode).slice(0, 10), map, sponsorAds, sponsorSeconds, showPitchsideOrdering: saved.showPitchsideOrdering === true }
 }
