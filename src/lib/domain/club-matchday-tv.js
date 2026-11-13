@@ -1,5 +1,5 @@
 import { supabase } from '../supabase-client.js'
-import { TV_SPONSOR_BUCKET, tvPeriodWindow } from '../club-matchday-tv.js'
+import { clubTvDate, TV_SPONSOR_BUCKET, tvUpcomingPeriodWindow } from '../club-matchday-tv.js'
 
 export async function getClubMatchdayTv({ clubId, date, period, signal, action, postcode, password, slug, preferences, revision, imagePath, mimeType, bytes }) {
   const { data, error } = await supabase.auth.getSession()
@@ -17,7 +17,8 @@ export async function getClubMatchdayTv({ clubId, date, period, signal, action, 
   if (!response.ok) throw Object.assign(new Error(payload.message || 'Scores could not be refreshed.'), { status: response.status, availability: payload.availability })
   if ((action === 'view' ? !payload.club?.id : payload.club?.id !== clubId) || (!action && (payload.date !== date || !Array.isArray(payload.matches)))) throw new Error('The display response did not match this club and date.')
   if (!action && period && period !== 'day') {
-    const expected = tvPeriodWindow(date, period)
+    const refreshedAt = new Date(payload.refreshedAt)
+    const expected = Number.isFinite(refreshedAt.getTime()) ? tvUpcomingPeriodWindow(date, period, clubTvDate(refreshedAt)) : null
     if (!expected || payload.window?.kind !== expected.kind || payload.window?.startDate !== expected.startDate || payload.window?.endDate !== expected.endDate) throw new Error('The display response did not match the selected date range.')
   }
   return payload

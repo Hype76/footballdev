@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { createThemeColorTokens } from '../lib/theme.js'
 import { getClubMatchdayTv } from '../lib/domain/club-matchday-tv.js'
 import { ClubTvSponsorImage } from '../components/ClubTvSponsorImage.jsx'
-import { activeTvSponsors, clubTvDate, newTvGoals, TV_PAGE_SIZE, TV_RECOVERY_MS, TV_REFRESH_MS, TV_ROTATION_SECONDS, tvMatchSides, tvMatchStatus, tvPitchNumber } from '../lib/club-matchday-tv.js'
+import { activeTvSponsors, clubTvDate, newTvGoals, TV_PAGE_SIZE, TV_RECOVERY_MS, TV_REFRESH_MS, TV_ROTATION_SECONDS, tvMatchSides, tvMatchStatus, tvPitchNumber, validTvDate } from '../lib/club-matchday-tv.js'
 import fpLogo from '../assets/football-player-logo.webp'
 import { isClubTvLocked, setClubTvLocked } from '../lib/club-tv-lock.js'
 import './club-matchday-tv.css'
@@ -78,8 +78,9 @@ function MatchRow({ match, status, clubLogo, showDate }) {
   const sides = tvMatchSides(match)
   const homeSide = sides.clubHome ? 'club' : 'opponent', awaySide = sides.clubHome ? 'opponent' : 'club'
   const started = status.kind !== 'upcoming'
+  const pitch = status.kind === 'live' ? tvPitchNumber(match.venue) : ''
   return <article className={`club-tv-match club-tv-${status.kind}`}>
-    <div className="club-tv-match-meta"><strong>{status.label}</strong>{showDate ? <span>{fixtureDayLabel(match.matchDate)}</span> : null}</div>
+    <div className="club-tv-match-meta"><strong>{status.label}</strong>{pitch ? <span className="club-tv-live-pitch">Pitch {pitch}</span> : null}{showDate ? <span>{fixtureDayLabel(match.matchDate)}</span> : null}</div>
     <div className={`club-tv-team club-tv-home ${sides.clubHome ? 'club-tv-own' : ''}`}><div className="club-tv-team-heading">{sides.clubHome ? <TeamBadge key={clubLogo} src={clubLogo} /> : null}<strong className="club-tv-team-name" title={sides.home}>{sides.home}</strong></div>{started ? <EventLine events={match.events} side={homeSide} /> : null}</div>
     <div className="club-tv-score">
       <strong data-result={status.result}>{started ? `${match.homeScore} : ${match.awayScore}` : 'v'}{status.result ? <span className="sr-only">, club {status.result}</span> : null}</strong>
@@ -163,7 +164,7 @@ export function ClubMatchdayTvDisplay({ user, preferences, standalone = false, p
     let today = clubTvDate()
     const timer = setInterval(() => {
       const next = clubTvDate()
-      if (next !== today) { const previous = today; today = next; setDate((selected) => selected === previous ? next : selected) }
+      if (next !== today) { today = next; setDate((selected) => selected < next ? next : selected) }
     }, 30000)
     return () => clearInterval(timer)
   }, [])
@@ -182,8 +183,8 @@ function ClubDayDisplay({ user, preferences, standalone, preview, date, setDate,
   const pageSize = Math.min(TV_PAGE_SIZE, capacity)
   const homePageSize = homeCapacity
   const [now, setNow] = useState(Date.now)
-  const sponsorToday = clubTvDate(new Date(now))
-  const activeSponsors = useMemo(() => activeTvSponsors(preferences.sponsorAds, sponsorToday), [preferences.sponsorAds, sponsorToday])
+  const today = clubTvDate(new Date(now))
+  const activeSponsors = useMemo(() => activeTvSponsors(preferences.sponsorAds, today), [preferences.sponsorAds, today])
   const sponsorSlides = useMemo(() => {
     if (denied) return []
     return preferences.showPitchsideOrdering ? activeSponsors : [...activeSponsors, { image: '/club-tv-goal-alerts.webp', goalAlerts: true }]
@@ -205,13 +206,15 @@ function ClubDayDisplay({ user, preferences, standalone, preview, date, setDate,
   const root = useRef(null)
   const weekAhead = period === 'day' && feed?.window?.kind === 'week'
   const rangeView = period !== 'day' || weekAhead
-  const selectedToday = date === clubTvDate(new Date(now))
-  const fixtures = (feed?.matches || []).map(match => ({ match, status: tvMatchStatus(match) }))
+  const selectedToday = date === today
+  const currentMatches = (feed?.matches || []).filter(match => match.matchDate >= today)
+  const fixtures = currentMatches.map(match => ({ match, status: tvMatchStatus(match) }))
   const scores = fixtures.filter(({ status }) => status.kind === 'live' || status.kind === 'finished' || (period !== 'day' && status.kind === 'upcoming'))
   const liveCount = scores.filter(({ status }) => status.kind === 'live').length
   if (period === 'day' && !weekAhead) scores.push(...fixtures.filter(({ status }) => status.kind === 'upcoming'))
-  const homeFixtures = (feed?.matches || []).filter(match => match.homeAway !== 'away')
-  const awayFixtures = (feed?.matches || []).filter(match => match.homeAway === 'away')
+  const homeFixtures = currentMatches.filter(match => match.homeAway !== 'away')
+  const awayFixtures = currentMatches.filter(match => match.homeAway === 'away')
+  const fixturesOnly = weekAhead && !scores.length && currentMatches.length > 0
   const scorePages = Math.max(1, Math.ceil(scores.length / pageSize))
   const homePages = Math.max(1, Math.ceil(homeFixtures.length / homePageSize))
   const totalPages = Math.max(scorePages, homePages)
@@ -350,13 +353,13 @@ function ClubDayDisplay({ user, preferences, standalone, preview, date, setDate,
       <div className="club-tv-clock"><strong>{timeLabel(now)}</strong><span>{new Date(now).toLocaleDateString('en-GB', { timeZone: 'Europe/London', day: 'numeric', month: 'short' })} · UK time</span></div>
     </header>
     <div className="club-tv-day"><h2>{weekAhead ? 'Week ahead' : period === 'weekend' ? 'Weekend' : period === 'week' ? 'Week' : period === 'month' ? 'Month' : dayLabel(date)}</h2>{rangeView && feed?.window ? <span className="club-tv-period">{fixtureDayLabel(feed.window.startDate)} to {fixtureDayLabel(feed.window.endDate)}</span> : null}<span>{fixtures.length} matches · {liveCount} live</span><span className={error ? 'club-tv-warning' : 'club-tv-feed-state'} role="status">{error ? `${error}${feed ? ` Last updated ${timeLabel(feed.refreshedAt)}.` : ''}` : feed ? `Scores updated ${timeLabel(feed.refreshedAt)}` : 'Connecting to your club…'}</span></div>
-    <div className={`club-tv-content club-tv-centre${sponsor ? ' club-tv-centre-with-artwork' : ''}${hasMap ? ' club-tv-centre-with-map' : ''}${preferences.showPitchsideOrdering ? ' club-tv-centre-with-ordering' : ''}`}>
-      <section className="club-tv-fixtures" aria-label="Live scores and results">
+    <div className={`club-tv-content club-tv-centre${fixturesOnly ? ' club-tv-centre-fixtures-only' : ''}${hasMap || preferences.showPitchsideOrdering ? ' club-tv-centre-with-info' : ''}`}>
+      {!fixturesOnly ? <section className="club-tv-fixtures" aria-label="Live scores and results">
         <div className="club-tv-section-head"><h2>Live scores &amp; results</h2><span>{liveCount} LIVE</span></div>
         <div className="club-tv-table-head"><span>STATUS</span><span>HOME</span><span>SCORE</span><span>AWAY</span></div>
         {visibleScores.map(({ match, status }) => <MatchRow key={match.id} match={match} status={status} showDate={period !== 'day'} clubLogo={club?.logoUrl || user.clubLogoUrl} />)}
         {!scores.length ? <div className="club-tv-empty"><h2>{denied ? 'Club access required' : feed ? period !== 'day' ? 'No matches in this period' : 'No live scores or results yet' : error ? 'Unable to load matches' : 'Loading your club’s matches'}</h2><p>{feed ? period !== 'day' ? 'Choose another date or period.' : 'Scores appear here when matches start.' : 'The display will reconnect automatically.'}</p></div> : null}
-      </section>
+      </section> : null}
       <section className="club-tv-home-panel" aria-label="Home fixtures">
         <div className="club-tv-section-head"><h2>{period === 'weekend' ? 'At home this weekend' : period === 'month' ? 'At home this month' : rangeView ? 'At home this week' : selectedToday ? 'At home today' : 'At home on this date'}</h2><small>KICK-OFF &amp; PITCH GUIDE</small></div>
         <div className={`club-tv-home-head${rangeView ? ' club-tv-home-row-week' : ''}`}><span>KO</span><span>TEAM / OPPOSITION</span><span>PITCH</span>{rangeView ? <span>DATE</span> : null}</div>
@@ -373,7 +376,7 @@ function ClubDayDisplay({ user, preferences, standalone, preview, date, setDate,
     </div>
     <RoadTicker matches={awayFixtures} clubLogo={club?.logoUrl || user.clubLogoUrl} showDate={rangeView} paused={paused} />
     <footer className="club-tv-footer"><div><span className="club-tv-live-dot" /> YOUR CLUB · EVERY TEAM <span className="club-tv-legend">● Goals <span className="club-tv-red">▮ Red cards</span> · Shirt numbers only</span></div><div className="club-tv-pages">Page {currentPage + 1} / {totalPages}{totalPages > 1 ? ` · ${paused ? 'Paused' : `Next in ${seconds}s`}` : ''}</div><BrandCredit /></footer>
-    {!locked ? <nav className="club-tv-controls" aria-label="Display controls">{!standalone ? <Link to={preview ? "/club-matchday-tv/settings" : "/coach"}>Back to Club Admin</Link> : null}<label>Match date <input aria-label="Match date" type="date" value={date} onChange={(event) => { if (event.target.value) { setDate(event.target.value); setPeriod('day') } }} /></label><button aria-pressed={period === 'day' && date === clubTvDate(new Date(now))} onClick={() => { setDate(clubTvDate()); setPeriod('day') }}>Today</button>{[['weekend', 'Weekend'], ['week', 'Week'], ['month', 'Month']].map(([value, label]) => <button key={value} aria-pressed={period === value} onClick={() => setPeriod(value)}>{label}</button>)}<button disabled={totalPages <= 1} onClick={() => changePage(-1)} aria-label="Previous match page">←</button><button disabled={totalPages <= 1} onClick={() => setPaused(!paused)}>{paused ? 'Resume carousel' : 'Pause carousel'}</button><button disabled={totalPages <= 1} onClick={() => changePage(1)} aria-label="Next match page">→</button><button onClick={fullScreen}>{standalone ? "Full screen" : "Full screen and lock"}</button>{fullscreenError ? <span role="status">{fullscreenError}</span> : null}</nav> : <div className="club-tv-lock-bar"><span>Display locked · Leaving full screen keeps Club Admin protected</span><button onClick={() => setUnlocking(true)}>Unlock Club Admin</button></div>}
+    {!locked ? <nav className="club-tv-controls" aria-label="Display controls">{!standalone ? <Link to={preview ? "/club-matchday-tv/settings" : "/coach"}>Back to Club Admin</Link> : null}<label>Match date <input aria-label="Match date" type="date" min={today} value={date} onChange={(event) => { const next = event.target.value; if (validTvDate(next) && next >= clubTvDate()) { setDate(next); setPeriod('day') } }} /></label><button aria-pressed={period === 'day' && selectedToday} onClick={() => { setDate(clubTvDate()); setPeriod('day') }}>Today</button>{[['weekend', 'Weekend'], ['week', 'Week'], ['month', 'Month']].map(([value, label]) => <button key={value} aria-pressed={period === value} onClick={() => setPeriod(value)}>{label}</button>)}<button disabled={totalPages <= 1} onClick={() => changePage(-1)} aria-label="Previous match page">←</button><button disabled={totalPages <= 1} onClick={() => setPaused(!paused)}>{paused ? 'Resume carousel' : 'Pause carousel'}</button><button disabled={totalPages <= 1} onClick={() => changePage(1)} aria-label="Next match page">→</button><button onClick={fullScreen}>{standalone ? "Full screen" : "Full screen and lock"}</button>{fullscreenError ? <span role="status">{fullscreenError}</span> : null}</nav> : <div className="club-tv-lock-bar"><span>Display locked · Leaving full screen keeps Club Admin protected</span><button onClick={() => setUnlocking(true)}>Unlock Club Admin</button></div>}
     {unlocking ? <UnlockDisplay clubId={user.clubId} onClose={() => setUnlocking(false)} onUnlocked={async () => { setClubTvLocked(user, false); setLocked(false); setUnlocking(false); if (document.fullscreenElement) await document.exitFullscreen().catch(() => {}); navigate('/coach') }} /> : null}
     {goal && !denied ? <div role="status" className={preferences.bigGoal ? 'club-tv-goal-large' : 'club-tv-goal-small'}><div><small>{goal.event.side === 'club' ? goal.match.teamName : goal.match.opponent}</small><strong>GOAL!</strong><h2>{goal.event.shirt ? `#${goal.event.shirt}` : 'Goal scored'} {goal.event.minute == null ? '' : `· ${goal.event.minute}′`}</h2><p>{tvMatchSides(goal.match).home} <b>{goal.match.homeScore} : {goal.match.awayScore}</b> {tvMatchSides(goal.match).away}</p>{preferences.bigGoal ? <BrandCredit /> : null}</div></div> : null}
   </main>

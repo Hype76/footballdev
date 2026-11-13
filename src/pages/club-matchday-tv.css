@@ -50,7 +50,7 @@
 .club-tv-light{color-scheme:light;background:#f7f9f8;color:#182a22}.club-tv-light .club-tv-header{background:linear-gradient(110deg,var(--tv-soft),#fff 70%)}.club-tv-light h1,.club-tv-light .club-tv-weather strong,.club-tv-light .club-tv-clock strong,.club-tv-light .club-tv-day h2,.club-tv-light .club-tv-pitch h2,.club-tv-light .club-tv-empty h2,.club-tv-light .club-tv-settings h2{color:#15261e}.club-tv-light small,.club-tv-light .club-tv-weather,.club-tv-light .club-tv-clock,.club-tv-light .club-tv-feed-state,.club-tv-light .club-tv-period{color:#52675b}.club-tv-light .club-tv-day{background:#edf3ef;border-color:#d5e0d8;color:#40594b}.club-tv-light .club-tv-warning{color:#8b4c00}.club-tv-light .club-tv-table-head{color:#557161}.club-tv-light .club-tv-match{background:#fff;border-color:#dbe5df}.club-tv-light .club-tv-match:nth-child(odd){background:#edf3ef}.club-tv-light .club-tv-match-meta,.club-tv-light .club-tv-events,.club-tv-light .club-tv-pitch span,.club-tv-light .club-tv-empty{color:#52675b}.club-tv-light .club-tv-match-meta strong{color:#334f40}.club-tv-light .club-tv-live .club-tv-match-meta strong{color:var(--tv-accent-readable)}.club-tv-light .club-tv-score{color:#182a22}.club-tv-light .club-tv-upcoming .club-tv-score{color:#73877c}.club-tv-light .club-tv-red{color:#bc2638}.club-tv-light .club-tv-pitch{border-color:#d5e0d8}.club-tv-light .club-tv-footer{border-color:#d5e0d8;color:#40594b}.club-tv-light .club-tv-legend,.club-tv-light .club-tv-credit{color:#52675b}.club-tv-light .club-tv-controls,.club-tv-light .club-tv-lock-bar{background:#e7eee9;border-color:#cad8ce;color:#40594b}.club-tv-light button,.club-tv-light .club-tv-controls>a{background:#fff;color:#244433;border-color:#bdcfc2}.club-tv-light button:hover,.club-tv-light .club-tv-controls>a:hover{background:#dbe8df}.club-tv-light input:not([type=checkbox]):not([type=file]),.club-tv-light select{background:#fff;color:#182a22;border-color:#91aa9a}.club-tv-light .club-tv-settings{background:#fff;color:#182a22;border-color:#a8bcae}.club-tv-light .club-tv-settings p,.club-tv-light .club-tv-settings small{color:#52675b}.club-tv-light .club-tv-settings a{color:var(--tv-accent-readable)}.club-tv-light .club-tv-settings [role=alert]{color:#af2232}.club-tv-light .club-tv-settings-actions button:last-child{background:var(--tv-accent);color:var(--tv-accent-text)}.club-tv-light .club-tv-goal-large{background:radial-gradient(ellipse at center,var(--tv-soft),#fffffff5)}.club-tv-light .club-tv-goal-large h2,.club-tv-light .club-tv-goal-large p,.club-tv-light .club-tv-goal-large small,.club-tv-light .club-tv-goal-small h2,.club-tv-light .club-tv-goal-small p,.club-tv-light .club-tv-goal-small small{color:#182a22}.club-tv-light .club-tv-goal-small{background:#fff}.club-tv-light .club-tv-weather-cloud{color:#647d8b}.club-tv-light .club-tv-weather-rain{color:#2879b4}.club-tv-light .club-tv-weather-sun{color:#ba7c06}
 @media(max-width:1000px){.club-tv-team-badge{width:24px;height:24px}.club-tv-team-heading{gap:7px}}@media(max-width:560px){.club-tv-team-badge{width:22px;height:22px}.club-tv-team-heading{gap:5px}.club-tv-weather-icon{width:36px;height:36px}.club-tv-weather-reading{gap:7px}}
 
-.club-tv .club-tv-centre{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1.05fr) minmax(210px,.7fr);gap:14px;padding:12px 20px;min-height:0;background:#f2f6f8;color:#18364b}
+.club-tv .club-tv-centre{display:grid;gap:14px;padding:12px 20px;min-height:0;background:#f2f6f8;color:#18364b}
 .club-tv-centre>section,.club-tv-centre>aside{min-width:0;min-height:0;overflow:hidden}
 .club-tv-section-head{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:32px}.club-tv-section-head h2{font-size:clamp(15px,1.25vw,22px);margin:0;color:inherit}.club-tv-section-head>span{font-size:10px;font-weight:800;color:#087f57;background:#ddf4eb;padding:5px 8px;border-radius:3px}.club-tv-section-head small{color:#526d7f;font-size:9px;letter-spacing:.5px}
 .club-tv-fixtures{--tv-score-font-size:clamp(17px,1.4vw,24px);--tv-score-column:calc(4.6 * var(--tv-score-font-size))}
@@ -89,20 +89,22 @@
 .club-tv-centre>.club-tv-home-panel{grid-area:fixtures}
 .club-tv-centre>.club-tv-sponsor{grid-area:advert}
 .club-tv-centre>.club-tv-side-panel{grid-area:info}
-.club-tv .club-tv-centre{grid-template-areas:"scores fixtures advert" "scores fixtures info";grid-template-rows:auto minmax(0,1fr)}
-.club-tv .club-tv-centre-with-artwork{grid-template-columns:minmax(0,1.45fr) minmax(0,1fr) minmax(0,1.9fr)}
-.club-tv-sponsor.club-tv-sponsor-artwork{padding:0;min-height:0;background:#092128}
-.club-tv-sponsor.club-tv-sponsor-artwork img{display:block;width:100%;height:auto;max-height:100%;object-fit:contain}
+.club-tv .club-tv-centre{grid-template-columns:minmax(0,1.45fr) minmax(0,1.2fr) minmax(0,1fr);grid-template-areas:"scores fixtures advert";grid-template-rows:minmax(0,1fr)}
+.club-tv .club-tv-centre-with-info{grid-template-areas:"scores fixtures advert" "scores fixtures info";grid-template-rows:minmax(0,4fr) minmax(0,5fr)}
+.club-tv .club-tv-centre-fixtures-only{grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);grid-template-areas:"fixtures advert"}
+.club-tv .club-tv-centre-fixtures-only.club-tv-centre-with-info{grid-template-areas:"fixtures advert" "fixtures info"}
+.club-tv-sponsor.club-tv-sponsor-artwork{min-height:0;padding:0;background:transparent;align-items:center;align-self:start}
+.club-tv-sponsor.club-tv-sponsor-artwork img{display:block;width:100%;height:auto;max-width:520px;max-height:100%;object-fit:contain}
 .club-tv-sponsor.club-tv-sponsor-artwork img[hidden]{display:none}
+.club-tv-live-pitch{color:#164a69;font-size:clamp(10px,1.05vw,16px);font-weight:700;white-space:nowrap}
 @media(min-width:1001px){
-  .club-tv .club-tv-centre-with-artwork{grid-template-areas:"scores fixtures advert" "scores fixtures advert";grid-template-rows:minmax(0,1fr) 0}
-  .club-tv .club-tv-centre-with-artwork:not(.club-tv-centre-with-map,.club-tv-centre-with-ordering){row-gap:0}
-  .club-tv .club-tv-centre-with-artwork:is(.club-tv-centre-with-map,.club-tv-centre-with-ordering){grid-template-areas:"scores fixtures advert" "scores fixtures info";grid-template-rows:minmax(0,2fr) minmax(0,1fr)}
-  .club-tv-sponsor.club-tv-sponsor-artwork img{height:100%}
+  .club-tv .club-tv-centre-fixtures-only.club-tv-centre-with-info{grid-template-columns:minmax(0,1.55fr) minmax(0,1fr) minmax(0,.85fr);grid-template-areas:"fixtures advert info";grid-template-rows:minmax(0,1fr)}
+  .club-tv-sponsor.club-tv-sponsor-artwork{align-self:stretch;justify-content:flex-start}
+  .club-tv-sponsor.club-tv-sponsor-artwork img{height:100%;max-height:292px;object-position:top}
   .club-tv-centre .club-tv-pitch>img{flex:1;height:0}
 }
 @media(min-width:1250px) and (max-height:700px){
-  .club-tv .club-tv-centre-with-artwork.club-tv-centre-with-map{grid-template-columns:minmax(0,1.45fr) minmax(0,1fr) minmax(0,1.65fr) minmax(0,.75fr);grid-template-areas:"scores fixtures advert info";grid-template-rows:minmax(0,1fr)}
+  .club-tv .club-tv-centre-with-info:not(.club-tv-centre-fixtures-only){grid-template-columns:minmax(0,1.35fr) minmax(0,1.1fr) minmax(0,1fr) minmax(0,.72fr);grid-template-areas:"scores fixtures advert info";grid-template-rows:minmax(0,1fr)}
 }
 @media(min-width:1001px) and (max-height:800px){
   .club-tv-header{padding:3px 24px}
@@ -125,9 +127,10 @@
 .club-tv-weather-source a{color:inherit;text-decoration:underline;text-underline-offset:2px}
 @media(max-width:1000px){
   .club-tv .club-tv-centre{grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);grid-template-areas:"scores fixtures" "advert advert" "info info";grid-template-rows:auto auto auto}
+  .club-tv .club-tv-centre-fixtures-only{grid-template-areas:"fixtures fixtures" "advert advert";grid-template-rows:auto auto}
+  .club-tv .club-tv-centre-fixtures-only.club-tv-centre-with-info{grid-template-areas:"fixtures fixtures" "advert info"}
   .club-tv-centre .club-tv-pitch>img{max-height:240px}
-  .club-tv-sponsor.club-tv-sponsor-artwork img{max-height:60svh}
 }
-@media(max-width:620px){.club-tv .club-tv-centre{grid-template-columns:1fr;grid-template-areas:"scores" "fixtures" "advert" "info";grid-template-rows:auto;padding:12px}.club-tv-centre .club-tv-table-head,.club-tv-centre .club-tv-match{grid-template-columns:68px minmax(0,1fr) var(--tv-score-column) minmax(0,1fr)}.club-tv-road>strong{padding:0 10px;font-size:9px}}
+@media(max-width:620px){.club-tv .club-tv-centre{grid-template-columns:1fr;grid-template-areas:"scores" "fixtures" "advert" "info";grid-template-rows:auto;padding:12px}.club-tv .club-tv-centre-fixtures-only{grid-template-areas:"fixtures" "advert";grid-template-rows:auto}.club-tv .club-tv-centre-fixtures-only.club-tv-centre-with-info{grid-template-areas:"fixtures" "advert" "info"}.club-tv-centre .club-tv-table-head,.club-tv-centre .club-tv-match{grid-template-columns:68px minmax(0,1fr) var(--tv-score-column) minmax(0,1fr)}.club-tv-road>strong{padding:0 10px;font-size:9px}}
 @media(max-width:1000px){.club-tv-weather{gap:4px 10px}.club-tv-weather-icon{width:38px;height:38px}.club-tv-weather-details strong{font-size:24px}.club-tv-weather-details span{font-size:12px}}
 @media(prefers-reduced-motion:reduce){.club-tv-road{flex-shrink:0}.club-tv-road-track,.club-tv-road-track>div:first-child{animation:none;width:100%;min-width:0}.club-tv-road-item{white-space:normal;overflow-wrap:anywhere;min-height:42px;width:100%;padding:4px 10px}.club-tv-road-item .club-tv-team-badge{flex-shrink:0}}

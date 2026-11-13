@@ -29,7 +29,8 @@ function clientFor(rows = [], failure = null) {
   } }
 }
 const request = (body = { clubId, date: '2026-10-21' }) => ({ httpMethod: 'POST', body: JSON.stringify(body), headers: {} })
-function handler(options = {}) { return createClubMatchdayTvHandler({ authenticate: async () => profile, client: clientFor(), logger: { error() {} }, ...options }) }
+const fixtureNow = () => new Date('2026-10-21T09:00:00Z')
+function handler(options = {}) { return createClubMatchdayTvHandler({ authenticate: async () => profile, client: clientFor(), logger: { error() {} }, now: fixtureNow, ...options }) }
 
 test('TV access accepts active Club Admins and denies all other workspaces and roles', () => {
   assert.equal(canViewClubMatchdayTv(profile), true)
@@ -158,7 +159,7 @@ test('explicit periods use bounded calendar dates and retain club and privacy sc
   ]
   for (const [date, period, startDate, endDate] of examples) {
     const client = clientFor([fixture({ match_date: startDate }), fixture({ id: 'foreign', club_id: otherClub, match_date: startDate })])
-    const response = await handler({ client })(request({ clubId, date, period }))
+    const response = await handler({ client, now: () => new Date(`${startDate}T12:00:00Z`) })(request({ clubId, date, period }))
     assert.equal(response.statusCode, 200)
     const payload = JSON.parse(response.body)
     assert.deepEqual(payload.window, { kind: period, startDate, endDate })
@@ -172,6 +173,29 @@ test('explicit periods use bounded calendar dates and retain club and privacy sc
   const empty = JSON.parse((await handler({ client: emptyClient })(request({ clubId, date: '2026-10-21', period: 'month' }))).body)
   assert.equal(empty.window.kind, 'month')
   assert.equal(emptyClient.calls.filter(({ table }) => table === 'match_days').length, 1)
+})
+
+test('past dates and the elapsed portion of a period are excluded from every display feed', async () => {
+  const today = '2026-10-21'
+  const clock = () => new Date('2026-10-20T23:30:00Z')
+  for (const [date, period, startDate, endDate] of [
+    ['2026-10-17', 'day', today, today],
+    ['2026-10-19', 'week', today, '2026-10-25'],
+    ['2026-10-21', 'month', today, '2026-10-31'],
+  ]) {
+    const client = clientFor([fixture({ match_date: startDate })])
+    const result = await handler({ client, now: clock })(request({ clubId, date, period }))
+    assert.equal(result.statusCode, 200)
+    const payload = JSON.parse(result.body)
+    assert.deepEqual(payload.window, { kind: period, startDate, endDate })
+    const query = client.calls.find(({ table }) => table === 'match_days')
+    assert.deepEqual(query.filters.slice(1, -1), startDate === endDate
+      ? [['match_date', today]] : [['gte', 'match_date', today], ['lte', 'match_date', endDate]])
+  }
+
+  const sunday = handler({ now: () => new Date('2026-10-25T10:00:00Z'), client: clientFor([fixture({ match_date: '2026-10-25' })]) })
+  const result = JSON.parse((await sunday(request({ clubId, date: '2026-10-25', period: 'weekend' }))).body)
+  assert.deepEqual(result.window, { kind: 'weekend', startDate: '2026-10-25', endDate: '2026-10-25' })
 })
 
 test('foreign club requests, unauthenticated callers, expired plans and invalid requests never query matches', async () => {
@@ -360,6 +384,7 @@ test('private Matchday TV settings and aliases are saved atomically by authorize
     assertFeature: async () => {},
     weather: async postcode => { receivedPostcode = postcode; return { temperature: 12 } },
     client,
+    now: fixtureNow,
     logger: { error() {} },
   })
   async function request(actor, body, role) {

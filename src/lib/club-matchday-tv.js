@@ -85,6 +85,13 @@ export function tvPeriodWindow(date, period = 'day') {
   return validTvDate(startDate) && validTvDate(endDate) ? { kind: period, startDate, endDate } : null
 }
 
+export function tvUpcomingPeriodWindow(date, period, today) {
+  if (!validTvDate(date) || !validTvDate(today)) return null
+  const window = tvPeriodWindow(date < today ? today : date, period)
+  if (!window || window.startDate >= today) return window
+  return { ...window, startDate: today }
+}
+
 export function activeTvSponsors(ads, today = clubTvDate()) {
   if (!validTvDate(today)) return []
   return ads.filter(ad => ad.enabled !== false && (!ad.startDate || (validTvDate(ad.startDate) && ad.startDate <= today)) && (!ad.endDate || (validTvDate(ad.endDate) && ad.endDate >= today)) && (!ad.startDate || !ad.endDate || ad.startDate <= ad.endDate))
