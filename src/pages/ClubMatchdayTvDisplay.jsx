@@ -186,8 +186,8 @@ function ClubDayDisplay({ user, preferences, standalone, preview, date, setDate,
   const activeSponsors = useMemo(() => activeTvSponsors(preferences.sponsorAds, sponsorToday), [preferences.sponsorAds, sponsorToday])
   const sponsorSlides = useMemo(() => {
     if (denied) return []
-    return hasMap && !preferences.showPitchsideOrdering ? [...activeSponsors, { image: '/club-tv-goal-alerts.webp', goalAlerts: true }] : activeSponsors
-  }, [activeSponsors, denied, hasMap, preferences.showPitchsideOrdering])
+    return preferences.showPitchsideOrdering ? activeSponsors : [...activeSponsors, { image: '/club-tv-goal-alerts.webp', goalAlerts: true }]
+  }, [activeSponsors, denied, preferences.showPitchsideOrdering])
   const [carousel, setCarousel] = useState({ page: 0, seconds: TV_ROTATION_SECONDS, anchor: null })
   const [sponsorIndex, setSponsorIndex] = useState(0)
   const sponsor = sponsorSlides[sponsorIndex % sponsorSlides.length]
@@ -350,7 +350,7 @@ function ClubDayDisplay({ user, preferences, standalone, preview, date, setDate,
       <div className="club-tv-clock"><strong>{timeLabel(now)}</strong><span>{new Date(now).toLocaleDateString('en-GB', { timeZone: 'Europe/London', day: 'numeric', month: 'short' })} · UK time</span></div>
     </header>
     <div className="club-tv-day"><h2>{weekAhead ? 'Week ahead' : period === 'weekend' ? 'Weekend' : period === 'week' ? 'Week' : period === 'month' ? 'Month' : dayLabel(date)}</h2>{rangeView && feed?.window ? <span className="club-tv-period">{fixtureDayLabel(feed.window.startDate)} to {fixtureDayLabel(feed.window.endDate)}</span> : null}<span>{fixtures.length} matches · {liveCount} live</span><span className={error ? 'club-tv-warning' : 'club-tv-feed-state'} role="status">{error ? `${error}${feed ? ` Last updated ${timeLabel(feed.refreshedAt)}.` : ''}` : feed ? `Scores updated ${timeLabel(feed.refreshedAt)}` : 'Connecting to your club…'}</span></div>
-    <div className="club-tv-content club-tv-centre">
+    <div className={`club-tv-content club-tv-centre${sponsor ? ' club-tv-centre-with-artwork' : ''}${hasMap ? ' club-tv-centre-with-map' : ''}${preferences.showPitchsideOrdering ? ' club-tv-centre-with-ordering' : ''}`}>
       <section className="club-tv-fixtures" aria-label="Live scores and results">
         <div className="club-tv-section-head"><h2>Live scores &amp; results</h2><span>{liveCount} LIVE</span></div>
         <div className="club-tv-table-head"><span>STATUS</span><span>HOME</span><span>SCORE</span><span>AWAY</span></div>
@@ -363,11 +363,13 @@ function ClubDayDisplay({ user, preferences, standalone, preview, date, setDate,
         {homeFixtures.slice(firstHome, firstHome + homePageSize).map(match => <HomeFixtureRow key={match.id} match={match} showDate={rangeView} clubLogo={club?.logoUrl || user.clubLogoUrl} />)}
         {!homeFixtures.length ? <p className="club-tv-home-empty">No home fixtures {period === 'weekend' ? 'this weekend' : period === 'month' ? 'this month' : rangeView ? 'this week' : selectedToday ? 'today' : 'on this date'}.</p> : null}
       </section>
-      <aside className="club-tv-side-panel" aria-label="Club information">
-        <section className={`club-tv-sponsor${sponsor ? ' club-tv-sponsor-artwork' : ''}`} aria-label="Club sponsors">{sponsor ? sponsorSlides.map((ad, index) => <ClubTvSponsorImage key={ad.imagePath ? `${ad.imagePath}:${index}` : index} ad={ad} clubId={user.clubId} slug={viewerSlug} hidden={ad !== sponsor} alt={ad.goalAlerts ? 'Free live goal alerts for grassroots football. Scan the QR code to get started.' : 'Club sponsor advert'} />) : <><small>PROUD TO SUPPORT YOUR CLUB</small><strong>Your company could advertise here.</strong><span>Ask the Club Admin about matchday sponsorship.</span></>}</section>
+      <section className={`club-tv-sponsor${sponsor ? ' club-tv-sponsor-artwork' : ''}`} aria-label="Matchday adverts">
+        {sponsor ? sponsorSlides.map((ad, index) => <ClubTvSponsorImage key={ad.imagePath ? `${ad.imagePath}:${index}` : index} ad={ad} clubId={user.clubId} slug={viewerSlug} hidden={ad !== sponsor} alt={ad.goalAlerts ? 'Free live goal alerts for grassroots football. Scan the QR code to get started.' : 'Club sponsor advert'} />) : <><small>PROUD TO SUPPORT YOUR CLUB</small><strong>Your company could advertise here.</strong><span>Ask the Club Admin about matchday sponsorship.</span></>}
+      </section>
+      {hasMap || preferences.showPitchsideOrdering ? <aside className="club-tv-side-panel" aria-label="Club information">
         {hasMap ? <section className="club-tv-pitch"><div><h2>Pitch map</h2><span>Find your pitch</span></div><img src={preferences.map} alt={`${club?.name || user.clubName || 'Club'} pitch map`} /></section> : null}
-        {preferences.showPitchsideOrdering ? <section className="club-tv-ordering"><small>MATCHDAY PITCHSIDE</small><strong>Pitchside ordering</strong><span>Coming soon</span></section> : !hasMap ? <section className="club-tv-goal-alert-ad" aria-label="Free live goal alerts"><img src="/club-tv-goal-alerts.webp" alt="Free live goal alerts for grassroots football. Scan the QR code to get started." /></section> : null}
-      </aside>
+        {preferences.showPitchsideOrdering ? <section className="club-tv-ordering"><small>MATCHDAY PITCHSIDE</small><strong>Pitchside ordering</strong><span>Coming soon</span></section> : null}
+      </aside> : null}
     </div>
     <RoadTicker matches={awayFixtures} clubLogo={club?.logoUrl || user.clubLogoUrl} showDate={rangeView} paused={paused} />
     <footer className="club-tv-footer"><div><span className="club-tv-live-dot" /> YOUR CLUB · EVERY TEAM <span className="club-tv-legend">● Goals <span className="club-tv-red">▮ Red cards</span> · Shirt numbers only</span></div><div className="club-tv-pages">Page {currentPage + 1} / {totalPages}{totalPages > 1 ? ` · ${paused ? 'Paused' : `Next in ${seconds}s`}` : ''}</div><BrandCredit /></footer>
