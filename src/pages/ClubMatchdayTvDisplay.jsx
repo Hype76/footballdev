@@ -31,8 +31,10 @@ function WeatherIcon({ condition }) {
   </svg>
 }
 
-function TeamBadge({ src, muted = false }) {
-  return <img className={`club-tv-team-badge${muted || !src ? ' club-tv-team-badge-fallback' : ''}`} src={src || fpLogo} alt="" onError={(event) => { event.currentTarget.onerror = null; event.currentTarget.src = fpLogo; event.currentTarget.classList.add('club-tv-team-badge-fallback') }} />
+function TeamBadge({ src }) {
+  const [failed, setFailed] = useState(false)
+  if (!src || failed) return null
+  return <img className="club-tv-team-badge" src={src} alt="" onError={() => setFailed(true)} />
 }
 
 function GroundWeather({ clubId, postcode, viewerSlug, configured }) {
@@ -78,12 +80,12 @@ function MatchRow({ match, status, clubLogo, showDate }) {
   const started = status.kind !== 'upcoming'
   return <article className={`club-tv-match club-tv-${status.kind}`}>
     <div className="club-tv-match-meta"><strong>{status.label}</strong>{showDate ? <span>{fixtureDayLabel(match.matchDate)}</span> : null}</div>
-    <div className={`club-tv-team club-tv-home ${sides.clubHome ? 'club-tv-own' : ''}`}><div className="club-tv-team-heading"><TeamBadge src={sides.clubHome ? clubLogo : ''} muted={!sides.clubHome} /><strong className="club-tv-team-name" title={sides.home}>{sides.home}</strong></div>{started ? <EventLine events={match.events} side={homeSide} /> : null}</div>
+    <div className={`club-tv-team club-tv-home ${sides.clubHome ? 'club-tv-own' : ''}`}><div className="club-tv-team-heading">{sides.clubHome ? <TeamBadge key={clubLogo} src={clubLogo} /> : null}<strong className="club-tv-team-name" title={sides.home}>{sides.home}</strong></div>{started ? <EventLine events={match.events} side={homeSide} /> : null}</div>
     <div className="club-tv-score">
       <strong data-result={status.result}>{started ? `${match.homeScore} : ${match.awayScore}` : 'v'}{status.result ? <span className="sr-only">, club {status.result}</span> : null}</strong>
       {started && (match.status === 'penalties' || match.homeShootoutScore || match.awayShootoutScore) ? <small>PENS {match.homeShootoutScore} : {match.awayShootoutScore}</small> : null}
     </div>
-    <div className={`club-tv-team ${!sides.clubHome ? 'club-tv-own' : ''}`}><div className="club-tv-team-heading"><TeamBadge src={!sides.clubHome ? clubLogo : ''} muted={sides.clubHome} /><strong className="club-tv-team-name" title={sides.away}>{sides.away}</strong></div>{started ? <EventLine events={match.events} side={awaySide} /> : null}</div>
+    <div className={`club-tv-team ${!sides.clubHome ? 'club-tv-own' : ''}`}><div className="club-tv-team-heading">{!sides.clubHome ? <TeamBadge key={clubLogo} src={clubLogo} /> : null}<strong className="club-tv-team-name" title={sides.away}>{sides.away}</strong></div>{started ? <EventLine events={match.events} side={awaySide} /> : null}</div>
   </article>
 }
 
@@ -91,8 +93,11 @@ function HomeFixtureRow({ match, clubLogo, showDate }) {
   return <article className={`club-tv-home-row${showDate ? ' club-tv-home-row-week' : ''}`}>
     <strong className="club-tv-home-time">{match.kickoffTbc ? 'TBC' : match.kickoff || 'TBC'}</strong>
     <div className="club-tv-home-teams">
-      <span><TeamBadge src={clubLogo} /><strong className="club-tv-team-name" title={match.teamName}>{match.teamName}</strong></span>
-      <span className="club-tv-home-opponent"><span>v</span><strong className="club-tv-team-name" title={match.opponent}>{match.opponent}</strong></span>
+      <TeamBadge key={clubLogo} src={clubLogo} />
+      <div>
+        <strong className="club-tv-team-name" title={match.teamName}>{match.teamName}</strong>
+        <span className="club-tv-home-opponent"><span>v</span><strong className="club-tv-team-name" title={match.opponent}>{match.opponent}</strong></span>
+      </div>
     </div>
     <span className="club-tv-home-pitch">{tvPitchNumber(match.venue)}</span>
     {showDate ? <span className="club-tv-home-date">{fixtureDayLabel(match.matchDate)}</span> : null}
@@ -116,7 +121,7 @@ function RoadTicker({ matches, clubLogo, showDate, paused }) {
   }, [matches.length, paused, reducedMotion])
   const selected = reducedMotion && matches.length ? matches.slice(index % matches.length, (index % matches.length) + 1) : matches
   const items = selected.map((match) => <span className="club-tv-road-item" key={match.id}>
-    <TeamBadge src="" muted /><span className="club-tv-team-name" title={match.opponent}>{match.opponent}</span><span>v</span><TeamBadge src={clubLogo} /><span className="club-tv-team-name" title={match.teamName}>{match.teamName}</span><strong>{showDate ? `${fixtureDayLabel(match.matchDate)} · ` : ''}{match.kickoffTbc ? 'KO TBC' : `KO ${match.kickoff || 'TBC'}`}</strong>
+    <span className="club-tv-team-name" title={match.opponent}>{match.opponent}</span><span>v</span><TeamBadge key={clubLogo} src={clubLogo} /><span className="club-tv-team-name" title={match.teamName}>{match.teamName}</span><strong>{showDate ? `${fixtureDayLabel(match.matchDate)} · ` : ''}{match.kickoffTbc ? 'KO TBC' : `KO ${match.kickoff || 'TBC'}`}</strong>
   </span>)
   return <div className="club-tv-road"><strong>ON THE ROAD</strong>{items.length ? <div className="club-tv-road-window"><div className="club-tv-road-track"><div>{items}</div>{!reducedMotion ? <div aria-hidden="true">{items}</div> : null}</div></div> : <span className="club-tv-road-empty">{showDate ? 'No away fixtures in this period' : 'No away fixtures today'}</span>}{reducedMotion && matches.length > 1 ? <span className="club-tv-road-controls"><button aria-label="Previous away fixture" onClick={() => setIndex(current => (current - 1 + matches.length) % matches.length)}>‹</button><span>{index % matches.length + 1} / {matches.length}</span><button aria-label="Next away fixture" onClick={() => setIndex(current => (current + 1) % matches.length)}>›</button></span> : null}</div>
 }
