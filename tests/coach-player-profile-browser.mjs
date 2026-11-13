@@ -20,7 +20,9 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import {createCoachTheme} from './apps/coach-mobile/src/coachThemeCore.js';
 import {getCoachFormationAuthorityScope} from './apps/coach-mobile/src/coachFormationEntryCore.js';
 import {coachPlayerFormFromPlayer,filterCoachPlayers,formatCoachParentAppInstallationStatus,getCoachPlayerMutationPolicy,normalizeCoachPlayerEvaluation} from './apps/mobile-core/src/coachPlayersCore.js';
-import {getParentPortalInviteActionForContact,getUnlistedParentAccessLinks} from './src/lib/parent-portal-invite-actions.js';
+import {getPlayerParentInviteContacts,getUnlistedParentAccessLinks} from './src/lib/parent-portal-invite-actions.js';
+import {getAdultPlayerSetupEmail,isAdultPlayerBirthDate} from './src/lib/adult-player-setup.js';
+import {CAPABILITIES,getFeatureAccess} from './src/lib/paywall-access.js';
 import {sendNewMatchdayParentInvites} from './apps/mobile-core/src/coachParentAutoInvite.js';
 import {getCoachParentInviteStatus} from './apps/mobile-core/src/coachParentInviteStatus.js';
 import {formatUkDate} from './src/lib/date-format.js';
@@ -29,6 +31,7 @@ const BrandLoader=()=>null,useConfirmedConnectionIssue=v=>v,useConfirmedConnecti
 const getCoachClubPlayerTypes=async()=>PLAYER_SECTIONS.map(name=>({name}));
 const readCoachOfflineResources=async()=>null,saveCoachOfflineResources=async()=>{},peekMobileResource=()=>undefined,readMobileResource=async(u,k,fn)=>fn(),invalidateMobileResource=()=>{};
 const players=Array.from({length:16},(_,i)=>({id:'player-'+i,teamId:'team',clubId:'club',playerName:'FP TEST Player '+i,section:'Squad',positions:['Defender'],shirtNumber:String(i+1),status:'active',parentContacts:[{name:'FP TEST Parent',email:'parent@example.test',type:'parent'},{name:'Second Parent',email:'second@example.test',type:'parent'}],parentAppInstallationStatusAvailable:true,parentAppContactCount:2,parentAppInstalledContactCount:1}));
+const sendCoachAdultPlayerSetupInvite=async id=>{window.adultInvite=id;return {state:'sent'}};
 const getCoachPlayerList=async()=>players.map(p=>({...p}));window.saved=[];window.inviteCalls=[];let parentLinks=[];window.setParentLinks=links=>{parentLinks=links};const saveCoachPlayer=async(u,f,p)=>{window.saved.push(f);if(window.holdSave)await new Promise((resolve,reject)=>{window.resolveSave=resolve;window.rejectSave=()=>reject(new Error('Earlier save failed.'))});const saved={...(p||{id:'created-player',status:'active'}),...f,positions:f.positions?f.positions.split(','):[]};const i=players.findIndex(row=>row.id===saved.id);if(i>=0)players[i]=saved;else players.push(saved);return saved};const sendCoachParentInvite=async(u,id,c)=>{window.inviteCalls.push(c.email);if(window.failInviteEmail===c.email)throw new Error('Invite failed');parentLinks=[...parentLinks.filter(l=>l.email!==c.email),{id:'link-'+c.email,email:c.email,status:'pending',invite_sent_at:'2026-09-21'}];return{success:true}};const getCoachParentLinks=async()=>parentLinks;const revokeCoachParentAccess=async()=>{parentLinks=[]};
 window.requests=[];window.scrollRequests=0;window.pending={};
 const getCoachPlayerDetail=async(user,id)=>{
@@ -79,10 +82,7 @@ try {
   assert.equal(await page.getByRole('button',{name:'Hide player details',exact:true}).getAttribute('aria-expanded'),'true')
   await page.getByRole('button',{name:'Hide player details',exact:true}).click()
   assert.equal(await page.getByText('No Session history.',{exact:true}).count(),0)
-  await page.getByRole('button',{name:'Send Parent app invite',exact:true}).first().click()
-  await page.getByText('Parent invite sent to parent@example.test.',{exact:true}).waitFor()
-  assert.deepEqual(await page.evaluate(()=>window.inviteCalls),['parent@example.test'])
-  await page.getByRole('button',{name:'Resend Parent app invite',exact:true}).waitFor()
+  assert.equal(await page.getByRole('button',{name:/send parent app invite/i}).count(),0)
   await page.getByRole('button',{name:'Show recent records',exact:true}).click()
   await page.getByRole('button',{name:'Open development record FP TEST Saved Review A, 15:09:2026',exact:true}).waitFor()
   assert.equal(await page.getByRole('button',{name:/Open development record Wrong player/}).count(),0)
@@ -225,15 +225,16 @@ try {
   await page.getByRole('button',{name:'Add another contact',exact:true}).click()
   await page.getByLabel('Contact 2 email',{exact:true}).fill('fail@example.test')
   await page.evaluate(()=>{void window.submitPlayerForm();void window.submitPlayerForm()})
-  await page.getByText('Player saved. Some parent invitations could not be sent. Use the send button beside each failed contact to try again.',{exact:true}).waitFor()
+  await page.getByText('Player saved. An invitation could not be sent. Edit the player and select Save Player to retry.',{exact:true}).waitFor()
   assert.equal(await page.evaluate(()=>window.saved.at(-1).section),'Squad')
   assert.deepEqual(await page.evaluate(()=>window.inviteCalls),['auto@example.test','fail@example.test'])
   await page.getByText('Invite sent awaiting acceptance',{exact:true}).waitFor()
-  await page.getByText('Invite failed: Use the send button to try again.',{exact:true}).waitFor()
+  await page.getByText('Invite failed: Save the player again to retry.',{exact:true}).waitFor()
   await page.screenshot({path:'output/playwright/coach-player-profile/matchday-invite-status.png',fullPage:true})
   await page.evaluate(()=>window.failInviteEmail='')
-  await page.getByRole('button',{name:'Send Parent app invite',exact:true}).click()
-  await page.getByText('Parent invite sent to fail@example.test.',{exact:true}).waitFor()
+  await page.getByRole('button',{name:'Edit Player',exact:true}).click()
+  await page.getByRole('button',{name:'Save Player',exact:true}).click()
+  await page.getByText('Player saved. See each contact for their invitation status.',{exact:true}).waitFor()
   assert.equal(await page.getByText('Invite sent awaiting acceptance',{exact:true}).count(),2)
   const sentBeforeEdit=await page.evaluate(()=>window.inviteCalls.length)
   await page.getByRole('button',{name:'Edit Player',exact:true}).click()

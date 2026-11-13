@@ -31,8 +31,9 @@ try {
   const email=page.getByText('Email: a.very.long.parent.email.address.for.layout@example.test',{exact:true});assert.ok((await email.boundingBox()).width>180,'Email must have a useful reading width')
   await page.screenshot({path:'output/playwright/player-contact-layout/'+mode+'-'+width+'.png',fullPage:true})
  }
- await page.getByRole('button',{name:'Send parent portal invite',exact:true}).click();assert.deepEqual(await page.evaluate(()=>window.calls),['third@example.test'])
+ assert.equal(await page.getByRole('button',{name:/send parent portal invite/i}).count(),0)
+ await page.getByText('Invite sent',{exact:true}).waitFor()
  await page.getByRole('region',{name:'Additional Parent access'}).getByText('former.parent@example.test',{exact:true}).waitFor()
  await page.getByRole('region',{name:'Additional Parent access'}).getByRole('button',{name:'Remove Parent access',exact:true}).click();assert.deepEqual(await page.evaluate(()=>window.revoked),['unlisted'])
- assert.deepEqual(errors,[]);console.log('PASS: actual contact summary, long emails, active/pending/new actions and full-width cards at 320/390/768/1100/1600px in light/dark themes.')
+ assert.deepEqual(errors,[]);console.log('PASS: actual contact summary, long emails, active and pending invitation status and full-width cards at 320/390/768/1100/1600px in light/dark themes.')
 }finally{await browser.close()}

@@ -127,7 +127,7 @@ async function getInviteLink(linkId) {
 
   const { data, error } = await supabaseAdmin
     .from('parent_player_links')
-    .select('id, club_id, team_id, player_id, email, status, link_type, auth_user_id, invite_token, players:player_id (player_name, section, status, archived_at), teams:team_id (name), clubs:club_id (name, contact_email, logo_url)')
+    .select('id, club_id, team_id, player_id, email, status, link_type, auth_user_id, invite_token, players:player_id (player_name, section, status, archived_at, contact_type, parent_contacts), teams:team_id (name), clubs:club_id (name, contact_email, logo_url)')
     .eq('id', normalizedLinkId)
     .maybeSingle()
 
@@ -143,6 +143,12 @@ async function getInviteLink(linkId) {
   const playerStatus = String(data.players?.status ?? 'active').trim().toLowerCase()
   if (!playerSection || playerStatus === 'archived' || data.players?.archived_at) {
     throw Object.assign(new Error('Family portal invites require an active player.'), { statusCode: 403 })
+  }
+  const contacts = Array.isArray(data.players?.parent_contacts) ? data.players.parent_contacts : []
+  if (data.players?.contact_type === 'self' || contacts.some(contact =>
+    contact?.type === 'self' && normaliseEmail(contact.email ?? contact.parentEmail) === normaliseEmail(data.email)
+  )) {
+    throw Object.assign(new Error('Use the Player login invitation for an adult player.'), { statusCode: 422 })
   }
 
   return data

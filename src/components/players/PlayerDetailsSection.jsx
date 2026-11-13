@@ -43,10 +43,8 @@ export function PlayerDetailsSection({
   onSavePlayer,
   onSelectedDirectInviteDateChange,
   onSelectedDirectEmailTemplateChange,
-  onSendParentPortalInviteForContact = () => {},
   onSendDirectEmail,
   onStartEditingPlayer,
-  parentPortalInviteSendingKey = '',
   parentPasswordResetSendingLinkId = '',
   parentPortalRevokingLinkId = '',
   parentPortalLinksByPlayerId = {},
@@ -121,12 +119,10 @@ export function PlayerDetailsSection({
                     onRefreshEmailTemplates={onRefreshEmailTemplates}
                     onSelectedDirectInviteDateChange={(value) => onSelectedDirectInviteDateChange(player.id, value)}
                     onSelectedDirectEmailTemplateChange={(value) => onSelectedDirectEmailTemplateChange(player.id, value)}
-                    onSendParentPortalInviteForContact={(contact) => onSendParentPortalInviteForContact(player, contact)}
                     onRemoveParentPortalAccess={(link) => onRemoveParentPortalAccess(player, link)}
                     onSendParentPasswordReset={(link) => onSendParentPasswordReset(player, link)}
                     onSendDirectEmail={() => onSendDirectEmail(player)}
                     onStartEditingPlayer={() => onStartEditingPlayer(player)}
-                    parentPortalInviteSendingKey={parentPortalInviteSendingKey}
                     parentPasswordResetSendingLinkId={parentPasswordResetSendingLinkId}
                     parentPortalRevokingLinkId={parentPortalRevokingLinkId}
                     parentPortalLinks={parentPortalLinksByPlayerId[player.id] || []}
@@ -199,12 +195,18 @@ function PlayerDetailsEditor({
           className={fieldClass}
         />
       </label>
+      {draft.contactType === 'self' ? (
+        <label className="block">
+          <span className={labelClass}>Player date of birth</span>
+          <input type="date" value={draft.dateOfBirth || ''} onChange={event => onPlayerDraftChange('dateOfBirth', event.target.value)} className={fieldClass} />
+        </label>
+      ) : null}
       <div className="md:col-span-2 xl:col-span-3">
         <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <span className="block text-sm font-black text-[#101828]">Contacts</span>
             <p className="mt-1 text-xs font-semibold leading-5 text-[#4b5f55]">
-              Add parent or guardian contacts used for player communication.
+              {draft.contactType === 'self' ? 'Add the adult player’s own email address to invite them on Save.' : 'Add parent or guardian contacts to invite them on Save.'}
             </p>
           </div>
           <button
@@ -219,7 +221,7 @@ function PlayerDetailsEditor({
           {getDraftParentContacts(draft).map((contact, index) => (
             <div key={index} className="rounded-lg border border-[#d7e5dc] bg-white p-3 shadow-sm shadow-[#047857]/10">
               <p className="mb-3 text-xs font-black uppercase tracking-[0.14em] text-[#047857]">
-                Contact {index + 1}
+                {contact.type === 'self' ? 'Player contact' : 'Parent or guardian contact'}
               </p>
               <div className="grid gap-3 sm:grid-cols-2">
                 <label className="block">
@@ -322,12 +324,10 @@ function PlayerDetailsSummary({
   onRefreshEmailTemplates,
   onSelectedDirectInviteDateChange,
   onSelectedDirectEmailTemplateChange,
-  onSendParentPortalInviteForContact = () => {},
   onRemoveParentPortalAccess = () => {},
   onSendParentPasswordReset = () => {},
   onSendDirectEmail,
   onStartEditingPlayer,
-  parentPortalInviteSendingKey = '',
   parentPasswordResetSendingLinkId = '',
   parentPortalRevokingLinkId = '',
   parentPortalLinks = [],
@@ -364,10 +364,8 @@ function PlayerDetailsSummary({
             {contacts.length > 0 ? (
               contacts.map((contact, index) => {
                 const email = normalizeParentPortalInviteEmail(contact.email)
-                const sendingKey = email ? `${player.id}:${email}` : ''
                 const inviteAction = getParentPortalInviteActionForContact({
                   contact,
-                  isSending: parentPortalInviteSendingKey === sendingKey,
                   links: parentPortalLinks,
                   player,
                 })
@@ -389,17 +387,6 @@ function PlayerDetailsSummary({
                             <span className="w-full text-xs font-bold leading-5 text-[#047857]">
                               {inviteAction.statusLabel}
                             </span>
-                          ) : null}
-                          {inviteAction.label ? (
-                            <button
-                              type="button"
-                              disabled={!inviteAction.canSend}
-                              title={inviteAction.title}
-                              onClick={() => onSendParentPortalInviteForContact(contact)}
-                              className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-lg border border-[#047857] bg-[#ecfdf5] px-3 py-2 text-xs font-black text-[#047857] transition hover:bg-[#d1fae5] disabled:cursor-not-allowed disabled:opacity-60"
-                            >
-                              {parentPortalInviteSendingKey === sendingKey ? 'Sending...' : inviteAction.label}
-                            </button>
                           ) : null}
                           {activeParentLink ? (
                             <>

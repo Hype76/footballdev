@@ -10,6 +10,7 @@ export function createInitialPlayerForm() {
     positions: [],
     positionDraft: '',
     contactType: PLAYER_CONTACT_TYPES.parent,
+    dateOfBirth: '',
     parentContacts: [{ name: '', email: '' }],
   }
 }
@@ -19,7 +20,7 @@ export const RECENT_PLAYER_PAGE_SIZE = 8
 export const CONTACT_TYPE_OPTIONS = [
   {
     value: PLAYER_CONTACT_TYPES.self,
-    label: 'Player',
+    label: 'Adult Player',
     description: 'Send player emails directly to the player.',
   },
   {

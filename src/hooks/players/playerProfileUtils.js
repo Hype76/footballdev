@@ -68,23 +68,7 @@ export function calculateMergedAverage(formResponses) {
 }
 
 export function getDraftParentContacts(player) {
-  const contacts = Array.isArray(player?.parentContacts) ? player.parentContacts : []
-  const draftContacts = contacts.map((contact) => ({
-    name: String(contact?.name ?? contact?.parentName ?? ''),
-    email: String(contact?.email ?? contact?.parentEmail ?? ''),
-    type: PLAYER_CONTACT_TYPES.parent,
-  }))
-
-  if (draftContacts.length > 0) {
-    return draftContacts
-  }
-
-  const fallbackName = String(player?.parentName ?? '')
-  const fallbackEmail = String(player?.parentEmail ?? '')
-
-  return fallbackName || fallbackEmail
-    ? [{ name: fallbackName, email: fallbackEmail, type: PLAYER_CONTACT_TYPES.parent }]
-    : [{ name: '', email: '', type: PLAYER_CONTACT_TYPES.parent }]
+  return getEditableParentContacts(player)
 }
 
 export function getContactEmailAddresses(contact) {
@@ -720,25 +704,20 @@ export async function getLatestClubLogoUrl(user) {
 }
 
 export function getEditableParentContacts(player) {
+  const contactType = player?.contactType === 'self' ? 'self' : 'parent'
   const contacts = normalizeParentContacts(player?.parentContacts, {
+    contactType,
     parentName: player?.parentName,
     parentEmail: player?.parentEmail,
   })
-
-  const parentContacts = contacts.map((contact) => ({
-    ...contact,
-    type: 'parent',
-  }))
-
-  return parentContacts.length > 0 ? parentContacts : [{ name: '', email: '', type: 'parent' }]
+  if (contactType === 'self' && !contacts.some(contact => contact.type === 'self')) {
+    return [...contacts, { name: player.playerName || '', email: '', type: 'self' }]
+  }
+  return contacts.length ? contacts : [{ name: '', email: '', type: contactType }]
 }
 
 export function createPlayerDraft(player) {
-  return {
-    ...player,
-    contactType: 'parent',
-    parentContacts: getEditableParentContacts(player),
-  }
+  return { ...player, parentContacts: getEditableParentContacts(player) }
 }
 
 export function startEditingPlayerDraft(currentDrafts, player) {
@@ -776,64 +755,27 @@ export function updatePlayerDraftValue(currentDrafts, playerId, fieldName, value
 
 export function updateParentContactDraft(currentDrafts, playerId, index, fieldName, value) {
   const draft = currentDrafts[playerId] ?? {}
-  const contacts = Array.isArray(draft.parentContacts) && draft.parentContacts.length > 0
-    ? draft.parentContacts
-    : [{ name: draft.parentName || '', email: draft.parentEmail || '', type: PLAYER_CONTACT_TYPES.parent }]
-  const nextContacts = contacts.length > 0 ? contacts : [{ name: '', email: '', type: PLAYER_CONTACT_TYPES.parent }]
-  const updatedContacts = nextContacts.map((contact, contactIndex) =>
-    contactIndex === index
-      ? {
-          ...contact,
-          type: PLAYER_CONTACT_TYPES.parent,
-          [fieldName]: value,
-        }
-      : { ...contact, type: PLAYER_CONTACT_TYPES.parent },
+  const parentContacts = (draft.parentContacts || []).map((contact, contactIndex) =>
+    contactIndex === index ? { ...contact, [fieldName]: value } : contact,
   )
-
-  return {
-    ...currentDrafts,
-    [playerId]: {
-      ...draft,
-      parentName: updatedContacts[0]?.name ?? '',
-      parentEmail: updatedContacts[0]?.email ?? '',
-      parentContacts: updatedContacts,
-    },
-  }
+  return { ...currentDrafts, [playerId]: { ...draft, parentContacts } }
 }
 
 export function addParentContactDraft(currentDrafts, playerId) {
   const draft = currentDrafts[playerId] ?? {}
-  const contacts = Array.isArray(draft.parentContacts) && draft.parentContacts.length > 0
-    ? draft.parentContacts
-    : [{ name: draft.parentName || '', email: draft.parentEmail || '', type: PLAYER_CONTACT_TYPES.parent }]
-
-  return {
-    ...currentDrafts,
-    [playerId]: {
-      ...draft,
-      parentContacts: [
-        ...contacts.map((contact) => ({ ...contact, type: PLAYER_CONTACT_TYPES.parent })),
-        { name: '', email: '', type: PLAYER_CONTACT_TYPES.parent },
-      ],
-    },
-  }
+  const type = draft.contactType === 'self' ? 'self' : 'parent'
+  return { ...currentDrafts, [playerId]: { ...draft, parentContacts: [...(draft.parentContacts || []), { name: '', email: '', type }] } }
 }
 
 export function removeParentContactDraft(currentDrafts, playerId, index) {
   const draft = currentDrafts[playerId] ?? {}
-  const contacts = Array.isArray(draft.parentContacts) && draft.parentContacts.length > 0
-    ? draft.parentContacts
-    : [{ name: draft.parentName || '', email: draft.parentEmail || '', type: PLAYER_CONTACT_TYPES.parent }]
-  const nextContacts = contacts.filter((_, contactIndex) => contactIndex !== index)
-  const fallbackContacts = nextContacts.length > 0 ? nextContacts : [{ name: '', email: '', type: PLAYER_CONTACT_TYPES.parent }]
-
+  const parentContacts = (draft.parentContacts || []).filter((_, contactIndex) => contactIndex !== index)
+  const type = draft.contactType === 'self' ? 'self' : 'parent'
   return {
     ...currentDrafts,
     [playerId]: {
-      ...draft,
-      parentName: fallbackContacts[0]?.name ?? '',
-      parentEmail: fallbackContacts[0]?.email ?? '',
-      parentContacts: fallbackContacts.map((contact) => ({ ...contact, type: PLAYER_CONTACT_TYPES.parent })),
+      ...draft, parentName: '', parentEmail: '',
+      parentContacts: parentContacts.length ? parentContacts : [{ name: '', email: '', type }],
     },
   }
 }

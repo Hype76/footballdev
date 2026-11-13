@@ -7,6 +7,18 @@ import { getAccessToken, supabase } from './supabase'
 
 const LINK_COLUMNS = 'id,player_id,email,status,invite_sent_at,expires_at,link_type'
 
+export async function sendCoachAdultPlayerSetupInvite(playerId) {
+  const token = await getAccessToken()
+  if (!token) throw new Error('Sign in again before sending a Player invitation.')
+  const { ok, result } = await fetchJsonWithTimeout(joinApiPath(getMobileRuntimeConfig('coach').apiBaseUrl, '.netlify/functions/adult-player-setup'), {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'send', playerId }),
+  })
+  if (!ok || result.success !== true) throw new Error(result.message || 'Player invitation could not be sent.')
+  return result
+}
+
 function scope(query, user, playerId) {
   return query.eq('club_id', user.clubId).eq('team_id', user.activeTeamId).eq('player_id', playerId)
 }

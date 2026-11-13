@@ -52,15 +52,15 @@ test('parent portal invite action supports pending resend but hides active links
   assert.equal(activeAction.statusLabel, 'Parent portal linked')
 })
 
-test('saved parent emails render the inline parent portal invite action', async () => {
+test('player details show invitation status without a separate send action', async () => {
   const source = await readFile(playerDetailsSectionUrl, 'utf8')
 
   assert.match(source, /getParentPortalInviteActionForContact/)
-  assert.match(source, /onSendParentPortalInviteForContact\(contact\)/)
-  assert.match(source, /parentPortalInviteSendingKey === sendingKey \? 'Sending\.\.\.' : inviteAction\.label/)
+  assert.doesNotMatch(source, /onSendParentPortalInviteForContact/)
+  assert.match(source, /inviteAction\.statusLabel/)
 })
 
-test('explicit resend path reuses pending parent links and keeps active player guard', async () => {
+test('save sends outstanding parent invites and preserves the active-player guard', async () => {
   const [domainSource, profileSource, functionSource] = await Promise.all([
     readFile(parentPortalDomainUrl, 'utf8'),
     readFile(playerProfileUrl, 'utf8'),
@@ -70,6 +70,7 @@ test('explicit resend path reuses pending parent links and keeps active player g
   assert.match(domainSource, /includeSentPending = false/)
   assert.match(domainSource, /row\.status === 'pending' && \(includeSentPending \|\| !row\.invite_sent_at\)/)
   assert.match(domainSource, /Family portal links require an active player\./)
-  assert.match(profileSource, /includeSentPending: true/)
+  assert.match(profileSource, /sendParentPortalInvitesForPlayer\(savedPlayer\)/)
+  assert.doesNotMatch(profileSource, /includeSentPending: true/)
   assert.match(functionSource, /Family portal invites require an active player\./)
 })

@@ -6,6 +6,7 @@ import { assertClubFeature } from './plan-gates.js'
 import { normalizeLegacyThemeButtonStyle } from '../theme.js'
 import { normalizePersonName } from '../person-name.js'
 import { normalizeFanProfileLink } from '../fans.js'
+import { getPlayerParentInviteContacts } from '../parent-portal-invite-actions.js'
 
 function normalizeEmail(value) {
   return String(value ?? '').trim().toLowerCase()
@@ -415,6 +416,9 @@ export async function createParentPortalInvites({ user, player, contacts, includ
     }))
     .filter((contact) => contact.email)
 
+  if (player.contactType === 'self' || (contacts ?? []).some(contact => contact?.type === 'self')) {
+    throw new Error('Use the Player login invitation for an adult player.')
+  }
   if (normalizedContacts.length === 0) {
     throw new Error('Choose at least one parent with an email address.')
   }
@@ -535,9 +539,8 @@ export async function createParentPortalInvitesForPlayers({ user, players }) {
 
   const inviteBatches = await Promise.all(
     eligiblePlayers.map((player) => {
-      const contacts = Array.isArray(player.parentContacts) && player.parentContacts.length > 0
-        ? player.parentContacts
-        : [{ name: player.parentName || '', email: player.parentEmail || '' }]
+      const contacts = getPlayerParentInviteContacts(player)
+      if (!contacts.length) return []
 
       return createParentPortalInvites({
         user,

@@ -78,6 +78,7 @@ export function normalizeCoachPlayer(row, { canViewContacts = true } = {}) {
     archivedAt: normalize(row.archived_at ?? row.archivedAt),
     clubId: normalize(row.club_id ?? row.clubId),
     contactType,
+    dateOfBirth: normalize(row.date_of_birth ?? row.dateOfBirth),
     createdAt: normalize(row.created_at ?? row.createdAt),
     id: normalize(row.id),
     notes: normalize(row.notes),
@@ -188,6 +189,7 @@ export function buildCoachPlayerPayload({ context, form }) {
   return Object.freeze({
     club_id: context.clubId,
     contact_type: contactType,
+    ...(contactType === 'self' && form?.dateOfBirth ? { date_of_birth: form.dateOfBirth } : {}),
     notes: normalize(form?.notes),
     parent_contacts: contacts,
     parent_email: primaryContact.email,
@@ -206,6 +208,7 @@ export function buildCoachPlayerPayload({ context, form }) {
 export function coachPlayerFormFromPlayer(player = null, { canCreateTrial = true } = {}) {
   return {
     contactType: player?.contactType || 'parent',
+    dateOfBirth: normalize(player?.dateOfBirth),
     notes: normalize(player?.notes),
     parentContacts: player?.parentContacts?.length ? player.parentContacts : [{ email: '', name: '', type: 'parent' }],
     playerName: normalize(player?.playerName),

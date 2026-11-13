@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { LoginAuthPanel } from '../components/login/LoginAuthPanel.jsx'
+import { SignupAppLinks } from '../components/login/SignupAppLinks.jsx'
 import { WebsiteAuthHeader } from '../components/login/WebsiteAuthHeader.jsx'
 import '../components/login/website-auth.css'
 import { usePublicThemeScope } from '../components/login/PublicThemeScope.jsx'
@@ -94,6 +95,7 @@ export function LoginPage({ role = 'coach', clubSignup = false, onPromotionCodeC
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isPasswordVisible, setIsPasswordVisible] = useState(false)
   const [localMessage, setLocalMessage] = useState('')
+  const [showSignupDownloads, setShowSignupDownloads] = useState(false)
   const [localError, setLocalError] = useState(readAuthRedirectError)
   const [freshSignupRequestId, setFreshSignupRequestId] = useState('')
   const [freshSignupName, setFreshSignupName] = useState('')
@@ -182,6 +184,7 @@ export function LoginPage({ role = 'coach', clubSignup = false, onPromotionCodeC
   }
 
   const handleModeChange = (nextMode) => {
+    setShowSignupDownloads(false)
     setFreshSignupRequestId('')
     setVerificationCode('')
     setMode(nextMode)
@@ -253,6 +256,7 @@ export function LoginPage({ role = 'coach', clubSignup = false, onPromotionCodeC
           setFreshSignupName(signupResult.freshSignupName)
           setVerificationCode('')
         } else if (signupResult?.needsEmailVerification) {
+          setShowSignupDownloads(true)
           setMode('login')
           setFormData((current) => ({
             ...current,
@@ -325,6 +329,7 @@ export function LoginPage({ role = 'coach', clubSignup = false, onPromotionCodeC
         await verifyFreshCoachSignup({ requestId: freshSignupRequestId, code: verificationCode, password: formData.password })
         await signInWithPassword({ email: formData.email.trim(), password: formData.password, preferredAccessMode: 'team' })
         setFreshSignupRequestId(''); setFormData(current => ({ ...current, password: '' }))
+        if (!clubSignup) window.location.replace('/welcome/coach')
       }
     } catch (error) { setLocalError(error.message || 'Please request a new code and try again.') }
     finally { submitLockRef.current = false; setIsSubmitting(false) }
@@ -376,6 +381,7 @@ export function LoginPage({ role = 'coach', clubSignup = false, onPromotionCodeC
               paymentsDisabled={paymentsDisabled}
               signupBoxRef={signupBoxRef}
             />}
+          {showSignupDownloads ? <SignupAppLinks role={parentAccess ? 'parent' : 'coach'} /> : null}
         </div>
       </main>
       <footer className="website-auth-footer"><span>Football Player · Jeluma Labs</span><a href="/gdpr">Privacy and GDPR</a></footer>

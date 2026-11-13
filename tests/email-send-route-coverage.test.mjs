@@ -4,6 +4,7 @@ import {readdir,readFile} from 'node:fs/promises'
 const functionsRoot=new URL('../netlify/functions/',import.meta.url)
 async function sources(dir,prefix='') {const result=[];for(const e of await readdir(dir,{withFileTypes:true})){if(e.isDirectory()) result.push(...await sources(new URL(`${e.name}/`,dir),`${prefix}${e.name}/`));else if(/\.(?:[cm]?[jt]s)$/.test(e.name))result.push([`${prefix}${e.name}`,await readFile(new URL(e.name,dir),'utf8')])}return result}
 const sendRoutes={
+ 'adult-player-setup.js':'none',
  'lib/_fresh-coach-signup.js':'coach',
  'lib/_signup-notification-email.js':'both',
  'invite-coach.mts':'delegate:lib/_coach-referral.js','lib/_coach-referral.js':'coach',

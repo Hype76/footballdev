@@ -5,6 +5,7 @@ import { ClubKitDisplay } from '../components/club-settings/ClubKitDisplay.jsx'
 import { getResourceDisplayTitle, sortResourcesNewestFirst } from '../lib/resource-date-presentation.js'
 import { formatUkDateTime } from '../lib/date-format.js'
 import { PasswordInput } from '../components/ui/PasswordInput.jsx'
+import { SignupAppLinks } from '../components/login/SignupAppLinks.jsx'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { PreviousGameCard, PreviousGameDetailModal } from '../components/match-day/PreviousGameCard.jsx'
@@ -1652,10 +1653,13 @@ function ParentPortalExperience({ onAccessRemoved, onOpenDemoGameDay }) {
           </header>
 
       {searchParams.get('linked') === '1' && requestedParentLinkId && selectedLink?.id === requestedParentLinkId ? (
-        <NoticeBanner
-          title="Player linked"
-          message={`${selectedLink.playerName || 'Your player'} is now available in your family portal.`}
-        />
+        <div className="space-y-3">
+          <NoticeBanner
+            title="Player linked"
+            message={`${selectedLink.playerName || 'Your player'} is now available in your family portal.`}
+          />
+          <SignupAppLinks role="parent" />
+        </div>
       ) : null}
       {signOutError ? <NoticeBanner title="Sign out failed" message={signOutError} /> : null}
       {matchError ? <NoticeBanner title={matchErrorTitle} message={matchError} /> : null}

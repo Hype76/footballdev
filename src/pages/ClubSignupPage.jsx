@@ -59,5 +59,7 @@ export function ClubSignupPage() {
     {!user || !canViewBilling(user) ? <p role="alert">Sign in with the account that owns this club to start its subscription.</p> : null}
     <button className={action} disabled={busy || !quote || !user || !canViewBilling(user)} onClick={() => void start()}>{busy ? 'Opening checkout...' : 'Continue to secure checkout'}</button>
     <a className={action} href="/">Return to Football Player</a>
+    <SignupAppLinks role="coach" />
   </main>
 }
+import { SignupAppLinks } from '../components/login/SignupAppLinks.jsx'
