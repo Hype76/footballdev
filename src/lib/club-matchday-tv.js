@@ -5,6 +5,7 @@ import { canUseFeature, CAPABILITIES } from './paywall-access.js'
 export const TV_PAGE_SIZE = 8
 export const TV_ROTATION_SECONDS = 30
 export const TV_REFRESH_MS = 10000
+export const TV_RECOVERY_MS = 15 * 60000
 export const CLUB_TV_VIEW_PATH = '/club-matchday-tv/view/'
 export const CLUB_TV_VIEW_HOST = 'v1.fpmd.online'
 export const CLUB_TV_EMBED_PATH = '/club-matchday-tv/embed/'
