@@ -67,7 +67,7 @@ function emptySnapshot() {
   })
 }
 
-test('Formation Board access follows Team role ceilings and Club Admin assignment context', () => {
+test('Formation Board access follows Team role ceilings and Club Admin team context', () => {
   const manager = { ...activeStaffBase, role: 'manager', roleRank: 50 }
   const coach = { ...activeStaffBase, role: 'coach', roleRank: 30 }
   const assistant = { ...activeStaffBase, role: 'assistant_coach', roleRank: 20 }
@@ -82,7 +82,8 @@ test('Formation Board access follows Team role ceilings and Club Admin assignmen
   assert.equal(canUseFormationBoards(assistant), true)
   assert.equal(canUseFormationBoards(parent), false)
   assert.equal(canUseFormationBoards(unassignedClubAdmin), true)
-  assert.equal(canCreateFormationBoard(unassignedClubAdmin), false)
+  assert.equal(canCreateFormationBoard(unassignedClubAdmin), true)
+  assert.equal(canCreateFormationBoard({ ...unassignedClubAdmin, activeTeamId: '' }), false)
   assert.equal(canCreateFormationBoard(assignedClubAdmin), true)
 })
 

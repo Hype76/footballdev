@@ -336,6 +336,7 @@ export function normalizeCoachCalendarEvent(row, sourceType = 'calendar_event') 
     seriesEndsAt: endsAt,
     seriesStartsAt: startsAt,
     ...(isMatchDay ? {
+      clubId: normalize(row.club_id ?? row.clubId),
       concludedAt: normalize(row.concluded_at ?? row.concludedAt),
       previousHiddenAt: normalize(row.previous_hidden_at ?? row.previousHiddenAt),
     } : {}),

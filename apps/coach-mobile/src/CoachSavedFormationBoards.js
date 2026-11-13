@@ -1,3 +1,5 @@
+import { getFormationBoardShirtKit, sortFormationBench } from '../../../src/lib/formation-board-shirt.js'
+import { loadMobileClubKits, peekMobileClubKits } from '../../mobile-core/src/mobileKitCache'
 import { useEffect, useRef, useState } from 'react'
 import { Alert, Pressable, ScrollView, Text, View } from 'react-native'
 import MaterialIcons from '@expo/vector-icons/MaterialIcons'
@@ -7,9 +9,20 @@ import { getFormationMarkerVisualPosition } from '../../mobile-core/src/formatio
 import { canEditCoachFormationBoard, getCoachFormationRouteScope } from './coachFormationEntryCore'
 import { CoachFormationWorkspace } from './CoachFormationWorkspace'
 
-function SavedFormationSnapshot({ board }) {
+function SavedFormationSnapshot({ board, match }) {
   const [layout, setLayout] = useState({ width: 0, height: 0 })
   const version = board.currentVersion || {}
+  const clubId = board.clubId || match.clubId
+  const [loadedKits, setLoadedKits] = useState(() => peekMobileClubKits(clubId))
+  useEffect(() => {
+    let active = true
+    const updateKits = kits => {
+      if (active) setLoadedKits(kits)
+    }
+    if (!version.shirtKit && clubId) void loadMobileClubKits(clubId, updateKits).then(updateKits).catch(() => {})
+    return () => { active = false }
+  }, [clubId, version.shirtKit])
+  const shirtKit = getFormationBoardShirtKit(version.shirtKit, loadedKits, match.shirtChoice)
   return <View style={{ flex: 1, minHeight: 0, marginTop: 44, paddingBottom: 12 }}>
     <Text accessibilityRole="header" style={{ color: 'white', fontSize: 17, fontWeight: '700', padding: 10 }}>{board.title}</Text>
     <View accessibilityLabel="Saved formation snapshot" onLayout={event => setLayout(event.nativeEvent.layout)} style={[formationVisualStyles.pitch, { aspectRatio: undefined, flex: 1, minHeight: 0 }]}>
@@ -17,13 +30,13 @@ function SavedFormationSnapshot({ board }) {
       {(version.placements || []).map(player => {
         const position = getFormationMarkerVisualPosition(player, layout, { markerWidth: 64, markerHeight: 70, anchorY: 25 })
         return <View key={player.playerId} accessibilityLabel={player.displayName} style={[formationVisualStyles.marker, { left: `${position.x * 100}%`, top: `${position.y * 100}%` }]}>
-          <FormationPlayerArtwork name={player.displayName} number={player.shirtNumber} goalkeeper={player.positionGroup === 'goalkeeper' || player.slotId === 'gk'} shirtKit={version.shirtKit} />
+          <FormationPlayerArtwork name={player.displayName} number={player.shirtNumber} goalkeeper={player.positionGroup === 'goalkeeper' || player.slotId === 'gk'} shirtKit={shirtKit} />
         </View>
       })}
     </View>
     <Text style={{ color: 'white', fontWeight: '700', padding: 10 }}>Subs ({version.bench?.length || 0})</Text>
     <ScrollView horizontal style={{ flexGrow: 0 }} contentContainerStyle={{ gap: 12, paddingHorizontal: 10 }}>
-      {(version.bench || []).map(player => <FormationSubArtwork key={player.playerId} name={player.displayName} number={player.shirtNumber} shirtKit={version.shirtKit} />)}
+      {sortFormationBench(version.bench || []).map(player => <FormationSubArtwork key={player.playerId} name={player.displayName} number={player.shirtNumber} shirtKit={shirtKit} />)}
     </ScrollView>
   </View>
 }
@@ -84,6 +97,6 @@ export function CoachSavedFormationBoards({ context, match, onEdit, palette, use
         {board.canDelete && canEditCoachFormationBoard(user) ? <Pressable accessibilityRole="button" accessibilityLabel={`Delete saved formation ${board.title}`} disabled={Boolean(busyId)} onPress={() => remove(board)} style={{ minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' }}><MaterialIcons color={palette.textPrimary} name="delete-outline" size={23} /></Pressable> : null}
       </View>)}
     </View> : null}
-    {selected ? <CoachFormationWorkspace onBack={() => setSelectedId('')} palette={palette}><View style={{ flex: 1 }}><SavedFormationSnapshot board={selected} />{onEdit && canEditCoachFormationBoard(user) && selected.canEdit !== false && !selected.isLocked ? <Pressable accessibilityRole="button" accessibilityLabel={`Edit saved formation ${selected.title}`} onPress={() => { setSelectedId(''); onEdit(selected.id) }} style={{ minHeight: 48, alignItems: 'center', justifyContent: 'center', borderTopColor: palette.border, borderTopWidth: 1 }}><Text style={{ color: palette.textPrimary, fontWeight: '700' }}>Edit formation</Text></Pressable> : null}</View></CoachFormationWorkspace> : null}
+    {selected ? <CoachFormationWorkspace onBack={() => setSelectedId('')} palette={palette}><View style={{ flex: 1 }}><SavedFormationSnapshot key={selected.id} board={selected} match={match} />{onEdit && canEditCoachFormationBoard(user) && selected.canEdit !== false && !selected.isLocked ? <Pressable accessibilityRole="button" accessibilityLabel={`Edit saved formation ${selected.title}`} onPress={() => { setSelectedId(''); onEdit(selected.id) }} style={{ minHeight: 48, alignItems: 'center', justifyContent: 'center', borderTopColor: palette.border, borderTopWidth: 1 }}><Text style={{ color: palette.textPrimary, fontWeight: '700' }}>Edit formation</Text></Pressable> : null}</View></CoachFormationWorkspace> : null}
   </View>
 }

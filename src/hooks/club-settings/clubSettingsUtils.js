@@ -22,5 +22,6 @@ export function mapClubToSettingsFormData(club) {
     logoUrl: club.logoUrl,
     contactEmail: club.contactEmail,
     contactPhone: club.contactPhone,
+    contactAddress: club.contactAddress,
   }
 }

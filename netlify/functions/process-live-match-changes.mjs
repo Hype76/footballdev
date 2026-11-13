@@ -8,18 +8,20 @@ export async function handler() {
   if (heartbeat.error) throw heartbeat.error
   const { data: changes, error } = await supabaseAdmin.rpc('claim_live_match_changes', { batch_size: 20 })
   if (error) throw error
+  const deliveries = new Map()
+  const provider = {
+    teamId: process.env.LIVE_ACTIVITY_APPLE_TEAM_ID,
+    keyId: process.env.LIVE_ACTIVITY_APPLE_KEY_ID,
+    privateKey: process.env.LIVE_ACTIVITY_APPLE_PRIVATE_KEY,
+    production: process.env.LIVE_ACTIVITY_APNS_PRODUCTION === 'true',
+  }
   const outcomes = await Promise.all((changes || []).map(async change => {
-    let successful = false
-    try {
-      const provider = {
-        teamId: process.env.LIVE_ACTIVITY_APPLE_TEAM_ID,
-        keyId: process.env.LIVE_ACTIVITY_APPLE_KEY_ID,
-        privateKey: process.env.LIVE_ACTIVITY_APPLE_PRIVATE_KEY,
-        production: process.env.LIVE_ACTIVITY_APNS_PRODUCTION === 'true',
-      }
-      const result = await deliverLiveMatchChange(change.match_day_id, { client: supabaseAdmin, provider })
-      successful = result.failed === 0
-    } catch { successful = false }
+    if (!deliveries.has(change.match_day_id)) {
+      const delivery = deliverLiveMatchChange(change.match_day_id, { client: supabaseAdmin, provider })
+        .then(result => result.failed === 0, () => false)
+      deliveries.set(change.match_day_id, delivery)
+    }
+    const successful = await deliveries.get(change.match_day_id)
     const result = await supabaseAdmin.rpc('complete_live_match_change', { change_id_value: change.change_id, successful })
     if (result.error) throw result.error
     return successful

@@ -68,6 +68,7 @@ export function createLiveActivityStartRequest({ bundleId, startToken, providerT
     contentState, timestamp, staleDate })
   const payload = JSON.parse(update.body)
   payload.aps.event = 'start'
+  payload.aps['input-push-token'] = 1
   payload.aps['attributes-type'] = 'MatchActivityAttributes'
   payload.aps.attributes = { activityKey, followId, handoffToken, badgeData, clubIsHome }
   payload.aps.alert = { title: 'Match started', body: `${contentState.homeName} v ${contentState.awayName}` }

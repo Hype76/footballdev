@@ -197,6 +197,9 @@ export function captureCoachMatchDayAction(match, action, now = Date.now()) {
 
 export function getCoachMatchDayActions({ context, match, reconciling = false, stale = false, offlineReady = false } = {}) {
   const roleRank = Number(context?.roleRank || 0)
+  const hasTeamAuthority = !['parent_portal', 'adult_player', 'super_admin'].includes(context?.role) && roleRank >= 20
+    && (context?.role !== 'admin' || (Boolean(context.clubId && context.teamId)
+      && match?.teamId === context.teamId && match?.clubId === context.clubId))
   const blockedReason = !match || typeof match !== 'object'
     ? 'Select a fixture before using Match Day actions.'
     : reconciling
@@ -205,7 +208,7 @@ export function getCoachMatchDayActions({ context, match, reconciling = false, s
     ? 'Reconnect and refresh before changing Match Day.'
     : context?.paymentAccess?.canMutate !== true
       ? 'Match Day changes are blocked while payment is required.'
-      : ['admin', 'parent_portal', 'adult_player', 'super_admin'].includes(context?.role) || roleRank < 20
+      : !hasTeamAuthority
         ? 'Coach or manager access is required.'
         : CLOSED_STATUSES.has(match?.status) || Boolean(match?.concludedAt)
           ? 'This fixture is closed.'
@@ -223,9 +226,9 @@ export function getCoachMatchDayActions({ context, match, reconciling = false, s
     canMutate: !blockedReason,
     canRecordEvents: captureActions ? captureActions.canRecordEvents : !blockedReason && hasStarted && !['not_started', 'full_time'].includes(match?.timerStatus) && match?.status !== 'full_time',
     canCorrectScore: captureActions ? captureActions.canCorrectScore : !blockedReason && hasStarted && (match?.status === 'full_time' || !['not_started', 'full_time'].includes(match?.timerStatus)),
-    canSaveFinalReport: !reconciling && !stale && roleRank >= 20 && context?.paymentAccess?.canMutate === true && isFinalMatchReportAvailable(match),
-    canSetSquad: !reconciling && !stale && roleRank >= 20 && context?.paymentAccess?.canMutate === true && ['scheduled', 'scorer_request'].includes(match?.status),
-    canSelectVolunteers: !reconciling && !stale && roleRank >= 20 && context?.paymentAccess?.canMutate === true && ['scheduled', 'scorer_request'].includes(match?.status),
+    canSaveFinalReport: !reconciling && !stale && hasTeamAuthority && context?.paymentAccess?.canMutate === true && isFinalMatchReportAvailable(match),
+    canSetSquad: !reconciling && !stale && hasTeamAuthority && context?.paymentAccess?.canMutate === true && ['scheduled', 'scorer_request'].includes(match?.status),
+    canSelectVolunteers: !reconciling && !stale && hasTeamAuthority && context?.paymentAccess?.canMutate === true && ['scheduled', 'scorer_request'].includes(match?.status),
     startBlockedReason: startBlockedByFixtureDate ? 'This match can only be started on its fixture date.' : '',
     timerActions: captureActions ? captureActions.timerActions.filter(item => ['start', 'pause', 'hydration', 'half_time', 'resume', 'full_time'].includes(item.action)) : timerActions,
   })

@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
+import { getFormationBoardShirtKit, sortFormationBench } from '../src/lib/formation-board-shirt.js'
 
 import {
   buildCoachFormationBoardCreatePayload,
@@ -131,4 +132,27 @@ test('mobile drafts retain shirt snapshots and send an explicit selection', asyn
   assert.equal(buildCoachFormationBoardCreatePayload(null, draft, 'New').shirt_kit_type_value, 'away')
   assert.notEqual(formationContentKey(draft, board.title), formationContentKey({ ...draft, shirtKit: null }, board.title))
   assert.equal('shirt_kit_type_value' in buildCoachFormationBoardCreatePayload(null, { ...draft, shirtKit: null }, 'New'), false)
+})
+
+test('boards without a kit use the fixture kit and keep a saved kit unchanged', () => {
+  const home = { colour: '#ffffff', imagePath: '12345678-1234-1234-1234-123456789abc/home/shirt.png' }
+  const away = { colour: '#654321', imagePath: null }
+  assert.deepEqual(getFormationBoardShirtKit(null, { home, away }), { type: 'home', ...home })
+  assert.deepEqual(getFormationBoardShirtKit(null, { home, away }, 'away'), { type: 'away', ...away })
+  assert.deepEqual(getFormationBoardShirtKit(null, { home }, 'away'), { type: 'home', ...home })
+  const saved = { type: 'away', colour: '#123456', imagePath: null }
+  assert.equal(getFormationBoardShirtKit(saved, { home, away }, 'home'), saved)
+  assert.equal(getFormationBoardShirtKit(null, {}), null)
+})
+
+test('the bench displays shirt numbers numerically and unnumbered players alphabetically', () => {
+  const bench = [
+    { displayName: 'Zoe', shirtNumber: '' },
+    { displayName: 'Ellie', shirtNumber: '11' },
+    { displayName: 'Beth', shirtNumber: '2' },
+    { displayName: 'Ada' },
+    { displayName: 'Chloe', shirtNumber: '2' },
+  ]
+  assert.deepEqual(sortFormationBench(bench).map(player => player.displayName), ['Beth', 'Chloe', 'Ellie', 'Ada', 'Zoe'])
+  assert.equal(bench[0].displayName, 'Zoe')
 })

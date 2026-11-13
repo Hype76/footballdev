@@ -20,3 +20,24 @@ export function formationBoardShirtNumberColour(kit) {
   const luminance = 0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2]
   return luminance > 0.179 ? '#000000' : '#ffffff'
 }
+
+export function getFormationBoardShirtKit(savedKit, clubKits, preferredType = 'home') {
+  if (savedKit) return savedKit
+  const first = preferredType === 'away' ? 'away' : 'home'
+  const second = first === 'home' ? 'away' : 'home'
+  for (const type of [first, second]) {
+    const kit = normalizeFormationBoardShirtKit({ ...clubKits?.[type], type })
+    if (kit) return kit
+  }
+  return null
+}
+
+function benchNumber(player) {
+  const value = String(player.shirtNumber ?? player.displayedShirtNumber ?? '').trim()
+  return /^\d+$/.test(value) ? Number(value) : Infinity
+}
+
+export function sortFormationBench(players) {
+  return [...players].sort((left, right) => benchNumber(left) - benchNumber(right)
+    || String(left.displayName ?? '').localeCompare(String(right.displayName ?? ''), 'en-GB', { sensitivity: 'base' }))
+}

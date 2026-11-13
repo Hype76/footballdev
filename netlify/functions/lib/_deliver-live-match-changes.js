@@ -40,6 +40,9 @@ export async function deliverLiveMatchChange(matchDayId, { client, send = sendLi
   const started = ['live', 'half_time', 'second_half', 'extra_time', 'penalties'].includes(match.status)
   const effectiveState = state.end ? createLiveMatchState({ ...confirmedMatch, concluded_at: null, deleted_at: null, status: 'full_time', timer_status: 'full_time', current_match_phase: 'full_time' }, sampledAtMs) : state
   const timestamp = Math.floor(sampledAtMs / 1000)
+  // The worker refreshes running matches every three minutes. A paused clock
+  // can stay accurate for longer, including a normal half-time interval.
+  const staleDate = timestamp + (effectiveState.running ? 4 * 60 : 4 * 60 * 60)
   let providerToken = ''
   try {
     if (appleFollowers.length) providerToken = createLiveActivityProviderToken({ ...provider, nowSeconds: timestamp })
@@ -58,7 +61,7 @@ export async function deliverLiveMatchChange(matchDayId, { client, send = sendLi
         const handoffToken = randomBytes(32).toString('hex')
         const request = createLiveActivityStartRequest({
           bundleId: BUNDLE[follower.app_role], startToken: follower.start_token,
-          providerToken, contentState: effectiveState, timestamp, staleDate: timestamp + 4 * 60 * 60,
+          providerToken, contentState: effectiveState, timestamp, staleDate,
           activityKey: matchDayId, clubIsHome: follower.club_is_home ?? state.clubIsHome,
           followId: follower.follow_id, handoffToken,
           badgeData: follower.badge_data || null,
@@ -91,10 +94,10 @@ export async function deliverLiveMatchChange(matchDayId, { client, send = sendLi
       const request = createLiveActivityApnsRequest({
         bundleId: BUNDLE[follower.app_role], activityToken: follower.activity_token,
         providerToken, contentState, timestamp,
-        staleDate: timestamp + 4 * 60 * 60, end: end || follower.access_allowed !== true,
+        staleDate, end: end || follower.access_allowed !== true,
       })
       const result = await send(request, { production: provider.production === true })
-      return result.accepted === true
+      return result.accepted === true || result.reason === 'Unregistered'
     } catch { return false }
   }))
   return { delivered: results.filter(Boolean).length, failed: results.filter(value => !value).length }

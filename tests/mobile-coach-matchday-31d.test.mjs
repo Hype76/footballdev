@@ -74,6 +74,14 @@ test('payment-required, stale, closed, and insufficient-role contexts fail close
   assert.match(getCoachMatchDayActions({ context: { ...context, role: 'admin', roleRank: 90 }, match: baseMatch }).blockedReason, /Coach or manager/)
 })
 
+test('Club Admin can finish a match for the selected team in their own club', () => {
+  const admin = { ...context, clubId: 'club-test', role: 'admin', roleRank: 90 }
+  const match = { ...baseMatch, clubId: admin.clubId, teamId: admin.teamId }
+  assert.equal(getCoachMatchDayFinishControl({ context: admin, match }).action, 'full_time')
+  assert.equal(getCoachMatchDayFinishControl({ context: admin, match: { ...match, clubId: 'other-club' } }), null)
+  assert.equal(getCoachMatchDayFinishControl({ context: admin, match: { ...match, teamId: 'other-team' } }), null)
+})
+
 test('hidden and archived previous fixtures never reappear in mobile lists', () => {
   const matches = [
     { ...baseMatch, id: 'visible', matchDate: '2026-08-08', status: 'full_time' },
@@ -218,7 +226,7 @@ test('Match Day live operations and fixture edits use canonical RPC mutations', 
   assert.match(source, /rpc\('save_coach_concluded_match_event',[\s\S]*?expected_updated_at: expectedUpdatedAt/)
   assert.doesNotMatch(source, /fixtureUpdate\.concludedEdit/)
   assert.doesNotMatch(source, /\.from\('match_day_events'\)[\s\S]{0,300}\.insert\(/)
-  assert.match(source, /\['admin', 'parent_portal', 'adult_player', 'super_admin'\]/)
+  assert.match(source, /\['parent_portal', 'adult_player', 'super_admin'\]/)
   assert.match(source, /archived or unavailable/)
 })
 

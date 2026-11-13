@@ -12,6 +12,7 @@ import { loadTeamBrandingDisplay, getScopedTeamBranding } from '../../../src/lib
 const iosActivity = Platform.OS === 'ios' ? requireOptionalNativeModule('ReactNativeWidgetExtension') : null
 const keyFor = (role, userId, matchId) => `fp.live-match.v1.${role}.${userId}.${matchId}`
 const startBarrier = createLiveMatchStartBarrier()
+const attachedIosTokens = new Map()
 
 export function startLiveMatchFollowOnce(role, matchId, parentLinkId = null) {
   return startBarrier.start(role, matchId, () => startLiveMatchFollow(role, matchId, parentLinkId))
@@ -172,6 +173,8 @@ export async function stopLiveMatchFollow(role, matchId) {
 export async function attachPendingIosMatchActivities(role) {
   if (Platform.OS !== 'ios' || !iosActivity?.getMatchActivityTokens) return 0
   const activities = iosActivity.getMatchActivityTokens()
+  const activityIds = new Set(activities.map(item => item.id))
+  for (const id of attachedIosTokens.keys()) if (!activityIds.has(id)) attachedIosTokens.delete(id)
   if (!activities.some(item => item.followId && item.token)) return 0
   const { data, error } = await supabase.auth.getUser()
   if (error || !data?.user?.id) return 0
@@ -184,7 +187,7 @@ export async function attachPendingIosMatchActivities(role) {
       await iosActivity.endMatchActivity(activity.id).catch(() => {})
       continue
     }
-    if (saved?.activityId === activity.id) continue
+    if (attachedIosTokens.get(activity.id) === activity.token) continue
     const result = await supabase.rpc('attach_live_match_activity', {
       follow_id_value: activity.followId, activity_token_value: activity.token,
     })
@@ -196,6 +199,7 @@ export async function attachPendingIosMatchActivities(role) {
     }
     await AsyncStorage.setItem(key, JSON.stringify({ followId: activity.followId,
       activityId: activity.id, parentLinkId: saved?.parentLinkId || null }))
+    attachedIosTokens.set(activity.id, activity.token)
     attached += 1
   }
   return attached
