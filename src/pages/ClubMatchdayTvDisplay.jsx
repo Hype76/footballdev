@@ -2,6 +2,7 @@ import { useEffect, useEffectEvent, useLayoutEffect, useMemo, useRef, useState }
 import { Link, useNavigate } from 'react-router-dom'
 import { createThemeColorTokens } from '../lib/theme.js'
 import { getClubMatchdayTv } from '../lib/domain/club-matchday-tv.js'
+import { ClubTvSponsorImage } from '../components/ClubTvSponsorImage.jsx'
 import { activeTvSponsors, clubTvDate, newTvGoals, TV_PAGE_SIZE, TV_RECOVERY_MS, TV_REFRESH_MS, TV_ROTATION_SECONDS, tvMatchSides, tvMatchStatus, tvPitchNumber } from '../lib/club-matchday-tv.js'
 import fpLogo from '../assets/football-player-logo.webp'
 import { isClubTvLocked, setClubTvLocked } from '../lib/club-tv-lock.js'
@@ -184,6 +185,7 @@ function ClubDayDisplay({ user, preferences, standalone, preview, date, setDate,
   }, [activeSponsors, denied, hasMap, preferences.showPitchsideOrdering])
   const [carousel, setCarousel] = useState({ page: 0, seconds: TV_ROTATION_SECONDS, anchor: null })
   const [sponsorIndex, setSponsorIndex] = useState(0)
+  const sponsor = sponsorSlides[sponsorIndex % sponsorSlides.length]
   const [paused, setPaused] = useState(false)
   const [fullscreenError, setFullscreenError] = useState('')
   const [goal, setGoal] = useState(null)
@@ -357,7 +359,7 @@ function ClubDayDisplay({ user, preferences, standalone, preview, date, setDate,
         {!homeFixtures.length ? <p className="club-tv-home-empty">No home fixtures {period === 'weekend' ? 'this weekend' : period === 'month' ? 'this month' : rangeView ? 'this week' : selectedToday ? 'today' : 'on this date'}.</p> : null}
       </section>
       <aside className="club-tv-side-panel" aria-label="Club information">
-        <section className={`club-tv-sponsor${sponsorSlides.length ? ' club-tv-sponsor-artwork' : ''}`} aria-label="Club sponsors">{sponsorSlides.length ? <img src={sponsorSlides[sponsorIndex % sponsorSlides.length].image} alt={sponsorSlides[sponsorIndex % sponsorSlides.length].goalAlerts ? 'Free live goal alerts for grassroots football. Scan the QR code to get started.' : 'Club sponsor advert'} /> : <><small>PROUD TO SUPPORT YOUR CLUB</small><strong>Your company could advertise here.</strong><span>Ask the Club Admin about matchday sponsorship.</span></>}</section>
+        <section className={`club-tv-sponsor${sponsor ? ' club-tv-sponsor-artwork' : ''}`} aria-label="Club sponsors">{sponsor ? sponsorSlides.map((ad, index) => <ClubTvSponsorImage key={ad.imagePath ? `${ad.imagePath}:${index}` : index} ad={ad} clubId={user.clubId} slug={viewerSlug} hidden={ad !== sponsor} alt={ad.goalAlerts ? 'Free live goal alerts for grassroots football. Scan the QR code to get started.' : 'Club sponsor advert'} />) : <><small>PROUD TO SUPPORT YOUR CLUB</small><strong>Your company could advertise here.</strong><span>Ask the Club Admin about matchday sponsorship.</span></>}</section>
         {hasMap ? <section className="club-tv-pitch"><div><h2>Pitch map</h2><span>Find your pitch</span></div><img src={preferences.map} alt={`${club?.name || user.clubName || 'Club'} pitch map`} /></section> : null}
         {preferences.showPitchsideOrdering ? <section className="club-tv-ordering"><small>MATCHDAY PITCHSIDE</small><strong>Pitchside ordering</strong><span>Coming soon</span></section> : !hasMap ? <section className="club-tv-goal-alert-ad" aria-label="Free live goal alerts"><img src="/club-tv-goal-alerts.webp" alt="Free live goal alerts for grassroots football. Scan the QR code to get started." /></section> : null}
       </aside>

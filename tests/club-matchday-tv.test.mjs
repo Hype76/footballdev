@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import { readFile } from 'node:fs/promises'
 import { PGlite } from '@electric-sql/pglite'
-import { activeTvSponsors, canViewClubMatchdayTv, clubTvDate, clubTvSlugStatus, clubTvViewerUrl, newTvGoals, readTvPreferences, toClubTvMatch, tvMatchSides, tvMatchStatus, tvPitchNumber, validTvDate, tvDateAfter, tvPeriodWindow } from '../src/lib/club-matchday-tv.js'
+import { activeTvSponsors, canViewClubMatchdayTv, clubTvDate, clubTvSlugStatus, clubTvViewerUrl, newTvGoals, readTvPreferences, toClubTvMatch, TV_SPONSOR_BUCKET, TV_SPONSOR_MAX_BYTES, tvMatchSides, tvMatchStatus, tvPitchNumber, validTvDate, tvDateAfter, tvPeriodWindow } from '../src/lib/club-matchday-tv.js'
 import { isClubTvLocked, setClubTvLocked } from '../src/lib/club-tv-lock.js'
 
 process.env.VITE_SUPABASE_URL ||= 'https://example.supabase.co'
@@ -283,21 +283,46 @@ test('private Matchday TV settings and aliases are saved atomically by authorize
     create role authenticated;
     create role service_role bypassrls;
     create table public.clubs (id uuid primary key);
+    create schema storage;
+    create table storage.buckets (id text primary key, name text, public boolean, file_size_limit bigint, allowed_mime_types text[]);
+    create table storage.objects (bucket_id text);
+    alter table storage.objects enable row level security;
+    grant usage on schema storage to anon, authenticated;
+    grant select, insert on storage.objects to anon, authenticated;
+    create policy existing_storage_access on storage.objects to anon, authenticated using (true) with check (true);
     grant select, update on public.clubs to service_role;
     insert into public.clubs values ('${cedarfield}'), ('${oakfield}');
   `)
   await db.exec(await readFile(new URL('../supabase/migrations/20261112090042_v1_club_matchday_tv_settings.sql', import.meta.url), 'utf8'))
+  await db.exec(await readFile(new URL('../supabase/migrations/20261113112824_v1_club_matchday_tv_sponsor_artwork.sql', import.meta.url), 'utf8'))
+  assert.deepEqual((await db.query('select public, file_size_limit::int, allowed_mime_types from storage.buckets where id = $1', [TV_SPONSOR_BUCKET])).rows, [{
+    public: false, file_size_limit: TV_SPONSOR_MAX_BYTES, allowed_mime_types: ['image/png', 'image/jpeg', 'image/webp'],
+  }])
+  await db.exec("insert into storage.objects values ('club-matchday-tv-sponsors'), ('existing-bucket')")
 
   for (const role of ['anon', 'authenticated']) {
     await db.exec(`set role ${role}`)
     await assert.rejects(db.exec('select * from public.club_matchday_tv_links'), { code: '42501' })
     await assert.rejects(db.exec('select * from public.club_matchday_tv_settings'), { code: '42501' })
     await assert.rejects(db.query('select public.save_club_matchday_tv_settings($1, null, $2, 0)', [cedarfield, {}]), { code: '42501' })
+    assert.deepEqual((await db.query('select bucket_id from storage.objects')).rows, [{ bucket_id: 'existing-bucket' }])
+    await assert.rejects(db.query('insert into storage.objects values ($1)', [TV_SPONSOR_BUCKET]), { code: '42501' })
   }
   await db.exec('set role service_role')
 
   const clubPlan = { status: 'active', plan_key: 'pilot', plan_status: 'active', is_plan_comped: true }
+  const storedArtwork = new Map()
   const client = {
+    storage: {
+      from(bucket) {
+        assert.equal(bucket, TV_SPONSOR_BUCKET)
+        return {
+          createSignedUploadUrl: async () => ({ data: { token: 'fictional-upload' } }),
+          info: async (path) => ({ data: storedArtwork.get(path) }),
+          createSignedUrl: async (path, lifetime) => ({ data: { signedUrl: `https://fixture.example/${path}?lifetime=${lifetime}` } }),
+        }
+      },
+    },
     from(table) {
       if (table === 'match_days') return clientFor([fixture({ venue_name: 'Pitch 7, club venue details' })]).from(table)
       if (table === 'clubs') {
@@ -412,6 +437,39 @@ test('private Matchday TV settings and aliases are saved atomically by authorize
   assert.equal((await view(undefined, 'cedar-fc')).status, 401)
   assert.equal((await anonymousFeed()).status, 401)
   assert.equal((await lookup('CEDAR-FC')).statusCode, 204)
+
+  const upload = (actor, bytes, mimeType = 'image/png') => request(actor, { clubId: cedarfield, action: 'sponsorUpload', bytes, mimeType })
+  assert.equal((await upload(undefined, TV_SPONSOR_MAX_BYTES)).status, 401)
+  assert.equal((await upload(oakfield, TV_SPONSOR_MAX_BYTES)).status, 403)
+  assert.equal((await upload(cedarfield, TV_SPONSOR_MAX_BYTES + 1)).status, 400)
+  assert.equal((await upload(cedarfield, 1, 'image/svg+xml')).status, 400)
+  const uploadResult = await upload(cedarfield, TV_SPONSOR_MAX_BYTES)
+  assert.equal(uploadResult.status, 200)
+  const { path } = uploadResult.upload
+  assert.ok(path.startsWith(`${cedarfield}/`))
+  assert.ok(path.endsWith('.png'))
+  const newAd = { imagePath: path, name: 'Cedarfield Sponsor', enabled: true, startDate: '', endDate: '' }
+  const artwork = (actor, imagePath = path) => request(actor, { slug: 'cedar-fc', action: 'sponsorArtwork', imagePath })
+  assert.equal((await artwork(cedarfield)).status, 404)
+  assert.equal((await save(cedarfield, null, 4, { ...preferences, sponsorAds: [newAd] })).status, 400)
+  storedArtwork.set(path, { size: TV_SPONSOR_MAX_BYTES, contentType: 'image/png' })
+  assert.equal((await save(cedarfield, null, 4, { ...preferences, sponsorAds: [{ ...newAd, imagePath: path.replace(cedarfield, oakfield) }] })).status, 400)
+  assert.equal((await save(cedarfield, null, 4, { ...preferences, sponsorAds: [newAd] })).status, 200)
+  assert.equal((await artwork(undefined)).status, 401)
+  assert.equal((await artwork(oakfield)).status, 403)
+  assert.equal((await artwork(cedarfield)).imageUrl, `https://fixture.example/${path}?lifetime=300`)
+  assert.equal((await save(cedarfield, null, 5, { ...preferences, accessMode: 'public', sponsorAds: [newAd] })).status, 200)
+  assert.equal((await artwork(undefined)).imageUrl, `https://fixture.example/${path}?lifetime=300`)
+  assert.equal((await artwork(undefined, path.replace(cedarfield, oakfield))).status, 404)
+  assert.equal((await save(cedarfield, null, 6, { ...preferences, accessMode: 'public', sponsorAds: [{ ...newAd, enabled: false }] })).status, 200)
+  assert.equal((await artwork(undefined)).status, 404)
+  assert.deepEqual((await view(undefined, 'cedar-fc')).settings.preferences.sponsorAds, [])
+  const legacyAd = { ...newAd, imagePath: undefined, image: 'data:image/png;base64,AA==' }
+  const unpublishedAds = [{ ...newAd, startDate: '2099-01-01' }, { ...legacyAd, enabled: false }, { ...legacyAd, startDate: '2099-01-01' }]
+  assert.equal((await save(cedarfield, null, 7, { ...preferences, accessMode: 'public', sponsorAds: unpublishedAds })).status, 200)
+  assert.equal((await artwork(undefined)).status, 404)
+  assert.deepEqual((await view(undefined, 'cedar-fc')).settings.preferences.sponsorAds, [])
+  assert.equal((await request(cedarfield, { clubId: cedarfield, action: 'settings' })).settings.preferences.sponsorAds.length, 3)
 
   await assert.rejects(db.query('select public.save_club_matchday_tv_settings($1, $2, $3, 0)', [oakfield, 'broken-prefs', []]), { code: '23514' })
   assert.equal((await availability(oakfield, 'broken-prefs')).availability, 'available')

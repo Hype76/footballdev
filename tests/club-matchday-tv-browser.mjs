@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict'
+import { createHash } from 'node:crypto'
 import { mkdir, readFile } from 'node:fs/promises'
 import { build, createServer, preview } from 'vite'
 import { chromium } from 'playwright'
-import { TV_RECOVERY_MS, TV_REFRESH_MS, tvPeriodWindow } from '../src/lib/club-matchday-tv.js'
+import { activeTvSponsors, TV_RECOVERY_MS, TV_REFRESH_MS, TV_SPONSOR_BUCKET, TV_SPONSOR_EXTENSIONS, TV_SPONSOR_MAX_BYTES, tvPeriodWindow } from '../src/lib/club-matchday-tv.js'
 
 const port = Number(process.env.CLUB_TV_BROWSER_PORT || 43136), origin = `http://127.0.0.1:${port}`
 Object.assign(process.env, { VITE_AUTH_ACCESS_BROWSER_FIXTURES: 'true', VITE_APP_URL: origin, VITE_PARENT_APP_URL: origin, VITE_SUPABASE_URL: 'http://fixture.supabase.test', VITE_SUPABASE_ANON_KEY: 'fixture-anon-key' })
@@ -64,6 +65,9 @@ let settings = { slug: null, preferences: null, revision: 0 }
 const firstAvailabilityCheck = Promise.withResolvers()
 let failFirstCedarfieldCheck = true
 let holdNextScorePoll
+let viewingDate = date
+const artwork = new Map()
+const signedArtworkUrl = (path) => `http://fixture.supabase.test/storage/v1/object/sign/${TV_SPONSOR_BUCKET}/${path}?token=fixture-read`
 const errors = []
 try {
   await verifyProductionEntries()
@@ -80,8 +84,24 @@ try {
       return route.fulfill({ response: await route.fetch({ url: `${origin}/matchday-tv-view.html` }) })
     }
     if (url.hostname === 'fixture.supabase.test') {
-      const headers = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': '*' }
+      const headers = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': '*', 'Access-Control-Allow-Methods': 'GET, PUT, POST, OPTIONS' }
       if (route.request().method() === 'OPTIONS') return route.fulfill({ status: 204, headers })
+      const uploadPrefix = `/storage/v1/object/upload/sign/${TV_SPONSOR_BUCKET}/`
+      const readPrefix = `/storage/v1/object/sign/${TV_SPONSOR_BUCKET}/`
+      if (url.pathname.startsWith(uploadPrefix)) {
+        assert.equal(url.searchParams.get('token'), 'fixture-write')
+        const request = route.request()
+        const file = await new Response(request.postDataBuffer(), { headers: { 'content-type': request.headers()['content-type'] } }).formData()
+        const original = file.get('')
+        const path = url.pathname.slice(uploadPrefix.length)
+        artwork.set(path, { bytes: Buffer.from(await original.arrayBuffer()), type: original.type })
+        return route.fulfill({ json: { Key: `${TV_SPONSOR_BUCKET}/${path}` }, headers })
+      }
+      if (url.pathname.startsWith(readPrefix)) {
+        assert.equal(url.searchParams.get('token'), 'fixture-read')
+        const original = artwork.get(url.pathname.slice(readPrefix.length))
+        return route.fulfill({ body: original.bytes, contentType: original.type, headers })
+      }
       if (url.pathname === '/auth/v1/token') {
         assert.equal(url.searchParams.get('grant_type'), 'password')
         assert.deepEqual(route.request().postDataJSON(), { email: fixtureEmail, password: 'Fixture-Club-Password', gotrue_meta_security: {} })
@@ -91,11 +111,20 @@ try {
     }
     if (url.pathname === '/.netlify/functions/club-matchday-tv') {
       const body = route.request().postDataJSON(); requests.push(body)
-      if (body.slug && (!body.action || ['view', 'weather'].includes(body.action))
+      if (body.slug && (!body.action || ['view', 'weather', 'sponsorArtwork'].includes(body.action))
         && settings.preferences?.accessMode !== 'public' && !route.request().headers().authorization) {
         return route.fulfill({ status: 401, json: { message: 'Sign in to open the club matchday display.' } })
       }
       if (body.action === 'settings') return route.fulfill({ json: { club: { id: body.clubId }, settings } })
+      if (body.action === 'sponsorUpload') {
+        assert.ok(body.bytes > 0 && body.bytes <= TV_SPONSOR_MAX_BYTES)
+        const path = `11111111-1111-4111-8111-111111111111/22222222-2222-4222-8222-${String(artwork.size + 1).padStart(12, '0')}.${TV_SPONSOR_EXTENSIONS[body.mimeType]}`
+        return route.fulfill({ json: { club: { id: body.clubId }, upload: { path, token: 'fixture-write' } } })
+      }
+      if (body.action === 'sponsorArtwork') {
+        assert.ok(settings.preferences.sponsorAds.some(ad => ad.imagePath === body.imagePath))
+        return route.fulfill({ json: { club: { id: body.clubId }, imageUrl: signedArtworkUrl(body.imagePath) } })
+      }
       if (body.action === 'availability') {
         if (body.slug === 'cedarfield-fc' && failFirstCedarfieldCheck) {
           failFirstCedarfieldCheck = false
@@ -110,7 +139,10 @@ try {
       }
       if (body.action === 'view') {
         if (body.slug !== settings.slug) return route.fulfill({ status: 403, json: { message: 'This link is unavailable for your Club Admin account.' } })
-        return route.fulfill({ json: { club: { id: 'club-fixture' }, settings } })
+        const preferences = settings.preferences?.accessMode === 'public'
+          ? { ...settings.preferences, sponsorAds: activeTvSponsors(settings.preferences.sponsorAds, viewingDate) }
+          : settings.preferences
+        return route.fulfill({ json: { club: { id: 'club-fixture' }, settings: { ...settings, preferences } } })
       }
       if (body.action === 'unlock') return route.fulfill({ status: unlockAccepted ? 200 : 401, contentType: 'application/json', body: JSON.stringify(unlockAccepted ? { club: { id: body.clubId }, unlocked: true } : { message: 'Password not accepted. The display stays locked.' }) })
       const payload = denied ? { message: 'Access is restricted to your own active Club Admin workspace.' } : unavailable ? { message: 'Scores could not be refreshed.' } : body.action === 'weather' ? { club: { id: body.clubId }, weather: { temperature: 13, windMph: 7, location: 'Club ground', condition: 'cloudy', time: '2026-10-21T09:00:00Z' } } : { club: { id: body.clubId, name: 'Test Club United', logoUrl: clubBadge, accent: '#1465c0' }, date: body.date, window: body.period && body.period !== 'day' ? tvPeriodWindow(body.date, body.period) : displayWindow, matches, refreshedAt: '2026-10-21T09:00:00Z' }
@@ -418,7 +450,8 @@ try {
   await page.getByLabel('Sponsor artwork').setInputFiles({ name: 'too-large.png', mimeType: 'image/png', buffer: Buffer.alloc(5 * 1024 * 1024 + 1) })
   await page.getByRole('alert').getByText('Each sponsor image must be PNG, JPG or WebP and up to 5 MB.').waitFor()
   const advert = await readFile('public/club-tv-goal-alerts.webp')
-  await page.getByLabel('Sponsor artwork').setInputFiles({ name: 'Sponsor One.webp', mimeType: 'image/webp', buffer: Buffer.concat([advert, Buffer.alloc(5 * 1024 * 1024 - advert.length)]) })
+  const originalAdvert = Buffer.concat([advert, Buffer.alloc(TV_SPONSOR_MAX_BYTES - advert.length)])
+  await page.getByLabel('Sponsor artwork').setInputFiles({ name: 'Sponsor One.webp', mimeType: 'image/webp', buffer: originalAdvert })
   await page.getByAltText('Sponsor 1 preview').waitFor()
   const sponsorDrop = await page.evaluateHandle(async () => {
     const transfer = new DataTransfer()
@@ -431,17 +464,19 @@ try {
   })
   await page.locator('.club-tv-upload').last().dispatchEvent('drop', { dataTransfer: sponsorDrop })
   await page.getByAltText('Sponsor 2 preview').waitFor()
-  const firstSponsor = await page.getByAltText('Sponsor 1 preview').getAttribute('src')
-  const secondSponsor = await page.getByAltText('Sponsor 2 preview').getAttribute('src')
+  const firstPreview = await page.getByAltText('Sponsor 1 preview').getAttribute('src')
+  const secondPreview = await page.getByAltText('Sponsor 2 preview').getAttribute('src')
+  const [firstPath, secondPath] = [...artwork.keys()]
+  const firstSponsor = signedArtworkUrl(firstPath), secondSponsor = signedArtworkUrl(secondPath)
   await page.getByRole('button', { name: 'Preview sponsor 1' }).click()
-  assert.equal(await page.getByAltText('Full preview of sponsor 1').getAttribute('src'), firstSponsor)
+  assert.equal(await page.getByAltText('Full preview of sponsor 1').getAttribute('src'), firstPreview)
   await page.screenshot({ path: `${output}/sponsor-settings-preview.png` })
   await page.setViewportSize({ width: 390, height: 844 })
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false)
   await page.screenshot({ path: `${output}/sponsor-settings-preview-narrow.png` })
   await page.setViewportSize({ width: 1920, height: 1080 })
   await page.getByRole('button', { name: 'Move sponsor 1 down' }).click()
-  assert.equal(await page.getByAltText('Sponsor 1 preview').getAttribute('src'), secondSponsor)
+  assert.equal(await page.getByAltText('Sponsor 1 preview').getAttribute('src'), secondPreview)
   await page.getByRole('button', { name: 'Move sponsor 1 down' }).click()
   await page.getByLabel('Time per advert').selectOption('10')
   await page.getByLabel('Sponsor 1 start date').fill('2026-10-21')
@@ -449,13 +484,20 @@ try {
   await page.getByRole('button', { name: 'Save settings' }).click()
   await page.getByRole('alert').getByText('Each advert end date must be on or after its start date.').waitFor()
   await page.getByLabel('Sponsor 1 end date').fill('2026-10-21')
-  assert.ok(firstSponsor.startsWith('data:image/webp;base64,') && firstSponsor.length < 700000, 'Large artwork is converted to WebP and fits browser storage')
+  const digest = (bytes) => createHash('sha256').update(bytes).digest('hex')
+  assert.equal(digest(artwork.get(firstPath).bytes), digest(originalAdvert), 'The exact 5 MB original reaches Storage')
   assert.ok((await page.getByAltText('Uploaded pitch map preview').getAttribute('src')).startsWith('data:image/webp;base64,'), 'Pitch maps are converted to WebP')
   await page.getByLabel('Show pitchside ordering').check()
   await saveAndPreview()
   assert.equal(await page.locator('.club-tv-match').count(), 8)
   await page.locator('.club-tv-pitch').waitFor()
+  await page.getByAltText('Club sponsor advert').waitFor()
   assert.equal(await page.getByAltText('Club sponsor advert').getAttribute('src'), firstSponsor)
+  const displayedHash = await page.getByAltText('Club sponsor advert').evaluate(async img => {
+    const bytes = await (await fetch(img.src)).arrayBuffer()
+    return [...new Uint8Array(await crypto.subtle.digest('SHA-256', bytes))].map(byte => byte.toString(16).padStart(2, '0')).join('')
+  })
+  assert.equal(displayedHash, digest(originalAdvert), 'The TV downloads the exact uploaded original')
   await page.screenshot({ path: `${output}/sponsor-artwork.png` })
   await page.reload()
   await page.getByAltText('Club sponsor advert').waitFor()
@@ -465,7 +507,7 @@ try {
   await page.getByText('Coming soon').waitFor()
   await page.getByRole('button', { name: 'Resume carousel' }).click()
   await page.clock.runFor(11000)
-  assert.equal(await page.getByAltText('Club sponsor advert').getAttribute('src'), secondSponsor)
+  await page.locator(`img[alt="Club sponsor advert"][src="${secondSponsor}"]`).waitFor()
   await page.getByRole('button', { name: 'Pause carousel' }).click()
   await openSettings()
   assert.equal(await page.getByLabel('Time per advert').inputValue(), '10')
@@ -581,7 +623,16 @@ try {
   await page.goto(copiedUrl)
   await page.getByRole('heading', { name: 'Test Club United' }).waitFor()
   await page.locator('.club-tv-pitch').waitFor()
+  await page.locator(`img[alt="Club sponsor advert"][src="${firstSponsor}"]`).waitFor()
   assert.equal(await page.getByRole('button', { name: 'Sign in', exact: true }).count(), 0)
+  const requestsBeforeDateChange = requests.filter(request => request.action === 'view').length
+  viewingDate = '2026-10-22'
+  await page.clock.fastForward(16 * 60 * 60 * 1000)
+  await page.waitForFunction(() => document.querySelector('.club-tv-clock')?.textContent.includes('22 Oct'))
+  await page.locator(`img[alt="Club sponsor advert"][src="${secondSponsor}"]`).waitFor()
+  assert.ok(requests.filter(request => request.action === 'view').length > requestsBeforeDateChange)
+  viewingDate = date
+  await page.clock.setSystemTime(new Date('2026-10-21T12:00:00Z'))
   settings = { ...settings, preferences: { ...settings.preferences, accessMode: 'admin' } }
   for (let i = 0; i < 15 && !(await page.getByRole('button', { name: 'Sign in', exact: true }).isVisible()); i++) {
     await page.clock.runFor(1000)

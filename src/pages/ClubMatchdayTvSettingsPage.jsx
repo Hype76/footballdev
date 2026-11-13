@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../lib/auth.js'
-import { clubTvSlugStatus, clubTvStorageKey, clubTvViewerUrl, hasLocalTvPreferences, normalizeClubTvSlug, normalizeTvPreferences, readTvPreferences, validTvSponsorSchedule } from '../lib/club-matchday-tv.js'
-import { getClubMatchdayTv } from '../lib/domain/club-matchday-tv.js'
+import { clubTvSlugStatus, clubTvStorageKey, clubTvViewerUrl, hasLocalTvPreferences, normalizeClubTvSlug, normalizeTvPreferences, readTvPreferences, TV_SPONSOR_EXTENSIONS, TV_SPONSOR_MAX_BYTES, validTvSponsorSchedule } from '../lib/club-matchday-tv.js'
+import { getClubMatchdayTv, uploadClubTvSponsor } from '../lib/domain/club-matchday-tv.js'
+import { ClubTvSponsorImage } from '../components/ClubTvSponsorImage.jsx'
 import './club-matchday-tv.css'
 import './club-matchday-tv-settings.css'
 
@@ -58,6 +59,12 @@ function DisplaySettings({ clubId, settings, storageKey }) {
   const [sponsorsUploading, setSponsorsUploading] = useState(false)
   const [previewIndex, setPreviewIndex] = useState(null)
   const uploadVersion = useRef(0)
+  const sponsorPreviews = useRef(new Set())
+
+  useEffect(() => {
+    const previews = sponsorPreviews.current
+    return () => { for (const url of previews) URL.revokeObjectURL(url) }
+  }, [])
   const slugStatus = clubTvSlugStatus(slug)
   const availability = slugStatus !== 'valid' ? slugStatus
     : slug === savedSlug ? 'available' : checked?.slug === slug ? checked.status : 'checking'
@@ -110,17 +117,29 @@ function DisplaySettings({ clubId, settings, storageKey }) {
     if (sponsorsUploading) return
     const incoming = [...files].slice(0, Math.max(0, 3 - draft.sponsorAds.length))
     if (!incoming.length) return
-    if (incoming.some(file => !['image/png', 'image/jpeg', 'image/webp'].includes(file.type) || file.size > 5 * 1024 * 1024)) {
+    if (incoming.some(file => !Object.hasOwn(TV_SPONSOR_EXTENSIONS, file.type) || !file.size || file.size > TV_SPONSOR_MAX_BYTES)) {
       setError('Each sponsor image must be PNG, JPG or WebP and up to 5 MB.')
       return
     }
     setSponsorsUploading(true)
     try {
-      const ads = await Promise.all(incoming.map(async file => {
-        const image = await prepareTvArtwork(file)
-        return { image, name: '', enabled: true, startDate: '', endDate: '' }
-      }))
-      setDraft(current => ({ ...current, sponsorAds: [...current.sponsorAds, ...ads].slice(0, 3) }))
+      for (const file of incoming) {
+        const image = URL.createObjectURL(file)
+        sponsorPreviews.current.add(image)
+        try {
+          const decoded = new Image()
+          decoded.src = image
+          await decoded.decode()
+          if (!decoded.width || !decoded.height || decoded.width > 12000 || decoded.height > 12000) throw new Error('Invalid image dimensions')
+          const imagePath = await uploadClubTvSponsor(clubId, file)
+          const ad = { image, imagePath, name: '', enabled: true, startDate: '', endDate: '' }
+          setDraft(current => ({ ...current, sponsorAds: [...current.sponsorAds, ad].slice(0, 3) }))
+        } catch (failure) {
+          URL.revokeObjectURL(image)
+          sponsorPreviews.current.delete(image)
+          throw failure
+        }
+      }
       setError('')
     } catch { setError('The sponsor images could not be opened. Try another PNG, JPG or WebP.') }
     finally { setSponsorsUploading(false) }
@@ -157,7 +176,7 @@ function DisplaySettings({ clubId, settings, storageKey }) {
     setError('')
     setMessage('')
     try {
-      const result = await getClubMatchdayTv({ clubId, action: 'save', slug: slug || null, preferences: draft, revision })
+      const result = await getClubMatchdayTv({ clubId, action: 'save', slug: slug || null, preferences: normalizeTvPreferences(draft), revision })
       const preferences = normalizeTvPreferences(result.settings.preferences)
       if (usesLegacySettings) {
         try { localStorage.setItem(storageKey, JSON.stringify(preferences)) } catch { /* The shared settings are saved. */ }
@@ -205,11 +224,11 @@ function DisplaySettings({ clubId, settings, storageKey }) {
         <small>PNG, JPG or WebP, up to 5 MB. The map stays beside the rotating scores.</small>
         {draft.map ? <><img className="club-tv-map-preview" src={draft.map} alt="Uploaded pitch map preview" /><label className="club-tv-check"><input type="checkbox" checked={draft.showMap} onChange={(event) => setDraft({ ...draft, showMap: event.target.checked })} /> Show map on half the display</label><button type="button" onClick={() => { uploadVersion.current++; setMapUploading(false); setDraft({ ...draft, map: '' }) }}>Remove map</button></> : null}
         <label className={`club-tv-upload${dragTarget === 'sponsor' ? ' club-tv-upload-active' : ''}`} onDragOver={(event) => { event.preventDefault(); setDragTarget('sponsor') }} onDragLeave={() => setDragTarget('')} onDrop={(event) => dropFiles(event, 'sponsor')}>Sponsor artwork <span>Drag and drop or click to upload</span><input aria-label="Sponsor artwork" type="file" accept="image/png,image/jpeg,image/webp" multiple disabled={sponsorsUploading} onChange={(event) => { void uploadSponsors(event.target.files || []); event.target.value = '' }} /></label>
-        <small>Add up to three sponsor adverts. Each image can be up to 5 MB. They rotate on this club display.</small>
+        <small>Add up to three adverts, up to 5 MB each. New sponsor images are saved at their original quality.</small>
         {draft.sponsorAds.length ? <label>Time per advert <select aria-label="Time per advert" value={draft.sponsorSeconds} onChange={(event) => setDraft({ ...draft, sponsorSeconds: Number(event.target.value) })}>{[10, 15, 30, 60].map(seconds => <option key={seconds} value={seconds}>{seconds} seconds</option>)}</select></label> : null}
         {draft.sponsorAds.map((ad, index) => <div className="club-tv-sponsor-settings" key={index}>
-          <div className="club-tv-sponsor-edit"><img src={ad.image} alt={`Sponsor ${index + 1} preview`} /><strong>Advert {index + 1}</strong><button type="button" onClick={() => setPreviewIndex(previewIndex === index ? null : index)} aria-label={`Preview sponsor ${index + 1}`}>Preview</button><button type="button" aria-label={`Move sponsor ${index + 1} up`} disabled={index === 0} onClick={() => moveSponsor(index, -1)}>↑</button><button type="button" aria-label={`Move sponsor ${index + 1} down`} disabled={index === draft.sponsorAds.length - 1} onClick={() => moveSponsor(index, 1)}>↓</button><button type="button" aria-label={`Remove sponsor ${index + 1}`} onClick={() => { setPreviewIndex(null); setDraft(current => ({ ...current, sponsorAds: current.sponsorAds.filter((_, itemIndex) => itemIndex !== index) })) }}>Remove</button></div>
-          {previewIndex === index ? <div className="club-tv-ad-preview"><img src={ad.image} alt={`Full preview of sponsor ${index + 1}`} /></div> : null}
+          <div className="club-tv-sponsor-edit"><ClubTvSponsorImage ad={ad} clubId={clubId} alt={`Sponsor ${index + 1} preview`} /><strong>Advert {index + 1}</strong><button type="button" onClick={() => setPreviewIndex(previewIndex === index ? null : index)} aria-label={`Preview sponsor ${index + 1}`}>Preview</button><button type="button" aria-label={`Move sponsor ${index + 1} up`} disabled={index === 0} onClick={() => moveSponsor(index, -1)}>↑</button><button type="button" aria-label={`Move sponsor ${index + 1} down`} disabled={index === draft.sponsorAds.length - 1} onClick={() => moveSponsor(index, 1)}>↓</button><button type="button" aria-label={`Remove sponsor ${index + 1}`} onClick={() => { setPreviewIndex(null); setDraft(current => ({ ...current, sponsorAds: current.sponsorAds.filter((_, itemIndex) => itemIndex !== index) })) }}>Remove</button></div>
+          {previewIndex === index ? <div className="club-tv-ad-preview"><ClubTvSponsorImage ad={ad} clubId={clubId} alt={`Full preview of sponsor ${index + 1}`} /></div> : null}
           <label className="club-tv-check"><input type="checkbox" checked={ad.enabled !== false} onChange={(event) => updateSponsor(index, { enabled: event.target.checked })} /> Show advert {index + 1}</label>
           <div className="club-tv-sponsor-dates"><label>Start date (optional)<input aria-label={`Sponsor ${index + 1} start date`} type="date" value={ad.startDate || ''} onChange={(event) => updateSponsor(index, { startDate: event.target.value })} /></label><label>End date (optional)<input aria-label={`Sponsor ${index + 1} end date`} type="date" value={ad.endDate || ''} onChange={(event) => updateSponsor(index, { endDate: event.target.value })} /></label></div>
         </div>)}

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { CLUB_TV_EMBED_PATH, CLUB_TV_VIEW_HOST, CLUB_TV_VIEW_PATH, clubTvSlugStatus, normalizeClubTvSlug, normalizeTvPreferences } from '../lib/club-matchday-tv.js'
+import { CLUB_TV_EMBED_PATH, CLUB_TV_VIEW_HOST, CLUB_TV_VIEW_PATH, clubTvDate, clubTvSlugStatus, normalizeClubTvSlug, normalizeTvPreferences } from '../lib/club-matchday-tv.js'
 import { getClubMatchdayTv } from '../lib/domain/club-matchday-tv.js'
 import { supabase } from '../lib/supabase-client.js'
 import { ClubMatchdayTvDisplay } from './ClubMatchdayTvDisplay.jsx'
@@ -74,6 +74,14 @@ function AuthorizedViewer({ userId, slug }) {
   const [result, setResult] = useState(null)
   const [error, setError] = useState(null)
   const [attempt, setAttempt] = useState(0)
+  const [viewingDate, setViewingDate] = useState(clubTvDate)
+
+  useEffect(() => {
+    const updateDate = () => setViewingDate(clubTvDate())
+    const timer = setInterval(updateDate, 60000)
+    document.addEventListener('visibilitychange', updateDate)
+    return () => { clearInterval(timer); document.removeEventListener('visibilitychange', updateDate) }
+  }, [])
 
   useEffect(() => {
     const controller = new AbortController()
@@ -85,7 +93,7 @@ function AuthorizedViewer({ userId, slug }) {
       })
       .finally(() => clearTimeout(timer))
     return () => { controller.abort(); clearTimeout(timer) }
-  }, [slug, attempt])
+  }, [slug, attempt, viewingDate])
 
   if (error?.status === 401 && !userId) return <ViewerSignIn />
   if (error) return <ViewerStatus>
