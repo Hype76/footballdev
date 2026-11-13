@@ -294,12 +294,12 @@ export function AddPlayerPage() {
   const sendParentPortalInvitesForPlayer = async (player) => {
     const contacts = getPlayerParentInviteContacts(player)
     if (!contacts.length || !canUseUiFeature(user, CAPABILITIES.parentInvitations, { teamId: player.teamId })) return 0
-    const invites = await createParentPortalInvites({ user, player, contacts })
+    const invites = await createParentPortalInvites({ user, player, contacts, automatic: true })
     const results = await Promise.allSettled(invites.map(invite =>
-      sendParentPortalInvite({ inviteLinkId: invite.id, senderEmail: user.email }),
+      sendParentPortalInvite({ inviteLinkId: invite.id, senderEmail: user.email, automatic: true }),
     ))
     if (results.some(result => result.status === 'rejected')) throw new Error('A Parent app invitation could not be sent.')
-    return invites.length
+    return results.filter(result => result.status === 'fulfilled' && !result.value.skipped).length
   }
 
   const finishPlayerSave = async (player) => {

@@ -154,6 +154,13 @@ language plpgsql security definer
 set search_path = ''
 as $$
 begin
+  if old.team_id is distinct from new.team_id
+    or old.club_id is distinct from new.club_id
+    or app_private.adult_player_setup_email(old) is distinct from app_private.adult_player_setup_email(new) then
+    update public.adult_player_account_links
+    set status = 'revoked', revoked_by = auth.uid()
+    where player_id = new.id and status = 'active';
+  end if;
   delete from app_private.adult_player_setup_invites
   where player_id = new.id and (team_id is distinct from new.team_id
     or email is distinct from app_private.adult_player_setup_email(new));
@@ -162,7 +169,7 @@ end;
 $$;
 
 create trigger invalidate_adult_player_setup_invite
-after update of team_id, status, archived_at, contact_type, date_of_birth, parent_contacts on public.players
+after update of club_id, team_id, status, archived_at, contact_type, date_of_birth, parent_contacts on public.players
 for each row execute function app_private.invalidate_adult_player_setup_invite();
 
 revoke all on app_private.adult_player_setup_invites from public, anon, authenticated;

@@ -1,5 +1,5 @@
 import { CAPABILITIES } from '../../../src/lib/paywall-access.js'
-import { isParentPortalInviteEligiblePlayer, normalizeParentPortalInviteEmail } from '../../../src/lib/parent-portal-invite-actions.js'
+import { canAutoSendParentInvite, isParentPortalInviteEligiblePlayer, normalizeParentPortalInviteEmail } from '../../../src/lib/parent-portal-invite-actions.js'
 import { assertCoachCapability, assertCoachOperationalMutation, assertCoachOperationalRead } from './coachOperationalData'
 import { getMobileRuntimeConfig } from './config'
 import { fetchJsonWithTimeout, joinApiPath } from './http'
@@ -23,10 +23,12 @@ function scope(query, user, playerId) {
   return query.eq('club_id', user.clubId).eq('team_id', user.activeTeamId).eq('player_id', playerId)
 }
 
-export async function getCoachParentLinks(user, playerId) {
+export async function getCoachParentLinks(user, playerId, { includeRevoked = false } = {}) {
   assertCoachOperationalRead(user, { requiresTeam: true })
-  const { data, error } = await scope(supabase.from('parent_player_links').select(LINK_COLUMNS), user, playerId)
-    .eq('link_type', 'parent').neq('status', 'revoked').order('created_at', { ascending: false })
+  let query = scope(supabase.from('parent_player_links').select(LINK_COLUMNS), user, playerId)
+    .eq('link_type', 'parent')
+  if (!includeRevoked) query = query.neq('status', 'revoked')
+  const { data, error } = await query.order('created_at', { ascending: false }).order('id', { ascending: false })
   if (error) throw error
   return data || []
 }
@@ -40,7 +42,7 @@ async function getCurrentPlayer(user, playerId) {
   return data
 }
 
-export async function sendCoachParentInvite(user, playerId, contact) {
+export async function sendCoachParentInvite(user, playerId, contact, { automatic = false } = {}) {
   const player = await getCurrentPlayer(user, playerId)
   assertCoachCapability(user, CAPABILITIES.parentInvitations)
   const email = normalizeParentPortalInviteEmail(contact?.email)
@@ -50,8 +52,9 @@ export async function sendCoachParentInvite(user, playerId, contact) {
   if (!contacts.some((row) => normalizeParentPortalInviteEmail(row.email ?? row.parentEmail) === email)) {
     throw new Error('Save this contact on the player before sending an invite.')
   }
-  const links = await getCoachParentLinks(user, playerId)
+  const links = await getCoachParentLinks(user, playerId, { includeRevoked: automatic })
   if (links.some((link) => normalizeParentPortalInviteEmail(link.email) === email && link.status === 'active')) return { alreadyLinked: true }
+  if (automatic && links.some(link => normalizeParentPortalInviteEmail(link.email) === email && !canAutoSendParentInvite(link))) return { skipped: true }
   let invite = links.find((link) => normalizeParentPortalInviteEmail(link.email) === email && ['pending', 'uninvited'].includes(link.status))
   if (invite?.status === 'uninvited') {
     const { data, error } = await scope(supabase.from('parent_player_links').update({
@@ -65,10 +68,21 @@ export async function sendCoachParentInvite(user, playerId, contact) {
     invite = data
   }
   if (invite?.expires_at && new Date(invite.expires_at).getTime() <= Date.now()) {
-    const { error } = await scope(supabase.from('parent_player_links').update({ status: 'revoked', updated_at: new Date().toISOString() }), user, playerId)
-      .eq('id', invite.id).eq('status', 'pending')
-    if (error) throw error
-    invite = null
+    if (automatic) {
+      const { data, error } = await scope(supabase.from('parent_player_links').update({
+        expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+        updated_at: new Date().toISOString(),
+      }), user, playerId).eq('id', invite.id).eq('status', 'pending').is('invite_sent_at', null)
+        .select(LINK_COLUMNS).maybeSingle()
+      if (error) throw error
+      if (!data) return { skipped: true }
+      invite = data
+    } else {
+      const { error } = await scope(supabase.from('parent_player_links').update({ status: 'revoked', updated_at: new Date().toISOString() }), user, playerId)
+        .eq('id', invite.id).eq('status', 'pending')
+      if (error) throw error
+      invite = null
+    }
   }
   if (!invite) {
     const { data, error } = await supabase.from('parent_player_links').insert({
@@ -84,7 +98,7 @@ export async function sendCoachParentInvite(user, playerId, contact) {
   if (!token) throw new Error('Sign in again before sending a Parent invite.')
   const { ok, result } = await fetchJsonWithTimeout(joinApiPath(getMobileRuntimeConfig('coach').apiBaseUrl, '.netlify/functions/send-parent-portal-invite'), {
     method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ inviteLinkId: invite.id }),
+    body: JSON.stringify({ inviteLinkId: invite.id, automatic }),
   })
   if (!ok || result.success !== true) throw new Error(result.message || 'Parent invite could not be sent. Please try again.')
   return result

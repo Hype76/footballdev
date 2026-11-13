@@ -6,7 +6,7 @@ import { assertClubFeature } from './plan-gates.js'
 import { normalizeLegacyThemeButtonStyle } from '../theme.js'
 import { normalizePersonName } from '../person-name.js'
 import { normalizeFanProfileLink } from '../fans.js'
-import { getPlayerParentInviteContacts } from '../parent-portal-invite-actions.js'
+import { canAutoSendParentInvite, getPlayerParentInviteContacts } from '../parent-portal-invite-actions.js'
 
 function normalizeEmail(value) {
   return String(value ?? '').trim().toLowerCase()
@@ -399,7 +399,7 @@ export async function revokeFamilyPortalLink({ linkId }) {
   return normalizeParentLink(revokedRow)
 }
 
-export async function createParentPortalInvites({ user, player, contacts, includeSentPending = false }) {
+export async function createParentPortalInvites({ user, player, contacts, includeSentPending = false, automatic = false }) {
   if (!user?.clubId || !player?.id) {
     throw new Error('Choose a player before creating parent links.')
   }
@@ -414,7 +414,7 @@ export async function createParentPortalInvites({ user, player, contacts, includ
       name: String(contact?.name ?? '').trim(),
       email: normalizeEmail(contact?.email),
     }))
-    .filter((contact) => contact.email)
+    .filter((contact, index, entries) => contact.email && entries.findIndex(entry => entry.email === contact.email) === index)
 
   if (player.contactType === 'self' || (contacts ?? []).some(contact => contact?.type === 'self')) {
     throw new Error('Use the Player login invitation for an adult player.')
@@ -436,9 +436,11 @@ export async function createParentPortalInvites({ user, player, contacts, includ
   })
 
   const emails = normalizedContacts.map((contact) => contact.email)
-  const nowIso = new Date().toISOString()
+  const now = new Date()
+  const nowIso = now.toISOString()
+  const expiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString()
 
-  await supabase
+  if (!automatic) await supabase
     .from('parent_player_links')
     .update({
       status: 'revoked',
@@ -450,13 +452,15 @@ export async function createParentPortalInvites({ user, player, contacts, includ
     .eq('status', 'pending')
     .lt('expires_at', nowIso)
 
-  const existingQuery = supabase
+  let existingQuery = supabase
     .from('parent_player_links')
     .select('*, players:player_id (player_name, section, team), teams:team_id (name, theme_mode, theme_accent, theme_button_style), clubs:club_id (name, theme_accent, theme_button_style, plan_key, plan_status)')
     .eq('team_id', teamId)
     .eq('player_id', player.id)
-    .neq('status', 'revoked')
     .in('email', emails)
+    .order('created_at', { ascending: false })
+    .order('id', { ascending: false })
+  existingQuery = automatic ? existingQuery.eq('link_type', 'parent') : existingQuery.neq('status', 'revoked')
   const { data: existingRows, error: existingError } = await existingQuery
 
   if (existingError) {
@@ -482,7 +486,10 @@ export async function createParentPortalInvites({ user, player, contacts, includ
       .filter((row) => row.auth_user_id)
       .map((row) => normalizeEmail(row.email)),
   )
-  const existingRowsByEmail = new Map((existingRows ?? []).map((row) => [normalizeEmail(row.email), row]))
+  const existingRowsByEmail = new Map((existingRows ?? []).slice().reverse().map((row) => [normalizeEmail(row.email), row]))
+  const automaticBlockedEmails = new Set(automatic
+    ? (existingRows ?? []).filter(row => !canAutoSendParentInvite(row)).map(row => normalizeEmail(row.email))
+    : [])
   const existingSentOrAcceptedEmails = new Set(
     (existingRows ?? [])
       .filter((row) => row.status === 'active' || row.invite_sent_at)
@@ -494,8 +501,24 @@ export async function createParentPortalInvites({ user, player, contacts, includ
     inviteUrl: buildInviteUrl(row.invite_token),
   })
   const resendRows = normalizedContacts
+    .filter(contact => !automaticBlockedEmails.has(contact.email))
     .map((contact) => existingRowsByEmail.get(contact.email))
-    .filter((row) => row && row.status === 'pending' && (includeSentPending || !row.invite_sent_at))
+    .filter((row) => row && (automatic ? canAutoSendParentInvite(row) : row.status === 'pending' && (includeSentPending || !row.invite_sent_at)))
+  if (automatic) {
+    for (const [index, row] of resendRows.entries()) {
+      if (row.status === 'pending' && (!row.expires_at || Date.parse(row.expires_at) > now.getTime())) continue
+      const { data, error } = await supabase.from('parent_player_links')
+        .update({
+          status: 'pending', expires_at: expiresAt, updated_at: nowIso, invited_by: user.id,
+          invited_by_name: user.displayName || user.username || user.name || user.email,
+        })
+        .eq('id', row.id).eq('status', row.status).is('invite_sent_at', null)
+        .select('*, players:player_id (player_name, section, team), teams:team_id (name, theme_mode, theme_accent, theme_button_style), clubs:club_id (name, theme_accent, theme_button_style, plan_key, plan_status)')
+        .maybeSingle()
+      if (error) throw error
+      resendRows[index] = data
+    }
+  }
   const rows = normalizedContacts
     .filter((contact) => !existingRowsByEmail.has(contact.email) && !existingSentOrAcceptedEmails.has(contact.email))
     .map((contact) => ({
@@ -505,13 +528,13 @@ export async function createParentPortalInvites({ user, player, contacts, includ
       link_type: 'parent',
       email: contact.email,
       status: 'pending',
-      expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+      expires_at: expiresAt,
       invited_by: user.id,
       invited_by_name: user.displayName || user.username || user.name || user.email,
     }))
 
   if (rows.length === 0) {
-    return resendRows.map(withInviteMetadata)
+    return resendRows.filter(Boolean).map(withInviteMetadata)
   }
 
   const { data, error } = await supabase
@@ -524,7 +547,7 @@ export async function createParentPortalInvites({ user, player, contacts, includ
     throw error
   }
 
-  return [...resendRows, ...(data ?? [])].map(withInviteMetadata)
+  return [...resendRows.filter(Boolean), ...(data ?? [])].map(withInviteMetadata)
 }
 
 export async function createParentPortalInvitesForPlayers({ user, players }) {

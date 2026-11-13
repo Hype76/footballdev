@@ -29,6 +29,11 @@ export function getPlayerParentInviteContacts(player) {
   return [...unique.values()]
 }
 
+export function canAutoSendParentInvite(link) {
+  return !link || link.status === 'uninvited'
+    || (link.status === 'pending' && !(link.invite_sent_at || link.inviteSentAt))
+}
+
 export function getParentPortalInviteActionForContact({
   contact,
   isSending = false,

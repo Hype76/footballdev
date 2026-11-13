@@ -13,6 +13,7 @@ const club = '00000000-0000-4000-8000-000000000003'
 const team = '00000000-0000-4000-8000-000000000004'
 const account = '00000000-0000-4000-8000-000000000005'
 const other = '00000000-0000-4000-8000-000000000006'
+const newTeam = '00000000-0000-4000-8000-000000000007'
 
 test('adult setup validates the birthday and routes player and parent contacts independently', () => {
   const self = { type: 'self', email: ' Player@Example.Test ' }
@@ -47,10 +48,10 @@ test('adult invitation is private, scoped, invalidates changed emails and only l
       create table public.user_club_memberships(auth_user_id uuid);
       create table public.parent_player_links(auth_user_id uuid, player_id uuid, status text);
       create function app_private.actor_can_manage_team_resource(uuid,uuid,uuid,integer) returns boolean
-        language sql as 'select $1 = ''${actor}'' and $2 = ''${club}'' and $3 = ''${team}'' and $4 = 20';
+        language sql as 'select $1 = ''${actor}'' and $2 = ''${club}'' and $3 in (''${team}'', ''${newTeam}'') and $4 = 20';
       revoke all on function app_private.actor_can_manage_team_resource(uuid,uuid,uuid,integer) from public;
       insert into public.clubs values ('${club}');
-      insert into public.teams values ('${team}','${club}','active');
+      insert into public.teams values ('${team}','${club}','active'), ('${newTeam}','${club}','active');
       insert into public.players values ('${player}','${club}','${team}','active',null,'self','1996-11-13',
         '[{"type":"self","email":"player@example.test"}]');
       insert into auth.users values ('${account}','player@example.test',now(),null), ('${other}','different@example.test',now(),null);
@@ -88,6 +89,26 @@ test('adult invitation is private, scoped, invalidates changed emails and only l
     assert.deepEqual(await redeem(current.token, account), { state: 'accepted' })
     assert.deepEqual(await redeem(current.token, account), { state: 'accepted' })
     assert.deepEqual(await reserve(), { state: 'linked' })
+    await db.exec('reset role')
+    await db.query(`update public.players set parent_contacts = '[{"type":"self","email":"different@example.test"}]' where id = $1`, [player])
+    assert.equal((await db.query('select status from public.adult_player_account_links where user_id = $1', [account])).rows[0].status, 'revoked')
+    await db.exec('set role service_role')
+    assert.deepEqual(await redeem(current.token, account), { state: 'invalid' })
+    const replacement = await reserve()
+    assert.equal(replacement.email, 'different@example.test')
+    assert.deepEqual(await redeem(replacement.token, other), { state: 'accepted' })
+    await db.exec('reset role')
+    await db.query('update public.players set team_id = $1 where id = $2', [newTeam, player])
+    assert.equal((await db.query('select status from public.adult_player_account_links where user_id = $1', [other])).rows[0].status, 'revoked')
+    await db.exec('set role service_role')
+    assert.deepEqual(await redeem(replacement.token, other), { state: 'invalid' })
+    const moved = await reserve()
+    assert.deepEqual(await redeem(moved.token, other), { state: 'accepted' })
+    await db.exec('reset role')
+    await db.query('update public.players set date_of_birth = null where id = $1', [player])
+    assert.equal((await db.query("select count(*)::int as count from public.adult_player_account_links where status = 'active'")).rows[0].count, 0)
+    await db.exec('set role service_role')
+    assert.deepEqual(await reserve(), { state: 'ineligible' })
     await db.exec('reset role; set role authenticated')
     await assert.rejects(reserve(), /permission denied/)
     await assert.rejects(redeem(current.token, account), /permission denied/)

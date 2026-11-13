@@ -70,7 +70,7 @@ test('save sends outstanding parent invites and preserves the active-player guar
   assert.match(domainSource, /includeSentPending = false/)
   assert.match(domainSource, /row\.status === 'pending' && \(includeSentPending \|\| !row\.invite_sent_at\)/)
   assert.match(domainSource, /Family portal links require an active player\./)
-  assert.match(profileSource, /sendParentPortalInvitesForPlayer\(savedPlayer\)/)
+  assert.match(profileSource, /sendParentPortalInvitesForPlayer\(savedPlayer, \{ automatic: true \}\)/)
   assert.doesNotMatch(profileSource, /includeSentPending: true/)
   assert.match(functionSource, /Family portal invites require an active player\./)
 })

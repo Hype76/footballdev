@@ -1044,7 +1044,7 @@ function CoachPlayersScoped({ context, onNavigate, onQuickActionHandled, onReque
       const parentReady = getPlayerParentInviteContacts(saved).length > 0
         && getFeatureAccess({ ...user, teamId: user.activeTeamId }, CAPABILITIES.parentInvitations).allowed
       const [parents, adult] = await Promise.allSettled([
-        parentReady ? getCoachParentLinks(user, saved.id).then(existingLinks => sendNewMatchdayParentInvites({
+        parentReady ? getCoachParentLinks(user, saved.id, { includeRevoked: true }).then(existingLinks => sendNewMatchdayParentInvites({
           user, player: saved, existingLinks, sendInvite: sendCoachParentInvite,
           onSending: email => { if (request === playerRequest.current) setContactBusy(email) },
         })) : {},

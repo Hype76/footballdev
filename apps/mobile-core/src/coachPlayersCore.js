@@ -189,7 +189,7 @@ export function buildCoachPlayerPayload({ context, form }) {
   return Object.freeze({
     club_id: context.clubId,
     contact_type: contactType,
-    ...(contactType === 'self' && form?.dateOfBirth ? { date_of_birth: form.dateOfBirth } : {}),
+    ...(contactType === 'self' && form?.dateOfBirth !== undefined ? { date_of_birth: form.dateOfBirth || null } : {}),
     notes: normalize(form?.notes),
     parent_contacts: contacts,
     parent_email: primaryContact.email,

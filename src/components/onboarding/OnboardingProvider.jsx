@@ -667,12 +667,14 @@ function OnboardingActionModal({
             user,
             player: createdPlayer,
             contacts: [{ name: parentContactName, email: parentContactEmail }],
+            automatic: true,
           })
 
           const deliveries = await Promise.allSettled(
             invites.map((invite) => sendParentPortalInvite({
               clubId: invite.clubId,
               inviteLinkId: invite.id,
+              automatic: true,
               parentEmail: invite.email,
               senderEmail: user.email,
               displayName: user.displayName || user.username || user.name,

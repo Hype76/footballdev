@@ -127,7 +127,7 @@ async function getInviteLink(linkId) {
 
   const { data, error } = await supabaseAdmin
     .from('parent_player_links')
-    .select('id, club_id, team_id, player_id, email, status, link_type, auth_user_id, invite_token, players:player_id (player_name, section, status, archived_at, contact_type, parent_contacts), teams:team_id (name), clubs:club_id (name, contact_email, logo_url)')
+    .select('id, club_id, team_id, player_id, email, status, link_type, auth_user_id, invite_token, invite_sent_at, players:player_id (player_name, section, status, archived_at, contact_type, parent_contacts), teams:team_id (name), clubs:club_id (name, contact_email, logo_url)')
     .eq('id', normalizedLinkId)
     .maybeSingle()
 
@@ -270,6 +270,15 @@ export async function handler(event) {
 
     if (!isValidEmail(recipient)) {
       return failureResponse(400, 'Parent email must be a valid email address.')
+    }
+
+    if (body.automatic === true) {
+      if (inviteLink.status !== 'pending' || inviteLink.invite_sent_at) return successResponse({ skipped: true })
+      const { data: history, error } = await supabaseAdmin.from('parent_player_links')
+        .select('email,status').eq('club_id', inviteLink.club_id).eq('player_id', inviteLink.player_id)
+        .eq('link_type', 'parent').eq('status', 'revoked')
+      if (error) throw error
+      if ((history ?? []).some(link => normaliseEmail(link.email) === recipient)) return successResponse({ skipped: true })
     }
 
     const existingParentPortalUser = await hasExistingParentPortalAccess(inviteLink)

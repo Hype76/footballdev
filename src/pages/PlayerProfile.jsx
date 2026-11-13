@@ -1550,7 +1550,7 @@ export function PlayerProfile() {
       const adultReady = Boolean(getAdultPlayerSetupEmail(savedPlayer)) && isAdultPlayerBirthDate(savedPlayer.dateOfBirth)
       const [parents, adult] = await Promise.allSettled([
         canUseUiFeature(user, CAPABILITIES.parentInvitations, { teamId: savedPlayer.teamId })
-          ? sendParentPortalInvitesForPlayer(savedPlayer) : [],
+          ? sendParentPortalInvitesForPlayer(savedPlayer, { automatic: true }) : [],
         adultReady ? sendAdultPlayerSetupInvite(savedPlayer.id) : null,
       ])
       if (getPlayerParentInviteContacts(savedPlayer).length > 0) {
@@ -1596,7 +1596,7 @@ export function PlayerProfile() {
     setSendEventInvitationsOnPromote(true)
   }
 
-  const sendParentPortalInvitesForPlayer = async (player) => {
+  const sendParentPortalInvitesForPlayer = async (player, { automatic = false } = {}) => {
     const contacts = getPlayerParentInviteContacts(player)
 
     if (contacts.length === 0) {
@@ -1607,14 +1607,15 @@ export function PlayerProfile() {
       user,
       player,
       contacts,
+      automatic,
     })
 
     const results = await Promise.allSettled(invites.map(invite =>
-      sendParentPortalInvite({ inviteLinkId: invite.id, senderEmail: user.email }),
+      sendParentPortalInvite({ inviteLinkId: invite.id, senderEmail: user.email, automatic }),
     ))
     if (results.some(result => result.status === 'rejected')) throw new Error('A Parent app invitation could not be sent.')
 
-    return invites
+    return invites.filter((_, index) => results[index].status === 'fulfilled' && !results[index].value.skipped)
   }
 
   const refreshParentPortalLinksForPlayer = async (playerId) => {

@@ -641,6 +641,7 @@ export async function sendParentPortalInvite(data) {
     },
     body: JSON.stringify({
       copySender: data.copySender === true,
+      automatic: data.automatic === true,
       inviteLinkId: data.inviteLinkId,
       senderEmail: data.senderEmail,
     }),
