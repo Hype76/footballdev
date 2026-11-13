@@ -26,3 +26,21 @@ test('disabled invites, denied role, missing team, archived player and inactive 
  await sendNewMatchdayParentInvites({user,player:{...player,status:'archived'},sendInvite})
  assert.equal(sends,0)
 })
+
+test('Save skips revoked contacts and retries an outstanding unsent invitation', async () => {
+  const calls = []
+  const existingLinks = [
+    { email: 'parent@example.test', status: 'pending' },
+    { email: 'parent@example.test', status: 'revoked' },
+    { email: 'second@example.test', status: 'pending', expires_at: '2026-01-01T00:00:00Z', invite_sent_at: '2025-12-31T00:00:00Z' },
+  ]
+  const result = await sendNewMatchdayParentInvites({
+    user, player, previousPlayer: player, existingLinks,
+    sendInvite: async (_user, _id, contact, options) => {
+      assert.equal(options.automatic, true)
+      calls.push(contact.email)
+    },
+  })
+  assert.deepEqual(calls, ['second@example.test'])
+  assert.equal(result['second@example.test'].status, 'sent')
+})

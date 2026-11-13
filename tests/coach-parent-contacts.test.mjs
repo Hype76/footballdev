@@ -2,14 +2,14 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import { readFile } from 'node:fs/promises'
 import { buildCoachPlayerPayload, coachPlayerFormFromPlayer, getCoachPlayerSensitiveFieldPolicy, normalizeCoachPlayer } from '../apps/mobile-core/src/coachPlayersCore.js'
-import { isParentPortalInviteEligiblePlayer, normalizeParentPortalInviteEmail } from '../src/lib/parent-portal-invite-actions.js'
+import { canAutoSendParentInvite, isParentPortalInviteEligiblePlayer, normalizeParentPortalInviteEmail } from '../src/lib/parent-portal-invite-actions.js'
 
 const user = {id:'coach',clubId:'club',activeTeamId:'team',roleRank:50,hasActivePlanAccess:true}
 const assertRead=(u)=>{if(!u?.id||!u.clubId||!u.activeTeamId||u.roleRank<20)throw Error('Unauthorized')}
 const assertMutation=(u)=>{assertRead(u);if(!u.hasActivePlanAccess)throw Error('Read only')}
 async function load(file,names,deps){const source=(await readFile(file,'utf8')).replace(/^import[\s\S]*?from ['"][^'"]+['"]\r?\n/gm,'').replace(/export /g,'');return new Function(...Object.keys(deps),source+';return {'+names.join(',')+'}')( ...Object.values(deps))}
 function client(results){const calls=[];return{calls,from(table){const call={table,steps:[]};calls.push(call);const query=new Proxy({}, {get(_,key){if(key==='then')return(resolve,reject)=>Promise.resolve(results.shift()||{data:[],error:null}).then(resolve,reject);return(...args)=>{call.steps.push([key,...args]);return query}}});return query},rpc(name,args){calls.push({rpc:name,args});const query=new Proxy({}, {get(_,key){if(key==='then')return(resolve,reject)=>Promise.resolve(results.shift()||{data:[],error:null}).then(resolve,reject);return(...args)=>{calls.at(-1).steps ||= [];calls.at(-1).steps.push([key,...args]);return query}}});return query}}}
-async function parentApi(db,sends=[]){return load('apps/mobile-core/src/coachParentContactsData.js',['sendCoachParentInvite','revokeCoachParentAccess','getCoachParentLinks'],{supabase:db,CAPABILITIES:{parentInvitations:'parentInvitations'},assertCoachCapability:()=>{},assertCoachOperationalRead:assertRead,assertCoachOperationalMutation:assertMutation,isParentPortalInviteEligiblePlayer,normalizeParentPortalInviteEmail,getMobileRuntimeConfig:()=>({apiBaseUrl:'https://example.test'}),joinApiPath:(b,p)=>b+'/'+p,getAccessToken:async()=> 'synthetic-token',fetchJsonWithTimeout:async(url,options)=>{sends.push({url,options});return{ok:true,result:{success:true}}}})}
+async function parentApi(db,sends=[]){return load('apps/mobile-core/src/coachParentContactsData.js',['sendCoachParentInvite','revokeCoachParentAccess','getCoachParentLinks'],{supabase:db,randomUUID:()=> 'new-token',CAPABILITIES:{parentInvitations:'parentInvitations'},assertCoachCapability:()=>{},assertCoachOperationalRead:assertRead,assertCoachOperationalMutation:assertMutation,canAutoSendParentInvite,isParentPortalInviteEligiblePlayer,normalizeParentPortalInviteEmail,getMobileRuntimeConfig:()=>({apiBaseUrl:'https://example.test'}),joinApiPath:(b,p)=>b+'/'+p,getAccessToken:async()=> 'synthetic-token',fetchJsonWithTimeout:async(url,options)=>{sends.push({url,options});return{ok:true,result:{success:true}}}})}
 const row={id:'player',section:'Squad',status:'active',parent_contacts:[{name:'Parent',email:'parent@example.test'}]}
 
 test('selected activeTeamId exposes contacts while absent team and low rank remain denied',()=>{
@@ -44,6 +44,26 @@ test('expired pending invite is revoked before replacement and creation failure 
  const db=client([{data:row},{data:[{id:'old',email:'parent@example.test',status:'pending',expires_at:'2020-01-01'}]},{data:null},{error:Error('RLS denied')}]),sends=[]
  await assert.rejects(()=>(parentApi(db,sends).then(a=>a.sendCoachParentInvite(user,'player',row.parent_contacts[0]))),/RLS denied/)
  assert.equal(db.calls[2].steps[0][0],'update');assert.equal(db.calls[2].steps[0][1].status,'revoked');assert.deepEqual(sends,[])
+})
+test('automatic save renews expired pending invitations with a fresh token and skips revoked contacts', async () => {
+  const old = { id:'old', email:'parent@example.test', status:'pending', expires_at:'2020-01-01', invite_sent_at:'2019-12-31' }
+  const sends = []
+  const db = client([{ data:row }, { data:[old] }, { data:{ ...old, invite_sent_at:null, expires_at:'2099-01-01' } }])
+  await (await parentApi(db,sends)).sendCoachParentInvite(user,'player',row.parent_contacts[0],{automatic:true})
+  const renewal = db.calls[2].steps
+  assert.equal(renewal[0][1].invite_token,'new-token')
+  assert.equal(renewal[0][1].invite_sent_at,null)
+  assert.ok(renewal.some(step => step[0]==='eq' && step[1]==='expires_at' && step[2]===old.expires_at))
+  assert.deepEqual(JSON.parse(sends[0].options.body),{inviteLinkId:'old',automatic:true})
+  const revoked = client([{ data:row }, { data:[{...old,status:'revoked'}] }])
+  assert.deepEqual(await (await parentApi(revoked,sends)).sendCoachParentInvite(user,'player',row.parent_contacts[0],{automatic:true}),{skipped:true})
+  assert.equal(sends.length,1)
+})
+
+test('clearing the adult date of birth sends null in the update', () => {
+  const player = normalizeCoachPlayer({ ...row, contact_type:'self', date_of_birth:'1996-11-13' })
+  const form = { ...coachPlayerFormFromPlayer(player), dateOfBirth:'' }
+  assert.equal(buildCoachPlayerPayload({ context:user, form }).date_of_birth, null)
 })
 test('access revocation is scoped to player, club, team and parent link',async()=>{
  const db=client([{data:row},{data:{id:'link'}}]);await(await parentApi(db)).revokeCoachParentAccess(user,'player','link')
