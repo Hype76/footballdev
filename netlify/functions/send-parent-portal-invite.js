@@ -313,7 +313,7 @@ export async function handler(event) {
     })
     const finalIdempotencyKey = createEmailIdempotencyKey({
       payload: emailPayload,
-      idempotencySeed: `parent-portal:${inviteLink.id}:${randomUUID()}`,
+      idempotencySeed: `parent-portal:${inviteLink.id}:${body.automatic === true ? inviteLink.invite_token : randomUUID()}`,
     })
     const pendingLogResult = await createPendingEmailLog({
       recipients: [recipient],
@@ -346,6 +346,7 @@ export async function handler(event) {
     }
 
     const response = await sendEmail(emailPayload, {
+      ...(body.automatic === true ? { idempotencyKey: finalIdempotencyKey } : {}),
       context: {
         emailType: 'parent_portal_invite',
         userRole: planProfile.role,

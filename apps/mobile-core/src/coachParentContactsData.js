@@ -1,3 +1,4 @@
+import { randomUUID } from 'expo-crypto'
 import { CAPABILITIES } from '../../../src/lib/paywall-access.js'
 import { canAutoSendParentInvite, isParentPortalInviteEligiblePlayer, normalizeParentPortalInviteEmail } from '../../../src/lib/parent-portal-invite-actions.js'
 import { assertCoachCapability, assertCoachOperationalMutation, assertCoachOperationalRead } from './coachOperationalData'
@@ -71,8 +72,10 @@ export async function sendCoachParentInvite(user, playerId, contact, { automatic
     if (automatic) {
       const { data, error } = await scope(supabase.from('parent_player_links').update({
         expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+        invite_sent_at: null,
+        invite_token: randomUUID(),
         updated_at: new Date().toISOString(),
-      }), user, playerId).eq('id', invite.id).eq('status', 'pending').is('invite_sent_at', null)
+      }), user, playerId).eq('id', invite.id).eq('status', 'pending').eq('expires_at', invite.expires_at)
         .select(LINK_COLUMNS).maybeSingle()
       if (error) throw error
       if (!data) return { skipped: true }
@@ -98,7 +101,7 @@ export async function sendCoachParentInvite(user, playerId, contact, { automatic
   if (!token) throw new Error('Sign in again before sending a Parent invite.')
   const { ok, result } = await fetchJsonWithTimeout(joinApiPath(getMobileRuntimeConfig('coach').apiBaseUrl, '.netlify/functions/send-parent-portal-invite'), {
     method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ inviteLinkId: invite.id, automatic }),
+    body: JSON.stringify({ inviteLinkId: invite.id, ...(automatic ? { automatic: true } : {}) }),
   })
   if (!ok || result.success !== true) throw new Error(result.message || 'Parent invite could not be sent. Please try again.')
   return result

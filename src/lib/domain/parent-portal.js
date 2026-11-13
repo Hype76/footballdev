@@ -507,12 +507,15 @@ export async function createParentPortalInvites({ user, player, contacts, includ
   if (automatic) {
     for (const [index, row] of resendRows.entries()) {
       if (row.status === 'pending' && (!row.expires_at || Date.parse(row.expires_at) > now.getTime())) continue
-      const { data, error } = await supabase.from('parent_player_links')
+      let renewal = supabase.from('parent_player_links')
         .update({
           status: 'pending', expires_at: expiresAt, updated_at: nowIso, invited_by: user.id,
           invited_by_name: user.displayName || user.username || user.name || user.email,
+          ...(row.status === 'pending' ? { invite_token: crypto.randomUUID(), invite_sent_at: null } : {}),
         })
-        .eq('id', row.id).eq('status', row.status).is('invite_sent_at', null)
+        .eq('id', row.id).eq('status', row.status)
+      if (row.status === 'pending') renewal = renewal.eq('expires_at', row.expires_at)
+      const { data, error } = await renewal
         .select('*, players:player_id (player_name, section, team), teams:team_id (name, theme_mode, theme_accent, theme_button_style), clubs:club_id (name, theme_accent, theme_button_style, plan_key, plan_status)')
         .maybeSingle()
       if (error) throw error
