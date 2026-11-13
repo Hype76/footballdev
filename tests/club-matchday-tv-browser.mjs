@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto'
 import { mkdir, readFile } from 'node:fs/promises'
 import { build, createServer, preview } from 'vite'
 import { chromium } from 'playwright'
-import { activeTvSponsors, TV_RECOVERY_MS, TV_REFRESH_MS, TV_SPONSOR_BUCKET, TV_SPONSOR_EXTENSIONS, TV_SPONSOR_MAX_BYTES, tvPeriodWindow } from '../src/lib/club-matchday-tv.js'
+import { activeTvSponsors, TV_RECOVERY_MS, TV_REFRESH_MS, TV_SPONSOR_BUCKET, TV_SPONSOR_EXTENSIONS, TV_SPONSOR_MAX_BYTES, tvUpcomingPeriodWindow } from '../src/lib/club-matchday-tv.js'
 
 const port = Number(process.env.CLUB_TV_BROWSER_PORT || 43136), origin = `http://127.0.0.1:${port}`
 Object.assign(process.env, { VITE_AUTH_ACCESS_BROWSER_FIXTURES: 'true', VITE_APP_URL: origin, VITE_PARENT_APP_URL: origin, VITE_SUPABASE_URL: 'http://fixture.supabase.test', VITE_SUPABASE_ANON_KEY: 'fixture-anon-key' })
@@ -145,7 +145,7 @@ try {
         return route.fulfill({ json: { club: { id: 'club-fixture' }, settings: { ...settings, preferences } } })
       }
       if (body.action === 'unlock') return route.fulfill({ status: unlockAccepted ? 200 : 401, contentType: 'application/json', body: JSON.stringify(unlockAccepted ? { club: { id: body.clubId }, unlocked: true } : { message: 'Password not accepted. The display stays locked.' }) })
-      const payload = denied ? { message: 'Access is restricted to your own active Club Admin workspace.' } : unavailable ? { message: 'Scores could not be refreshed.' } : body.action === 'weather' ? { club: { id: body.clubId }, weather: { temperature: 13, windMph: 7, location: 'Club ground', condition: 'cloudy', time: '2026-10-21T09:00:00Z' } } : { club: { id: body.clubId, name: 'Test Club United', logoUrl: clubBadge, accent: '#1465c0' }, date: body.date, window: body.period && body.period !== 'day' ? tvPeriodWindow(body.date, body.period) : displayWindow, matches, refreshedAt: '2026-10-21T09:00:00Z' }
+      const payload = denied ? { message: 'Access is restricted to your own active Club Admin workspace.' } : unavailable ? { message: 'Scores could not be refreshed.' } : body.action === 'weather' ? { club: { id: body.clubId }, weather: { temperature: 13, windMph: 7, location: 'Club ground', condition: 'cloudy', time: '2026-10-21T09:00:00Z' } } : { club: { id: body.clubId, name: 'Test Club United', logoUrl: clubBadge, accent: '#1465c0' }, date: body.date, window: body.period && body.period !== 'day' ? tvUpcomingPeriodWindow(body.date, body.period, date) : displayWindow, matches, refreshedAt: '2026-10-21T09:00:00Z' }
       if (!body.action && holdNextScorePoll) {
         const hold = holdNextScorePoll
         holdNextScorePoll = null
@@ -209,7 +209,7 @@ try {
   assert.equal(await page.locator('.club-tv-team:not(.club-tv-own) .club-tv-team-badge').count(), 0)
   assert.equal(await page.locator('.club-tv-road-item').first().locator('.club-tv-team-badge').count(), 1)
   assert.equal(await page.locator('.club-tv-match').count(), 8)
-  assert.deepEqual(await page.locator('.club-tv-match-meta').allTextContents(), ['LIVE', 'LIVE', 'LIVE', 'FULL TIME', 'FULL TIME', 'FULL TIME', 'KO 10:00', 'KO TBC'])
+  assert.deepEqual(await page.locator('.club-tv-match-meta > strong').allTextContents(), ['LIVE', 'LIVE', 'LIVE', 'FULL TIME', 'FULL TIME', 'FULL TIME', 'KO 10:00', 'KO TBC'])
   assert.deepEqual((await page.locator('.club-tv-home-pitch').allTextContents()).slice(0, 2), ['1', ''])
   assert.ok((await page.locator('.club-tv-match-meta').first().boundingBox()).width >= 78)
   assert.ok((await page.locator('.club-tv-home-pitch').first().boundingBox()).width >= 76)
@@ -228,6 +228,7 @@ try {
   assert.deepEqual(nameStyles[0].slice(3), ['nowrap', 'ellipsis'])
   assert.ok(await page.locator('.club-tv-match').first().getByTitle(longTeamName).evaluate(name => name.scrollWidth > name.clientWidth))
   assert.equal(await page.locator('.club-tv-home-row').count(), 6)
+  assert.deepEqual(await page.locator('.club-tv-live-pitch').allTextContents(), ['Pitch 1', 'Pitch 2'])
   assert.equal(await page.locator('.club-tv-road-track').count(), 1)
   assert.equal(await page.locator('.club-tv-ordering').count(), 0)
   await page.emulateMedia({ reducedMotion: 'reduce' })
@@ -270,6 +271,12 @@ try {
   const fullWidthLastRow = await page.locator('.club-tv-match').last().boundingBox()
   assert.ok(fullWidthLastRow.y + fullWidthLastRow.height <= bounds.y + 1, 'All live score rows fit above the footer')
   await page.screenshot({ path: `${output}/tv-full.png` })
+  const dateInput = page.getByLabel('Match date')
+  assert.equal(await dateInput.getAttribute('min'), date)
+  await dateInput.fill('2026-10-20')
+  assert.equal(await dateInput.inputValue(), date)
+  const priorMatches = matches
+  matches = [...matches, { ...makeMatch(81), matchDate: '2026-10-20', opponent: 'Past Away Fixture' }, { ...makeMatch(82), matchDate: '2026-10-20', opponent: 'Past Home Fixture' }]
   for (const [button, heading, period] of [['Weekend', 'At home this weekend', 'weekend'], ['Week', 'At home this week', 'week'], ['Month', 'At home this month', 'month']]) {
     await page.getByRole('button', { name: button, exact: true }).click()
     await page.getByRole('heading', { name: heading, exact: true }).waitFor()
@@ -277,7 +284,9 @@ try {
     assert.equal(await page.getByRole('button', { name: button, exact: true }).getAttribute('aria-pressed'), 'true')
     assert.equal(requests.filter(request => !request.action).at(-1).period, period)
     assert.ok(await page.locator('.club-tv-home-date').count() > 0)
+    assert.equal(await page.getByText(/Past (Away|Home) Fixture/).count(), 0)
   }
+  matches = priorMatches
   const beforeEmptyPeriod = matches
   matches = []
   await page.clock.runFor(11000)
@@ -535,7 +544,7 @@ try {
   for (let i = 0; i < 3 && !(await page.getByAltText('Free live goal alerts for grassroots football. Scan the QR code to get started.').count()); i++) await page.clock.runFor(11000)
   const goalAd = page.getByRole('region', { name: 'Matchday adverts' }).getByAltText('Free live goal alerts for grassroots football. Scan the QR code to get started.')
   await goalAd.waitFor()
-  for (const [width, height, minimumArtworkWidth] of [[1366, 650, 420], [1920, 1080, 700], [800, 900, 700], [390, 844, 350]]) {
+  for (const [width, height, minimumArtworkWidth] of [[1366, 650, 290], [1632, 776, 340], [1920, 1080, 450], [800, 900, 450], [390, 844, 350]]) {
     await page.setViewportSize({ width, height })
     await goalAd.evaluate(img => img.decode())
     const size = await goalAd.evaluate(img => {
@@ -543,6 +552,7 @@ try {
       return Math.min(width, height * img.naturalWidth / img.naturalHeight)
     })
     assert.ok(size >= minimumArtworkWidth, `At ${width} by ${height}, the entire advert is at least ${minimumArtworkWidth}px wide. Actual: ${size}px.`)
+    assert.ok(size <= 520, `At ${width} by ${height}, artwork is capped at 520px. Actual: ${size}px.`)
     assert.equal(await page.locator('.club-tv-sponsor img:visible').count(), 1, 'Only the current artwork occupies display space')
     await page.getByRole('heading', { name: 'Pitch map' }).waitFor()
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false)
