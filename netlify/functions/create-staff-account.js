@@ -1,281 +1,99 @@
-import { supabaseAdmin } from './lib/_supabase.js'
+import { createSupabaseAdminClient } from './lib/_supabase.js'
 import { assertPasswordPolicy } from '../../src/lib/password-policy.js'
+
+const inviteTokenPattern = /^[\da-f]{8}(?:-[\da-f]{4}){3}-[\da-f]{12}$/i
 
 function jsonResponse(statusCode, payload) {
   return {
     statusCode,
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
     body: JSON.stringify(payload),
   }
 }
 
-function failureResponse(statusCode, message) {
-  return jsonResponse(statusCode, { success: false, message })
+function failureResponse(statusCode, message, code) {
+  return jsonResponse(statusCode, { success: false, message, ...(code ? { code } : {}) })
 }
 
 function normalizeEmail(value) {
   return String(value ?? '').trim().toLowerCase()
 }
 
-function isValidEmail(value) {
-  return /^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(String(value ?? '').trim())
-}
-
-function getDisplayName(email) {
-  return String(email ?? '').split('@')[0]?.replace(/[._-]+/g, ' ').trim() || 'Coach'
-}
-
-function isExistingUserError(error) {
-  const message = String(error?.message ?? '').toLowerCase()
-  return message.includes('already registered') || message.includes('already exists') || message.includes('user already')
-}
-
-async function findAuthUserByEmail(email) {
-  let page = 1
-
-  while (page <= 20) {
-    const { data, error } = await supabaseAdmin.auth.admin.listUsers({
-      page,
-      perPage: 1000,
-    })
-
-    if (error) {
-      throw error
-    }
-
-    const user = (data?.users || []).find((candidate) => normalizeEmail(candidate.email) === email)
-
-    if (user) {
-      return user
-    }
-
-    if ((data?.users || []).length < 1000) {
-      return null
-    }
-
-    page += 1
-  }
-
-  return null
-}
-
-async function getInvite(token) {
-  const { data, error } = await supabaseAdmin
-    .from('club_user_invites')
-    .select('id, club_id, email, role_key, role_label, role_rank, team_id, expires_at, accepted_at, invite_token, status, cancelled_at, replaced_at')
+async function getPendingInvite(client, token) {
+  const { data, error } = await client.from('club_user_invites')
+    .select('email, expires_at, accepted_at, status, cancelled_at, replaced_at, clubs!inner(status)')
     .eq('invite_token', token)
     .maybeSingle()
-
-  if (error || !data) {
-    throw Object.assign(new Error('This Coach invite could not be found.'), { statusCode: 404 })
-  }
-
-  if (data.accepted_at) {
-    throw Object.assign(new Error('This Coach invite has already been accepted.'), { statusCode: 409 })
-  }
-
-  if ((data.status && data.status !== 'pending') || data.cancelled_at || data.replaced_at) {
-    throw Object.assign(new Error('This Coach invite is no longer active.'), { statusCode: 410 })
-  }
-
-  if (data.expires_at && new Date(data.expires_at).getTime() <= Date.now()) {
-    throw Object.assign(new Error('This Coach invite has expired. Ask the club to send a new Coach invite.'), { statusCode: 410 })
-  }
-
+  if (error) throw error
+  if (!data) return null
+  const club = Array.isArray(data.clubs) ? data.clubs[0] : data.clubs
+  if (club?.status !== 'active' || data.status !== 'pending' || data.accepted_at || data.cancelled_at || data.replaced_at) return null
+  if (data.expires_at && Date.parse(data.expires_at) <= Date.now()) return null
   return data
 }
 
-export async function handler(event) {
-  if (event.httpMethod !== 'POST') {
-    return failureResponse(405, 'Method Not Allowed')
-  }
-
-  try {
-    const body = JSON.parse(event.body || '{}')
-    const token = String(body.token ?? '').trim()
-    const email = normalizeEmail(body.email)
-    const password = String(body.password ?? '')
-
-    if (!token) {
-      return failureResponse(400, 'Coach invite token is required.')
-    }
-
-    if (!isValidEmail(email)) {
-      return failureResponse(400, 'Enter a valid email address.')
-    }
-
+export function createStaffAccountHandler({ getClient = createSupabaseAdminClient } = {}) {
+  return async function handler(event) {
+    if (event.httpMethod !== 'POST') return failureResponse(405, 'Method not allowed.')
+    let body
     try {
-      assertPasswordPolicy(password)
-    } catch (error) {
-      return failureResponse(400, error.message)
+      body = JSON.parse(event.body || '{}')
+    } catch {
+      return failureResponse(400, 'Invalid request.')
     }
-
-    const invite = await getInvite(token)
-    const inviteEmail = normalizeEmail(invite.email)
-
-    if (inviteEmail !== email) {
-      return failureResponse(403, 'This Coach invite is for a different email address.')
-    }
-
-    const displayName = getDisplayName(email)
-    let staffUserId = ''
-    const existingAuthUser = await findAuthUserByEmail(email)
-
-    if (existingAuthUser?.id) {
-      const { error: updateAuthError } = await supabaseAdmin.auth.admin.updateUserById(existingAuthUser.id, {
-        email,
-        password,
-        email_confirm: true,
-        user_metadata: {
-          ...(existingAuthUser.user_metadata || {}),
-          username: existingAuthUser.user_metadata?.username || displayName,
-          name: existingAuthUser.user_metadata?.name || displayName,
-          display_name: existingAuthUser.user_metadata?.display_name || displayName,
-        },
-      })
-
-      if (updateAuthError) {
-        return failureResponse(400, updateAuthError.message)
-      }
-
-      staffUserId = existingAuthUser.id
-    } else {
-      const { data: createdAuthUser, error: createAuthError } = await supabaseAdmin.auth.admin.createUser({
-        email,
-        password,
-        email_confirm: true,
-        user_metadata: {
-          username: displayName,
-          name: displayName,
-          display_name: displayName,
-          account_type: 'staff',
-        },
-      })
-
-      if (createAuthError) {
-        if (!isExistingUserError(createAuthError)) {
-          return failureResponse(400, createAuthError.message)
-        }
-
-        const foundAuthUser = await findAuthUserByEmail(email)
-
-        if (!foundAuthUser?.id) {
-          return failureResponse(400, 'This email already exists but could not be linked.')
-        }
-
-        staffUserId = foundAuthUser.id
+    const token = String(body?.token ?? '').trim()
+    if (!inviteTokenPattern.test(token)) return failureResponse(400, 'A valid Coach invite is required.')
+    try {
+      const client = getClient(event)
+      const authorization = event.headers?.authorization || event.headers?.Authorization || ''
+      let account
+      if (body.action === 'accept' || authorization) {
+        const accessToken = /^Bearer (\S+)$/i.exec(authorization)?.[1]
+        if (!accessToken) return failureResponse(401, 'Sign in with the email that received this invite.')
+        const { data, error } = await client.auth.getUser(accessToken)
+        if (error || !data?.user?.id) return failureResponse(401, 'Sign in again to accept Coach access.')
+        account = data.user
+        if (!account.email_confirmed_at) return failureResponse(403, 'Confirm your email before accepting Coach access.')
       } else {
-        staffUserId = createdAuthUser?.user?.id || ''
-      }
-    }
-
-    if (!staffUserId) {
-      return failureResponse(400, 'Could not create Coach account.')
-    }
-
-    const { error: profileError } = await supabaseAdmin
-      .from('users')
-      .upsert(
-        {
-          id: staffUserId,
+        if (body.action && body.action !== 'create') return failureResponse(400, 'Invalid invitation action.')
+        const invite = await getPendingInvite(client, token)
+        if (!invite) return failureResponse(410, 'This Coach invite is unavailable. Ask the club for a new invite.')
+        const email = normalizeEmail(invite.email)
+        if (!email || email !== normalizeEmail(body.email)) return failureResponse(403, 'This Coach invite is for a different email address.')
+        const password = String(body.password ?? '')
+        try {
+          assertPasswordPolicy(password)
+        } catch (error) {
+          return failureResponse(400, error.message)
+        }
+        const name = email.split('@')[0]?.replace(/[._-]+/g, ' ').trim() || 'Coach'
+        const { data, error } = await client.auth.admin.createUser({
           email,
-          username: displayName,
-          name: displayName,
-          role: invite.role_key,
-          role_label: invite.role_label,
-          role_rank: invite.role_rank,
-          club_id: invite.club_id,
-          force_password_change: false,
-        },
-        {
-          onConflict: 'id',
-        },
-      )
-
-    if (profileError) {
-      return failureResponse(400, profileError.message)
-    }
-
-    const { error: membershipError } = await supabaseAdmin
-      .from('user_club_memberships')
-      .upsert(
-        {
-          auth_user_id: staffUserId,
-          email,
-          username: displayName,
-          name: displayName,
-          role: invite.role_key,
-          role_label: invite.role_label,
-          role_rank: invite.role_rank,
-          club_id: invite.club_id,
-          updated_at: new Date().toISOString(),
-        },
-        {
-          onConflict: 'auth_user_id,club_id',
-        },
-      )
-
-    if (membershipError) {
-      return failureResponse(400, membershipError.message)
-    }
-
-    const { data: inviteTeamRows, error: inviteTeamsError } = await supabaseAdmin
-      .from('club_user_invite_teams')
-      .select('team_id, teams!inner(club_id, status)')
-      .eq('invite_id', invite.id)
-      .eq('teams.club_id', invite.club_id)
-      .eq('teams.status', 'active')
-
-    if (inviteTeamsError && inviteTeamsError.code !== '42P01') {
-      return failureResponse(400, 'Coach team assignments could not be verified.')
-    }
-
-    const inviteTeamIds = [
-      ...(inviteTeamRows || []).map((row) => row.team_id),
-      ...(invite.team_id ? [invite.team_id] : []),
-    ].filter((teamId, index, values) => teamId && values.indexOf(teamId) === index)
-
-    if (invite.role_key === 'head_manager' && inviteTeamIds.length === 0) {
-      return failureResponse(400, 'This Team Admin invitation has no active team assignment.')
-    }
-
-    if (inviteTeamIds.length > 0) {
-      const { error: teamStaffError } = await supabaseAdmin
-        .from('team_staff')
-        .upsert(
-          inviteTeamIds.map((teamId) => ({
-            team_id: teamId,
-            user_id: staffUserId,
-          })),
-          {
-            onConflict: 'team_id,user_id',
-          },
-        )
-
-      if (teamStaffError) {
-        return failureResponse(400, teamStaffError.message)
+          password,
+          email_confirm: true,
+          user_metadata: { username: name, name, display_name: name, account_type: 'staff' },
+        })
+        if (['email_exists', 'user_already_exists'].includes(error?.code)
+          || /already registered|already exists/i.test(error?.message || '')) {
+          return failureResponse(409, 'This email already has an account. Sign in with your existing password to accept Coach access.', 'existing_account')
+        }
+        if (error || !data?.user?.id) throw error || new Error('Auth account creation returned no user')
+        account = data.user
       }
+
+      const { data, error } = await client.rpc('claim_staff_invitations_v1', { actor_id: account.id, target_token: token })
+      if (error?.code === '42501') return failureResponse(403, 'This account cannot accept the Coach invite.')
+      if (error?.code === '22023') return failureResponse(410, 'This Coach invite has no active team assignment. Ask the club for a new invite.')
+      if (error) throw error
+      if (!Array.isArray(data) || !data.length) {
+        return failureResponse(403, 'This invite is unavailable for this account. Use the invited email address or ask the club for a new invite.')
+      }
+      return jsonResponse(200, { success: true, email: normalizeEmail(account.email) })
+    } catch (error) {
+      console.error('Coach invitation failed', { code: error?.code || error?.name })
+      return failureResponse(503, 'Coach access could not be set up. Please try again.')
     }
-
-    const { error: inviteUpdateError } = await supabaseAdmin
-      .from('club_user_invites')
-      .update({
-        accepted_at: new Date().toISOString(),
-        status: 'accepted',
-      })
-      .eq('id', invite.id)
-      .eq('status', 'pending')
-
-    if (inviteUpdateError) {
-      return failureResponse(400, inviteUpdateError.message)
-    }
-
-    return jsonResponse(200, {
-      success: true,
-      email,
-    })
-  } catch (error) {
-    console.error(error)
-    return failureResponse(error.statusCode || 500, error.statusCode ? error.message : 'Coach account could not be created.')
   }
 }
+
+export const handler = createStaffAccountHandler()

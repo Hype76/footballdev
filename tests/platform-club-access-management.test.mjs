@@ -7,13 +7,15 @@ const repairPath = new URL('../supabase/repairs/FP-V1-PLATFORM-CLUB-ACCESS-AUDIT
 const functionPath = new URL('../netlify/functions/platform-club-access.js', import.meta.url)
 const componentPath = new URL('../src/components/platform/ClubAccessManagement.jsx', import.meta.url)
 const staffAcceptancePath = new URL('../netlify/functions/create-staff-account.js', import.meta.url)
+const staffClaimPath = new URL('../supabase/migrations/20261113165700_v1_staff_invite_existing_accounts.sql', import.meta.url)
 
-const [migration, repair, handler, component, staffAcceptance] = await Promise.all([
+const [migration, repair, handler, component, staffAcceptance, staffClaim] = await Promise.all([
   readFile(migrationPath, 'utf8'),
   readFile(repairPath, 'utf8'),
   readFile(functionPath, 'utf8'),
   readFile(componentPath, 'utf8'),
   readFile(staffAcceptancePath, 'utf8'),
+  readFile(staffClaimPath, 'utf8'),
 ])
 
 test('Platform Admin authority is enforced on every server action', () => {
@@ -83,10 +85,11 @@ test('Team Admin scope requires explicit same-club teams and prevents duplicates
 
 test('multi-team staff invitations are accepted only for active teams in the invited club', () => {
   assert.match(migration, /create table if not exists public\.club_user_invite_teams/)
-  assert.match(staffAcceptance, /club_user_invite_teams/)
-  assert.match(staffAcceptance, /\.eq\('teams\.club_id', invite\.club_id\)/)
-  assert.match(staffAcceptance, /inviteTeamIds\.map/)
-  assert.match(staffAcceptance, /Team Admin invitation has no active team assignment/)
+  assert.match(staffAcceptance, /rpc\('claim_staff_invitations_v1'/)
+  assert.match(staffClaim, /public\.club_user_invite_teams/)
+  assert.match(staffClaim, /t\.club_id = invite\.club_id and t\.status = 'active'/)
+  assert.match(staffClaim, /unnest\(team_ids\)/)
+  assert.match(staffClaim, /invite\.role_key = 'head_manager'[\s\S]*invitation_team_scope_invalid/)
 })
 
 test('remove and restore preserve the Auth account and historical business records', () => {

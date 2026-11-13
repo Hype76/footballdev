@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useEffectEvent, useRef, useState } from 'react'
 import { useParams, useSearchParams } from 'react-router-dom'
 import fallbackLogo from '../assets/football-player-logo.webp'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
@@ -16,7 +16,6 @@ import { PASSWORD_MIN_LENGTH, PASSWORD_POLICY_SUMMARY } from '../lib/password-po
 
 const inputClass = 'min-h-12 w-full rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 text-sm font-semibold text-[#101828] outline-none transition placeholder:text-[#94a3b8] focus:border-[#047857] focus:bg-white focus:ring-2 focus:ring-[#d1fae5] read-only:text-[#4b5f55] read-only:focus:border-[#d7e5dc] read-only:focus:ring-0'
 const primaryButtonClass = 'inline-flex min-h-12 w-full items-center justify-center rounded-lg bg-[#047857] px-5 py-3 text-sm font-black text-white shadow-sm shadow-[#047857]/20 transition hover:bg-[#065f46] disabled:cursor-not-allowed disabled:opacity-60'
-const secondaryButtonClass = 'inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-[#d7e5dc] bg-white px-5 py-3 text-sm font-black text-[#101828] shadow-sm shadow-[#047857]/10 transition hover:border-[#0f9f6e] hover:bg-[#ecfdf5]'
 const SELECTED_ACCESS_MODE_STORAGE_KEY = 'selected-access-mode'
 
 function buildCurrentParentFlowUrl(path, isParentHost) {
@@ -94,6 +93,13 @@ export function ParentInvitePage() {
   const canRenderOnCurrentHost = isParentHost || getMainAppOrigin() === window.location.origin
   const canAcceptSignedInSession = Boolean(session?.user || directSessionReady)
   const signedInEmail = String(session?.user?.email || directSessionEmail || '').trim()
+  const refreshParentAccess = useEffectEvent(async () => {
+    if (session?.user) {
+      await selectAccessMode('parent')
+    } else {
+      window.sessionStorage.setItem(SELECTED_ACCESS_MODE_STORAGE_KEY, 'parent')
+    }
+  })
 
   useEffect(() => {
     if (canRenderOnCurrentHost) {
@@ -223,7 +229,7 @@ export function ParentInvitePage() {
           return
         }
 
-        window.location.assign(buildCurrentParentFlowUrl(`/parent-login?parentInvite=${encodeURIComponent(token || '')}&confirmed=1`, isParentHost))
+        window.location.assign(buildCurrentParentFlowUrl(buildParentInviteLoginPath(token, isParentHost), isParentHost))
       } catch (error) {
         console.error(error)
         if (isMounted) {
@@ -262,11 +268,7 @@ export function ParentInvitePage() {
       try {
         const link = await acceptParentPortalInvite(token)
 
-        if (session?.user) {
-          await selectAccessMode('parent')
-        } else {
-          window.sessionStorage.setItem(SELECTED_ACCESS_MODE_STORAGE_KEY, 'parent')
-        }
+        await refreshParentAccess()
 
         if (isMounted) {
           setAcceptedLink(link)
@@ -289,7 +291,7 @@ export function ParentInvitePage() {
     return () => {
       isMounted = false
     }
-  }, [canAcceptSignedInSession, canRenderOnCurrentHost, directSessionReady, invite, isInviteLoading, isParentHost, selectAccessMode, session?.user, shouldAcceptSignedInSession, token])
+  }, [canAcceptSignedInSession, canRenderOnCurrentHost, invite, isInviteLoading, isParentHost, shouldAcceptSignedInSession, token])
 
   const handleSwitchAccount = async () => {
     if (submitLockRef.current) return
@@ -335,7 +337,7 @@ export function ParentInvitePage() {
 
       if (result?.existingAccount) {
         setPassword('')
-        window.location.assign(buildCurrentParentFlowUrl(`/parent-login?parentInvite=${encodeURIComponent(token || '')}&existing=1`, isParentHost))
+        window.location.assign(buildCurrentParentFlowUrl(buildParentInviteLoginPath(token, isParentHost), isParentHost))
       } else if (result?.needsEmailVerification) {
         setPassword('')
         setMessage('')
@@ -356,9 +358,9 @@ export function ParentInvitePage() {
     <ParentShell>
       <img src={fallbackLogo} alt="Football Player" className="h-16 w-16 rounded-lg border border-[#d7e5dc] bg-white object-contain p-1 shadow-sm shadow-[#047857]/10" />
       <p className="mt-5 text-xs font-black uppercase tracking-[0.18em] text-[#047857]">Guardian access</p>
-      <h1 className="mt-3 text-2xl font-black tracking-tight">Create your family portal login</h1>
+      <h1 className="mt-3 text-2xl font-black tracking-tight">Accept your Parent invitation</h1>
       <p className="mt-3 text-sm font-semibold leading-6 text-[#4b5f55]">
-        Use this login only for the player shown below. Family accounts do not open Coach tools or other club records.
+        Sign in with the Football Player account for the invited email to link this player. If you are new, you can create an account below.
       </p>
 
       {isConfirmationState ? (
@@ -381,13 +383,22 @@ export function ParentInvitePage() {
         </p>
       ) : null}
 
-      {invite && !session?.user && !acceptedLink && !isConfirmationState ? (
+      {invite && !isLoading && !shouldAcceptSignedInSession && !canAcceptSignedInSession && !acceptedLink && !isConfirmationState ? (
         <form className="mt-5 space-y-4" onSubmit={handleSubmit}>
           <div className="rounded-lg border border-[#d7e5dc] bg-[#ecfdf5] p-4">
             <p className="text-xs font-black uppercase tracking-[0.14em] text-[#047857]">Player access</p>
             <p className="text-sm font-bold text-[#101828]">{invite.playerName || 'Player access'}</p>
             <p className="mt-1 text-xs font-semibold text-[#4b5f55]">Team: {invite.teamName || 'Team'}, Club: {invite.clubName || 'Club'}</p>
           </div>
+
+          <a
+            href={buildCurrentParentFlowUrl(buildParentInviteLoginPath(token, isParentHost), isParentHost)}
+            className={primaryButtonClass}
+          >
+            Sign in with your existing account
+          </a>
+
+          <p className="text-sm font-bold text-[#4b5f55]">New to Football Player?</p>
 
           <label className="block">
             <span className="mb-2 block text-sm font-bold text-[#101828]">Email</span>
@@ -452,12 +463,6 @@ export function ParentInvitePage() {
             {isSubmitting ? 'Creating account...' : 'Create account'}
           </button>
 
-          <a
-            href={buildCurrentParentFlowUrl(`/parent-login?parentInvite=${encodeURIComponent(token || '')}`, isParentHost)}
-            className={secondaryButtonClass}
-          >
-            Already have an account?
-          </a>
         </form>
       ) : null}
 

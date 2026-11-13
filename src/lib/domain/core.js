@@ -639,6 +639,19 @@ export async function fetchUserProfile(authUser, options = {}) {
       })
     }
 
+    if (selectedAccessMode === 'team' && data?.role === 'parent_portal') {
+      const staffMemberships = getActiveStaffMemberships(await loadStaffMemberships())
+      const selectedStaffMembership = staffMemberships.find((membership) => String(membership.clubId) === selectedClubId)
+      if (!selectedStaffMembership && staffMemberships.length > 1) {
+        return { requiresClubSelection: true, clubOptions: staffMemberships }
+      }
+      const membership = selectedStaffMembership ?? staffMemberships[0]
+      if (membership) {
+        data = await applyActiveMembership(authUser, membership)
+        selectedClubId = String(membership.clubId)
+      }
+    }
+
     // A new Parent account is valid before a club has linked a player. Keep it
     // out of the family portal, but let the signed-in account finish setup.
     if (

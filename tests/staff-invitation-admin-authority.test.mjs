@@ -11,6 +11,40 @@ const id=n=>`00000000-0000-4000-8000-${String(n).padStart(12,'0')}`
 const migration=await readFile('supabase/migrations/20261021063202_staff_invitation_admin_authority.sql','utf8')
 const original=await readFile('supabase/migrations/20261007071022_coach_team_administration_reminders.sql','utf8')
 const user=(role,roleRank)=>({id:id(1),clubId:id(10),activeTeamId:id(20),role,roleRank,planKey:'single_team',planStatus:'active'})
+
+test('Coach invitation requires an existing account to sign in and does not replace its password', async () => {
+  const source = (await readFile('netlify/functions/create-staff-account.js', 'utf8'))
+    .replace(/^import .*\n/gm, '')
+    .replace(/^export /gm, '')
+  const { assertPasswordPolicy } = await import('../src/lib/password-policy.js')
+  const email = 'parent@example.test'
+  const token = id(30)
+  const rpcCalls = []
+  const query = { select() { return this }, eq() { return this }, maybeSingle: async () => ({ data: { email, status: 'pending', clubs: { status: 'active' } } }) }
+  const client = {
+    from: () => query,
+    auth: {
+      getUser: async (accessToken) => ({ data: { user: accessToken === 'verified-session' ? { id: id(1), email, email_confirmed_at: 'confirmed' } : null } }),
+      admin: { createUser: async () => ({ error: { code: 'email_exists' } }) },
+    },
+    rpc: async (name, args) => {
+      rpcCalls.push({ name, args })
+      return { data: [{ auth_user_id: id(1) }] }
+    },
+  }
+  const handler = vm.runInNewContext(`${source}\nhandler`, { createSupabaseAdminClient: () => client, assertPasswordPolicy, console })
+  const request = (body, authorization) => handler({ httpMethod: 'POST', headers: authorization ? { authorization } : {}, body: JSON.stringify({ token, ...body }) })
+  assert.equal((await request({ action: 'accept' })).statusCode, 401)
+  assert.equal((await request({ action: 'accept' }, 'Bearer rejected-session')).statusCode, 401)
+  const create = await request({ action: 'create', email, password: 'Secure!Pass123' })
+  assert.equal(create.statusCode, 409)
+  assert.equal(JSON.parse(create.body).code, 'existing_account')
+  assert.equal(rpcCalls.length, 0)
+  const accept = await request({ action: 'accept', password: 'unused' }, 'Bearer verified-session')
+  assert.equal(accept.statusCode, 200)
+  assert.equal(JSON.stringify(rpcCalls), JSON.stringify([{ name: 'claim_staff_invitations_v1', args: { actor_id: id(1), target_token: token } }]))
+})
+
 test('staff controls allow Team Admin and existing Club Admin, denying coaching roles and forged rank',()=>{
  for(const [role,rank,allowed]of [['assistant_coach',20,false],['coach',30,false],['manager',50,false],['head_manager',50,false],['coach',70,false],['head_manager',70,true],['admin',90,true],['super_admin',100,true]]){assert.equal(isStaffInvitationAdmin(user(role,rank)),allowed,role+rank);assert.equal(canManageUsers(user(role,rank)),allowed,role+rank)}
 })

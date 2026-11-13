@@ -1,5 +1,6 @@
 import { supabase } from '../supabase-client.js'
 import { getPlayers } from './players.js'
+import { invalidateMemoryCacheByPrefix } from './cache-store.js'
 import { buildParentAppUrl } from '../app-origins.js'
 import { CAPABILITIES } from '../paywall-access.js'
 import { assertClubFeature } from './plan-gates.js'
@@ -259,6 +260,10 @@ export async function acceptParentPortalInvite(token) {
 
   if (!acceptedRow?.id) {
     throw new Error('This parent link could not be opened.')
+  }
+
+  if (acceptedRow.auth_user_id) {
+    invalidateMemoryCacheByPrefix(`user-profile:${acceptedRow.auth_user_id}:`)
   }
 
   const { data: linkedRow, error: linkedError } = await supabase
