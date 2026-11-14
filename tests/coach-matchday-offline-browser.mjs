@@ -15,7 +15,8 @@ const entry = `
   import {createCoachTheme} from './apps/coach-mobile/src/coachThemeCore.js';
   const base = {id:'fixture',clubId:'club',teamId:'team',teamName:'FP TEST',opponent:'Visitors',updatedAt:new Date(Date.now()-300000).toISOString(),
     status:'live',currentMatchPhase:'first_half',timerStatus:'running',timerStartedAt:new Date(Date.now()-300000).toISOString(),timerElapsedSeconds:0,
-    homeAway:'away',homeScore:0,awayScore:0,matchDurationMinutes:70,clockMode:'fixed',events:[],squadDecisions:[],isToday:true,hasPresentationState:true};
+    homeAway:'away',homeScore:0,awayScore:0,matchDurationMinutes:70,clockMode:'fixed',events:[],squadDecisions:[],isToday:true,hasPresentationState:true,
+    eventParticipants:[{id:'scorer-1',teamId:'team',playerName:'FP TEST'},{id:'scorer-2',teamId:'team',playerName:'FP TEST Second'}]};
   window.server=JSON.parse(localStorage.getItem('server')||JSON.stringify(base));
   localStorage.setItem('server',JSON.stringify(window.server));
   window.online=localStorage.getItem('offline')!=='1'; window.listeners=[]; window.calls=[];
@@ -31,7 +32,7 @@ const entry = `
       matchDayTarget={target} onMatchDayTargetHandled={()=>setTarget(null)} onNavigate={(route,target)=>{window.navigations.push({route,target});setShow(false)}}/></View>:<div>Home</div>;}
   createRoot(document.getElementById('root')).render(<App/>);
 `
-const implemented = new Set(['createCoachMatchDayCommandId','getCoachMatchDayList','getCoachMatchDayDetail','normalizeCoachMatchDay','syncCoachMatchDayCommand','setCoachMatchDaySquadDecision','setCoachMatchDaySquadDecisions','notifyCoachMatchDaySquadDecisions','runCoachMatchDayTimerAction','saveCoachMatchDayFinalReport'])
+const implemented = new Set(['createCoachMatchDayCommandId','endCoachMatchDayWithoutShootoutResult','getCoachMatchDayList','getCoachMatchDayDetail','normalizeCoachMatchDay','syncCoachMatchDayCommand','setCoachMatchDaySquadDecision','setCoachMatchDaySquadDecisions','notifyCoachMatchDaySquadDecisions','runCoachMatchDayTimerAction','saveCoachMatchDayFinalReport'])
 const dataMock = `
   import {projectMatchDayCommand} from './apps/mobile-core/src/matchDayOutboxCore.js';
   export const createCoachMatchDayCommandId=()=>crypto.randomUUID();
@@ -40,6 +41,14 @@ const dataMock = `
   export async function getCoachMatchDayList(){requireSignal();if(window.startListOnly)await new Promise(resolve=>window.finishList=resolve);return [window.server]}
   export async function getCoachMatchDayDetail(){requireSignal();await new Promise(resolve=>setTimeout(resolve,50));if(window.detailDelay)await new Promise(resolve=>window.finishDetail=resolve);if(window.detailFailure)throw new Error(window.detailFailureMessage||'Could not connect');return window.server}
   export async function runCoachMatchDayTimerAction(user,match,action){
+    if(action==='normal_time_complete'||action==='full_time'){
+      requireSignal();
+      window.timerCalls=(window.timerCalls||[]).concat(action);
+      const next=action==='full_time'?{status:'full_time',timerStatus:'full_time'}:{timerStatus:'paused'};
+      window.server={...window.server,...next,currentMatchPhase:action,timerStartedAt:'',updatedAt:new Date().toISOString()};
+      localStorage.setItem('server',JSON.stringify(window.server));
+      return window.server;
+    }
     if(action!=='conclude') throw new Error('Unexpected timer action: '+action);
     window.concludeCalls=(window.concludeCalls||0)+1;
     if(window.concludeFailure==='rejected') throw new Error('Conclusion rejected');
@@ -49,12 +58,20 @@ const dataMock = `
     if(window.concludeFailure==='response-lost-and-refresh-failed'){window.detailFailure=true;throw new Error('Conclusion response lost');}
     return window.server;
   }
+  export async function endCoachMatchDayWithoutShootoutResult(){
+    requireSignal();
+    window.shootoutExitCalls=(window.shootoutExitCalls||0)+1;
+    window.server={...window.server,status:'full_time',timerStatus:'full_time',currentMatchPhase:'full_time',shootoutWinner:null,updatedAt:new Date().toISOString()};
+    localStorage.setItem('server',JSON.stringify(window.server));
+    return window.server;
+  }
   export async function saveCoachMatchDayFinalReport(user,match,notes){window.server={...window.server,updatedAt:new Date().toISOString(),finalReport:{staffNotes:notes,updatedAt:new Date().toISOString()}};localStorage.setItem('server',JSON.stringify(window.server));return window.server;}
   export async function setCoachMatchDaySquadDecision(user,match,id,decision){await new Promise(resolve=>setTimeout(resolve,30));window.server={...window.server,squadDecisions:[...window.server.squadDecisions.filter(row=>row.playerId!==id),{playerId:id,status:decision,decisionRevision:id+'-revision',decidedAt:'now'}]};return window.server;}
   export async function setCoachMatchDaySquadDecisions(user,match,choices){window.squadSaveCalls=(window.squadSaveCalls||0)+1;for(const {player,decision} of choices) await setCoachMatchDaySquadDecision(user,match,player.id,decision);return window.server;}
   export async function notifyCoachMatchDaySquadDecisions(user,match,choices){window.squadNotifyCalls=(window.squadNotifyCalls||0)+1;return choices.map(p=>({playerId:p.id,revision:p.decisionRevision,sent:true}));}
   export async function syncCoachMatchDayCommand(user,command){
     requireSignal();window.calls.push(command.id); if(localStorage.getItem('conflict')==='1') throw Object.assign(new Error('Match changed on another device'),{code:'40001'});
+    if(command.id==='rejected-goal') throw Object.assign(new Error('Choose a linked scorer or explicitly choose Other.'),{code:'P0001'});
     if(command.kind==='event' && command.payload.eventType==='substitution' && command.payload.playerName==='Paul') throw Object.assign(new Error('Choose one eligible Match Player from this fixture Team.'),{code:'22023'});
     const accepted=JSON.parse(localStorage.getItem('accepted')||'{}');
     if(!accepted[command.id]){window.server=projectMatchDayCommand(window.server,command);window.server.updatedAt=new Date().toISOString();accepted[command.id]=window.server;
@@ -65,6 +82,8 @@ const dataMock = `
   ${names.filter(name=>!implemented.has(name)).map(name=>`export async function ${name}(){throw new Error('Unexpected call: ${name}')}`).join('\n')}
 `
 const mocks = [
+  [/^\.\/supabase$/, `export const supabase={storage:{from:()=>({getPublicUrl:()=>({data:{publicUrl:''}})})}}`],
+  [/mobileKitImageStorage$/, `export const mobileKitImageStorage={resolve:async uri=>uri}`],
   [/coachFormationBoardData$/, `export const getCoachFormationBoards=async()=>[];export const deleteCoachFormationBoard=async()=>{throw new Error('No saved boards in this fixture')}`],
   // Kit rendering and permissions have their own browser and database checks.
   [/ClubKitDisplay(?:\.js)?$/, 'export const ClubKitDisplay=()=>null;'],
@@ -120,6 +139,99 @@ try {
     assert.equal(await page.getByText(/Visitors/).count(),0,'Permission denial must hide cached and projected fixture information')
     assert.deepEqual(errors,[])
     console.log('PASS: Match Day permission denial clears cached and outbox-projected fixture details')
+  } else if(process.argv.includes('--rejected-goal-only')) {
+    for (const finishQueued of [true, false]) {
+      await page.evaluate(queued => {
+        localStorage.clear()
+        const base = { ...window.server, status:'second_half', currentMatchPhase:'second_half', timerStatus:'running', conclusionRule:'normal_time',
+          updatedAt:new Date(Date.now()-300000).toISOString(), concludedAt:'', homeScore:0, awayScore:0, events:[] }
+        const time = (seconds) => new Date(Date.parse(base.updatedAt)+seconds*1000).toISOString()
+        const pending = [
+          { id:'rejected-goal', matchId:'fixture', kind:'event', capturedAt:time(60), expectedUpdatedAt:base.updatedAt, previousCommandId:null,
+            payload:{eventType:'goal', teamSide:'opponent', isOwnGoal:true, minute:34, stoppageMinute:2, participantRosterVersion:1} },
+          { id:'later-goal', matchId:'fixture', kind:'event', capturedAt:time(120), expectedUpdatedAt:null, previousCommandId:'rejected-goal',
+            payload:{eventType:'goal',teamSide:'opponent',minute:42,participantRosterVersion:1} },
+        ]
+        if (queued) pending.push({ id:'queued-ft',matchId:'fixture',kind:'timer',capturedAt:time(180),expectedUpdatedAt:null,previousCommandId:'later-goal',payload:{action:'full_time'} })
+        localStorage.setItem('server',JSON.stringify(base))
+        localStorage.setItem('journal',JSON.stringify({baseMatch:base,verifiedAt:new Date().toISOString(),pending,error:'Choose a linked scorer or explicitly choose Other.',errorCode:'P0001',errorCommandId:'rejected-goal'}))
+      }, finishQueued)
+      await mount()
+      if (!finishQueued) await page.getByRole('button', {name:'Review saved actions',exact:true}).last().click()
+      await page.getByRole('button', {name:'Correct saved goal',exact:true}).click()
+      await page.getByRole('button', {name:'Other',exact:true}).first().click()
+      await page.getByLabel('Other scorer name',{exact:true}).fill('Match-only scorer')
+      await page.getByRole('button', {name:'Save correction and sync',exact:true}).click()
+      await page.waitForFunction(() => window.readJournal()?.pending.length === 0)
+      if (finishQueued) {
+        await page.waitForFunction(() => window.server.status === 'full_time')
+      } else {
+        await page.getByRole('button', {name:'Return to Game Mode',exact:true}).click()
+        await page.getByRole('button', {name:'Full time',exact:true}).click()
+        await page.getByRole('button', {name:'Confirm',exact:true}).click()
+        await page.waitForFunction(() => window.server.status === 'full_time')
+      }
+      const result = await page.evaluate(() => ({score:window.server.homeScore,events:window.server.events, calls:window.calls}))
+      assert.equal(result.score,2)
+      assert.deepEqual(result.events.map(event => event.minute),[34,42])
+      assert.equal(result.events[0].stoppageMinute,2)
+      assert.equal(result.events[0].scorerName,'Other: Match-only scorer')
+      assert.equal(result.events[0].isOwnGoal,true)
+      assert.equal(result.calls.includes('rejected-goal'),false)
+      assert.ok(result.calls.indexOf(result.events[0].id)<result.calls.indexOf('later-goal'))
+      if (finishQueued) assert.deepEqual(result.calls.slice(-2),['later-goal','queued-ft'])
+    }
+    assert.deepEqual(errors,[])
+    console.log('PASS Coach corrects a rejected goal after reload, preserves later goals, and finishes with or without queued Full Time.')
+  } else if(process.argv.includes('--end-controls-only')) {
+    const base = await page.evaluate(() => window.server)
+    const fixture = async (changes) => {
+      await page.evaluate(match => {
+        localStorage.clear()
+        localStorage.setItem('server', JSON.stringify(match))
+      }, { ...base, ...changes })
+      await mount()
+      await page.waitForFunction(() => window.readJournal()?.baseMatch?.id === 'fixture')
+    }
+    const confirm = () => page.getByRole('button', { name: 'Confirm', exact: true }).click()
+    for (const timerStatus of ['running', 'paused']) {
+      await fixture({ status: 'second_half', currentMatchPhase: 'second_half', conclusionRule: 'straight_to_penalties', timerStatus, homeScore: 6, awayScore: 1 })
+      await page.getByRole('button', { name: 'End normal time', exact: true }).click()
+      await confirm()
+      await page.getByRole('button', { name: 'Start penalty shootout', exact: true }).waitFor()
+      assert.deepEqual(await page.evaluate(() => window.timerCalls), ['normal_time_complete'])
+      await page.getByRole('button', { name: 'Finish match', exact: true }).click()
+      await confirm()
+      await page.waitForFunction(() => window.server.status === 'full_time')
+      assert.deepEqual(await page.evaluate(() => [window.server.homeScore, window.server.awayScore]), [6, 1])
+    }
+    await fixture({ conclusionRule: 'normal_time' })
+    await page.getByRole('button', { name: 'Full time', exact: true }).click()
+    await confirm()
+    await page.waitForFunction(() => window.server.status === 'full_time')
+    await fixture({ status: 'second_half', currentMatchPhase: 'second_half', conclusionRule: 'straight_to_penalties' })
+    await page.evaluate(() => {
+      window.setSignal(false)
+      const journal = window.readJournal()
+      journal.pending = [{ id: 'pending-goal', matchId: 'fixture', kind: 'event', payload: { eventType: 'goal', teamSide: 'club', minute: 62 }, expectedUpdatedAt: journal.baseMatch.updatedAt, previousCommandId: null, capturedAt: new Date().toISOString() }]
+      localStorage.setItem('journal', JSON.stringify(journal))
+    })
+    await mount()
+    const recovery = page.getByRole('button', { name: 'Review saved actions', exact: true }).last()
+    await recovery.click()
+    await page.getByRole('button', { name: 'Discard saved actions', exact: true }).waitFor()
+    assert.deepEqual(await page.evaluate(() => window.timerCalls || []), [])
+    assert.equal(await page.evaluate(() => window.server.status), 'second_half')
+    await fixture({ status: 'penalties', currentMatchPhase: 'penalties', conclusionRule: 'straight_to_penalties', timerStatus: 'paused' })
+    await page.getByRole('button', { name: 'End match', exact: true }).click()
+    await page.getByText(/Recorded shootout kicks will be voided/).waitFor()
+    await page.getByRole('button', { name: 'Cancel', exact: true }).click()
+    assert.equal(await page.evaluate(() => window.shootoutExitCalls || 0), 0)
+    await page.getByRole('button', { name: 'End match', exact: true }).click()
+    await confirm()
+    await page.waitForFunction(() => window.server.status === 'full_time')
+    assert.deepEqual(errors, [])
+    console.log('PASS Coach 1.1.1 finishes regulation, optional-penalty matches while running or paused, and unfinished shootouts.')
   } else if(process.argv.includes('--conclude-only')) {
     for (const failure of ['none','cache-failure','response-lost','response-lost-and-refresh-failed','rejected']) {
       await page.evaluate(()=>{

@@ -228,6 +228,7 @@ export function createMobileFormationDraft({ board = null, gameFormat = '11v11',
     placements: (Array.isArray(version?.placements) ? version.placements : []).map(normalizePlacement).filter((player) => player.playerId),
     presetKey: normalize(version?.formationPresetKey || board?.formationPresetKey || presetKey) || '11v11-4-4-2',
     registryVersion: Number(version?.presetRegistryVersion || board?.presetRegistryVersion || 1),
+    shirtKit: version?.shirtKit || null,
     unplaced,
   }
 }

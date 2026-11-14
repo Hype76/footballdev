@@ -8,7 +8,8 @@ import test from 'node:test'
 const require = createRequire(import.meta.url)
 const file = 'apps/mobile-core/appConfig.cjs'
 const source = readFileSync(file, 'utf8')
-const baseline = execFileSync('git', ['show', `origin/main:${file}`], { encoding: 'utf8' })
+const publishedAndroidBaseline = 'a9de799a2fef0b5ac4915a3c1c3417f877354421'
+const baseline = execFileSync('git', ['show', `${publishedAndroidBaseline}:${file}`], { encoding: 'utf8' })
 function config(text, env = {}) {
   const context = { require, module: { exports: {} }, process: { env, cwd: () => process.cwd() } }
   vm.runInNewContext(text, context)
@@ -28,9 +29,18 @@ test('native build defaults remain identical and OTA runtime requires explicit p
 })
 
 test('OTA guard rejects unsupported runtime and platform combinations before any external action', () => {
-  for (const args of [['coach', 'android', '1.1.1'], ['parent', 'ios', '9.9.9']]) {
+  for (const args of [['coach', 'android', '1.1.1'], ['parent', 'ios', '9.9.9'], ['parent', 'android', '1.1.0'], ['coach', 'ios', '1.1.0'], ['coach', 'all', '1.1.0']]) {
     const result = spawnSync(process.execPath, ['apps/scripts/mobile-update-guard.mjs', ...args], { encoding: 'utf8' })
     assert.equal(result.status, 1)
-    assert.match(result.stderr, /restricted to iOS 1\.1\.1/)
+    assert.match(result.stderr, /restricted to iOS 1\.1\.1 and Android Coach 1\.1\.0/)
   }
+})
+
+test('legacy Coach Android OTA still requires explicit publication confirmation', () => {
+  const result = spawnSync(process.execPath, ['apps/scripts/mobile-update-guard.mjs', 'coach', 'android', '1.1.0'], {
+    encoding: 'utf8',
+    env: { ...process.env, MOBILE_OTA_UPDATE_CONFIRMED: '' },
+  })
+  assert.equal(result.status, 1)
+  assert.match(result.stderr, /MOBILE_OTA_UPDATE_CONFIRMED=true/)
 })

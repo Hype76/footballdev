@@ -65,9 +65,9 @@ export function loadRecord(root) {
   const record = JSON.parse(fs.readFileSync(safe(root, 'security/reviewed-source-remediations.json')))
   verifyMaintainedAuthority(record)
   assert.equal(record.baseline, '864a6ad3856a02b65ec33bfe8e952e6f98d13dbd')
-  assert.equal(record.adoptionProposalSha256, 'b13b4051d0b842a211f6322c4db7eb0de3fe48c8f53b2a91c67f671ad7bc53c4', 'Maintained source policy identity changed')
+  assert.equal(record.adoptionProposalSha256, 'd43f26f937658eb21395575b674e62a51a421ab93105eb4720df764f424ddc03', 'Maintained source policy identity changed')
   assert.equal(hash(fs.readFileSync(safe(root, 'security/maintained-source-policy.json'))), record.adoptionProposalSha256, 'Maintained source policy evidence drift')
-  assert.equal(record.releasePreparationSha256, "8491fb70af124f20f91c170755c6894134b1874ab97bcdfa0222da8d40144a82", 'Release preparation scope drift')
+  assert.equal(record.releasePreparationSha256, "c7c664542c4c09617ca513195b9e89bb9be6ce4cbb4edb68004a9b34adb72190", 'Release preparation scope drift')
   assert.equal(hash(Buffer.from(JSON.stringify(record.releasePreparation, null, 2) + '\n')), record.releasePreparationSha256, 'Release preparation pins drift')
   assert.equal(record.releasePreparation.baseline, record.baseline, 'Release preparation baseline mismatch')
   verifyReleasePreparation(root, record.releasePreparation)
@@ -80,9 +80,9 @@ export function loadRecord(root) {
   assert.deepEqual(record.targets.map(t => [t.scope, t.packagePath, t.name, t.version]), [
     ['.', 'node_modules/braces', 'braces', '3.0.3'],
     ['apps/parent-mobile', 'node_modules/braces', 'braces', '3.0.3'],
-    ['apps/parent-mobile', 'node_modules/node-forge', 'node-forge', '1.4.2'],
+    ['apps/parent-mobile', 'node_modules/node-forge', 'node-forge', '1.4.3'],
     ['apps/coach-mobile', 'node_modules/braces', 'braces', '3.0.3'],
-    ['apps/coach-mobile', 'node_modules/node-forge', 'node-forge', '1.4.2'],
+    ['apps/coach-mobile', 'node_modules/node-forge', 'node-forge', '1.4.3'],
     ['.', 'node_modules/deepmerge', 'deepmerge', '4.3.1'],
     ['apps/parent-mobile', 'node_modules/deepmerge', 'deepmerge', '4.3.1'],
     ['apps/coach-mobile', 'node_modules/deepmerge', 'deepmerge', '4.3.1'],
@@ -103,7 +103,7 @@ export function loadRecord(root) {
         ? ['7ebc2bd97fe2ba61dbece477cdffea35fe840069176cd501ef26f95104d0b8a7', '286d2a30d121c50de539f45ff69196a5c0aa949f262302c3cb511c370376a432']
         : t.name === 'glob'
           ? ['e5934ac4474d9971f8e2ebe25e8073122e5fa05a037ffe4ebbe8d6027a02976b', 'c88ad563cec6a84b835eda010386afcd6794ee6660db63b389150462cc218d5f']
-          : ['dbe2e243bd0239e3a366332f5265ca6bf4b32b050e9178c64e383de3d3455ea4', 'dbe2e243bd0239e3a366332f5265ca6bf4b32b050e9178c64e383de3d3455ea4']
+          : ['808be11e152fcde0d82e165e040e45e9f33b0ba9f24cbefe4af99e5f7d0bc865', '808be11e152fcde0d82e165e040e45e9f33b0ba9f24cbefe4af99e5f7d0bc865']
     assert.deepEqual([t.originalTreeSha256, t.patchedTreeSha256], trees, 'Reviewed package-tree identities changed')
     assert.equal(t.mode, t.name === 'node-forge' ? 'official-maintained' : t.name === 'glob' ? 'reviewed-compatibility' : 'reviewed-source', 'Package verification mode changed')
     if (t.name === 'glob') {
@@ -115,7 +115,7 @@ export function loadRecord(root) {
       assert.deepEqual(t.files.map(file => [file.path, file.originalBytes, file.patchedBytes]), [['dist/cjs.js', 4048, 4194], ['dist/umd.js', 4420, 4572], ['index.js', 3293, 3439]], 'All shipped deepmerge entrypoints and exact byte lengths must be corrected')
     }
     if (t.mode === 'official-maintained') {
-      assert.equal(t.registryIntegrity, 'sha512-rRtAR5XLJ8gCKd9du4qrKAsgCG1ObGP4gLeNJMa4vYSeq4bmBMOJk5IHkrviBV0q7uoAJlVd8HEQYQSVUb4FGQ==', 'Official node-forge integrity changed')
+      assert.equal(t.registryIntegrity, 'sha512-P6wzfh6t70avmV8FrVEAd/36sOPJQ+hkaJVX1Laap9J/77m7M0eyozDvc8SwnDf4P7MP94gwbAAo0rg3YVXT+g==', 'Official node-forge integrity changed')
       assert.deepEqual(t.files, [], 'Official node-forge cannot accept local source patches')
     }
   }
@@ -134,14 +134,14 @@ export function loadRecord(root) {
   assert.deepEqual(record.compatibilityUpstream, JSON.parse(fs.readFileSync(safe(root, 'security/maintained-source-policy.json'))).glob7Compatibility.upstreamLatest, 'Compatibility upstream differs from the pinned maintenance policy')
   assert.deepEqual(record.glob7CompatibilityPublishedVersions, JSON.parse(fs.readFileSync(safe(root, 'security/maintained-source-policy.json'))).glob7Compatibility.publishedCompatibilityVersions, 'Compatibility publication inventory differs from the pinned maintenance policy')
   assert.deepEqual(record.officialCompatibilityDependencies.map(t => [t.scope, t.packagePath, t.name, t.version]), ['.', 'apps/parent-mobile', 'apps/coach-mobile'].flatMap(scope => [
-    [scope, 'node_modules/minimatch', 'minimatch', '11.0.4'], [scope, 'node_modules/glob', 'glob', '14.0.3'],
+    [scope, 'node_modules/minimatch', 'minimatch', '11.0.8'], [scope, 'node_modules/glob', 'glob', '14.0.6'],
   ]), 'Fixed official compatibility dependency scope changed')
   for (const t of record.officialCompatibilityDependencies) {
     assert.equal(t.mode, 'official-tooling')
     assert.deepEqual(t.files, [], 'Fixed official tooling must not receive source patches')
     assert.equal(t.originalTreeSha256, t.patchedTreeSha256, 'Fixed official tooling must remain unchanged')
     assert.equal(t.registryIntegrity, record.compatibilityUpstream[t.name].registryIntegrity, 'Fixed official tooling registry identity differs')
-    assert.equal(t.originalTreeSha256, t.name === 'minimatch' ? '3612d0aeb89d6100e3da2f25209d4fbfa25514a53f29ff417b896b550ea9d823' : '42540866292120333b7e3b6898defb1bfa29d97717fee8248a2d1431076ed1f0', 'Fixed official tooling tree identity changed')
+    assert.equal(t.originalTreeSha256, t.name === 'minimatch' ? '5534a29b3997317f77b5c1451540fac95730c0a101e67a1cf941e88f4cb001a4' : '34c8195a1363ceb60999544b75acfc7a48c766e6f2db30d48a3400b04f10b2c3', 'Fixed official tooling tree identity changed')
   }
   assert.equal(payload.qualificationManifestSha256, 'c6b590786dac4bf3ffeeec900f9d3e47e9550f649aa6c5820da83b3a64afc47d')
   for (const [file, expected] of Object.entries(record.implementationHashes)) assert.equal(textHash(fs.readFileSync(safe(root, file))), expected, `Implementation drift: ${file}`)

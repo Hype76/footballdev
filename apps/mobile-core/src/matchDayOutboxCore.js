@@ -4,13 +4,22 @@ export const MATCH_DAY_OUTBOX_LIMIT = 200
 export const MATCH_DAY_OFFLINE_MAX_AGE = 24 * 60 * 60 * 1000
 export const OFFLINE_MATCH_TIMER_ACTIONS = new Set(['start', 'pause', 'hydration', 'half_time', 'resume', 'full_time'])
 const activeSyncs = new Set()
+const goalValidationErrors = new Set([
+  'Choose a linked scorer or explicitly choose Other.',
+  'This scorer is no longer eligible for this fixture.',
+  'Choose a linked assist or explicitly choose Other.',
+  'Choose a different eligible assist player.',
+  'Opponent participants cannot link team players.',
+  'Opponent assists cannot link team players.',
+])
 
 export function canCorrectMatchDayCommand(journal) {
   const command = journal?.pending?.[0]
-  return command?.kind === 'event' && ['yellow_card', 'red_card', 'substitution'].includes(command.payload.eventType)
-    && ['22023', 'P0001'].includes(journal.errorCode)
+  if (command?.kind !== 'event' || !['22023', 'P0001'].includes(journal.errorCode)
+    || (journal.errorCommandId && journal.errorCommandId !== command.id)) return false
+  if (command.payload.eventType === 'goal') return goalValidationErrors.has(journal.error)
+  return ['yellow_card', 'red_card', 'substitution'].includes(command.payload.eventType)
     && /^(Choose one (?:selected Match squad Player|eligible Match Player)(?: On)? from this fixture Team\.|Choose a different Player On for this substitution\.)$/.test(journal.error || '')
-    && (!journal.errorCommandId || journal.errorCommandId === command.id)
 }
 
 export function mergeMatchDayCommandSnapshot(baseMatch, result) {
@@ -71,7 +80,7 @@ export function appendMatchDayCommand(journal, { id, kind, payload, capturedAt =
   if (previous && time < Date.parse(previous.capturedAt)) throw new Error('The device clock changed. Check its time before recording another action.')
   const command = { id, matchId: journal.baseMatch.id, kind, payload: JSON.parse(JSON.stringify(payload)), capturedAt,
     expectedUpdatedAt: previous ? null : journal.baseMatch.updatedAt, previousCommandId: previous?.id || null }
-  return { ...journal, pending: [...journal.pending, command], error: '' }
+  return { ...journal, pending: [...journal.pending, command], error: canCorrectMatchDayCommand(journal) ? journal.error : '' }
 }
 
 // Persist before showing success. Reuse each command ID after an uncertain response.
@@ -102,22 +111,32 @@ export function createMatchDayOutbox({ read, update, send, key = '', onChange = 
     },
     async correctRejected({ commandId, id, payload }) {
       if (syncing || key && activeSyncs.has(key)) throw new Error('Wait for sync to finish before correcting this action.')
-      const journal = await update(current => {
-        if (!canCorrectMatchDayCommand(current) || current.pending[0].id !== commandId) throw new Error('Sync saved actions first to confirm which action needs correction.')
-        if (!id || current.pending.some(command => command.id === id)) throw new Error('A new action identifier is required.')
-        const previous = current.pending[0]
-        if (payload.eventType !== previous.payload.eventType || payload.teamSide !== previous.payload.teamSide) throw new Error('Keep the saved event type and team unchanged.')
-        // These validation errors definitively roll back the server transaction. Never rewrite an uncertain request.
-        const replacement = { ...previous, id, payload: { ...previous.payload,
-          playerName: payload.playerName, playerShirtNumber: payload.playerShirtNumber,
-          participantType: payload.participantType, playerOnName: payload.playerOnName,
-          playerOnShirtNumber: payload.playerOnShirtNumber, playerOnParticipantType: payload.playerOnParticipantType } }
-        return { ...current, error: '', errorCode: '', errorCommandId: '',
-          corrections: [...(current.corrections || []), { original: previous, replacementId: id }],
-          pending: [replacement, ...current.pending.slice(1).map((command, index) => index === 0 ? { ...command, previousCommandId: id } : command)] }
-      })
-      publish(journal)
-      return journal
+      syncing = true
+      if (key) activeSyncs.add(key)
+      try {
+        const journal = await update(current => {
+          if (!canCorrectMatchDayCommand(current) || current.pending[0].id !== commandId) throw new Error('Sync saved actions first to confirm which action needs correction.')
+          if (!id || current.pending.some(command => command.id === id)) throw new Error('A new action identifier is required.')
+          const previous = current.pending[0]
+          if (payload.eventType !== previous.payload.eventType || payload.teamSide !== previous.payload.teamSide) throw new Error('Keep the saved event type and team unchanged.')
+          // These validation errors definitively roll back the server transaction. Never rewrite an uncertain request.
+          const participantFields = previous.payload.eventType === 'goal'
+            ? ['scorerName', 'scorerShirtNumber', 'scorerParticipantType', 'scorerPlayerId',
+              'assistName', 'assistShirtNumber', 'assistPlayerId', 'participantRosterVersion']
+            : ['playerName', 'playerShirtNumber', 'participantType', 'playerOnName', 'playerOnShirtNumber', 'playerOnParticipantType']
+          const replacementPayload = { ...previous.payload }
+          for (const field of participantFields) replacementPayload[field] = payload[field]
+          const replacement = { ...previous, id, payload: replacementPayload }
+          return { ...current, error: '', errorCode: '', errorCommandId: '',
+            corrections: [...(current.corrections || []), { original: previous, replacementId: id }],
+            pending: [replacement, ...current.pending.slice(1).map((command, index) => index === 0 ? { ...command, previousCommandId: id } : command)] }
+        })
+        publish(journal)
+        return journal
+      } finally {
+        syncing = false
+        if (key) activeSyncs.delete(key)
+      }
     },
     async discardPending(match) {
       if (syncing || key && activeSyncs.has(key)) throw new Error('A saved action is being checked. Wait for sync to finish before discarding.')
@@ -136,7 +155,7 @@ export function createMatchDayOutbox({ read, update, send, key = '', onChange = 
       publish(journal)
       return journal
     },
-    async sync() {
+    async sync({ retryRejected = false } = {}) {
       if (syncing || stopped || key && activeSyncs.has(key)) return
       syncing = true
       if (key) activeSyncs.add(key)
@@ -147,6 +166,7 @@ export function createMatchDayOutbox({ read, update, send, key = '', onChange = 
           if (stopped) return
           const command = journal?.pending?.[0]
           if (!command) return
+          if (!retryRejected && command.payload.eventType === 'goal' && canCorrectMatchDayCommand(journal)) return
           if (!reportedSync) { reportedSync = true; onSyncStateChange(true) }
           try {
             const match = await send(command, journal.baseMatch)
