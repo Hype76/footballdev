@@ -1644,6 +1644,91 @@ try {
     await context.close()
   })
 
+  await runScenario('club admin hands a calendar event to the selected team', async () => {
+    const context = await browser.newContext()
+    const { page } = await preparePage(context)
+    let savedEvent
+    let savedMatch
+    await context.route('**/rest/v1/teams?*', route => route.fulfill({
+      json: [{ id: 'team-u12', name: 'U12 Fixture Team', club_id: 'club-fixture' }],
+    }))
+    await context.route('**/rest/v1/calendar_events?*', async (route) => {
+      const request = route.request()
+      const query = new URL(request.url()).searchParams
+      if (request.method() === 'POST') {
+        savedEvent = { id: 'fixture-calendar-event', ...request.postDataJSON() }
+        await route.fulfill({ status: 201, json: savedEvent })
+      } else {
+        await route.fulfill({ json: savedEvent && query.getAll('or').some(value => value.includes('team_id.eq.team-u12')) ? [savedEvent] : [] })
+      }
+    })
+    await context.route('**/rest/v1/rpc/get_team_players', route => route.fulfill({
+      json: [{ id: 'calendar-fixture-player', player_name: 'Fixture Player', team_id: 'team-u12', status: 'active', section: 'Squad' }],
+    }))
+    await context.route('**/rest/v1/rpc/upsert_match_location_for_team', route => route.fulfill({ json: null }))
+    await context.route('**/rest/v1/match_days?*', async (route) => {
+      const request = route.request()
+      const query = new URL(request.url()).searchParams
+      if (request.method() === 'POST') {
+        savedMatch = { id: 'calendar-fixture-match', ...request.postDataJSON() }
+        await route.fulfill({ status: 201, json: savedMatch })
+      } else {
+        await route.fulfill({ json: savedMatch && query.getAll('or').some(value => value.includes('team_id.eq.team-u12')) ? [savedMatch] : [] })
+      }
+    })
+    await context.route('**/rest/v1/match_day_event_log?*', route => route.fulfill({ json: { id: 'calendar-fixture-log' } }))
+    try {
+      await signIn(page, 'club.fixture@footballplayer.test')
+      await page.waitForURL('**/coach', { timeout: 15000 })
+      await page.goto(`${mainBaseUrl}/calendar`)
+      await page.getByRole('heading', { name: 'Club calendar', exact: true }).waitFor()
+      await page.getByRole('button', { name: 'Add event', exact: true }).click()
+      const dialog = page.getByRole('dialog')
+      const calendar = dialog.locator('select[name="teamId"]')
+      assert.equal(await calendar.inputValue(), '')
+      await calendar.selectOption('team-u12')
+      await dialog.locator('select[name="eventType"]').selectOption('meeting')
+      await dialog.getByLabel('Title', { exact: true }).fill('FP TEST team meeting')
+      const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date())
+      await dialog.locator('input[name="date"]').fill(today)
+      await dialog.locator('input[name="startTime"]').fill('18:00')
+      await dialog.locator('input[name="endTime"]').fill('19:00')
+      await dialog.getByRole('button', { name: 'Save changes', exact: true }).click()
+      await dialog.waitFor({ state: 'hidden' })
+      assert.equal(savedEvent.team_id, 'team-u12')
+      assert.equal(await page.getByText('FP TEST team meeting', { exact: true }).count(), 0)
+      await page.getByLabel('Access view').selectOption({ label: 'Team: U12 Fixture Team' })
+      await page.getByText('FP TEST team meeting', { exact: true }).first().waitFor()
+      await page.getByRole('button', { name: 'Add event', exact: true }).click()
+      assert.equal(await page.getByRole('dialog').locator('select[name="teamId"]').inputValue(), 'team-u12')
+      await page.getByRole('button', { name: 'Close calendar event' }).click()
+      await page.evaluate(() => sessionStorage.removeItem('selected-team-id'))
+      await page.reload()
+      await page.getByRole('heading', { name: 'Club calendar', exact: true }).waitFor()
+      await page.getByRole('button', { name: 'Add event', exact: true }).click()
+      await calendar.selectOption('team-u12')
+      await dialog.locator('select[name="eventType"]').selectOption('match')
+      await page.waitForURL('**/match-day', { timeout: 15000 })
+      const fixture = page.getByRole('dialog', { name: 'Create fixture' })
+      await fixture.getByText('U12 Fixture Team', { exact: true }).waitFor()
+      await fixture.getByLabel('Opponent', { exact: true }).fill('FP TEST Visitors')
+      await fixture.getByLabel(/^Fixture type/).selectOption('friendly')
+      await fixture.getByLabel('Date', { exact: true }).fill(today)
+      await fixture.getByLabel('Confirmed kickoff', { exact: true }).fill('18:00')
+      await fixture.getByRole('button', { name: 'Continue to squad', exact: true }).click()
+      await page.getByRole('button', { name: 'Add to Coach calendars', exact: true }).click()
+      await page.getByText('Fixture created', { exact: true }).waitFor()
+      assert.equal(savedMatch.team_id, 'team-u12')
+      await page.goto(`${mainBaseUrl}/calendar`)
+      await assertVisibleTextContaining(page, 'FP TEST Visitors')
+    } catch (error) {
+      console.error((await page.locator('body').innerText()).slice(-2500))
+      throw error
+    } finally {
+      await context.close()
+    }
+  })
+
   for (const viewport of [
     { name: 'desktop', options: { viewport: { width: 1440, height: 900 } } },
     { name: 'mobile', options: { isMobile: true, viewport: { width: 390, height: 844 } } },
