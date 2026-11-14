@@ -27,6 +27,8 @@ const invite = (id, extra = {}) => ({ id, kind: 'match', eventId: 'match', playe
 function harness(initial = { pendingAvailability: 107, unreadChat: 2, errors: ['polls:unavailable'] }) {
   let state = initial
   const reads = []
+  const invalidated = []
+  const offlineWrites = []
   const dependencies = {
     isMatchdayPlan, isMobileRouteAllowed,
     HOME_REFRESH_MIN_INTERVAL_MS: 180000,
@@ -37,18 +39,19 @@ function harness(initial = { pendingAvailability: 107, unreadChat: 2, errors: ['
     readCoachDevelopmentDrafts: async () => ({}), mergeUnfinishedDevelopmentDrafts, preserveCoachDevelopmentSummary,
     setHomeState: update => { state = typeof update === 'function' ? update(state) : update; dependencies.homeStateRef.current = state },
     readMobileResource: async (user, key, loader, options) => { reads.push({ user, key, options }); return loader() },
+    invalidateMobileResource: (_user, key) => { invalidated.push(key) },
     getCoachInvitesAndAvailability: async () => ({ all: [invite('one'), invite('two', { status: 'available' })] }),
     getCoachChatRooms: async () => [], countPendingCoachAvailability, buildCoachChatSummary, preserveCoachAvailabilitySummary, preserveCoachChatSummary, updateCoachHomeSourceState,
     setIsRefreshing() {}, peekMobileResource: () => undefined, readCoachOfflineResources: async () => null, readCoachHomeOfflineView: async () => ({ cache: null, developmentDrafts: {} }),
     activeContext: {}, user: { id: 'coach' }, getCoachPhase31GPrimaryHomeSnapshot: async () => ({ pendingAvailability: 0 }),
-    setLastUpdatedAt() {}, lastHomeRefreshAtRef: { current: 0 }, saveCoachOfflineResources: async () => {},
+    setLastUpdatedAt() {}, lastHomeRefreshAtRef: { current: 0 }, saveCoachOfflineResources: async (_user, _context, value) => { offlineWrites.push(value) },
     InteractionManager: { runAfterInteractions() {} },
     getCoachPhase31GAttentionSnapshot: async () => ({ pendingAvailability: 107, errors: [] }),
     mergeCoachPhase31GHomeSnapshots: (primary, attention) => ({ ...primary, ...attention }),
     getCoachFriendlyError: () => 'Unavailable',
     recordCoachPerformanceSample() {},
   }
-  return { dependencies, reads, state: () => state, load: () => evaluate(callback, dependencies) }
+  return { dependencies, reads, invalidated, offlineWrites, state: () => state, load: () => evaluate(callback, dependencies) }
 }
 
 test('Coach Home keeps same-scope data while refreshing without replacing it from storage', async () => {
@@ -98,6 +101,8 @@ test('Coach Home permission denial clears retained data and prevents cached rehy
   await h.load()({ refresh: true })
   assert.equal(h.state().nextMatch, undefined)
   assert.equal(h.dependencies.homeDeniedScopeRef.current, true)
+  assert.deepEqual(h.invalidated, ['coach:home-primary'])
+  assert.deepEqual(h.offlineWrites, [{ home: null }])
   let readOptions
   h.dependencies.readMobileResource = async (_user, _key, loader, options) => { readOptions = options; return loader() }
   h.dependencies.peekMobileResource = () => ({ nextMatch: { id: 'old' } })
