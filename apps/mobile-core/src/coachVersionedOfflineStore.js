@@ -8,7 +8,7 @@ export function createCoachVersionedOfflineStore({ legacyStore, markerStorage, m
     markerWrites.add(write)
     try { await write } finally { markerWrites.delete(write) }
   }
-  let active = '', epoch = 0, pending = null
+  let active = '', epoch = 0, pending = null, qualifiedTarget = null
   let cleanup = Promise.resolve(), activationChain = Promise.resolve(), activationReady = Promise.resolve()
   const scopeKey = value => {
     const scope = String(value || '').trim()
@@ -64,13 +64,18 @@ export function createCoachVersionedOfflineStore({ legacyStore, markerStorage, m
       return { target, checkpoint: legacy.checkpoint, guard }
     })()
     pending = { scope, epoch: currentEpoch, promise }
-    try { return await promise } catch (error) { if (pending?.promise === promise) pending = null; throw error }
+    try {
+      const result = await promise
+      guard()
+      qualifiedTarget = result.target
+      return result
+    } catch (error) { if (pending?.promise === promise) pending = null; throw error }
   }
   return {
     activate(scope) {
       scopeKey(scope)
       if (active === scope) return
-      active = scope; epoch++; pending = null
+      active = scope; epoch++; pending = null; qualifiedTarget = null
       const guard = guardFor(scope)
       activationReady = Promise.all([cleanup, activationChain]).then(async () => {
         guard()
@@ -81,6 +86,9 @@ export function createCoachVersionedOfflineStore({ legacyStore, markerStorage, m
       activationChain = activationReady.catch(() => {})
     },
     captureScopeGuard(scope) { return guardFor(scope) },
+    peekSnapshot(scope, select) {
+      return active === scope ? qualifiedTarget?.peekSnapshot?.(scope, select) : undefined
+    },
     async read(scope) { if (!active) return { document: null, status: 'missing' }; const { target, guard } = await ensure(scope); const result = await target.read(scope); guard(); return result },
     async readSnapshot(scope) { if (!active) return { document: null, status: 'missing' }; const { target, guard } = await ensure(scope); const result = await target.readSnapshot(scope); guard(); return result },
     async inspect(scope) { if (!active) return { hasDocument: false, status: 'missing' }; const { target, guard } = await ensure(scope); const result = await target.inspect(scope); guard(); return result },
@@ -107,7 +115,7 @@ export function createCoachVersionedOfflineStore({ legacyStore, markerStorage, m
     },
     clear() {
       const previousScope = active, previousActivation = activationChain
-      active = ''; epoch++; pending = null
+      active = ''; epoch++; pending = null; qualifiedTarget = null
       // Reject captured work immediately; qualification happens before deletion.
       if (previousScope) storeFor(previousScope).invalidate()
       cleanup = cleanup.catch(() => {}).then(async () => {

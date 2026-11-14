@@ -1,13 +1,14 @@
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { AppState, InteractionManager } from 'react-native'
 import { readMobileResource } from '../../mobile-core/src/mobileResourceCache'
 import { getCoachCalendarResources } from '../../mobile-core/src/coachCalendarData'
 import { getCoachPlayerList } from '../../mobile-core/src/coachPlayersData'
-import { getCoachDevelopmentWorkspace } from '../../mobile-core/src/coachPhase31EData'
+import { getCoachDevelopmentWorkspace, getCoachInvitesAndAvailability } from '../../mobile-core/src/coachPhase31EData'
+import { getCoachPhase31GAttentionSnapshot, getCoachPhase31GPrimaryHomeSnapshot, mergeCoachPhase31GHomeSnapshots } from '../../mobile-core/src/coachPhase31GData'
 import { getCoachMatchDayList, getCoachMatchDayDetail } from '../../mobile-core/src/coachMatchDayData'
 import { withMobileAsyncTimeout } from '../../mobile-core/src/http'
-import { readCoachOfflineResources, readCoachMatchDayOutbox, saveCoachOfflineResources, updateCoachMatchDayOutbox } from './offline'
-import { createCoachPreparationRunner, prepareCoachOfflineData } from './coachOfflinePreparation'
+import { createCoachOfflineResourceSaver, readCoachOfflineResources, readCoachMatchDayOutbox, readCoachOverviewResources, saveCoachOfflineResources, updateCoachMatchDayOutbox } from './offline'
+import { createCoachPreparationRunner, prepareCoachOfflineData, prepareCoachTeamOverview } from './coachOfflinePreparation'
 import { createMatchDayOutbox } from '../../mobile-core/src/matchDayOutboxCore'
 import { syncCoachMatchDayCommand } from '../../mobile-core/src/coachMatchDayData'
 import { applyCoachContext } from '../../mobile-core/src/coachContextCore'
@@ -25,21 +26,57 @@ const dependencies = {
   getMatches: shared('coach:match-list', getCoachMatchDayList), getMatch: timed(getCoachMatchDayDetail),
 }
 
-export function useCoachOfflinePreparation({ user, contexts = null, context = null, activeContext = context, enabled }) {
+async function getTeamHome(user) {
+  const [primary, attention] = await Promise.all([
+    getCoachPhase31GPrimaryHomeSnapshot(user),
+    withMobileAsyncTimeout(() => getCoachPhase31GAttentionSnapshot(user, { force: false })),
+  ])
+  const homeSources = Object.fromEntries(['development', 'chatRooms', 'polls', 'invites'].map(source => [
+    source, !attention.errors.some(error => error.startsWith(`${source}:`)),
+  ]))
+  return { ...mergeCoachPhase31GHomeSnapshots(primary, attention), homeSources, savedAt: new Date().toISOString() }
+}
+
+const overviewDependencies = {
+  readResources: readCoachOverviewResources,
+  createSaver: createCoachOfflineResourceSaver,
+  getHome: getTeamHome,
+  getInvites: user => withMobileAsyncTimeout(() => getCoachInvitesAndAvailability(user), { timeoutMs: 30000 }),
+}
+
+export function useCoachOfflinePreparation({ user, contexts = null, context = null, activeContext = context, enabled, refreshActiveHome, activeInvites = false }) {
   const availableContexts = useMemo(() => contexts || (context ? [context] : []), [contexts, context])
+  const activeContextId = useRef('')
+  activeContextId.current = activeContext?.id || ''
+  const refreshHomeRef = useRef(refreshActiveHome)
+  refreshHomeRef.current = refreshActiveHome
+  const activeInvitesRef = useRef(activeInvites)
+  activeInvitesRef.current = activeInvites
   useEffect(() => {
     if (!enabled || !user?.id || user.isOfflineProfile || !availableContexts.some(item => item.teamId && item.clubId === user.clubId)) return undefined
-    let lastFullSweepAt = 0
     const runner = createCoachPreparationRunner({
       isActive: () => AppState.currentState === 'active',
       run: async isCurrent => {
         await new Promise(resolve => InteractionManager.runAfterInteractions(resolve))
         if (!isCurrent()) return { cancelled: true }
-        const policy = availableContexts.some(isMatchdayPlan) ? await loadMatchdayPlanConfig() : null
-        const fullSweep = !activeContext?.id || Date.now() - lastFullSweepAt >= 5 * 60 * 1000
-        const teamContexts = availableContexts.filter(item => item.teamId && item.clubId === user.clubId && (fullSweep || item.id === activeContext.id))
-          .sort((left, right) => Number(right.id === activeContext?.id) - Number(left.id === activeContext?.id))
+        const policy = availableContexts.some(isMatchdayPlan) ? await loadMatchdayPlanConfig().catch(() => null) : null
+        const selectedId = activeContextId.current
+        const teamContexts = availableContexts.filter(item => item.teamId && item.clubId === user.clubId)
+          .sort((left, right) => Number(right.id === selectedId) - Number(left.id === selectedId))
+        if (selectedId && teamContexts.some(item => item.id === selectedId)) refreshHomeRef.current?.()
         let firstError = null
+        for (const context of teamContexts) {
+          if (!isCurrent()) return { cancelled: true }
+          const scopedUser = { ...applyCoachContext(user, context), matchdayPolicy: policy }
+          try {
+            if (isMatchdayPlan(context) && !policy) throw new Error('Matchday plan information is unavailable.')
+            const isSelected = context.id === activeContextId.current
+            await prepareCoachTeamOverview({ user: scopedUser, context, ...overviewDependencies, isCurrent,
+              includeHome: !isSelected || !refreshHomeRef.current,
+              includeInvites: !isSelected || !activeInvitesRef.current,
+            })
+          } catch (error) { firstError ||= error }
+        }
         for (const context of teamContexts) {
           if (!isCurrent()) return { cancelled: true }
           const scopedUser = { ...applyCoachContext(user, context), matchdayPolicy: policy }
@@ -47,7 +84,6 @@ export function useCoachOfflinePreparation({ user, contexts = null, context = nu
           catch (error) { firstError ||= error }
         }
         if (firstError) throw firstError
-        if (fullSweep) lastFullSweepAt = Date.now()
         return { saved: true, teams: teamContexts.length }
       },
     })
@@ -55,7 +91,7 @@ export function useCoachOfflinePreparation({ user, contexts = null, context = nu
     const interval = setInterval(() => void runner.refresh(), 30_000)
     const subscription = AppState.addEventListener('change', state => { if (state === 'active') void runner.refresh() })
     return () => { runner.stop(); clearTimeout(initial); clearInterval(interval); subscription.remove() }
-  }, [user, availableContexts, activeContext?.id, enabled])
+  }, [user, availableContexts, enabled])
 }
 
 export async function syncCoachOfflineNow(user, context) {

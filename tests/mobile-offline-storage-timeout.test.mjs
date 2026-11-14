@@ -49,6 +49,9 @@ function harness(ref) {
 test('stalled native save releases callers without claiming success or overlapping later writes', async () => {
   const f = harness('assessmenttimeoutwrite')
   await f.store.write('coach', { values: { score: 4 } })
+  const shown = f.store.peekSnapshot('coach', doc => doc.values)
+  shown.score = 20
+  assert.equal(f.store.peekSnapshot('other-coach', doc => doc.values), undefined)
   f.blockWrite()
   const first = f.store.update('coach', doc => ({ ...doc, values: { score: 5 } }))
   const second = f.store.update('coach', doc => ({ ...doc, values: { score: 6 } }))
@@ -59,6 +62,7 @@ test('stalled native save releases callers without claiming success or overlappi
   assert.equal(results[1].reason.storageBlockedStage, 'generation_write')
   assert.match(developmentSaveStatus({ ready: true, saving: 0, unsaved: true, error: results[0].reason.message }), /not been saved/)
   assert.equal((await f.store.readSnapshot('coach')).document.values.score, 4, 'Visible snapshot only exposes the last confirmed commit')
+  assert.equal(f.store.peekSnapshot('coach', doc => doc.values.score), 4)
   assert.equal(f.maximumWrites(), 1, 'Retry must retain serialization while the native write remains pending')
   f.release()
   const saved = await f.store.read('coach')

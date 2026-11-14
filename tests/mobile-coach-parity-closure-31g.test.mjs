@@ -182,8 +182,8 @@ test('context switching preserves an authorised destination and clears previous 
   const selectStart = app.indexOf('const selectContext = useCallback')
   const selectSource = app.slice(selectStart, app.indexOf('const toggleTheme', selectStart))
   assert.match(selectSource, /currentDestination = moreRoute \|\| activeRoute/)
-  assert.match(selectSource, /resolveCoachRoute\(currentDestination, nextContext\)/)
-  assert.match(selectSource, /resetContextDomainState\(\)/)
+  assert.match(selectSource, /resolveCoachRoute\(currentDestination, nextContext, matchdayPlanConfig\)/)
+  assert.match(selectSource, /resetContextDomainState\(user\.id, nextContext\)/)
   assert.match(selectSource, /setSelectedContextId\(nextContext\.id\)/)
 })
 
