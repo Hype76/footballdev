@@ -376,27 +376,52 @@ function SavedEventCorrection({ command, selectedPlayers, onCorrect, styles }) {
   const [error, setError] = useState('')
   const [form, setForm] = useState(() => {
     const value = { ...command.payload }
-    for (const prefix of ['player', 'playerOn']) {
-      const key = prefix === 'player' ? 'participantType' : 'playerOnParticipantType'
+    for (const prefix of ['player', 'playerOn', 'scorer']) {
+      const key = prefix === 'player' ? 'participantType' : `${prefix}ParticipantType`
       const named = /^(Coach|Other): (.+)$/.exec(value[`${prefix}Name`] || '')
       value[key] = named ? named[1].toLowerCase() : 'player'
       if (named) value[`${prefix}Name`] = named[2]
     }
     return value
   })
-  if (!open) return <Button label="Correct saved event" onPress={() => setOpen(true)} secondary styles={styles} />
+  const goal = form.eventType === 'goal'
+  const correctionLabel = goal ? 'Correct saved goal' : 'Correct saved event'
+  if (!open) return <Button label={correctionLabel} onPress={() => setOpen(true)} secondary styles={styles} />
   const substitution = form.eventType === 'substitution'
+  const linkedScorer = goal && getGoalScorerSide(form) === 'club'
+  const scorerType = form.scorerParticipantType === 'coach' ? 'other' : form.scorerParticipantType
+  const changeForm = (next) => { if (!busy) setForm(next) }
   const save = async () => {
     if (busy) return
     setBusy(true); setError('')
-    try { await onCorrect(command.id, validateCoachMatchDayEventParticipants(validateCoachMatchDayEventForm(form), selectedPlayers)) }
+    try { await onCorrect(command.id, validateCoachMatchDayEventParticipants(
+      validateCoachMatchDayEventForm(goal ? { ...form, scorerParticipantType: scorerType } : form), selectedPlayers,
+    )) }
     catch (failure) { setError(errorMessage(failure, 'The correction could not be saved.')) }
     finally { setBusy(false) }
   }
   return <View style={styles.stack}>
-    <Text style={styles.cardTitle}>Correct saved event</Text>
-    <Text style={styles.body}>Choose an eligible team player, or Other for a match-only participant. The original time and later actions will be kept.</Text>
-    {(substitution ? ['player', 'playerOn'] : ['player']).map(prefix => {
+    <Text accessibilityRole="header" style={styles.cardTitle}>{correctionLabel}</Text>
+    <Text style={styles.body}>{goal ? 'Correct the scorer or assist. The goal time and later actions stay saved.' : 'Choose an eligible team player, or Other for a match-only participant. The original time and later actions will be kept.'}</Text>
+    {goal ? <>
+      {linkedScorer ? <>
+        <Text style={styles.fieldLabel}>Scorer type</Text>
+        <Chips value={scorerType} options={[{ label: 'Player', value: 'player' }, { label: 'Other', value: 'other' }]}
+          onChange={(value) => changeForm({ ...form, scorerParticipantType: value, scorerPlayerId: '', scorerShirtNumber: '' })} styles={styles} />
+      </> : null}
+      {linkedScorer && scorerType === 'player'
+        ? <LinkedPlayerFields emptyMessage="Choose Other if the scorer is outside the match squad." form={form} onChange={changeForm} playerChoices={selectedPlayers} prefix="scorer" nameLabel="Scorer" shirtLabel="Scorer shirt number" styles={styles} />
+        : <Field label={linkedScorer ? 'Other scorer name' : 'Scorer (Optional)'} value={form.scorerName}
+          onChangeText={(value) => changeForm({ ...form, scorerName: value, scorerPlayerId: '' })} styles={styles} />}
+      {!form.isOwnGoal ? <>
+        {linkedScorer
+          ? <LinkedPlayerFields emptyMessage="The assist can be left blank." form={form} onChange={changeForm} playerChoices={selectedPlayers} prefix="assist" nameLabel="Assist (Optional)" shirtLabel="Assist shirt number (Optional)" styles={styles} />
+          : <Field label="Assist (Optional)" value={form.assistName} onChangeText={(value) => changeForm({ ...form, assistName: value, assistPlayerId: '' })} styles={styles} />}
+        {form.assistName || form.assistShirtNumber || form.assistPlayerId
+          ? <Button compact label="Clear assist" secondary onPress={() => changeForm({ ...form, assistName: '', assistShirtNumber: '', assistPlayerId: '' })} styles={styles} />
+          : null}
+      </> : null}
+    </> : (substitution ? ['player', 'playerOn'] : ['player']).map(prefix => {
       const key = prefix === 'player' ? 'participantType' : 'playerOnParticipantType'
       const title = prefix === 'playerOn' ? 'Player on' : substitution ? 'Player off' : 'Participant'
       return <View key={prefix} style={styles.stack}>
@@ -546,14 +571,14 @@ function LivePanel({ actions, busy, canReviewConclude, eventForm, finishControl,
     {actionSheet?.kind === 'event' ? <MatchDayActionSheet busy={busy} capturedClock={actionSheet.capturedClock} onClose={() => setActionSheet(null)} styles={styles} title={actionSheet.title}>
       <Text style={styles.body}>The match time was captured when you pressed the action. Add the details without rushing.</Text>
       <Text style={styles.fieldLabel}>{eventForm.eventType === 'goal' ? 'Goal awarded to' : 'Team'}</Text>
-      <Chips onChange={(value) => { setActionError(''); onEventForm({ ...eventForm, assistName: '', assistShirtNumber: '', participantType: 'player', playerName: '', playerOnName: '', playerOnParticipantType: 'player', playerOnShirtNumber: '', playerShirtNumber: '', scorerName: '', scorerParticipantType: 'player', scorerShirtNumber: '', teamSide: value }) }} options={[{ label: 'Our Team', value: 'club' }, { label: 'Opponent', value: 'opponent' }]} styles={styles} value={eventForm.teamSide} />
+      <Chips onChange={(value) => { setActionError(''); onEventForm({ ...eventForm, assistName: '', assistPlayerId: '', assistShirtNumber: '', participantType: 'player', playerName: '', playerOnName: '', playerOnParticipantType: 'player', playerOnShirtNumber: '', playerShirtNumber: '', scorerName: '', scorerParticipantType: 'player', scorerPlayerId: '', scorerShirtNumber: '', teamSide: value }) }} options={[{ label: 'Our Team', value: 'club' }, { label: 'Opponent', value: 'opponent' }]} styles={styles} value={eventForm.teamSide} />
       <Field keyboardType="number-pad" label="Match minute" onChangeText={(value) => onEventForm({ ...eventForm, minute: value })} styles={styles} value={eventForm.minute} />
       <Field keyboardType="number-pad" label="Added minutes" onChangeText={(value) => onEventForm({ ...eventForm, stoppageMinute: value })} styles={styles} value={eventForm.stoppageMinute} />
       {eventForm.teamSide === 'club' && eventForm.eventType !== 'goal' ? <Text style={styles.meta}>Choose Player for an eligible team participant. Choose Coach or Other for a match-only name that will not change a player record.</Text> : null}
       {eventForm.eventType === 'goal' ? <>
-        <View style={styles.row}><Text style={styles.fieldLabel}>Own goal</Text><Switch accessibilityLabel="Own goal" disabled={busy} onValueChange={(value) => onEventForm(setGoalOwnGoal(eventForm, value))} value={eventForm.isOwnGoal === true} /></View>
+        <View style={styles.row}><Text style={styles.fieldLabel}>Own goal</Text><Switch accessibilityLabel="Own goal" disabled={busy} onValueChange={(value) => onEventForm(setGoalOwnGoal({ ...eventForm, assistPlayerId: '' }, value))} value={eventForm.isOwnGoal === true} /></View>
         {eventForm.isOwnGoal ? <Text style={styles.meta}>{scorerSide === 'club' ? 'Our player scored an own goal. The opponent receives the goal.' : 'An opponent scored an own goal. Our team receives the goal.'}</Text> : null}
-        {scorerSide === 'club' ? <><Text style={styles.fieldLabel}>Scorer type</Text><Chips onChange={(value) => onEventForm({ ...eventForm, scorerName: '', scorerParticipantType: value, scorerShirtNumber: '' })} options={participantOptions} styles={styles} value={eventForm.scorerParticipantType} /></> : null}
+        {scorerSide === 'club' ? <><Text style={styles.fieldLabel}>Scorer type</Text><Chips onChange={(value) => onEventForm({ ...eventForm, scorerName: '', scorerParticipantType: value, scorerPlayerId: '', scorerShirtNumber: '' })} options={participantOptions} styles={styles} value={eventForm.scorerParticipantType} /></> : null}
         {scorerSide === 'opponent' || eventForm.scorerParticipantType === 'player'
           ? <LinkedPlayerFields emptyMessage={playerChoiceEmptyMessage} form={eventForm} key={`goal-scorer:${scorerSide}`} nameLabel={scorerSide === 'opponent' ? 'Scorer (Optional)' : 'Scorer'} onChange={onEventForm} playerChoices={playerChoices} prefix="scorer" shirtLabel={scorerSide === 'opponent' ? 'Scorer shirt number (Optional)' : 'Scorer shirt number'} styles={styles} />
           : <Field label={eventForm.scorerParticipantType === 'coach' ? 'Coach name' : 'Other participant name'} onChangeText={(value) => onEventForm({ ...eventForm, scorerName: value, scorerShirtNumber: '' })} styles={styles} value={eventForm.scorerName} />}
@@ -1164,7 +1189,11 @@ function CoachMatchDayScoped({ context, matchDayTarget, onMatchDayTargetHandled,
       {outbox.journal.errorCode === '40001' && serverMatch?.status !== 'full_time' ? <Button disabled={busy} label="Review and apply saved actions" onPress={() => void reviewSavedActions()} styles={styles} /> : null}
       {serverMatch?.status === 'full_time' ? <Text style={styles.body}>The server match has reached full time. Review the saved actions above and sync them, or discard them if they are no longer needed, before concluding.</Text> : null}
     </View> : null}
-    {panel === 'saved-actions' && pendingCount === 0 ? <Text style={styles.body}>All recorded actions have synced.</Text> : null}
+    {panel === 'saved-actions' && pendingCount === 0 && match ? <View style={styles.stack}>
+      <Text accessibilityLiveRegion="polite" style={styles.body}>All recorded actions have synced.</Text>
+      <Button label={match.status === 'full_time' ? 'Review result' : 'Return to Game Mode'}
+        onPress={() => { setPanel(match.status === 'full_time' ? 'report' : 'live'); onRequestScrollTop?.() }} secondary styles={styles} />
+    </View> : null}
     {!fixtureFormOpen && !match ? <MatchList filter={visibleFilter} matches={matches} onOpen={open} selectedId={match?.id} setFilter={(nextFilter) => { setFilter(nextFilter); setFilterChosen(true) }} styles={styles} /> : null}
     {match && !fixtureFormOpen ? <>{!focusedLiveMode ? <><View style={styles.row}><Button compact iconKey="action.back" label="Back to fixtures" onPress={closeFixture} secondary styles={styles} />{canEditCoachFixture({ context, fixture: serverMatch, stale: stale || user.isOfflineProfile || reconciling }) ? <Button compact iconKey="action.edit" label="Edit fixture" onPress={() => { setFixtureFormMatch(serverMatch); setFixtureFormOpen(true); setError(''); setNotice(''); onRequestScrollTop?.() }} secondary styles={styles} /> : null}</View><FixtureHero match={match} styles={styles} /><FixtureNavigation key={match.id} panel={panel} onChange={(nextPanel) => { if (nextPanel === 'formation') { formationReturnPanelRef.current = panel; setFormationBoardId('') } setPanel(nextPanel) }} styles={styles} /></> : null}
       {pendingCount === 0 && reportMatch.status === 'full_time' && !reportMatch.concludedAt && panel === 'overview' ? <View style={styles.stack}><Text style={styles.cardTitle}>Ready for coach review</Text><Text style={styles.body}>Full time has been recorded. Review the result and conclude this match.</Text><Button disabled={busy || reconciling} label="Review and conclude" onPress={() => { setPanel('report'); onRequestScrollTop?.() }} styles={styles} /></View> : null}

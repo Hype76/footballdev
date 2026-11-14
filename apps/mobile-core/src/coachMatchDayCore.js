@@ -401,6 +401,21 @@ export function formatCoachMatchDayParticipantName(participantType, value) {
 }
 
 export function validateCoachMatchDayEventParticipants(payload, selectedPlayers = []) {
+  if (payload.eventType === 'goal') {
+    if (getGoalScorerSide(payload) !== 'club') return payload
+    const hasPlayer = (id) => Boolean(id) && selectedPlayers.some(player => player.id === id)
+    const hasOtherName = (name) => /^Other: \S/.test(normalize(name))
+    const namedScorer = payload.scorerParticipantType === 'other' && hasOtherName(payload.scorerName)
+    if (!hasPlayer(payload.scorerPlayerId) && !namedScorer) {
+      throw new Error('Choose an eligible scorer, or choose Other and enter a name.')
+    }
+    if (!payload.isOwnGoal && (payload.assistPlayerId || normalize(payload.assistName) || normalize(payload.assistShirtNumber))
+      && (!hasPlayer(payload.assistPlayerId) || payload.assistPlayerId === payload.scorerPlayerId)
+      && !hasOtherName(payload.assistName)) {
+      throw new Error('Choose a different eligible assist player or clear the assist.')
+    }
+    return payload
+  }
   if (payload.teamSide !== 'club' || !['yellow_card', 'red_card', 'substitution'].includes(payload.eventType)) return payload
   for (const prefix of payload.eventType === 'substitution' ? ['player', 'playerOn'] : ['player']) {
     const type = prefix === 'player' ? payload.participantType : payload.playerOnParticipantType
