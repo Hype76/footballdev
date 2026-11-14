@@ -8,7 +8,8 @@ import test from 'node:test'
 const require = createRequire(import.meta.url)
 const file = 'apps/mobile-core/appConfig.cjs'
 const source = readFileSync(file, 'utf8')
-const baseline = execFileSync('git', ['show', `origin/main:${file}`], { encoding: 'utf8' })
+const publishedAndroidBaseline = 'a9de799a2fef0b5ac4915a3c1c3417f877354421'
+const baseline = execFileSync('git', ['show', `${publishedAndroidBaseline}:${file}`], { encoding: 'utf8' })
 function config(text, env = {}) {
   const context = { require, module: { exports: {} }, process: { env, cwd: () => process.cwd() } }
   vm.runInNewContext(text, context)
