@@ -107,6 +107,76 @@ test('uncertain transport errors cannot be rewritten and invalid roster names ar
   assert.equal(validateCoachMatchDayEventParticipants(card,[]).playerName,'Coach: Dave')
 })
 
+test('a rejected goal is corrected after reload and its queued actions sync exactly once in order', async () => {
+  const ownGoal = { eventType: 'goal', teamSide: 'opponent', isOwnGoal: true, minute: 35, stoppageMinute: 2, notes: 'Original note' }
+  let journal = appendMatchDayCommand(initial(), { id: 'invalid-goal', kind: 'event', payload: ownGoal, capturedAt: iso(36) })
+  const attempts = []
+  const accepted = new Map()
+  let responseLost = false
+  const box = createMatchDayOutbox({
+    read: async () => journal,
+    update: async (change) => (journal = change(journal)),
+    send: async (command, base) => {
+      attempts.push(command.id)
+      if (command.id === 'invalid-goal') {
+        throw Object.assign(new Error('Choose a linked scorer or explicitly choose Other.'), { code: 'P0001' })
+      }
+      if (accepted.has(command.id)) return accepted.get(command.id)
+      const result = { ...projectMatchDayOutbox({ baseMatch: base, pending: [command] }), updatedAt: command.capturedAt }
+      accepted.set(command.id, result)
+      if (command.id === 'fixed-goal' && !responseLost) {
+        responseLost = true
+        throw new Error('Response lost')
+      }
+      return result
+    },
+  })
+  await box.sync()
+  await box.enqueue({ id: 'another-goal', kind: 'event', payload: { eventType: 'goal', teamSide: 'opponent', minute: 52 }, capturedAt: iso(52) })
+  await box.enqueue({ id: 'finish', kind: 'timer', payload: { action: 'full_time' }, capturedAt: iso(71) })
+  journal = JSON.parse(JSON.stringify(journal))
+  assert.equal(canCorrectMatchDayCommand(journal), true)
+  assert.equal(canCorrectMatchDayCommand({ ...journal, errorCommandId: 'finish' }), false)
+  await box.sync()
+  assert.deepEqual(attempts, ['invalid-goal'])
+  const [invalid, next, finish] = journal.pending
+  const corrected = validateCoachMatchDayEventParticipants(validateCoachMatchDayEventForm({
+    ...ownGoal, scorerParticipantType: 'other', scorerName: 'Match-only scorer',
+  }))
+  await box.correctRejected({ commandId: invalid.id, id: 'fixed-goal', payload: { ...corrected, minute: 99, notes: 'Do not change' } })
+  assert.equal(journal.pending[0].capturedAt, invalid.capturedAt)
+  assert.equal(journal.pending[0].payload.minute, 35)
+  assert.equal(journal.pending[0].payload.stoppageMinute, 2)
+  assert.equal(journal.pending[0].payload.notes, ownGoal.notes)
+  assert.equal(journal.pending[0].payload.isOwnGoal, true)
+  assert.deepEqual(journal.pending.slice(1), [{ ...next, previousCommandId: 'fixed-goal' }, finish])
+  await box.sync()
+  assert.equal(canCorrectMatchDayCommand(journal), false)
+  assert.equal(journal.pending.length, 3)
+  await box.sync()
+  assert.deepEqual(attempts, ['invalid-goal', 'fixed-goal', 'fixed-goal', 'another-goal', 'finish'])
+  assert.equal(journal.pending.length, 0)
+  assert.equal(journal.baseMatch.status, 'full_time')
+  assert.equal(journal.baseMatch.homeScore, 2)
+  assert.deepEqual(journal.baseMatch.events.map(event => event.id), ['fixed-goal', 'another-goal'])
+})
+
+test('scorer validation accepts a selected player or an explicit Other and preserves anonymous opponent goals', () => {
+  const players = [{ id: 'scorer' }, { id: 'assist' }]
+  const validate = (form) => validateCoachMatchDayEventParticipants(validateCoachMatchDayEventForm({
+    eventType: 'goal', minute: 40, ...form,
+  }), players)
+  for (const form of [{}, { scorerPlayerId: 'stale' }, { teamSide: 'opponent', isOwnGoal: true }]) {
+    assert.throws(() => validate(form), /Choose an eligible scorer/)
+  }
+  assert.equal(validate({ scorerParticipantType: 'other', scorerName: 'Match-only scorer' }).scorerName, 'Other: Match-only scorer')
+  assert.equal(validate({ scorerPlayerId: 'scorer', assistPlayerId: 'assist' }).assistPlayerId, 'assist')
+  assert.throws(() => validate({ scorerPlayerId: 'scorer', assistPlayerId: 'scorer' }), /different eligible assist/)
+  assert.throws(() => validate({ scorerPlayerId: 'scorer', assistName: 'Unknown' }), /different eligible assist/)
+  assert.doesNotThrow(() => validate({ teamSide: 'opponent' }))
+  assert.doesNotThrow(() => validate({ teamSide: 'club', isOwnGoal: true }))
+})
+
 test('server notification retries retain failure and preserve the recorded score and recipient scope', async () => {
   const calls = []
   const command = { id: 'command', match: { id: 'fixture', home_score: 1, away_score: 0 }, type: 'goal', eventId: 'event' }
