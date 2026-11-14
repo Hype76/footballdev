@@ -718,7 +718,7 @@ function CoachCalendarScoped({ calendarTarget, context, contexts, onNavigate, on
   return (
     <View style={styles.stack}>
       <DomainHeader copy="Calendar events, Match Day fixtures, Sessions, recurrence, and training availability in Europe/London time." styles={styles} title="Calendar" />
-      {!form && !resourceEditor ? (
+      {!form && !resourceEditor && !focusedEventId ? (
         <Button disabled={loading || saving} label="Refresh calendar" onPress={() => void load({ reuseFresh: true })} secondary styles={styles} />
       ) : null}
       <CoachCalendarSync key={`${user.id}:${context.id}`} user={user} context={context} offline={stale || user.isOfflineProfile} styles={styles} />

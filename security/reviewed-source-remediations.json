@@ -559,7 +559,7 @@
   "implementationHashes": {
     "scripts/security-supply-chain-gate.mjs": "dcf722bc6cbf2015da4250ea60cbb81e34d3c5c64ec7bb6059671cbae5ab4207",
     "scripts/security-apply-reviewed-backports.mjs": "7f0e9de0add15a121a0f60f89f71656b503450010b8b9c8d4aaf58bc355fc5ec",
-    "scripts/security-verify-reviewed-backports.mjs": "a91604d8f4243e4336021a1c8d7f61ab62b7cbc0823d6dfacfc44badd266cf5d",
+    "scripts/security-verify-reviewed-backports.mjs": "2ac0b7dbca54e8137ab4b1e681b782c8abb8f1bda0ff7f64d2f7c80724523a12",
     "security/patches/braces-3.0.3.patch": "e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699",
     "security/patches/node-forge-1.4.0.patch": "2de065ac998bf58917a14d0935112d97ec2957ac41b5f06958d500934f188ed4",
     "security/patches/reviewed-source-manifest.json": "facb364bbac44a8276d082068e8ed8415ca89777d24f4c7a05ff370f71e5a54d",
@@ -1416,7 +1416,7 @@
       "apps/coach-mobile/src/CoachMatchDayScreen.js": "01aa1eabd7dd5ce46a78af0c64f0ff384773d07021574b18e637d8d455c7ecd7",
       "apps/coach-mobile/src/CoachMatchInviteTable.js": "70d854eb08b25770af0717fd38efb67c10a25a1bdf27583fb03017e0e0c0d57e",
       "apps/coach-mobile/src/CoachNativeTeamBrandingEditor.js": "bd7b007e1ddbd407f187bb417b53bc31916b9ab490e465e18af0ae5d0354a4cd",
-      "apps/coach-mobile/src/CoachOperationalScreens.js": "6ed7004dd9c11d515858fe39f029a44d770cf3f946e5ed21863bc01fdefda49f",
+      "apps/coach-mobile/src/CoachOperationalScreens.js": "b732290e6cd07d801844df7818d44408d2c807631c4a84131615025de6005c25",
       "apps/coach-mobile/src/CoachPhase31EScreens.js": "b471c81d8b13b87e3080c338c166f13acebea6d636e30aba33c27d711f7710b8",
       "apps/coach-mobile/src/CoachResourceUploadAction.js": "69782d79195192ec0b6dd0739b7bba50b4b147bbfdfb67c5d82de905b926dcce",
       "apps/coach-mobile/src/CoachSquadPanel.js": "4dca330502ca524396173f1d040a490ccffbfec8827c69d763cac3ef7dc06567",
@@ -1826,7 +1826,7 @@
       "tests/mobile-development-background.test.mjs": "2e0fd4661f00fd181437fe2a481aeec61e736bf0fd309b0ac261a95e8f86ed97",
       "tests/mobile-development-unfinished-drafts.test.mjs": "e4355b8381830bbbfb2ed40f77b83b62008562d02a9ad6f2500761119428ee34",
       "tests/mobile-eas-test-boundary-07.test.mjs": "7b006768b746380b07d708588c4edcaf4b30ad66e4ae5364d9e086c51498433d",
-      "tests/mobile-event-details-browser.mjs": "8011a2a79cb2797242f125ca6bebc7d9436ff6eb3e177ee99badd04681940c6d",
+      "tests/mobile-event-details-browser.mjs": "f0b940810f3461d73ebb606039509a34499e6bf291469a66c93d38655fa959c0",
       "tests/mobile-feedback-art-browser.mjs": "6450fa15547f9a8c69eebc1a547c8a610d0e7ec04d5999a875b64d0a36b173a1",
       "tests/mobile-feedback-corrective-61.test.mjs": "c4414256578c89d7b86c746ff3ab798895b8a7fb7f37095233582382e1cae6d6",
       "tests/mobile-header-activity-browser.mjs": "217a6bc9144bdea61d52a557ea12d71e0d9548af38d64c7d0936230b72307af6",
@@ -3834,7 +3834,7 @@
       "independentExactSourceAcceptanceRequired": true
     }
   },
-  "releasePreparationSha256": "094de7e86c4ec02f4f956ce4e0354f2edd5065ab8630cc684bb95bc0acc3cdb4",
+  "releasePreparationSha256": "a71f74fac0c1b4d160b217ad1367c6a01bc0e9663bb4f0dac34a3dd857bbd783",
   "rootOnlyProposalSha256": "45c3b7352c7328c84982e114b7e87e09cf79514d02d102297ae75ec0925812eb",
   "remediationMode": "maintained-source-fixes",
   "officialCompatibilityDependencies": [
