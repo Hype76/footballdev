@@ -25,6 +25,7 @@ import {
   filterCoachMatchDayPlayerChoices,
   filterCoachMatchDays,
   getCoachMatchDayDefaultFilter,
+  getCoachMatchDayFinishControl,
   getCoachMatchDayOpponentPlayers,
   getCoachMatchDayActions,
   getCoachVolunteerAssignmentLabel,
@@ -49,6 +50,7 @@ import {
 } from '../../mobile-core/src/coachMatchDayCore'
 import {
   correctCoachMatchDayGoal,
+  endCoachMatchDayWithoutShootoutResult,
   getCoachMatchDayDetail,
   getCoachMatchDayList,
   normalizeCoachMatchDay,
@@ -410,7 +412,7 @@ function SavedEventCorrection({ command, selectedPlayers, onCorrect, styles }) {
   </View>
 }
 
-function LivePanel({ actions, busy, canReviewConclude, eventForm, match, onEventForm, onExit, onPrepare, onReviewConclude, onScore, onTimer, players, scoreDraft, setScoreDraft, styles }) {
+function LivePanel({ actions, busy, canReviewConclude, eventForm, finishControl, match, onEventForm, onExit, onFinish, onPrepare, onResolveFinish, onReviewConclude, onScore, onTimer, players, scoreDraft, setScoreDraft, styles }) {
   const [now, setNow] = useState(() => Date.now())
   const [actionSheet, setActionSheet] = useState(null)
   const [actionError, setActionError] = useState('')
@@ -449,6 +451,8 @@ function LivePanel({ actions, busy, canReviewConclude, eventForm, match, onEvent
     setActionError('')
   }
   const timerAction = (action) => actions.timerActions.find((item) => item.action === action)
+  const halfTimeAction = timerAction('half_time') || timerAction('extra_time_half_time')
+  const nextPhaseActions = actions.timerActions.filter(({ action }) => ['start_extra_time', 'start_extra_time_second_half', 'start_penalties'].includes(action))
   const runTimer = (action, fallbackLabel) => {
     const item = timerAction(action)
     if (!item) return
@@ -469,6 +473,21 @@ function LivePanel({ actions, busy, canReviewConclude, eventForm, match, onEvent
       setActionError(errorMessage(saveError, 'This Match Day event could not be saved. Check the details and try again.'))
       return false
     }
+  }
+  const finishMatch = () => {
+    if (!finishControl) return
+    if (finishControl.recovery) {
+      onResolveFinish(finishControl.recovery)
+      return
+    }
+    const { action, label } = finishControl
+    onPrepare({
+      kind: 'timer',
+      label: action === 'end_shootout_without_result'
+        ? 'End this match at full time without a shootout winner? Recorded shootout kicks will be voided.'
+        : label,
+      run: () => onFinish(action),
+    })
   }
   const saveScore = async () => {
     try {
@@ -516,11 +535,12 @@ function LivePanel({ actions, busy, canReviewConclude, eventForm, match, onEvent
         <View style={styles.quickAction}><Button disabled={busy || !actions.canRecordEvents} iconKey="match.substitution" label="Sub" onPress={() => prepareEvent('substitution')} secondary styles={styles} /></View>
         <View style={styles.quickAction}><Button disabled={busy || !timerAction('pause')} iconKey="match.pause" label="Pause" onPress={() => runTimer('pause', 'Pause')} secondary styles={styles} /></View>
         <View style={styles.quickAction}><Button disabled={busy || !timerAction('hydration')} iconKey="match.hydration" label="Hydration" onPress={() => runTimer('hydration', 'Hydration')} secondary styles={styles} /></View>
-        <View style={styles.quickAction}><Button disabled={busy || !timerAction('half_time')} iconKey="match.half-time" label="HT" onPress={() => runTimer('half_time', 'Half time')} secondary styles={styles} /></View>
-        <View style={styles.quickAction}><Button danger disabled={busy || !timerAction('full_time')} iconKey="match.full-time" label="FT" onPress={() => runTimer('full_time', 'Full time')} styles={styles} /></View>
+        <View style={styles.quickAction}><Button disabled={busy || !halfTimeAction} iconKey="match.half-time" label="HT" onPress={() => runTimer(halfTimeAction.action, halfTimeAction.label)} secondary styles={styles} /></View>
+        {finishControl ? <View style={styles.quickAction}><Button danger={!finishControl.recovery} disabled={busy} iconKey="match.full-time" label={finishControl.label} onPress={finishMatch} styles={styles} /></View> : null}
         {timerAction('start') ? <View style={styles.quickAction}><Button disabled={busy} label="Start match" onPress={() => runTimer('start', 'Start match')} styles={styles} /></View> : null}
         {timerAction('resume') ? <View style={styles.quickAction}><Button disabled={busy} label="Resume" onPress={() => runTimer('resume', 'Resume')} secondary styles={styles} /></View> : null}
       </View>
+      {nextPhaseActions.map((item) => <Button key={item.action} disabled={busy || item.disabled} label={item.label} onPress={() => runTimer(item.action, item.label)} secondary styles={styles} />)}
       <Button disabled={busy || !actions.canCorrectScore} iconKey="match.correct-score" label="Correct score" onPress={prepareScoreCorrection} secondary styles={styles} />
     </View>
     {actionSheet?.kind === 'event' ? <MatchDayActionSheet busy={busy} capturedClock={actionSheet.capturedClock} onClose={() => setActionSheet(null)} styles={styles} title={actionSheet.title}>
@@ -679,6 +699,7 @@ function CoachMatchDayScoped({ context, matchDayTarget, onMatchDayTargetHandled,
   const playersRef = useRef(players)
   playersRef.current = players
   const matchRef = useRef(null)
+  const finishRef = useRef(null)
   const selectedMatchId = useRef('')
   const targetRequestId = useRef('')
   const userRef = useRef(user)
@@ -980,6 +1001,20 @@ function CoachMatchDayScoped({ context, matchDayTarget, onMatchDayTargetHandled,
     } finally { busyRef.current = false; setBusy(false) }
   }
   const actions = getCoachMatchDayActions({ context, match, reconciling, stale: stale || pendingCount > 0, offlineReady })
+  const finishControl = getCoachMatchDayFinishControl({
+    context, match, stale: stale || user.isOfflineProfile, offlineReady, pendingCount, reconciling,
+  })
+  finishRef.current = { match, action: finishControl?.action }
+  const resolveFinish = (recovery) => {
+    if (recovery === 'saved-actions') {
+      setPanel('saved-actions')
+      onRequestScrollTop?.()
+    } else if (user.isOfflineProfile) {
+      setError('Reconnect to refresh this fixture before ending the match.')
+    } else {
+      void load()
+    }
+  }
   const reviewSavedActions = async () => {
     setBusy(true)
     try {
@@ -1002,9 +1037,23 @@ function CoachMatchDayScoped({ context, matchDayTarget, onMatchDayTargetHandled,
     } catch (captureError) { setError(errorMessage(captureError, 'This action was not saved.')); throw captureError }
     finally { busyRef.current = false; setBusy(false) }
   }
-  const runTimer = action => OFFLINE_MATCH_TIMER_ACTIONS.has(action)
+  const canQueueFullTime = offlineReady && outbox.journal.baseMatch.updatedAt === match?.updatedAt
+  const runTimer = action => OFFLINE_MATCH_TIMER_ACTIONS.has(action) && (action !== 'full_time' || canQueueFullTime)
     ? capture('timer', { action })
     : replace(() => runCoachMatchDayTimerAction(user, match, action), detail => isCoachMatchDayTimerActionApplied(detail, action))
+  const runFinish = (action) => {
+    const latest = finishRef.current
+    if (busyRef.current || selectedMatchId.current !== match.id || latest?.match?.id !== match.id
+      || latest.match.updatedAt !== match.updatedAt || latest.action !== action) {
+      setError('The match changed. Review the latest fixture before ending it.')
+      return
+    }
+    if (action === 'end_shootout_without_result') {
+      return replace(() => endCoachMatchDayWithoutShootoutResult(user, match),
+        detail => detail.status === 'full_time' && detail.currentMatchPhase === 'full_time' && !detail.shootoutWinner)
+    }
+    return runTimer(action)
+  }
   const submitEvent = async () => { const validated = validateCoachMatchDayEventParticipants(validateCoachMatchDayEventForm(eventForm), eventForm.eventType === 'substitution' ? getMatchDaySubstitutionPlayers(match, getCoachMatchDaySelectedPlayers(players, match)) : getCoachMatchDaySelectedPlayers(players, match)); const detail = await capture('event', validated); if (detail) setEventForm(createCoachMatchDayEventForm(validated.eventType, detail)); return detail }
   const handleFixtureCreated = async (result) => {
     setFixtureFormOpen(false)
@@ -1144,7 +1193,7 @@ function CoachMatchDayScoped({ context, matchDayTarget, onMatchDayTargetHandled,
         </CoachFormationWorkspace>
       ) : null}
       {panel === 'volunteers' ? <View style={styles.stack}><CoachGuestScorer key={match.id} match={match} buttonComponent={Button} styles={styles} disabled={stale || busy || reconciling} /><VolunteerPanel actions={actions} busy={busy || stale || reconciling} match={match} onDirectSelect={(parent, role) => { replace(() => selectCoachMatchDayVolunteer(user, match, parent, role, true), (detail) => isCoachMatchDayVolunteerSelectionApplied(detail, parent, role, true)).then((detail) => { if (detail.volunteerSelectionWarning) setNotice((current) => [current, detail.volunteerSelectionWarning].filter(Boolean).join(' ')) }).catch(() => {}) }} onSelect={(request, role, selected) => setPending({ label: `${selected ? 'Assign' : 'Remove'} ${role}`, run: () => replace(() => selectCoachMatchDayVolunteer(user, match, request, role, selected), (detail) => isCoachMatchDayVolunteerSelectionApplied(detail, request, role, selected)) })} styles={styles} /></View> : null}
-      {panel === 'live' ? <LivePanel actions={actions} busy={busy} canReviewConclude={pendingCount === 0 && !reconciling} eventForm={eventForm} match={match} onEventForm={setEventForm} onExit={() => setPanel('overview')} onPrepare={setPending} onReviewConclude={() => { setPanel('report'); onRequestScrollTop?.() }} onScore={(kind) => kind === 'event' ? submitEvent() : capture('score', { homeScore: Number(scoreDraft.home), awayScore: Number(scoreDraft.away) })} onTimer={runTimer} players={players} scoreDraft={scoreDraft} setScoreDraft={setScoreDraft} styles={styles} /> : null}
+      {panel === 'live' ? <LivePanel actions={actions} busy={busy} canReviewConclude={pendingCount === 0 && !reconciling} eventForm={eventForm} finishControl={finishControl} match={match} onEventForm={setEventForm} onExit={() => setPanel('overview')} onFinish={runFinish} onPrepare={setPending} onResolveFinish={resolveFinish} onReviewConclude={() => { setPanel('report'); onRequestScrollTop?.() }} onScore={(kind) => kind === 'event' ? submitEvent() : capture('score', { homeScore: Number(scoreDraft.home), awayScore: Number(scoreDraft.away) })} onTimer={runTimer} players={players} scoreDraft={scoreDraft} setScoreDraft={setScoreDraft} styles={styles} /> : null}
       {panel === 'timeline' ? <TimelinePanel busy={busy || reconciling || stale || pendingCount > 0} match={match} players={players} onCorrectGoal={(event, goal, reason) => replace(() => correctCoachMatchDayGoal(user, match, event, goal, reason), (detail) => isCoachMatchDayGoalCorrectionApplied(detail, event.id, goal, reason))} onPrepare={setPending} onUndo={(event, input) => replace(() => voidCoachMatchDayEvent(user, match, event, input), (detail) => isCoachMatchDayEventVoided(detail, event.id))} styles={styles} /> : null}
       {panel === 'shootout' ? <ShootoutPanel busy={busy || reconciling || stale || pendingCount > 0} match={match} onKick={(kick) => { const priorKickIds = (match.shootoutEvents || []).map((item) => item.id); return replace(() => recordCoachMatchDayShootoutKick(user, match, kick), (detail) => isCoachMatchDayShootoutKickApplied(detail, priorKickIds, kick)) }} onPrepare={setPending} onVoid={(id) => replace(() => voidCoachMatchDayShootoutKick(user, match, id), (detail) => isCoachMatchDayShootoutKickVoided(detail, id))} styles={styles} /> : null}
       {panel === 'report' ? <ReportPanel busy={busy || reconciling || stale || pendingCount > 0} canConclude={actions.timerActions.some((item) => item.action === 'conclude')} concludeBlockedReason={pendingCount > 0 ? 'Sync the saved actions on this device before concluding.' : actions.blockedReason} onConclude={() => setPending({ kind: 'conclude', label: `Conclude ${getCoachMatchDayPresentation(match).displayName} at ${getCoachMatchDayPresentation(match).displayScore}? Check the score and events first.`, run: () => replace(() => runCoachMatchDayTimerAction(user, match, 'conclude'), (detail) => isCoachMatchDayTimerActionApplied(detail, 'conclude')) })} canSave={actions.canSaveFinalReport} key={`${reportMatch.id}:${reportMatch.finalReport?.updatedAt || ''}`} match={reportMatch} onSave={(notes) => setPending({ label: 'Save final Match Day report', run: () => replace(() => saveCoachMatchDayFinalReport(user, match, notes), (detail) => isCoachMatchDayFinalReportApplied(detail, notes)) })} styles={styles} /> : null}
