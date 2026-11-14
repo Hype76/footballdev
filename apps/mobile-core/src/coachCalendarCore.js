@@ -335,6 +335,7 @@ export function normalizeCoachCalendarEvent(row, sourceType = 'calendar_event') 
     occurrenceDate: normalize(row.occurrence_date ?? row.occurrenceDate) || sourceCalendarDate || dateParts?.date || normalize(startsAt).slice(0, 10),
     seriesEndsAt: endsAt,
     seriesStartsAt: startsAt,
+    ...(isMatchDay ? { clubId: normalize(row.club_id ?? row.clubId) } : {}),
     sourceId: normalize(row.id),
     sourceType: source,
     startsAt,

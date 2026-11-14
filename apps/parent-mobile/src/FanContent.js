@@ -13,7 +13,7 @@ import ParentIcon from './ParentIcon'
 import { FanAttendanceScreen } from './FanAttendanceScreen'
 import { PlayerStatsScreen } from './PlayerStatsScreen'
 
-export function FanContent({ connection, view, content, formation, onCloseFormation, onOpenResource, onOpenLink, onOpen, themeTokens }) {
+export function FanContent({ suppressParentFormation = false, connection, view, content, formation, onCloseFormation, onOpenResource, onOpenLink, onOpen, themeTokens }) {
   const [clockNow, setClockNow] = useState(() => Date.now())
   useEffect(() => {
     if (view.action !== 'matches') return undefined
@@ -34,8 +34,8 @@ export function FanContent({ connection, view, content, formation, onCloseFormat
       endsAt: item.ends_at || (item.end_time ? `${item.date}T${item.end_time}` : ''), location: item.location, resources: canEventResources ? item.resources || [] : [],
     }))
     const attachments = calendarEvents.flatMap(event => event.resources)
-    if (formation && attachments.some(item => item.id === formation.resourceId)) {
-      return <ResourcesScreen resource={resource(attachments)} formationBoard={formation} formationBackLabel="Back to Calendar" onCloseFormation={onCloseFormation} onOpen={onOpenResource} themeTokens={themeTokens} />
+    if (!suppressParentFormation && formation && attachments.some(item => item.id === formation.resourceId)) {
+      return <ResourcesScreen suppressParentFormation={suppressParentFormation} resource={resource(attachments)} formationBoard={formation} formationBackLabel="Back to Calendar" onCloseFormation={onCloseFormation} onOpen={onOpenResource} themeTokens={themeTokens} />
     }
     return <CalendarScreen upcomingOnly link={link} resource={resource(buildParentCalendarEvents({ calendarEvents }))} onAddToCalendar={addToCalendar} onOpenLink={onOpenLink} onOpenResource={(_, attachment) => onOpenResource(attachment)} themeTokens={themeTokens} />
   }
@@ -53,9 +53,9 @@ export function FanContent({ connection, view, content, formation, onCloseFormat
         </Pressable>)}
       </View>)}
     </View>
-    return <MatchdayScreen link={link} clubKits={content.clubKits || {}} resource={resource(matches)} selectedMatch={matches.find((item) => item.id === view.matchId)} onOpen={(item) => onOpen('matches', { matchId: item.id })} onBack={() => onOpen('matches')} onOpenLink={onOpenLink} onAddToCalendar={addToCalendar} themeTokens={themeTokens} />
+    return <MatchdayScreen suppressParentFormation={suppressParentFormation} link={link} clubKits={content.clubKits || {}} resource={resource(matches)} selectedMatch={matches.find((item) => item.id === view.matchId)} onOpen={(item) => onOpen('matches', { matchId: item.id })} onBack={() => onOpen('matches')} onOpenLink={onOpenLink} onAddToCalendar={addToCalendar} themeTokens={themeTokens} />
   }
   if (view.action === 'development') return <DevelopmentScreen resource={resource(content.reports || [])} themeTokens={themeTokens} />
-  if (view.action === 'resources') return <ResourcesScreen resource={resource(content.resources || [])} formationBoard={formation && content.resources?.some((item) => item.id === formation.resourceId) ? formation : null} onCloseFormation={onCloseFormation} onOpen={onOpenResource} themeTokens={themeTokens} />
+  if (view.action === 'resources') return <ResourcesScreen suppressParentFormation={suppressParentFormation} resource={resource(content.resources || [])} formationBoard={formation && content.resources?.some((item) => item.id === formation.resourceId) ? formation : null} onCloseFormation={onCloseFormation} onOpen={onOpenResource} themeTokens={themeTokens} />
   return <View style={{ gap: 16 }}><Text accessibilityRole="header" style={{ color: themeTokens.textPrimary, fontSize: 26, fontWeight: '800' }}>Notifications</Text>{(content.notifications || []).map((item) => <View key={item.id}><Text style={{ color: themeTokens.textPrimary, fontWeight: '700' }}>{item.title}</Text><Text style={{ color: themeTokens.textSecondary }}>{item.body}</Text></View>)}{!content.notifications?.length ? <Text style={{ color: themeTokens.textSecondary }}>No shared notifications for this player.</Text> : null}</View>
 }

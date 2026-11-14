@@ -104,10 +104,14 @@ export function normalizeCoachMatchDay(row = {}) {
 const LIST_SELECT = `id,title,club_id,team_id,notification_team_name,opponent,fixture_type,pitch_type,carpool_enabled,match_conclusion_rule,current_match_phase,extra_time_half_minutes,extra_time_period_count,match_date,kickoff_time,kickoff_time_tbc,arrival_time,home_away,shirt_choice,match_clock_mode,match_duration_minutes,venue_name,venue_address,notes,request_scorer,request_linesman,request_referee,parent_visible,parent_audience,status,cancellation_reason,home_score,away_score,normal_time_home_score,normal_time_away_score,extra_time_home_score,extra_time_away_score,home_shootout_score,away_shootout_score,shootout_winner,phase_started_at,timer_started_at,timer_paused_at,timer_elapsed_seconds,timer_status,full_time_resume_status,concluded_at,concluded_by,previous_hidden_at,created_at,updated_at,teams:team_id(name,notification_display_name)`
 
 function scoped(query, user) { return query.or(`team_id.is.null,team_id.eq.${user.activeTeamId}`) }
-function assertScope(user, match) { if (match?.teamId && match.teamId !== user?.activeTeamId) throw new Error('This match day is not linked to your active Team.') }
+function assertScope(user, match) {
+  if ((match?.teamId && match.teamId !== user?.activeTeamId) || (match?.clubId && match.clubId !== user?.clubId)) {
+    throw new Error('This match day is not linked to your active Team.')
+  }
+}
 function assertCoachMatchDayAccess(user) {
   assertCoachOperationalRead(user, { requiresTeam: true })
-  if (['admin', 'parent_portal', 'adult_player', 'super_admin'].includes(user?.role) || Number(user?.roleRank || 0) < 20) {
+  if (['parent_portal', 'adult_player', 'super_admin'].includes(user?.role)) {
     throw new Error('Coach or manager access is required for Match Day.')
   }
 }
@@ -476,6 +480,16 @@ export async function syncCoachMatchDayCommand(user, command, baseMatch) {
     ? [...(baseMatch.events || []).filter(event => event.requestId !== command.id), result.savedEvent]
     : baseMatch.events || []
   return { ...normalizeCoachMatchDay({ ...mergeMatchDayCommandSnapshot(baseMatch, result), events }), isHydrated: baseMatch.isHydrated }
+}
+
+export async function endCoachMatchDayWithoutShootoutResult(user, match) {
+  await prepareMutation(user, match)
+  if (normalize(match?.currentMatchPhase) !== 'penalties' || normalize(match?.status) !== 'penalties') {
+    throw new Error('Refresh Match Day before ending this shootout.')
+  }
+  await rpc('end_match_day_without_shootout_result', { match_day_id_value: match.id })
+  await sendCoachMatchDayPush(match, 'full_time')
+  return getCoachMatchDayDetail(user, match.id)
 }
 
 export async function runCoachMatchDayTimerAction(user, match, action) {

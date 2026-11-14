@@ -1,3 +1,4 @@
+import { loadMobileClubKits, peekMobileClubKits } from '../../mobile-core/src/mobileKitCache'
 import { FormationPitchLines, FormationPlayerArtwork, FormationSubArtwork, formationVisualStyles } from '../../mobile-core/src/FormationBoardVisuals'
 import { BrandLoader } from '../../mobile-core/src/BrandLoader'
 import AsyncStorage from '@react-native-async-storage/async-storage'
@@ -281,7 +282,7 @@ class FormationPlayerMarker extends Component {
         accessibilityState={{ disabled: !canEdit, selected: Boolean(selected || removal) }}
         style={[styles.marker, this.state.dragging && styles.markerDragging, { left: `${visualPosition.x * 100}%`, top: `${visualPosition.y * 100}%` }]}
       >
-        <FormationPlayerArtwork name={player.displayName} number={player.shirtNumber} goalkeeper={goalkeeper} styles={styles}>
+        <FormationPlayerArtwork name={player.displayName} number={player.shirtNumber} goalkeeper={goalkeeper} shirtKit={this.props.shirtKit} styles={styles}>
           {selected || removal || this.state.dragging ? <View pointerEvents="none" style={styles.markerSelection} /> : null}
         </FormationPlayerArtwork>
       </View>
@@ -310,6 +311,16 @@ export function CoachFormationBoard({ context, initialBoardId = '', match = null
   const inWorkspace = useContext(CoachFormationWorkspaceContext)
   const fullScreen = Boolean(inWorkspace)
   const styles = useMemo(() => createStyles(palette, fullScreen), [palette, fullScreen])
+  const clubId = context?.clubId || user?.clubId
+  const [loadedClubKits, setLoadedClubKits] = useState(() => ({ clubId, kits: peekMobileClubKits(clubId) || {} }))
+  const clubKits = loadedClubKits.clubId === clubId ? loadedClubKits.kits : peekMobileClubKits(clubId) || {}
+  useEffect(() => {
+    let active = true
+    if (clubId) void loadMobileClubKits(clubId, kits => {
+      if (active) setLoadedClubKits({ clubId, kits })
+    }).catch(() => {})
+    return () => { active = false }
+  }, [clubId])
   const [board, setBoard] = useState(null)
   const [boards, setBoards] = useState([])
   const [busy, setBusy] = useState(false)
@@ -863,7 +874,7 @@ export function CoachFormationBoard({ context, initialBoardId = '', match = null
     try {
       const nextBoard = await persistBoard()
       if (nextBoard.isLocked) setActiveSheet('')
-      setNotice(`${nextBoard.title} saved to this match. ${shared ? 'Visible to parents and players.' : 'Coaches only.'}`)
+      setNotice(`${nextBoard.title} saved to this match. ${shared ? 'Visible to players.' : 'Coaches only.'}`)
     } catch (saveError) {
       if (saveError.code === 'formation_navigation_changed' || saveError.code === 'formation_save_queued') return
       setErrorRetry(saveError.code === 'formation_conflict' ? 'conflict' : 'save')
@@ -892,7 +903,7 @@ export function CoachFormationBoard({ context, initialBoardId = '', match = null
       setError('')
       const nextBoard = await persistBoardRef.current({ queuedEditorRevision, queuedSave: pendingSave })
       if (nextBoard.isLocked) setActiveSheet('')
-      setNotice(`${nextBoard.title} saved to this match. ${pendingSave.shared ? 'Visible to parents and players.' : 'Coaches only.'}`)
+      setNotice(`${nextBoard.title} saved to this match. ${pendingSave.shared ? 'Visible to players.' : 'Coaches only.'}`)
     } catch (retryError) {
       if (retryError.code === 'formation_navigation_changed' || retryError.code === 'formation_save_queued' || isRetryableFormationSaveError(retryError)) return
       setErrorRetry(retryError.code === 'formation_conflict' ? 'conflict' : 'save')
@@ -1007,6 +1018,7 @@ export function CoachFormationBoard({ context, initialBoardId = '', match = null
             canEdit={canEdit}
             canMove={canEdit && !removalMode}
             key={player.playerId}
+            shirtKit={draft.shirtKit}
             layout={pitchLayout}
             onGestureEnd={onMarkerGestureEnd}
             onGestureStart={onMarkerGestureStart}
@@ -1046,7 +1058,7 @@ export function CoachFormationBoard({ context, initialBoardId = '', match = null
           <Text style={[styles.heading, fullScreen && { color: 'white', fontSize: 16, paddingHorizontal: 12 }]}>Subs ({draft.bench.length})</Text>
           <MaterialIcons color={fullScreen ? 'white' : palette.textPrimary} name={benchExpanded ? 'expand-less' : 'expand-more'} size={28} />
         </Pressable>
-        {benchExpanded ? draft.bench.length ? <ScrollView contentContainerStyle={styles.benchContent} horizontal showsHorizontalScrollIndicator={false}>{draft.bench.map((player) => { const selected = selectedPlayerId === player.playerId; return <ScrollSafePressable accessibilityHint={canEdit ? draft.placements.length >= capacity ? 'Select this substitute for a swap from the pitch.' : 'Moves this substitute into the next empty pitch position.' : 'This substitute is read-only.'} accessibilityLabel={`${player.displayName}${player.shirtNumber ? `, shirt ${player.shirtNumber}` : ''}, substitute`} accessibilityRole="button" accessibilityState={{ disabled: !canEdit, selected }} disabled={!canEdit} key={player.playerId} onPress={() => draft.placements.length < capacity ? moveBenchPlayerToPitch(player.playerId) : selectPlayer(player.playerId, 'bench')} style={[styles.benchPlayerButton, selected && styles.benchPlayerButtonSelected]}><FormationSubArtwork name={player.displayName} number={player.shirtNumber} styles={styles} /></ScrollSafePressable> })}</ScrollView> : <Text style={[styles.body, fullScreen && styles.canvasText]}>No substitutes selected.</Text> : null}
+        {benchExpanded ? draft.bench.length ? <ScrollView contentContainerStyle={styles.benchContent} horizontal showsHorizontalScrollIndicator={false}>{draft.bench.map((player) => { const selected = selectedPlayerId === player.playerId; return <ScrollSafePressable accessibilityHint={canEdit ? draft.placements.length >= capacity ? 'Select this substitute for a swap from the pitch.' : 'Moves this substitute into the next empty pitch position.' : 'This substitute is read-only.'} accessibilityLabel={`${player.displayName}${player.shirtNumber ? `, shirt ${player.shirtNumber}` : ''}, substitute`} accessibilityRole="button" accessibilityState={{ disabled: !canEdit, selected }} disabled={!canEdit} key={player.playerId} onPress={() => draft.placements.length < capacity ? moveBenchPlayerToPitch(player.playerId) : selectPlayer(player.playerId, 'bench')} style={[styles.benchPlayerButton, selected && styles.benchPlayerButtonSelected]}><FormationSubArtwork name={player.displayName} number={player.shirtNumber} shirtKit={draft.shirtKit} styles={styles} /></ScrollSafePressable> })}</ScrollView> : <Text style={[styles.body, fullScreen && styles.canvasText]}>No substitutes selected.</Text> : null}
         {benchExpanded && selectedBenchPlayer ? <Text accessibilityLiveRegion="polite" style={[styles.body, fullScreen && styles.canvasText]}>{selectedBenchPlayer.displayName} selected. Tap a starter to swap.</Text> : null}
       </View>
 
@@ -1088,6 +1100,13 @@ export function CoachFormationBoard({ context, initialBoardId = '', match = null
 
             {activeSheet === 'formation' ? <ScrollView contentContainerStyle={styles.stack}>
               <Text style={styles.body}>Change the shape at any time. Your goalkeeper stays in goal, and outfield players keep their positions as closely as the new shape allows.</Text>
+              <Text style={styles.label}>Shirt</Text>
+              <View style={styles.row}>{['home', 'away'].map(type => <Choice disabled={!canEdit || (!clubKits[type] && board?.currentVersion?.shirtKit?.type !== type)} key={type} label={type === 'home' ? 'Home' : 'Away'} onPress={() => {
+                if (draft.shirtKit?.type === type) return
+                const savedShirt = board?.currentVersion?.shirtKit
+                setDraft({ ...draft, shirtKit: savedShirt?.type === type ? savedShirt : { ...clubKits[type], type } })
+              }} selected={draft.shirtKit?.type === type} styles={styles} />)}</View>
+              {!clubKits.home && !clubKits.away ? <Text style={styles.body}>Club shirts are unavailable. Set them up in club settings.</Text> : null}
               <Text style={styles.label}>Game format</Text>
               <View style={styles.row}>{MOBILE_FORMATION_GAME_FORMATS.map((format) => <Choice disabled={!canEdit} key={format.value} label={format.label} onPress={() => chooseFormat(format.value)} selected={draft.gameFormat === format.value} styles={styles} />)}</View>
               <Text style={styles.label}>Formation</Text>
@@ -1109,7 +1128,8 @@ export function CoachFormationBoard({ context, initialBoardId = '', match = null
               <Text style={styles.label}>Lineup name</Text>
               <TextInput editable={canEdit && !busy} accessibilityLabel="Formation plan title" maxLength={120} onBlur={() => { titleInputFocused.current = false }} onFocus={() => { titleInputFocused.current = true; revealTitleInput() }} onLayout={(event) => { titleInputTop.current = event.nativeEvent.layout.y }} onChangeText={setTitle} style={styles.input} value={title} />
               <Text style={styles.label}>Who can see this lineup?</Text>
-              {[{ label: 'Coaches only', value: false }, { label: 'Parents and players', value: true }].map(({ label, value }) => <Pressable aria-checked={shared === value} accessibilityLabel={label} accessibilityRole="radio" accessibilityState={{ checked: shared === value, disabled: !canEdit || busy }} disabled={!canEdit || busy} key={label} onPress={() => setShared(value)} style={[styles.modalPlayer, (!canEdit || busy) && styles.actionDisabled]}><Text style={styles.label}>{label}</Text><MaterialIcons color={shared === value ? palette.accentText : palette.textSecondary} name={shared === value ? 'radio-button-checked' : 'radio-button-unchecked'} size={24} /></Pressable>)}
+              {[{ label: 'Coaches only', value: false }, { label: 'Players', value: true }].map(({ label, value }) => <Pressable aria-checked={shared === value} accessibilityLabel={label} accessibilityRole="radio" accessibilityState={{ checked: shared === value, disabled: !canEdit || busy }} disabled={!canEdit || busy} key={label} onPress={() => setShared(value)} style={[styles.modalPlayer, (!canEdit || busy) && styles.actionDisabled]}><Text style={styles.label}>{label}</Text><MaterialIcons color={shared === value ? palette.accentText : palette.textSecondary} name={shared === value ? 'radio-button-checked' : 'radio-button-unchecked'} size={24} /></Pressable>)}
+              <Text style={styles.body}>To share with parents, export a PDF from the web app.</Text>
               {error ? <Text accessibilityRole="alert" style={styles.body}>{error}</Text> : null}
               {queuedRetryPending ? <Text accessibilityLiveRegion="polite" style={styles.body}>{queuedSaveAcknowledged ? 'Saved to this match. Refreshing the saved lineup is pending. Keep this board open to retry the refresh automatically.' : 'Saved on this phone. Saving to the match has not been confirmed. Keep this board open to retry automatically, or tap Save to match to retry now.'}</Text> : null}
               {notice.startsWith(`${title} saved to this match.`) ? <Text accessibilityLiveRegion="polite" style={styles.body}>{notice}</Text> : null}

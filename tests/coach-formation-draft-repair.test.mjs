@@ -16,7 +16,7 @@ test('saved state distinguishes device draft, server save and older Parent publi
   assert.equal(getFormationSaveLabel({ board, dirty: true, localState: 'failed' }), 'Not saved on this device')
   assert.equal(getFormationSaveLabel({ board, dirty: false }), 'Saved to match | Coaches only')
   assert.equal(getFormationSaveLabel({ board, dirty: false, publication: { board_version_id: 'v0' } }), 'Shared lineup update needed')
-  assert.equal(getFormationSaveLabel({ board, dirty: false, publication: { board_version_id: 'v1' } }), 'Visible to parents and players')
+  assert.equal(getFormationSaveLabel({ board, dirty: false, publication: { board_version_id: 'v1' } }), 'Visible to players')
 })
 
 test('a same-title board is not a confirmed save unless lineup content matches', () => {

@@ -101,6 +101,9 @@ const offlineMock = `
 `
 
 const mocks = [
+  [/mobileKitCache$/, 'export const peekMobileClubKits = () => ({}); export const loadMobileClubKits = async () => ({})'],
+  [/mobileKitImageStorage$/, 'export const mobileKitImageStorage = { resolve: async uri => uri }'],
+  [/^\.\/supabase$/, 'export const supabase = {}'],
   [/coachFormationBoardData$/, dataMock],
   [/^\.\/offline$/, offlineMock],
   [/^@expo\/vector-icons\/MaterialIcons$/, `import React from 'react'; import { Text } from 'react-native'; const glyphs = ${JSON.stringify(materialIconGlyphs)}; export default function MaterialIcons({ color, name, size = 24, style }) { return <Text aria-hidden="true" style={[{ color, fontFamily: 'MaterialIcons', fontSize: size }, style]}>{String.fromCodePoint(glyphs[name] || glyphs.help)}</Text> }`],
@@ -202,7 +205,7 @@ try {
       assert.ok(saveButtonBox && saveButtonBox.y + saveButtonBox.height <= 852 - 34, 'Save action stays above the bottom safe-area inset')
       await page.screenshot({ path: path.join(rootDir, 'outputs/formation-picker-theme/save-safe-area.png') })
       const coaches = saveDialog.getByRole('radio', { name: 'Coaches only', exact: true })
-      const families = saveDialog.getByRole('radio', { name: 'Parents and players', exact: true })
+      const families = saveDialog.getByRole('radio', { name: 'Players', exact: true })
       assert.equal(await coaches.isChecked(), true)
       await families.click()
       assert.equal(await families.isChecked(), true)
@@ -390,7 +393,7 @@ try {
   await page.getByRole('dialog', { name: 'Choose Player', exact: true }).waitFor({ state: 'detached' })
   await menuToggle.click()
   await boardTools.getByRole('button').filter({ hasText: /Save$/ }).click()
-  await page.getByRole('radio', { name: 'Parents and players', exact: true }).click()
+  await page.getByRole('radio', { name: 'Players', exact: true }).click()
   await page.getByRole('button', { name: 'Save to match', exact: true }).click()
   assert.equal(await page.evaluate(() => window.__workspaceTest.lastSave.shared), true, 'Save sends the selected audience')
   await page.getByRole('dialog', { name: 'share options', exact: true }).waitFor({ state: 'detached' })

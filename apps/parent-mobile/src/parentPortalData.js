@@ -382,7 +382,7 @@ export async function getParentPortalMatchDays(user) {
     supabase.rpc('get_parent_portal_match_shirt_choices', { parent_link_id_value: link.id }),
     supabase.rpc('get_parent_match_day_review_requests', { parent_link_id_value: link.id }),
     link.linkType === 'parent' ? supabase.rpc('get_parent_portal_match_squad_transport', { parent_link_id_value: link.id }) : Promise.resolve({ data: [] }),
-    supabase.rpc('get_parent_portal_match_formation_plans', { parent_link_id_value: link.id }),
+    Promise.resolve({ data: [], error: null }),
   ])
   for (const result of [baseResult, extendedResult, teamResult, scorerResult, shirtResult, reviewResult, transportResult]) {
     if (result.error) throw result.error
@@ -749,7 +749,7 @@ export async function openParentResource(user, resourceId, { calendarEventId = '
     parentLinkId: link.id,
     resourceId,
   })
-  if (result.accessType === 'formation_board' && result.formationBoard) return { formationBoard: result.formationBoard }
+  if (result.accessType === 'formation_board') throw new Error('This resource is not available. Ask your Coach to share a PDF.')
   if (result.accessType === 'external_link') return { externalUrl: normalizeText(result.accessUrl) }
   if (config.supabaseEnvironment === 'production') {
     const accessUrl = normalizeText(result.accessUrl)

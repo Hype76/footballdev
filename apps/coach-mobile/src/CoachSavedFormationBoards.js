@@ -17,13 +17,13 @@ function SavedFormationSnapshot({ board }) {
       {(version.placements || []).map(player => {
         const position = getFormationMarkerVisualPosition(player, layout, { markerWidth: 64, markerHeight: 70, anchorY: 25 })
         return <View key={player.playerId} accessibilityLabel={player.displayName} style={[formationVisualStyles.marker, { left: `${position.x * 100}%`, top: `${position.y * 100}%` }]}>
-          <FormationPlayerArtwork name={player.displayName} number={player.shirtNumber} goalkeeper={player.positionGroup === 'goalkeeper' || player.slotId === 'gk'} />
+          <FormationPlayerArtwork name={player.displayName} number={player.shirtNumber} goalkeeper={player.positionGroup === 'goalkeeper' || player.slotId === 'gk'} shirtKit={version.shirtKit} />
         </View>
       })}
     </View>
     <Text style={{ color: 'white', fontWeight: '700', padding: 10 }}>Subs ({version.bench?.length || 0})</Text>
     <ScrollView horizontal style={{ flexGrow: 0 }} contentContainerStyle={{ gap: 12, paddingHorizontal: 10 }}>
-      {(version.bench || []).map(player => <FormationSubArtwork key={player.playerId} name={player.displayName} number={player.shirtNumber} />)}
+      {(version.bench || []).map(player => <FormationSubArtwork key={player.playerId} name={player.displayName} number={player.shirtNumber} shirtKit={version.shirtKit} />)}
     </ScrollView>
   </View>
 }

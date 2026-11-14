@@ -118,3 +118,17 @@ test('new board payload defaults to private draft visibility', () => {
     ['player-unplaced', 'bench'],
   ])
 })
+
+test('mobile drafts retain shirt snapshots and send an explicit selection', async () => {
+  const { createMobileFormationDraft } = await import('../apps/mobile-core/src/coachFormationBoardCore.js')
+  const { formationContentKey } = await import('../apps/mobile-core/src/coachFormationDraftCore.js')
+  const shirtKit = { type: 'away', colour: '#123456', imagePath: '12345678-1234-1234-1234-123456789abc/away/shirt.png' }
+  const board = normalizeCoachFormationBoard({ ...baseBoardPayload, currentVersion: { ...baseBoardPayload.currentVersion, shirt_kit: shirtKit } })
+  const draft = createMobileFormationDraft({ board })
+  assert.deepEqual(draft.shirtKit, shirtKit)
+  assert.equal('shirt_kit_type_value' in buildCoachFormationBoardSavePayload(board, draft, board.title), false)
+  assert.equal(buildCoachFormationBoardSavePayload(board, { ...draft, shirtKit: { ...shirtKit, type: 'home' } }, board.title).shirt_kit_type_value, 'home')
+  assert.equal(buildCoachFormationBoardCreatePayload(null, draft, 'New').shirt_kit_type_value, 'away')
+  assert.notEqual(formationContentKey(draft, board.title), formationContentKey({ ...draft, shirtKit: null }, board.title))
+  assert.equal('shirt_kit_type_value' in buildCoachFormationBoardCreatePayload(null, { ...draft, shirtKit: null }, 'New'), false)
+})

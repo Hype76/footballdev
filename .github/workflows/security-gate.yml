@@ -22,7 +22,7 @@ env:
 jobs:
   supply-chain:
     name: Supply chain
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
       - name: Check out source
@@ -60,7 +60,7 @@ jobs:
 
   migration-safety:
     name: Migration safety
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
       - name: Check out full history
@@ -368,7 +368,7 @@ jobs:
 
   functions-build:
     name: Functions build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
       - name: Check out source
@@ -394,7 +394,7 @@ jobs:
 
   scope-ownership:
     name: Scope ownership
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
       - name: Check out source
@@ -412,7 +412,7 @@ jobs:
   dependency-review:
     name: Dependency review
     if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
       contents: read
