@@ -290,13 +290,13 @@ function CoachHome() {
   const themeContext = useMemo(() => createCoachThemeContext(themeModel), [themeModel])
   const { palette, styles } = themeContext
   const contextOwnedByCurrentUser = Boolean(user?.id && contextReady && contextOwnerUserId === user.id && activeContext)
+  const hasMatchdayPlanContext = isMatchdayPlan(activeContext)
   useEffect(() => {
     let cancelled = false
-    if (!activeContext || !isMatchdayPlan(activeContext)) {
+    if (!hasMatchdayPlanContext) {
       setMatchdayPlanConfig(null)
       return undefined
     }
-    setMatchdayPlanConfig(null)
     void loadMatchdayPlanConfig().then((config) => {
       if (!cancelled) setMatchdayPlanConfig(config)
     }).catch(() => {
@@ -307,7 +307,7 @@ function CoachHome() {
       void loadMatchdayPlanConfig().then((config) => { if (!cancelled) setMatchdayPlanConfig(config) }).catch(() => {})
     })
     return () => { cancelled = true; subscription.remove() }
-  }, [activeContext])
+  }, [hasMatchdayPlanContext])
   useEffect(() => {
     if (activeRoute !== 'home' && !resolveCoachRoute(activeRoute === 'more' ? moreRoute || 'more' : activeRoute, activeContext, matchdayPlanConfig)) {
       setActiveRoute('home')

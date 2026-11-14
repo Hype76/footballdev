@@ -224,6 +224,22 @@ export async function readCoachOfflineResources(userId, contextId) {
   return getCoachOfflineResources(result.document, contextId)
 }
 
+export async function readCoachOverviewResources(userId, context) {
+  const readOverview = document => {
+    if (!matchesOfflineContext(document, userId, context)) return null
+    const cache = getCoachOfflineResources(document, context)
+    if (!cache) return null
+    return {
+      resources: { home: Boolean(cache.resources.home), 'phase31e:invites': Boolean(cache.resources['phase31e:invites']) },
+      resourceMetadata: cache.resourceMetadata,
+    }
+  }
+  const saved = store.peekSnapshot?.(userId, readOverview)
+  if (saved !== undefined) return saved
+  const { document } = await (store.readSnapshot ? store.readSnapshot(userId) : store.read(userId))
+  return readOverview(document)
+}
+
 export function peekCoachOfflineResource(userId, context, key) {
   return store.peekSnapshot?.(userId, document => matchesOfflineContext(document, userId, context)
     ? getCoachOfflineResources(document, context)?.resources?.[key] : undefined)

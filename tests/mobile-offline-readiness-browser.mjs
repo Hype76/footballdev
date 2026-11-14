@@ -19,6 +19,7 @@ const mocks = [
     export const getCoachMatchDayDetail=async(u,id)=>{if(window.fail)throw Error('Connection interrupted');window.fetches.push(id);return{id,clubId:'club',teamId:'team'}};`],
   [/\/offline$/, `export const getPendingCoachMatchDays=async()=>[]; export const readCoachOfflineReadiness=async()=>window.saved; export const readCoachOfflineResources=async()=>window.saved;export const readCoachMatchDayOutbox=async(u,c,id)=>window.saved.journals.find(j=>j.baseMatch.id===id);
     export const saveCoachOfflineResources=async(u,c,r)=>{window.saved.resources={...window.saved.resources,...r}};
+    export const readCoachOverviewResources=readCoachOfflineResources;
     export const createCoachOfflineResourceSaver=(u,c)=>r=>saveCoachOfflineResources(u,c,r);
     export const updateCoachMatchDayOutbox=async(u,c,id,change)=>{const next=change(null);window.saved.journals=window.saved.journals.filter(j=>j.baseMatch.id!==id).concat(next);return next;};`],
 ]

@@ -7,7 +7,7 @@ import { getCoachDevelopmentWorkspace, getCoachInvitesAndAvailability } from '..
 import { getCoachPhase31GAttentionSnapshot, getCoachPhase31GPrimaryHomeSnapshot, mergeCoachPhase31GHomeSnapshots } from '../../mobile-core/src/coachPhase31GData'
 import { getCoachMatchDayList, getCoachMatchDayDetail } from '../../mobile-core/src/coachMatchDayData'
 import { withMobileAsyncTimeout } from '../../mobile-core/src/http'
-import { createCoachOfflineResourceSaver, readCoachOfflineResources, readCoachMatchDayOutbox, saveCoachOfflineResources, updateCoachMatchDayOutbox } from './offline'
+import { createCoachOfflineResourceSaver, readCoachOfflineResources, readCoachMatchDayOutbox, readCoachOverviewResources, saveCoachOfflineResources, updateCoachMatchDayOutbox } from './offline'
 import { createCoachPreparationRunner, prepareCoachOfflineData, prepareCoachTeamOverview } from './coachOfflinePreparation'
 import { createMatchDayOutbox } from '../../mobile-core/src/matchDayOutboxCore'
 import { syncCoachMatchDayCommand } from '../../mobile-core/src/coachMatchDayData'
@@ -38,7 +38,7 @@ async function getTeamHome(user) {
 }
 
 const overviewDependencies = {
-  readResources: readCoachOfflineResources,
+  readResources: readCoachOverviewResources,
   createSaver: createCoachOfflineResourceSaver,
   getHome: getTeamHome,
   getInvites: user => withMobileAsyncTimeout(() => getCoachInvitesAndAvailability(user), { timeoutMs: 30000 }),
