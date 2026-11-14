@@ -300,6 +300,22 @@ try {
   await page.locator('.club-tv-home-row').first().waitFor()
   assert.equal(requests.filter(request => !request.action).at(-1).period, 'day')
   const fullMatchday = matches
+  matches = [makeMatch(3), makeMatch(6), makeMatch(1), makeMatch(4), makeMatch(7), makeMatch(2)]
+  await page.clock.runFor(11000)
+  const scoreRows = page.locator('.club-tv-match')
+  await page.waitForFunction(() => document.querySelectorAll('.club-tv-match').length === 6)
+  const scoreOrder = () => scoreRows.evaluateAll(rows => rows.map(row => row.className))
+  assert.deepEqual(await scoreOrder(), [
+    'club-tv-match club-tv-live', 'club-tv-match club-tv-live',
+    'club-tv-match club-tv-finished', 'club-tv-match club-tv-finished',
+    'club-tv-match club-tv-upcoming', 'club-tv-match club-tv-upcoming',
+  ])
+  const stopped = matches[2].teamName
+  matches[2] = { ...matches[2], status: 'full_time', timerStatus: 'full_time' }
+  await page.clock.runFor(11000)
+  assert.ok((await page.locator('.club-tv-live').first().textContent()).includes(matches[5].teamName))
+  assert.ok((await page.locator('.club-tv-finished').allTextContents()).some(row => row.includes(stopped)))
+  assert.equal((await scoreOrder()).at(-1), 'club-tv-match club-tv-upcoming')
   const compactMatches = [
     { ...makeMatch(7), teamName: 'U14 JPL 26/27', opponent: 'Peterborough United Football Club U16 Girls', matchDate: '2026-10-24', venue: 'Bespoke Builds Training Ground', timerStatus: 'not_started', homeScore: 0, awayScore: 0, events: [] },
     { ...makeMatch(8), teamName: 'U12 Boys Gold 26/27', opponent: 'Soham Town Rangers Youth Black', matchDate: '2026-10-27', kickoffTbc: true, venue: 'Soham Village College', timerStatus: 'not_started', homeScore: 0, awayScore: 0, events: [] },

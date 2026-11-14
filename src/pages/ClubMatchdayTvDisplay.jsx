@@ -209,9 +209,11 @@ function ClubDayDisplay({ user, preferences, standalone, preview, date, setDate,
   const selectedToday = date === today
   const currentMatches = (feed?.matches || []).filter(match => match.matchDate >= today)
   const fixtures = currentMatches.map(match => ({ match, status: tvMatchStatus(match) }))
-  const scores = fixtures.filter(({ status }) => status.kind === 'live' || status.kind === 'finished' || (period !== 'day' && status.kind === 'upcoming'))
-  const liveCount = scores.filter(({ status }) => status.kind === 'live').length
-  if (period === 'day' && !weekAhead) scores.push(...fixtures.filter(({ status }) => status.kind === 'upcoming'))
+  const liveScores = fixtures.filter(({ status }) => status.kind === 'live')
+  const finishedScores = fixtures.filter(({ status }) => status.kind === 'finished')
+  const upcomingScores = weekAhead ? [] : fixtures.filter(({ status }) => status.kind === 'upcoming')
+  const scores = [...liveScores, ...finishedScores, ...upcomingScores]
+  const liveCount = liveScores.length
   const homeFixtures = currentMatches.filter(match => match.homeAway !== 'away')
   const awayFixtures = currentMatches.filter(match => match.homeAway === 'away')
   const fixturesOnly = weekAhead && !scores.length && currentMatches.length > 0
@@ -227,7 +229,7 @@ function ClubDayDisplay({ user, preferences, standalone, preview, date, setDate,
   const firstScore = (currentPage % scorePages) * pageSize
   const firstHome = (currentPage % homePages) * homePageSize
   const pageScores = scores.slice(firstScore, firstScore + pageSize)
-  const latestGoalScore = goal && scores.find(({ match }) => match.id === goal.match.id)
+  const latestGoalScore = goal && liveScores.find(({ match }) => match.id === goal.match.id)
   const visibleScores = latestGoalScore
     ? [latestGoalScore, ...pageScores.filter(({ match }) => match.id !== latestGoalScore.match.id)].slice(0, pageSize)
     : pageScores
