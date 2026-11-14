@@ -68,7 +68,7 @@ import { useQuickActionVisibility } from './src/useQuickActionVisibility'
 import { applyCoachContext, createCoachContextTransition, resolveCoachStaffContext } from '../mobile-core/src/coachContextCore'
 import { canStartCoachNotificationRegistration, getCoachNotificationStatusLabel, getCoachPushSetupFailureMessage, preserveCoachNotificationRegistration, resolveCoachNotificationOpen, shouldRestoreCoachNotificationRegistration } from '../mobile-core/src/coachNotificationsCore'
 import { getMobileRuntimeConfig } from '../mobile-core/src/config'
-import { peekMobileResource, readMobileResource } from '../mobile-core/src/mobileResourceCache'
+import { invalidateMobileResource, peekMobileResource, readMobileResource } from '../mobile-core/src/mobileResourceCache'
 import { getCoachCalendarResources } from '../mobile-core/src/coachCalendarData'
 import { getCoachPlayerList } from '../mobile-core/src/coachPlayersData'
 import { getCoachChatRooms, getCoachDevelopmentSummary, getCoachInvitesAndAvailability } from '../mobile-core/src/coachPhase31EData'
@@ -115,7 +115,7 @@ import { CoachPhase31EScreen } from './src/CoachPhase31EScreens'
 import { CoachQuickActions } from './src/CoachQuickActions'
 import { getCoachFriendlyError } from './src/coachFriendlyErrors'
 import { getCoachQuickActions } from './src/coachQuickActionsCore'
-import { coachOfflineProfileStore, coachRecoveryNotice, countPendingCoachMatchDayActions, inspectCoachOfflineState, readCoachHomeOfflineView, saveCoachOfflineResources } from './src/offline'
+import { coachOfflineProfileStore, coachRecoveryNotice, countPendingCoachMatchDayActions, inspectCoachOfflineState, peekCoachHomeOfflineView, readCoachHomeOfflineView, saveCoachOfflineResources } from './src/offline'
 import { useCoachMatchDayBackgroundSync } from './src/useCoachMatchDayBackgroundSync'
 import { useCoachDevelopmentSync } from './src/useCoachDevelopmentSync'
 import { CoachOfflineReadiness } from './src/CoachOfflineReadiness'
@@ -233,12 +233,8 @@ function CoachHome() {
   const [isRegisteringPush, setIsRegisteringPush] = useState(false)
   const [selectedContextId, setSelectedContextId] = useState('')
   const [isSwitchingContext, setIsSwitchingContext] = useState(false)
-  const contextResolution = useMemo(
-    () => resolveCoachStaffContext({ profile: user, requestedContextId: selectedContextId }),
-    [selectedContextId, user],
-  )
-  const activeContext = contextResolution.allowed && selectedContextId === contextResolution.context?.id
-    ? contextResolution.context : null
+  const contextResolution = useMemo(() => resolveCoachStaffContext({ profile: user }), [user])
+  const activeContext = contextResolution.contexts.find(context => context.id === selectedContextId) || null
   useLiveActivityStartSubscriptions('coach', (contextResolution.contexts || [])
     .filter(context => context.teamId && context.clubId)
     .map(context => ({ type: 'team', id: context.teamId, teamId: context.teamId,
@@ -320,7 +316,6 @@ function CoachHome() {
   }, [activeContext, activeRoute, matchdayPlanConfig, moreRoute])
   useCoachMatchDayBackgroundSync({ user, contexts: contextResolution.contexts, enabled: contextOwnedByCurrentUser && activeRoute !== 'matchday' })
   useCoachDevelopmentSync({ user, contexts: contextResolution.contexts, enabled: contextOwnedByCurrentUser })
-  useCoachOfflinePreparation({ user, contexts: contextResolution.contexts, activeContext, enabled: Boolean(user?.id && contextReady && contextOwnerUserId === user.id && activeRoute !== 'matchday') })
   const handleChatNotificationTargetHandled = useCallback(() => setChatNotificationTarget(null), [])
   const handleMatchDayTargetHandled = useCallback(() => setMatchDayTarget(null), [])
 
@@ -374,13 +369,19 @@ function CoachHome() {
     teamId: activeContext?.teamId || '',
   })
 
-  const resetContextDomainState = useCallback(() => {
+  const resetContextDomainState = useCallback((userId, context) => {
     requestIdRef.current += 1
     homeDeniedScopeRef.current = false
-    const resetHome = { activePolls: 0, developmentRecords: 0, error: '', loading: true, matches: [], nextCalendar: null, pendingAvailability: 0, savedAt: '', sessions: [], stale: false, summary: null, unreadChat: 0, unreadCommunication: 0 }
+    const saved = context && peekCoachHomeOfflineView(userId, context)
+    const developmentDrafts = saved?.home && mergeUnfinishedDevelopmentDrafts(saved.home.developmentDrafts || [], Object.values(saved.developmentDrafts))
+    const resetHome = saved?.home
+      ? { ...saved.home, developmentDrafts, developmentRecords: developmentDrafts.length, error: '', hasSnapshot: true, loading: false, savedAt: saved.home.savedAt || saved.savedAt, stale: true }
+      : { activePolls: 0, developmentRecords: 0, error: '', loading: true, matches: [], nextCalendar: null, pendingAvailability: 0, savedAt: '', sessions: [], stale: false, summary: null, unreadChat: 0, unreadCommunication: 0 }
     homeStateRef.current = resetHome
     setHomeState(resetHome)
-    setLastUpdatedAt('')
+    setLastUpdatedAt(resetHome.savedAt)
+    setIsRefreshing(false)
+    lastHomeRefreshAtRef.current = 0
     setMatchDayTarget(null)
     setMoreRoute('')
     setChatNotificationTarget(null)
@@ -709,7 +710,7 @@ function CoachHome() {
       })
       const savedSections = { home: developmentRefreshId === developmentRefreshIdRef.current
         ? completeSnapshot : preserveCoachDevelopmentSummary(completeSnapshot, homeStateRef.current) }
-      for (const domain of ['chat', 'polls', 'invites']) {
+      for (const domain of ['chat', 'polls']) {
         const value = peekMobileResource(selectedMobileUser, `coach:phase31e:${domain}`)
         if (value !== undefined) savedSections[`phase31e:${domain}`] = domain === 'chat' ? sanitizeCoachChatOfflineValue(value) : value
       }
@@ -721,6 +722,8 @@ function CoachHome() {
       const denied = error?.code === '42501' || error?.status === 403 || error?.statusCode === 403 || /permission denied|row.level security|not authori[sz]ed/i.test(String(error?.message || ''))
       if (denied) {
         homeDeniedScopeRef.current = true
+        invalidateMobileResource(selectedMobileUser, primaryCacheKey)
+        void saveCoachOfflineResources(user.id, activeContext, { home: null }).catch(() => {})
         chatRefreshIdRef.current += 1; availabilityRefreshIdRef.current += 1; developmentRefreshIdRef.current += 1
         const deniedHome = { activePolls: 0, developmentRecords: 0, error: getCoachFriendlyError(error, 'Coach overview could not be loaded.'), loading: false, matches: [], nextCalendar: null, pendingAvailability: 0, savedAt: '', sessions: [], stale: true, summary: null, unreadChat: 0, unreadCommunication: 0 }
         homeStateRef.current = deniedHome
@@ -732,6 +735,14 @@ function CoachHome() {
       if (requestId === requestIdRef.current) setIsRefreshing(false)
     }
   }, [activeContext, selectedMobileUser, user?.id])
+
+  useCoachOfflinePreparation({ user, contexts: contextResolution.contexts, activeContext,
+    enabled: Boolean(user?.id && contextReady && contextOwnerUserId === user.id && activeRoute !== 'matchday'),
+    activeInvites: isMatchInvitesRoute,
+    refreshActiveHome: () => {
+      if (Date.now() - lastHomeRefreshAtRef.current >= HOME_REFRESH_MIN_INTERVAL_MS) void loadHome()
+    },
+  })
 
   useEffect(() => {
     if (activeRoute !== 'home' || !contextOwnedByCurrentUser || !selectedMobileUser?.activeTeamId) return undefined
@@ -829,7 +840,7 @@ function CoachHome() {
         setNotice('Could not open the other club. Try again online.')
         return false
       }
-      resetContextDomainState()
+      resetContextDomainState(user.id, targetContext)
       setSelectedContextId(targetContext.id)
     }
     const target = getCoachRouteState(resolved)
@@ -876,6 +887,8 @@ function CoachHome() {
       const nextContextId = available.some((context) => context.id === marker?.contextId)
         ? marker.contextId
         : available.length === 1 ? available[0].id : ''
+      const nextContext = contextResolution.contexts.find(context => context.id === nextContextId)
+      if (nextContext) resetContextDomainState(user.id, nextContext)
       setSelectedContextId(nextContextId)
       setContextOwnerUserId(user?.id || '')
       bootstrappedAuthorityRef.current = authorityScope
@@ -887,7 +900,7 @@ function CoachHome() {
       }
     })
     return () => { mounted = false }
-  }, [resetContextDomainState, user])
+  }, [contextResolution.contexts, resetContextDomainState, user])
 
   useEffect(() => {
     if (!activeContext || !user?.id || !contextOwnedByCurrentUser) return
@@ -1051,17 +1064,15 @@ function CoachHome() {
     }
     setIsSwitchingContext(true)
     try {
-      if (nextContext.clubId !== user.clubId) {
-        if (!user.isOfflineProfile) {
-          const { error } = await coachSupabase.rpc('activate_own_club_membership', { target_club_id: nextContext.clubId })
-          if (error) throw error
-        }
+      if (nextContext.clubId !== user.clubId && !user.isOfflineProfile) {
+        const { error } = await coachSupabase.rpc('activate_own_club_membership', { target_club_id: nextContext.clubId })
+        if (error) throw error
+        await writeCoachContextMarker(user.id, nextContext)
       }
-      await writeCoachContextMarker(user.id, nextContext)
       const transition = createCoachContextTransition(activeContext, nextContext)
-      if (transition.clearDomainState) resetContextDomainState()
+      if (transition.clearDomainState) resetContextDomainState(user.id, nextContext)
       const currentDestination = moreRoute || activeRoute
-      const preserved = resolveCoachRoute(currentDestination, nextContext)
+      const preserved = resolveCoachRoute(currentDestination, nextContext, matchdayPlanConfig)
       const target = preserved ? getCoachRouteState(preserved) : { activeRoute: 'home', moreRoute: '' }
       setActiveRoute(target.activeRoute)
       setMoreRoute(target.moreRoute)
@@ -1072,7 +1083,7 @@ function CoachHome() {
     } finally {
       setIsSwitchingContext(false)
     }
-  }, [activeContext, activeRoute, contextResolution.contexts, isSwitchingContext, moreRoute, refreshUserProfile, resetContextDomainState, user])
+  }, [activeContext, activeRoute, contextResolution.contexts, isSwitchingContext, matchdayPlanConfig, moreRoute, refreshUserProfile, resetContextDomainState, user])
 
   const toggleTheme = useCallback(async (next) => {
     setThemePreference(next)

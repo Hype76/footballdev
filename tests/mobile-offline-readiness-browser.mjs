@@ -11,13 +11,15 @@ const mocks = [
   [/BrandLoader$/, 'export const BrandLoader=()=>null;'],
   [/coachCalendarData$/, 'export const getCoachCalendarResources=async()=>[{id:"event"}];'],
   [/coachPlayersData$/, 'export const getCoachPlayerList=async()=>[{id:"player"}];'],
-  [/coachPhase31EData$/, 'export const getCoachDevelopmentWorkspace=async()=>({forms:[{id:"form"}]});'],
+  [/coachPhase31EData$/, 'export const getCoachDevelopmentWorkspace=async()=>({forms:[{id:"form"}]});export const getCoachInvitesAndAvailability=async()=>({matches:[],match:[]});'],
+  [/coachPhase31GData$/, 'export const getCoachPhase31GPrimaryHomeSnapshot=async()=>({matches:[]});export const getCoachPhase31GAttentionSnapshot=async()=>({errors:[]});export const mergeCoachPhase31GHomeSnapshots=(primary,attention)=>({...primary,...attention});'],
   [/mobileResourceCache$/, 'export const readMobileResource=async(user,key,loader)=>loader();'],
   [/matchdayPlanData$/, 'export const loadMatchdayPlanConfig=async()=>null;'],
   [/coachMatchDayData$/, `export const syncCoachMatchDayCommand=async()=>({}); export const getCoachMatchDayList=async()=>Array.from({length:10},(_,i)=>({id:'match'+i,matchDate:'2099-10-'+String(i+1).padStart(2,'0'),status:'scheduled'}));
     export const getCoachMatchDayDetail=async(u,id)=>{if(window.fail)throw Error('Connection interrupted');window.fetches.push(id);return{id,clubId:'club',teamId:'team'}};`],
   [/\/offline$/, `export const getPendingCoachMatchDays=async()=>[]; export const readCoachOfflineReadiness=async()=>window.saved; export const readCoachOfflineResources=async()=>window.saved;export const readCoachMatchDayOutbox=async(u,c,id)=>window.saved.journals.find(j=>j.baseMatch.id===id);
     export const saveCoachOfflineResources=async(u,c,r)=>{window.saved.resources={...window.saved.resources,...r}};
+    export const createCoachOfflineResourceSaver=(u,c)=>r=>saveCoachOfflineResources(u,c,r);
     export const updateCoachMatchDayOutbox=async(u,c,id,change)=>{const next=change(null);window.saved.journals=window.saved.journals.filter(j=>j.baseMatch.id!==id).concat(next);return next;};`],
 ]
 const result=await build({stdin:{contents:entry,resolveDir:process.cwd(),loader:'jsx'},bundle:true,write:false,jsx:'automatic',loader:{'.js':'jsx'},alias:{react:path.join(modules,'react'),'react-dom':path.join(modules,'react-dom'),'react-native':path.join(modules,'react-native-web')},define:{'process.env.NODE_ENV':'"production"',__DEV__:'false',global:'globalThis'},plugins:[{name:'synthetic-downloads',setup(b){mocks.forEach(([filter],i)=>b.onResolve({filter},()=>({path:String(i),namespace:'mock'})));b.onLoad({filter:/.*/,namespace:'mock'},args=>({contents:mocks[Number(args.path)][1],loader:'js',resolveDir:process.cwd()}));}}]})
@@ -30,6 +32,7 @@ try {
   assert.equal(await page.getByRole('button',{name:'Sync now'}).count(),1)
   await page.waitForFunction(()=>window.fetches.length===8)
   assert.equal(await page.evaluate(()=>window.saved.journals.length),8)
+  assert.deepEqual(await page.evaluate(()=>Object.keys(window.saved.resources).slice(0,2).sort()), ['home','phase31e:invites'])
   await page.getByText(/1 Players and 8 fixtures/).waitFor()
   await page.getByText(/2 saved changes will sync/).waitFor()
   await page.evaluate(()=>window.offline(true))

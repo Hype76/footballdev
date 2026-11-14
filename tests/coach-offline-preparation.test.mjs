@@ -1,6 +1,46 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { prepareCoachOfflineData, createCoachPreparationRunner, COACH_PREPARATION_REFRESH_MS } from '../apps/coach-mobile/src/coachOfflinePreparation.js'
+import { prepareCoachOfflineData, prepareCoachTeamOverview, createCoachPreparationRunner, COACH_PREPARATION_REFRESH_MS } from '../apps/coach-mobile/src/coachOfflinePreparation.js'
+
+test('overview preparation saves both resources for each team and preserves saved data through a failed refresh', async () => {
+  const snapshots = new Map()
+  const calls = []
+  let now = Date.parse('2026-11-14T08:00:00Z')
+  let failed = false
+  const options = {
+    isCurrent: () => true,
+    now: () => now,
+    readResources: async (_id, context) => snapshots.get(context.id),
+    createSaver: (_user, context) => async updates => {
+      const previous = snapshots.get(context.id) || {}
+      const resourceMetadata = { ...previous.resourceMetadata }
+      for (const key of Object.keys(updates)) resourceMetadata[key] = { checkedAt: new Date(now).toISOString() }
+      snapshots.set(context.id, { resources: { ...previous.resources, ...updates }, resourceMetadata })
+    },
+    getHome: async user => {
+      calls.push(['home', user.activeTeamId])
+      return failed ? { errors: ['matches:timeout'] } : { matches: [{ id: user.activeTeamId }], errors: [] }
+    },
+    getInvites: async user => {
+      calls.push(['invites', user.activeTeamId])
+      if (failed) throw Object.assign(new Error('Access denied'), { code: '42501' })
+      return { matches: [{ id: user.activeTeamId }], match: [] }
+    },
+  }
+  const refresh = id => prepareCoachTeamOverview({ ...options, context: { id }, user: { id: 'coach', activeTeamId: id } })
+  await refresh('team-a')
+  await refresh('team-b')
+  assert.equal(snapshots.get('team-a').resources.home.matches[0].id, 'team-a')
+  assert.equal(snapshots.get('team-b').resources['phase31e:invites'].matches[0].id, 'team-b')
+  await refresh('team-a')
+  assert.equal(calls.length, 4)
+  now += COACH_PREPARATION_REFRESH_MS
+  failed = true
+  await assert.rejects(refresh('team-a'), /could not refresh/)
+  assert.equal(snapshots.get('team-a').resources.home.matches[0].id, 'team-a')
+  assert.equal(snapshots.get('team-a').resources['phase31e:invites'], null)
+  assert.equal(snapshots.get('team-b').resources['phase31e:invites'].matches[0].id, 'team-b')
+})
 
 function fixture() {
   const state = { resources: {}, resourceMetadata: {}, journals: new Map(), reads: 0, writes: 0, current: true }

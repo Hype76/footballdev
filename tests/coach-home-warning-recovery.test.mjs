@@ -36,7 +36,7 @@ function harness(errors = []) {
     readMobileResource: async (user, key, loader, options) => { reads.push({ key, options }); return loader() },
     getCoachInvitesAndAvailability: async () => ({ all: [] }), getCoachChatRooms: async () => [{ id: 'fresh-room', unreadCount: 5 }],
     buildCoachChatSummary, countPendingCoachAvailability, preserveCoachAvailabilitySummary: baselinePreserveAvailability, preserveCoachChatSummary, updateCoachHomeSourceState,
-    setIsRefreshing() {}, peekMobileResource: () => undefined, readCoachOfflineResources: async () => null,
+    setIsRefreshing() {}, peekMobileResource: () => undefined, invalidateMobileResource() {}, readCoachOfflineResources: async () => null,
     readCoachHomeOfflineView: async (userId, context) => ({
       cache: await deps.readCoachOfflineResources(userId, context),
       developmentDrafts: await deps.readCoachDevelopmentDrafts(userId, context),

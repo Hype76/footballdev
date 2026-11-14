@@ -82,7 +82,7 @@ import {
 import { getMobileRuntimeConfig } from '../../mobile-core/src/config'
 import { getCoachPlayerList } from '../../mobile-core/src/coachPlayersData'
 import { isTransientConnectionMessage, useConfirmedConnectionIssue, useConfirmedConnectionMessage } from '../../mobile-core/src/useConfirmedConnectionIssue'
-import { createCoachOfflineResourceSaver, readCoachDevelopmentDrafts, readCoachOfflineResources, saveCoachOfflineResources } from './offline'
+import { createCoachOfflineResourceSaver, peekCoachOfflineResource, readCoachDevelopmentDrafts, readCoachOfflineResources, saveCoachOfflineResources } from './offline'
 import { getCoachFriendlyError } from './coachFriendlyErrors'
 import { useAttendanceOutbox, useAttendanceUiGuard } from '../../mobile-core/src/useAttendanceOutbox'
 import { AttendancePendingRows } from '../../mobile-core/src/AttendancePendingRows'
@@ -235,20 +235,23 @@ function CoachOfflineCopyWarning({ message, onRetry, palette, styles }) {
 export function CoachPhase31EScreen({ chatNotificationTarget, domain, context, onChatNotificationTargetHandled, onNavigate, onCaptureScrollPosition, onRestoreScrollPosition, palette, reloadHome, user }) {
   const styles = useMemo(() => phaseStyles(palette), [palette])
   const dataScope = JSON.stringify([user.id, context.id, context.authorityId, context.authoritySource, context.clubId, context.teamId, context.role, domain])
-  const [dataState, setDataState] = useState({ scope: dataScope, value: null })
+  const [dataState, setDataState] = useState(() => ({
+    scope: dataScope,
+    value: domain === 'invites' ? restoreCoachAvailabilitySnapshot(peekCoachOfflineResource(user.id, context, 'phase31e:invites')) : null,
+  }))
   const data = dataState.scope === dataScope ? dataState.value : null
   const setData = useCallback(value => setDataState(previous => ({
     scope: dataScope,
     value: typeof value === 'function' ? value(previous.scope === dataScope ? previous.value : null) : value,
   })), [dataScope])
   const [error, setError] = useState('')
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(!data)
   const [refreshing, setRefreshing] = useState(false)
   const [notice, setNotice] = useState('')
   const [offlineWarning, setOfflineWarning] = useState({ scope: '', message: '' })
-  const [stale, setStale] = useState(false)
+  const [stale, setStale] = useState(Boolean(data))
   const [invitesRefreshing, setInvitesRefreshing] = useState(false)
-  const activity = useMobileActivity(loading || invitesRefreshing || refreshing)
+  const activity = useMobileActivity(loading || (domain !== 'invites' && refreshing))
   useMobileOffline(stale)
   const dataRef = useRef(null)
   dataRef.current = data
@@ -290,7 +293,8 @@ export function CoachPhase31EScreen({ chatNotificationTarget, domain, context, o
     const deniedAtStart = deniedScopeRef.current === dataScope
     // Freshness controls network reuse, not whether saved content stays visible.
     const fresh = reuseFresh && !deniedAtStart ? peekMobileResource(user, memoryKey) : undefined
-    const recent = reuseFresh && !deniedAtStart ? peekMobileResource(user, memoryKey, { allowStale: true }) : undefined
+    const recent = reuseFresh && !deniedAtStart && (domain !== 'invites' || !dataRef.current)
+      ? peekMobileResource(user, memoryKey, { allowStale: true }) : undefined
     if (recent !== undefined) {
       setData(recent); setStale(user.isOfflineProfile || fresh === undefined || domain === 'invites'); setLoading(false); setError('')
       if (domain !== 'invites' && fresh !== undefined && !user.isOfflineProfile) return
@@ -324,7 +328,7 @@ export function CoachPhase31EScreen({ chatNotificationTarget, domain, context, o
     if (!current()) return false
     if (user.isOfflineProfile) {
       setStale(true); setLoading(false); setRefreshing(false)
-      if (!hasCachedValue) setError('This section has not been saved on this phone yet. Connect to load it; Coach saves information automatically.')
+      if (!hasCachedValue && !hadVisibleData) setError('This section has not been saved on this phone yet. Connect to load it; Coach saves information automatically.')
       return
     }
     if (domain === 'invites') setInvitesRefreshing(true)

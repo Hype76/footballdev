@@ -471,6 +471,12 @@ export function createEncryptedOfflineStore({
 
     // Display the last committed snapshot without waiting for a background
     // write. Commands and reconciliation continue to use read/update above.
+    peekSnapshot(userScope, select) {
+      const state = scopeState()
+      if (state.blocked || snapshot?.epoch !== state.epoch || snapshot.userScope !== normalize(userScope)) return undefined
+      return copy(select(snapshot.document))
+    },
+
     async readSnapshot(userScope) {
       const state = scopeState()
       if (state.blocked || (state.userScope && state.userScope !== normalize(userScope))) return { document: null, status: 'scope_mismatch' }

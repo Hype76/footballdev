@@ -224,22 +224,42 @@ export async function readCoachOfflineResources(userId, contextId) {
   return getCoachOfflineResources(result.document, contextId)
 }
 
+export function peekCoachOfflineResource(userId, context, key) {
+  return store.peekSnapshot?.(userId, document => matchesOfflineContext(document, userId, context)
+    ? getCoachOfflineResources(document, context)?.resources?.[key] : undefined)
+}
+
 export async function readCoachHomeOfflineView(userId, context) {
   const result = await (store.readSnapshot ? store.readSnapshot(userId) : store.read(userId))
-  assertOutboxContext(result.document, userId, context)
-  const entry = result.document.developmentDrafts?.[context.id]
+  return getCoachHomeOfflineView(result.document, userId, context)
+}
+
+export function peekCoachHomeOfflineView(userId, context) {
+  return store.peekSnapshot?.(userId, document => {
+    if (!matchesOfflineContext(document, userId, context)) return undefined
+    const cache = getCoachOfflineResources(document, context)
+    const entry = document.developmentDrafts?.[context.id]
+    if (entry && entry.authority !== outboxAuthority(context)) return undefined
+    return { home: cache?.resources?.home, savedAt: cache?.savedAt, developmentDrafts: entry?.items || {} }
+  })
+}
+
+function getCoachHomeOfflineView(document, userId, context) {
+  assertOutboxContext(document, userId, context)
+  const entry = document.developmentDrafts?.[context.id]
   if (entry && entry.authority !== outboxAuthority(context)) throw new Error('Your access to these saved Development drafts changed.')
   return {
-    cache: getCoachOfflineResources(result.document, context),
+    cache: getCoachOfflineResources(document, context),
     developmentDrafts: entry?.items || {},
   }
 }
 
-export function createCoachOfflineResourceSaver(profile, context, { requireExistingDocument = false } = {}) {
+export function createCoachOfflineResourceSaver(profile, context, options = {}) {
   // The caller captures this while starting a live read, before awaiting it.
   // Only a server-loaded profile can repair a missing profile cache.
   const liveProfile = profile?.isOfflineProfile ? null : sanitizeCoachProfile(profile)
   const userId = normalize(profile?.id)
+  const saveOptions = { ...options }
   const capturedContext = typeof context === 'object' ? { ...context } : context
   let guard
   let scopeError
@@ -247,7 +267,7 @@ export function createCoachOfflineResourceSaver(profile, context, { requireExist
   return async (resources) => {
     if (scopeError) throw scopeError
     guard()
-    return saveCoachOfflineResourcesWithProfile(userId, capturedContext, resources, liveProfile, { requireExistingDocument })
+    return saveCoachOfflineResourcesWithProfile(userId, capturedContext, resources, liveProfile, saveOptions)
   }
 }
 
@@ -269,8 +289,9 @@ export async function saveCoachFormationLocalDraft(userId, context, key, entry) 
   })
 }
 
-async function saveCoachOfflineResourcesWithProfile(userId, contextId, resources, liveProfile = null, { requireExistingDocument = false } = {}) {
+async function saveCoachOfflineResourcesWithProfile(userId, contextId, resources, liveProfile = null, { requireExistingDocument = false, expectedResourceMetadata, isCurrent = () => true } = {}) {
   const next = await store.update(userId, (current) => {
+    if (!isCurrent()) return current
     if (requireExistingDocument && (!current || normalize(current.userScope) !== normalize(userId))) throw new Error('offline_profile_scope_mismatch')
     if (!current?.profile) {
       if (!liveProfile || normalize(liveProfile.id) !== normalize(userId)) throw new Error('offline_profile_scope_mismatch')
@@ -292,6 +313,15 @@ async function saveCoachOfflineResourcesWithProfile(userId, contextId, resources
       normalize(contextId[field]) && normalize(contextId[field]) !== normalize(authority[field]),
     ))) {
       throw new Error('offline_context_scope_mismatch')
+    }
+    if (expectedResourceMetadata) {
+      const metadata = getCoachOfflineResources(current, contextId)?.resourceMetadata || {}
+      resources = Object.fromEntries(Object.entries(resources).filter(([resourceKey]) => {
+        const expected = expectedResourceMetadata[resourceKey]
+        const actual = metadata[resourceKey]
+        return expected?.fingerprint === actual?.fingerprint && expected?.checkedAt === actual?.checkedAt && expected?.savedAt === actual?.savedAt
+      }))
+      if (!Object.keys(resources).length) return current
     }
     // Refreshing the read cache must never replace unsent formation drafts.
     const previousFormation = getCoachOfflineResources(current, contextId)?.resources?.formation
@@ -315,9 +345,14 @@ async function saveCoachOfflineResourcesWithProfile(userId, contextId, resources
   return getCoachOfflineResources(next, contextId)
 }
 
+function matchesOfflineContext(document, userId, context) {
+  const authority = document?.profile?.value?.coachContexts?.find(item => item.id === context?.id)
+  return document?.userScope === userId && Boolean(authority)
+    && ['authorityId', 'authoritySource', 'clubId', 'role', 'teamId'].every(field => normalize(context[field]) === normalize(authority[field]))
+}
+
 function assertOutboxContext(document, userId, context) {
-  const authority = document?.profile?.value?.coachContexts?.find(item => item.id === context.id)
-  if (document?.userScope !== userId || !authority || ['authorityId', 'authoritySource', 'clubId', 'role', 'teamId'].some(field => normalize(context[field]) !== normalize(authority[field]))) {
+  if (!matchesOfflineContext(document, userId, context)) {
     throw new Error('Your saved Match Day actions belong to a different workspace. Select the original workspace to sync them.')
   }
 }
