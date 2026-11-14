@@ -2,7 +2,7 @@ import { getGoalScorerSide } from '../../../src/lib/matchday-goal-credit.js'
 import { buildFinalMatchReportSummary, isFinalMatchReportAvailable } from '../../../src/lib/matchday-final-report.js'
 import { getMatchDayDisplayName, getMatchDayDisplayParts, getMatchDayDisplayScore } from '../../../src/lib/matchday-display.js'
 import { getMatchDayPhaseLabel } from '../../../src/lib/matchday-extended-ops.js'
-import { getMatchDayLifecycleState, getParentScorerTimerActions } from '../../../src/lib/matchday-lifecycle.js'
+import { getMatchDayFinishAction, getMatchDayLifecycleState, getParentScorerTimerActions } from '../../../src/lib/matchday-lifecycle.js'
 import {
   getMatchDayAvailabilityLabel,
   getMatchDaySquadDecisionLabel,
@@ -232,6 +232,23 @@ export function getCoachMatchDayActions({ context, match, reconciling = false, s
   })
 }
 
+export function getCoachMatchDayFinishControl({ context, match, stale, offlineReady, pendingCount, reconciling } = {}) {
+  const actions = getCoachMatchDayActions({ context, match })
+  if (!actions.canMutate) return null
+  const finish = getMatchDayFinishAction(match, actions.timerActions)
+  if (!finish) return null
+
+  if (pendingCount > 0) return { label: 'Review saved actions', recovery: 'saved-actions' }
+  const canRecordOffline = finish.action === 'full_time' && !finish.disabled && match.conclusionRule === 'normal_time'
+  if (reconciling || (stale && !(offlineReady && canRecordOffline))) {
+    return { label: 'Refresh to finish', recovery: 'refresh' }
+  }
+  if (match.currentMatchPhase === 'penalties' && finish.disabled) {
+    return { label: 'End match', action: 'end_shootout_without_result' }
+  }
+  return finish.disabled ? null : { label: finish.label, action: finish.action }
+}
+
 export function buildCoachMatchDaySquad(players = [], match = {}) {
   const decisions = new Map((match.squadDecisions || []).map((decision) => [decision.playerId, decision]))
   const availability = new Map((match.playerAvailability || []).map((item) => [item.playerId, item]))
@@ -384,6 +401,21 @@ export function formatCoachMatchDayParticipantName(participantType, value) {
 }
 
 export function validateCoachMatchDayEventParticipants(payload, selectedPlayers = []) {
+  if (payload.eventType === 'goal') {
+    if (getGoalScorerSide(payload) !== 'club') return payload
+    const hasPlayer = (id) => Boolean(id) && selectedPlayers.some(player => player.id === id)
+    const hasOtherName = (name) => /^Other: \S/.test(normalize(name))
+    const namedScorer = payload.scorerParticipantType === 'other' && hasOtherName(payload.scorerName)
+    if (!hasPlayer(payload.scorerPlayerId) && !namedScorer) {
+      throw new Error('Choose an eligible scorer, or choose Other and enter a name.')
+    }
+    if (!payload.isOwnGoal && (payload.assistPlayerId || normalize(payload.assistName) || normalize(payload.assistShirtNumber))
+      && (!hasPlayer(payload.assistPlayerId) || payload.assistPlayerId === payload.scorerPlayerId)
+      && !hasOtherName(payload.assistName)) {
+      throw new Error('Choose a different eligible assist player or clear the assist.')
+    }
+    return payload
+  }
   if (payload.teamSide !== 'club' || !['yellow_card', 'red_card', 'substitution'].includes(payload.eventType)) return payload
   for (const prefix of payload.eventType === 'substitution' ? ['player', 'playerOn'] : ['player']) {
     const type = prefix === 'player' ? payload.participantType : payload.playerOnParticipantType
