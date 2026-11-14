@@ -144,6 +144,7 @@ import {
 } from '../lib/team-notification-display.js'
 import { createScheduledEmail } from '../lib/domain/scheduled-emails.js'
 import { cancelCalendarEvent } from '../lib/domain/calendar-events.js'
+import { invalidateMemoryCacheByPrefix } from '../lib/domain/cache-store.js'
 import { cancelAssessmentSession } from '../lib/domain/sessions.js'
 import {
   applyTrialPlayerSelection,
@@ -1022,7 +1023,7 @@ function buildCalendarNotificationPlayers(form, invitePlayers, selectedPlayers) 
 }
 
 export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOnly = false, setupOpen = false }) {
-  const { session, user } = useAuth()
+  const { selectTeam, session, user } = useAuth()
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const { showToast } = useToast()
@@ -1076,6 +1077,7 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
   const [calendarModal, setCalendarModal] = useState(null)
   const [calendarForm, setCalendarForm] = useState(() => getDefaultCalendarForm())
   const [calendarValidation, setCalendarValidation] = useState(null)
+  const [calendarTeamPlayers, setCalendarTeamPlayers] = useState(null)
   const [calendarChangePrompt, setCalendarChangePrompt] = useState(null)
   const [calendarPlayerCommunicationMode, setCalendarPlayerCommunicationMode] = useState(EVENT_PLAYER_COMMUNICATION_MODES.none)
   const [calendarPlayerReview, setCalendarPlayerReview] = useState(null)
@@ -1122,6 +1124,9 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
   const calendarDeepLinkRequestRef = useRef('')
   const calendarChangeDecisionRef = useRef(null)
   const calendarEditBaselineRef = useRef(null)
+  const calendarMutationSequence = useRef(0)
+  const canRefreshCalendar = useRef(false)
+  canRefreshCalendar.current = !calendarModal && !isSaving
   const userScopeKey = user
     ? `${user.id}:${user.clubId || ''}:${user.role}:${user.roleRank}:${user.activeTeamId || ''}:${user.activeTeamName || ''}`
     : ''
@@ -1175,7 +1180,7 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
   const calendarEvents = useMemo(
     () => buildFootballCalendarEvents({
       assessmentReminders: isClubWideCalendar ? [] : assessmentReminders,
-      calendarEvents: calendarItems,
+      calendarEvents: isClubWideCalendar ? calendarItems.filter((item) => !item.teamId) : calendarItems,
       evaluations: isClubWideCalendar ? [] : evaluations,
       matchDays: isClubWideCalendar ? [] : matchDays,
       polls: isClubWideCalendar || !canShowPollsInCalendar ? [] : polls,
@@ -1183,10 +1188,35 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
     }),
     [assessmentReminders, calendarItems, canShowPollsInCalendar, combinedSessions, evaluations, isClubWideCalendar, matchDays, polls],
   )
-  const calendarInvitePlayers = useMemo(
-    () => getCalendarInvitePlayers(players, getSafeCalendarTeamId(user, calendarForm.teamId), calendarForm.eventType),
-    [calendarForm.teamId, calendarForm.eventType, players, user],
+  const calendarFormTeamId = getSafeCalendarTeamId(user, calendarForm.teamId)
+  const needsCalendarTeamRoster = Boolean(
+    calendarModal && isClubAdmin(user) && calendarFormTeamId && calendarFormTeamId !== user.activeTeamId,
   )
+  useEffect(() => {
+    if (!needsCalendarTeamRoster) return
+
+    let current = true
+    setCalendarTeamPlayers(null)
+    withRequestTimeout(() => getPlayers({ user, teamId: calendarFormTeamId }), 'The selected team’s players could not be loaded.')
+      .then((rows) => {
+        if (current) setCalendarTeamPlayers({ teamId: calendarFormTeamId, rows })
+      })
+      .catch((error) => {
+        if (current) {
+          console.error(error)
+          setErrorMessage('The selected team’s players could not be loaded.')
+        }
+      })
+
+    return () => { current = false }
+  }, [calendarFormTeamId, needsCalendarTeamRoster, user])
+
+  const calendarInvitePlayers = useMemo(() => {
+    const roster = needsCalendarTeamRoster
+      ? calendarTeamPlayers?.teamId === calendarFormTeamId ? calendarTeamPlayers.rows : []
+      : players
+    return getCalendarInvitePlayers(roster, calendarFormTeamId, calendarForm.eventType)
+  }, [calendarFormTeamId, calendarForm.eventType, calendarTeamPlayers, needsCalendarTeamRoster, players])
   const selectedCalendarInvitePlayers = useMemo(
     () => buildSelectedInvitePlayers(calendarForm, calendarInvitePlayers),
     [calendarForm, calendarInvitePlayers],
@@ -1241,12 +1271,12 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
     ))
   }, [calendarInvitePlayers, currentCalendarEventInvites])
   const calendarResourceTeamId = useMemo(() => {
-    if (!calendarModal || isClubWideCalendar) {
+    if (!calendarModal) {
       return ''
     }
 
     return getSafeCalendarTeamId(user, calendarForm.teamId)
-  }, [calendarForm.teamId, calendarModal, isClubWideCalendar, user])
+  }, [calendarForm.teamId, calendarModal, user])
   const canAttachCalendarResources = Boolean(
     calendarModal
       && calendarResourceTeamId
@@ -1576,9 +1606,15 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
 
   useEffect(() => {
     let isMounted = true
-    const cachedValue = readViewCache(cacheKey)
+    let loading = false
 
-    const loadData = async () => {
+    const loadData = async ({ refresh = false } = {}) => {
+      if (loading) return
+      loading = true
+      const mutationSequence = calendarMutationSequence.current
+      const canApply = () => isMounted && mutationSequence === calendarMutationSequence.current
+        && (!refresh || canRefreshCalendar.current)
+      const cachedValue = readViewCache(cacheKey)
       setErrorMessage('')
 
       try {
@@ -1588,7 +1624,7 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
             withRequestTimeout(() => getCalendarEvents({ user, clubWideOnly: true }), 'Could not load calendar events.'),
           ])
 
-          if (!isMounted) {
+          if (!canApply()) {
             return
           }
 
@@ -1661,7 +1697,7 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
           withRequestTimeout(() => getAssessmentReminderLogs({ user }), 'Could not load assessment reminders.'),
         ])
 
-        if (!isMounted) {
+        if (!canApply()) {
           return
         }
 
@@ -1766,6 +1802,8 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
         })
 
         if (
+          matchDaysResult.status === 'rejected' ||
+          calendarItemsResult.status === 'rejected' ||
           sessionsResult.status === 'rejected' ||
           playersResult.status === 'rejected' ||
           teamsResult.status === 'rejected' ||
@@ -1774,6 +1812,7 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
           setErrorMessage('Some session data could not be refreshed. Existing data is still available where possible.')
         }
       } finally {
+        loading = false
         if (isMounted) {
           setIsLoading(false)
         }
@@ -1784,10 +1823,18 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
       void loadData()
     }
 
+    const refreshOnReturn = () => {
+      if (loading || !canRefreshCalendar.current || document.visibilityState === 'hidden') return
+      invalidateMemoryCacheByPrefix(`calendar-events:${user.clubId}:${user.id}:`)
+      void loadData({ refresh: true })
+    }
+    if (calendarOnly && user) window.addEventListener('focus', refreshOnReturn)
+
     return () => {
       isMounted = false
+      window.removeEventListener('focus', refreshOnReturn)
     }
-  }, [cacheKey, canShowPollsInCalendar, completedSessionId, isClubWideCalendar, requestedSessionId, storedSessionWorkspace.selectedSessionId, user, userScopeKey])
+  }, [cacheKey, calendarOnly, canShowPollsInCalendar, completedSessionId, isClubWideCalendar, requestedSessionId, storedSessionWorkspace.selectedSessionId, user, userScopeKey])
 
   useEffect(() => {
     const requestedAction = String(searchParams.get('action') ?? '').trim()
@@ -2186,7 +2233,7 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
   function handleOpenCalendarCreate(date = '', requestedEventType = '') {
     setErrorMessage('')
     setCalendarValidation(null)
-    const teamId = canCreateClubCalendarEvent(user) ? '' : String(user?.activeTeamId ?? '').trim()
+    const teamId = String(user?.activeTeamId ?? '').trim()
     const defaultForm = {
       ...getDefaultCalendarForm(date),
       autoSelectAvailablePlayers: readMatchDayAutoSelectDefault(user, teamId),
@@ -2197,15 +2244,15 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
       return
     }
     const preferredType = requestedEventType || (isMatchday ? 'match' : (isClubWideCalendar || calendarOnly) ? 'general' : defaultForm.eventType)
-    const eventType = getCalendarEventTypeOptions(user, { clubWideOnly: isClubWideCalendar }).find((option) => option.value === preferredType)?.value
-      || getCalendarEventTypeOptions(user, { clubWideOnly: isClubWideCalendar })[0]?.value
-    if (!eventType) {
+    const eventTypeOptions = getCalendarEventTypeOptions(user, { clubWideOnly: !teamId })
+    const eventType = eventTypeOptions.find((option) => option.value === preferredType)?.value || eventTypeOptions[0]?.value
+    if (!eventType && requestedEventType !== 'match') {
       setErrorMessage('No calendar event types are enabled for your plan.')
       return
     }
 
     if (requestedEventType === 'match') {
-      openCalendarMatchDayWorkflow({
+      void openCalendarMatchDayWorkflow({
         ...defaultForm,
         eventType: 'match',
       })
@@ -2876,10 +2923,22 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
     }
   }
 
-  const openCalendarMatchDayWorkflow = (form) => {
+  const openCalendarMatchDayWorkflow = async (form) => {
     const safeTeamId = getSafeCalendarTeamId(user, form.teamId)
     const trimmedTitle = getTrimmedFormValue(form.title)
     const trimmedOpponent = getTrimmedFormValue(form.opponent)
+
+    if (safeTeamId && safeTeamId !== user.activeTeamId && isClubAdmin(user)) {
+      setIsSaving(true)
+      try {
+        await selectTeam(safeTeamId)
+      } catch (error) {
+        setCalendarValidation({ fieldName: 'teamId', message: error.message || 'Could not open this team.' })
+        return
+      } finally {
+        setIsSaving(false)
+      }
+    }
 
     openMatchDayFixtureSetup({
       arrivalTime: form.arrivalTime,
@@ -2896,6 +2955,7 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
       opponent: trimmedOpponent || trimmedTitle,
       parentAudience: form.shareWithParents ? form.parentAudience : 'none',
       parentVisible: form.shareWithParents,
+      pitchType: form.pitchType,
       notificationTeamName: form.notificationTeamName,
       rememberNotificationTeamName: form.rememberNotificationTeamName === true,
       shirtChoice: form.shirtChoice,
@@ -2917,7 +2977,7 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
     }
 
     if (name === 'eventType' && value === 'match' && calendarModal?.mode === 'create' && !calendarModal?.event) {
-      openCalendarMatchDayWorkflow({
+      void openCalendarMatchDayWorkflow({
         ...calendarForm,
         eventType: 'match',
         endTime: addMinutesToTime(calendarForm.startTime, 120),
@@ -3035,7 +3095,7 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
       }
 
       if (name === 'shareWithParents') {
-        const currentSafeTeamId = isClubWideCalendar ? '' : getSafeCalendarTeamId(user, current.teamId)
+        const currentSafeTeamId = getSafeCalendarTeamId(user, current.teamId)
         nextForm.parentAudience = checked
           ? isClubWideShareableCalendarEvent({ form: current, safeTeamId: currentSafeTeamId, user })
             ? 'all_club_parents'
@@ -3058,6 +3118,9 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
         nextForm.resourceIds = []
         if (!value && current.parentAudience === 'all_team_parents') {
           nextForm.parentAudience = 'all_club_parents'
+        }
+        if (value && !current.teamId && current.parentAudience === 'all_club_parents') {
+          nextForm.parentAudience = 'all_team_parents'
         }
       }
 
@@ -3106,7 +3169,8 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
 
   const getCalendarTeamName = (teamId) => {
     const normalizedTeamId = String(teamId ?? '').trim()
-    return teams.find((team) => team.id === normalizedTeamId)?.name || user?.activeTeamName || ''
+    return teams.find((team) => team.id === normalizedTeamId)?.name
+      || (normalizedTeamId && normalizedTeamId === user?.activeTeamId ? user.activeTeamName : '')
   }
 
   const replaceInvitesForSource = (inviteState, source, savedInvites) => {
@@ -3290,10 +3354,11 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
       return
     }
     calendarChangeDecisionRef.current = null
+    calendarMutationSequence.current += 1
     setIsSaving(true)
     setErrorMessage('')
     setCalendarValidation(null)
-    const safeTeamId = isClubWideCalendar ? '' : getSafeCalendarTeamId(user, calendarForm.teamId)
+    const safeTeamId = getSafeCalendarTeamId(user, calendarForm.teamId)
     const teamName = getCalendarTeamName(safeTeamId)
     const notificationTeamName = safeTeamId
       ? String(calendarForm.notificationTeamName || deriveTeamNotificationDisplayName(teamName)).trim()
@@ -3316,6 +3381,9 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
     let changeNotificationPreparation = null
 
     try {
+      if (needsCalendarTeamRoster && calendarTeamPlayers?.teamId !== safeTeamId && calendarForm.shareWithParents) {
+        throw calendarValidationError('teamId', 'Wait for the selected team’s players to load before sharing this event.')
+      }
       if (activeEvent?.sourceId && decision?.notifyEveryone && !shouldNotifyNewlyEnabledVolunteerRoles) {
         changeNotificationPreparation = await prepareCalendarChangeNotification({
           changeAction: 'rescheduled',
@@ -3400,31 +3468,7 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
       }
 
       if (isMatch && !sourceType) {
-        openMatchDayFixtureSetup({
-          arrivalTime: calendarForm.arrivalTime,
-          autoSelectAvailablePlayers: calendarForm.autoSelectAvailablePlayers !== false,
-          fixtureType: calendarForm.fixtureType,
-          conclusionRule: calendarForm.conclusionRule,
-          extraTimeHalfMinutes: calendarForm.extraTimeHalfMinutes,
-          extraTimePeriodCount: calendarForm.extraTimePeriodCount,
-          homeAway: calendarForm.homeAway,
-          kickoffTime: calendarForm.startTime,
-          kickoffTimeTbc: calendarForm.kickoffTimeTbc === true,
-          matchDate: calendarForm.date,
-          matchDurationMinutes: calendarForm.matchDurationMinutes,
-          notes: calendarForm.notes,
-          opponent: trimmedOpponent || trimmedTitle,
-          parentAudience: calendarForm.shareWithParents ? calendarForm.parentAudience : 'none',
-          parentVisible: calendarForm.shareWithParents,
-          pitchType: calendarForm.pitchType,
-          notificationTeamName,
-          rememberNotificationTeamName: calendarForm.rememberNotificationTeamName === true,
-          shirtChoice: calendarForm.shirtChoice,
-          teamId: safeTeamId,
-          venueName: calendarForm.location,
-        }, { navigate })
-        setCalendarModal(null)
-        showToast({ title: 'Opening Match Day', message: 'Create this fixture in the full Match Day workflow.' })
+        await openCalendarMatchDayWorkflow({ ...calendarForm, notificationTeamName })
         return
       }
 
@@ -3771,7 +3815,11 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
           ? await updateCalendarEvent({ user, eventId: activeEvent.sourceId, event: payload })
           : await createCalendarEvent({ user, event: payload })
         coreSavedEvent = savedEvent
-        coreSavedCalendarItems = [savedEvent, ...calendarItems.filter((item) => item.id !== savedEvent.id)]
+        const belongsInCurrentCalendar = !savedEvent.teamId || savedEvent.teamId === user.activeTeamId
+        coreSavedCalendarItems = [
+          ...(belongsInCurrentCalendar ? [savedEvent] : []),
+          ...calendarItems.filter((item) => item.id !== savedEvent.id),
+        ]
         let savedTrainingAvailabilitySetting = null
 
         if (calendarForm.eventType === 'training' && safeTeamId && !calendarForm.requestTrainingAvailability) {
@@ -3829,7 +3877,10 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
         }
         writeCalendarAwareCache({ calendarItems: nextCalendarItems, calendarInvites: nextCalendarInvites })
         if (!calendarNotificationResult) {
-          showToast({ title: sourceType === 'calendar' ? 'Event updated' : 'Event created', message: savedEvent.title || 'Calendar updated.' })
+          showToast({
+            title: sourceType === 'calendar' ? 'Event updated' : 'Event created',
+            message: teamName ? `${savedEvent.title} was saved to the ${teamName} calendar.` : savedEvent.title || 'Calendar updated.',
+          })
         } else {
           showToast(getCalendarNotificationToast(calendarNotificationResult, {
             action: sourceType === 'calendar' ? 'updated' : 'created',
@@ -3902,6 +3953,7 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
       return
     }
     calendarChangeDecisionRef.current = null
+    calendarMutationSequence.current += 1
     setIsSaving(true)
     setErrorMessage('')
     try {
@@ -3967,6 +4019,7 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
     }
     calendarChangeDecisionRef.current = null
 
+    calendarMutationSequence.current += 1
     setIsSaving(true)
     setErrorMessage('')
     let changeNotificationPreparation = null
@@ -4091,6 +4144,7 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
     const activeEvent = calendarModal?.event
     if (activeEvent?.sourceType !== 'development' || !activeEvent.sourceId) return
 
+    calendarMutationSequence.current += 1
     setIsSaving(true)
     setErrorMessage('')
     try {
@@ -4658,7 +4712,6 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
           resourceOptions={calendarResourceOptions}
           selectedInvitePlayers={selectedCalendarInvitePlayers}
           trainingAvailabilitySummary={currentTrainingAvailabilitySummary}
-          clubWideOnly={isClubWideCalendar}
           teams={teams}
           user={user}
           variant={calendarModal?.variant || ''}
@@ -5979,7 +6032,6 @@ function CalendarPollResults({ poll }) {
 
 function CalendarEventModal({
   attachedResources = [],
-  clubWideOnly = false,
   currentInvites = [],
   event,
   eventResponseManager = null,
@@ -6265,9 +6317,10 @@ function CalendarEventModal({
     ].filter(Boolean).join(', ')
     : [form.date, form.startTime, form.location].filter(Boolean).join(', ')
   const canUseClubLevel = canCreateClubCalendarEvent(user)
-  const safeFormTeamId = clubWideOnly ? '' : getSafeCalendarTeamId(user, form.teamId)
+  const safeFormTeamId = getSafeCalendarTeamId(user, form.teamId)
+  const clubWideOnly = !safeFormTeamId
   const canShareClubWideWithParents = isClubWideShareableCalendarEvent({ form, safeTeamId: safeFormTeamId, user })
-  const canShowTeamResourceArea = Boolean(!clubWideOnly && safeFormTeamId && canManageResourceLibrary(user))
+  const canShowTeamResourceArea = Boolean(safeFormTeamId && canManageResourceLibrary(user))
   const canUseCalendarResourceLinks = Boolean((!event || event.sourceType === 'calendar') && isCalendarResourceEventType(form.eventType))
   const canAttachResources = canShowTeamResourceArea && canUseCalendarResourceLinks
   const canShowTrainingAvailability = Boolean(!clubWideOnly && safeFormTeamId && form.eventType === 'training' && (!event || event.sourceType === 'calendar'))
@@ -6574,35 +6627,25 @@ function CalendarEventModal({
                 </select>
                 {validationMessage('eventType')}
               </label>
-              {clubWideOnly ? (
-                <div className="block">
-                  <span className="mb-2 block text-sm font-black text-[#101828]">Scope</span>
-                  <div className={`${fieldClass} flex items-center`}>Club level</div>
+              <label className="block">
+                <span className="mb-2 block text-sm font-black text-[#101828]">{canUseClubLevel ? 'Calendar' : 'Team'}</span>
+                <select name="teamId" {...validationProps('teamId')} value={form.teamId} onChange={onChange} disabled={isBusy || Boolean(event && !user.activeTeamId)} className={fieldClass}>
+                  {canUseClubLevel ? <option value="" disabled={['training', 'match'].includes(form.eventType)}>Whole club</option> : null}
+                  {!canUseClubLevel && !form.teamId ? <option value="">Choose team</option> : null}
+                  {teams.map((team) => (
+                    <option key={team.id} value={team.id}>{team.name}</option>
+                  ))}
+                </select>
+                {validationMessage('teamId')}
+                {!canUseClubLevel ? (
                   <span className="mt-2 block text-xs font-bold leading-5 text-[#4b5f55]">
-                    Club Admin calendar events are shared across the club and are not tied to one team.
+                    Team Coaches can only save events against their assigned team.
                   </span>
-                </div>
-              ) : (
-                <label className="block">
-                  <span className="mb-2 block text-sm font-black text-[#101828]">Team</span>
-                  <select name="teamId" {...validationProps('teamId')} value={form.teamId} onChange={onChange} disabled={isBusy} className={fieldClass}>
-                    {canUseClubLevel ? <option value="">Club level</option> : null}
-                    {!canUseClubLevel && !form.teamId ? <option value="">Choose team</option> : null}
-                    {teams.map((team) => (
-                      <option key={team.id} value={team.id}>{team.name}</option>
-                    ))}
-                  </select>
-                  {validationMessage('teamId')}
-                  {!canUseClubLevel ? (
-                    <span className="mt-2 block text-xs font-bold leading-5 text-[#4b5f55]">
-                      Team Coaches can only save events against their assigned team.
-                    </span>
-                  ) : null}
-                </label>
-              )}
+                ) : null}
+              </label>
             </div>
 
-            {!clubWideOnly && form.teamId ? (
+            {safeFormTeamId ? (
               <label className="block">
                 <span className="mb-2 block text-sm font-black text-[#101828]">Your Team notification name</span>
                 <input

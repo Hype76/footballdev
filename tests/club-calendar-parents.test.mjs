@@ -51,21 +51,24 @@ test('club admin calendar loads club-wide events only and keeps calendar mutatio
   assert.match(policyMigration, /coalesce\(parent_visible, false\) = false[\s\S]*public\.can_use_plan_feature\(calendar_events\.club_id, 'parentPortal'\)/)
 })
 
-test('club admin calendar keeps a selected team in team scope and otherwise uses club-wide scope', async () => {
+test('club admin can create an event in a team calendar from the club workspace', async () => {
   const source = await readFile(sessionsPageUrl, 'utf8')
 
   assert.match(source, /const isClubWideCalendar = calendarOnly && isClubAdmin\(user\) && !user\?\.activeTeamId/)
   assert.match(source, /getCalendarEvents\(\{ user, clubWideOnly: true \}\)/)
-  assert.match(source, /clubWideOnly=\{isClubWideCalendar\}/)
+  assert.match(source, /calendarEvents: isClubWideCalendar \? calendarItems\.filter\(\(item\) => !item\.teamId\) : calendarItems/)
   assert.match(source, /Club-wide events shared across the club\./)
   assert.match(source, /allowedOptions\.filter\(\(option\) => !\['training', 'match'\]\.includes\(option\.value\)\)/)
   assert.match(source, /const preferredType = requestedEventType \|\| \(isMatchday \? 'match' : \(isClubWideCalendar \|\| calendarOnly\) \? 'general' : defaultForm\.eventType\)/)
   assert.match(source, /eventType,/)
-  assert.match(source, /const safeTeamId = isClubWideCalendar \? '' : getSafeCalendarTeamId\(user, calendarForm\.teamId\)/)
+  assert.match(source, /function handleOpenCalendarCreate[^]*?const teamId = String\(user\?\.activeTeamId \?\? ''\)\.trim\(\)/)
+  assert.match(source, /const safeTeamId = getSafeCalendarTeamId\(user, calendarForm\.teamId\)/)
+  assert.match(source, /teamId: safeTeamId,\s+title: trimmedTitle,\s+\}[^]*?await createCalendarEvent\(\{ user, event: payload \}\)/)
+  assert.match(source, /await selectTeam\(safeTeamId\)[^]*?openMatchDayFixtureSetup\(\{[^]*?teamId: safeTeamId/)
   assert.match(source, /parentAudience: isClubWideShareableCalendarEvent\(\{ form, safeTeamId, user \}\) \? 'all_club_parents' : form\.parentAudience/)
   assert.match(source, /<span className="block text-sm font-black text-\[#101828\]">Share with parents<\/span>/)
   assert.match(source, /Parents will see this event in their Parent Portal calendar\./)
-  assert.match(source, /Club Admin calendar events are shared across the club and are not tied to one team\./)
+  assert.match(source, /<option value="" disabled=\{\['training', 'match'\]\.includes\(form\.eventType\)\}>Whole club<\/option>/)
 })
 
 test('team-wide calendar parent sharing can queue linked parent emails', async () => {

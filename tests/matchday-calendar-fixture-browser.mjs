@@ -19,7 +19,7 @@ const entry = `
 import {getCoachFormationAuthorityScope} from './apps/coach-mobile/src/coachFormationEntryCore.js';
 import {CoachCalendarSync} from './apps/coach-mobile/src/CoachCalendarSync.js';
 import React,{useCallback,useEffect,useMemo,useRef,useState} from 'react';import {createRoot} from 'react-dom/client';
-import {Keyboard,Pressable,StyleSheet,Switch,Text,TextInput,View} from 'react-native';
+import {AppState,Keyboard,Pressable,StyleSheet,Switch,Text,TextInput,View} from 'react-native';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import {createCoachTheme} from './apps/coach-mobile/src/coachThemeCore.js';
 import {formatUkDate} from './src/lib/date-format.js';

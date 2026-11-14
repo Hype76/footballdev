@@ -33,7 +33,7 @@ import {VenueMapPreview} from './apps/mobile-core/src/VenueMapPreview.js';
 import {MatchTeamsLine} from './apps/mobile-core/src/MatchTeamsLine.js';
 import {PinnedEventNotes} from './apps/mobile-core/src/PinnedEventNotes.js';
 import {canRemoveCoachCancelledFixture,canEditCoachFixture} from './apps/mobile-core/src/coachFixtureEditCore.js';
-import React,{useState,useMemo,useEffect,useCallback,useRef} from 'react';import{createRoot}from'react-dom/client';import{View,Text,StyleSheet,Pressable,TextInput,Switch,Platform}from'react-native';import MaterialIcons from'@expo/vector-icons/MaterialIcons';
+import React,{useState,useMemo,useEffect,useCallback,useRef} from 'react';import{createRoot}from'react-dom/client';import{AppState,View,Text,StyleSheet,Pressable,TextInput,Switch,Platform}from'react-native';import MaterialIcons from'@expo/vector-icons/MaterialIcons';
 import{createCoachTheme}from'./apps/coach-mobile/src/coachThemeCore.js';import{createParentMobileTheme,DEFAULT_PARENT_MOBILE_THEME,resolveParentMobileBranding}from'./apps/mobile-core/src/parentThemeCore.js';
 import{getPitchTypeLabel,normalizePitchType}from'./src/lib/pitch-type.js';import{getMatchDayShirtChoiceLabel,normalizeMatchDayShirtChoice}from'./src/lib/matchday-model.js';import{normalizePersonName}from'./src/lib/person-name.js';import{getMatchDayDisplayName}from'./src/lib/matchday-display.js';import{getParentMatchStatusLabel}from'./apps/parent-mobile/src/parentExperience.js';import{formatParentProductDateTime,formatParentProductTime}from'./apps/mobile-core/src/parentDateTimeCore.js';import{formatMatchAddedTimeClock}from'./src/lib/matchday-event-time.js';${calendarImport}
 import{getParentMatchAvailability,getParentMatchSquadStatus}from'./apps/parent-mobile/src/parentMatchAvailability.js';

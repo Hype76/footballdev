@@ -11,7 +11,7 @@ import { getCoachFormationAuthorityScope } from './coachFormationEntryCore'
 import MaterialIcons from '@expo/vector-icons/MaterialIcons'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { invalidateMobileResource, peekMobileResource, readMobileResource } from '../../mobile-core/src/mobileResourceCache'
-import { Alert, Keyboard, Linking, Pressable, StyleSheet, Text, TextInput, View } from 'react-native'
+import { Alert, AppState, Keyboard, Linking, Pressable, StyleSheet, Text, TextInput, View } from 'react-native'
 import {
   buildCoachCalendarMonth,
   coachCalendarFormFromEvent,
@@ -332,6 +332,8 @@ function CoachCalendarScoped({ calendarTarget, context, contexts, onNavigate, on
   const hasCalendarSnapshot = useRef(false)
   const calendarDenied = useRef(false)
   const calendarLoadSequence = useRef(0)
+  const canRefreshCalendar = useRef(false)
+  canRefreshCalendar.current = !form && !resourceEditor && !saving
   const calendarDependenciesRef = useRef({ players, resources })
   calendarDependenciesRef.current = { players, resources }
   const [visibleMonth, setVisibleMonth] = useState(() => getCoachCalendarMonthKey())
@@ -375,7 +377,7 @@ function CoachCalendarScoped({ calendarTarget, context, contexts, onNavigate, on
       user.activeTeamId ? readMobileResource(user, 'coach:players', () => getCoachPlayerList(user), options) : Promise.resolve([]),
       user.activeTeamId ? readMobileResource(user, 'coach:phase31e:resources', () => getCoachResources(user), options) : Promise.resolve([]),
     ])
-    const network = readMobileResource(user, 'coach:calendar', () => getCoachCalendarResources(user), options)
+    const network = readMobileResource(user, 'coach:calendar', () => getCoachCalendarResources(user), { force: true })
       .then(value => ({ value }), error => ({ error }))
     const offline = calendarDenied.current ? Promise.resolve(null) : readCoachOfflineResources(user.id, context).catch(() => null)
     const { result, cached } = await resolveWithOffline(network, hasCalendarSnapshot.current ? Promise.resolve(null) : offline, saved => {
@@ -430,6 +432,12 @@ function CoachCalendarScoped({ calendarTarget, context, contexts, onNavigate, on
   }, [context, user])
 
   useEffect(() => { void load({ reuseFresh: true }) }, [load])
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state === 'active' && canRefreshCalendar.current) void load({ reuseFresh: true })
+    })
+    return () => subscription.remove()
+  }, [load])
   const calendarMonth = useMemo(
     () => buildCoachCalendarMonth(events, visibleMonth, selectedDate),
     [events, selectedDate, visibleMonth],
@@ -562,6 +570,7 @@ function CoachCalendarScoped({ calendarTarget, context, contexts, onNavigate, on
       const preparation = notifyEveryone ? await prepareCoachCalendarChangeNotification(selected, 'rescheduled', form) : null
       const attachmentOccurrenceDate = selected?.occurrenceDate || selected?.calendarDate || form?.date
       const savedEvent = await saveCoachCalendarEvent(user, form, selected)
+      invalidateMobileResource(user, 'coach:calendar')
       let attachmentMessage = ''
       if (savedEvent.teamId && Number(user.roleRank || 0) >= 50) {
         try {
@@ -635,6 +644,7 @@ function CoachCalendarScoped({ calendarTarget, context, contexts, onNavigate, on
       const attachedIds = getCoachCalendarEventResourceIds(latest, event.sourceId, event.occurrenceDate || event.calendarDate, event.sourceType)
       await syncCoachCalendarEventResources(user, event, [...new Set([...attachedIds, ...resourceEditor.selectedIds])], event.occurrenceDate || event.calendarDate)
       invalidateMobileResource(user, 'coach:phase31e:resources')
+      invalidateMobileResource(user, 'coach:calendar')
       await load()
       setResourceEditor(null)
       setSaveConfirmation('Resources added to this event.')
@@ -654,6 +664,7 @@ function CoachCalendarScoped({ calendarTarget, context, contexts, onNavigate, on
       const preparation = notifyEveryone ? await prepareCoachCalendarChangeNotification(selected, changeAction) : null
       if (changeAction === 'cancelled') await cancelCoachCalendarEvent(user, selected, cancellationReason)
       else await deleteCoachCalendarEvent(user, selected)
+      invalidateMobileResource(user, 'coach:calendar')
       let notificationMessage = ''
       if (preparation?.preparationId) {
         try {
@@ -707,6 +718,9 @@ function CoachCalendarScoped({ calendarTarget, context, contexts, onNavigate, on
   return (
     <View style={styles.stack}>
       <DomainHeader copy="Calendar events, Match Day fixtures, Sessions, recurrence, and training availability in Europe/London time." styles={styles} title="Calendar" />
+      {!form && !resourceEditor && !focusedEventId ? (
+        <Button disabled={loading || saving} label="Refresh calendar" onPress={() => void load({ reuseFresh: true })} secondary styles={styles} />
+      ) : null}
       <CoachCalendarSync key={`${user.id}:${context.id}`} user={user} context={context} offline={stale || user.isOfflineProfile} styles={styles} />
       {focusedEventId ? <Button label="Back to Calendar" onPress={() => { setFocusedEventId(''); setSelected(null) }} secondary styles={styles} /> : null}
       {!focusedEventId ? <><View accessibilityLabel={`${calendarMonth.title} Calendar`} style={styles.calendar}>
