@@ -570,6 +570,7 @@ function CoachCalendarScoped({ calendarTarget, context, contexts, onNavigate, on
       const preparation = notifyEveryone ? await prepareCoachCalendarChangeNotification(selected, 'rescheduled', form) : null
       const attachmentOccurrenceDate = selected?.occurrenceDate || selected?.calendarDate || form?.date
       const savedEvent = await saveCoachCalendarEvent(user, form, selected)
+      invalidateMobileResource(user, 'coach:calendar')
       let attachmentMessage = ''
       if (savedEvent.teamId && Number(user.roleRank || 0) >= 50) {
         try {
@@ -643,6 +644,7 @@ function CoachCalendarScoped({ calendarTarget, context, contexts, onNavigate, on
       const attachedIds = getCoachCalendarEventResourceIds(latest, event.sourceId, event.occurrenceDate || event.calendarDate, event.sourceType)
       await syncCoachCalendarEventResources(user, event, [...new Set([...attachedIds, ...resourceEditor.selectedIds])], event.occurrenceDate || event.calendarDate)
       invalidateMobileResource(user, 'coach:phase31e:resources')
+      invalidateMobileResource(user, 'coach:calendar')
       await load()
       setResourceEditor(null)
       setSaveConfirmation('Resources added to this event.')
@@ -662,6 +664,7 @@ function CoachCalendarScoped({ calendarTarget, context, contexts, onNavigate, on
       const preparation = notifyEveryone ? await prepareCoachCalendarChangeNotification(selected, changeAction) : null
       if (changeAction === 'cancelled') await cancelCoachCalendarEvent(user, selected, cancellationReason)
       else await deleteCoachCalendarEvent(user, selected)
+      invalidateMobileResource(user, 'coach:calendar')
       let notificationMessage = ''
       if (preparation?.preparationId) {
         try {

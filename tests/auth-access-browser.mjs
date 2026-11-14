@@ -1649,6 +1649,8 @@ try {
     const { page } = await preparePage(context)
     let savedEvent
     let savedMatch
+    let delayedCalendarRead
+    let releaseCalendarRead
     await context.route('**/rest/v1/teams?*', route => route.fulfill({
       json: [{ id: 'team-u12', name: 'U12 Fixture Team', club_id: 'club-fixture' }],
     }))
@@ -1659,7 +1661,14 @@ try {
         savedEvent = { id: 'fixture-calendar-event', ...request.postDataJSON() }
         await route.fulfill({ status: 201, json: savedEvent })
       } else {
-        await route.fulfill({ json: savedEvent && query.getAll('or').some(value => value.includes('team_id.eq.team-u12')) ? [savedEvent] : [] })
+        const rows = savedEvent && query.getAll('or').some(value => value.includes('team_id.eq.team-u12')) ? [savedEvent] : []
+        if (releaseCalendarRead) {
+          const pending = releaseCalendarRead
+          releaseCalendarRead = null
+          delayedCalendarRead()
+          await pending
+        }
+        await route.fulfill({ json: rows })
       }
     })
     await context.route('**/rest/v1/rpc/get_team_players', route => route.fulfill({
@@ -1702,6 +1711,27 @@ try {
       await page.getByRole('button', { name: 'Add event', exact: true }).click()
       assert.equal(await page.getByRole('dialog').locator('select[name="teamId"]').inputValue(), 'team-u12')
       await page.getByRole('button', { name: 'Close calendar event' }).click()
+      const readStarted = new Promise(resolve => { delayedCalendarRead = resolve })
+      let releaseRead
+      releaseCalendarRead = new Promise(resolve => { releaseRead = resolve })
+      await page.evaluate(() => window.dispatchEvent(new Event('focus')))
+      await readStarted
+      try {
+        await page.getByRole('button', { name: 'Add event', exact: true }).click()
+        await dialog.getByLabel('Title', { exact: true }).fill('FP TEST second team event')
+        await dialog.locator('input[name="date"]').fill(today)
+        await dialog.locator('input[name="startTime"]').fill('20:00')
+        await dialog.locator('input[name="endTime"]').fill('21:00')
+        await dialog.getByRole('button', { name: 'Save changes', exact: true }).click()
+        await dialog.waitFor({ state: 'hidden' })
+        const staleResponse = page.waitForResponse(response => response.url().includes('/calendar_events?') && response.request().method() === 'GET')
+        releaseRead()
+        await staleResponse
+        await page.waitForFunction(() => Object.entries(sessionStorage).some(([key, value]) => key.startsWith('view-cache:sessions:') && value.includes('FP TEST second team event')))
+        await assertVisibleText(page, 'FP TEST second team event')
+      } finally {
+        releaseRead()
+      }
       await page.evaluate(() => sessionStorage.removeItem('selected-team-id'))
       await page.reload()
       await page.getByRole('heading', { name: 'Club calendar', exact: true }).waitFor()

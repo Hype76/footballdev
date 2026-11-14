@@ -1124,6 +1124,7 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
   const calendarDeepLinkRequestRef = useRef('')
   const calendarChangeDecisionRef = useRef(null)
   const calendarEditBaselineRef = useRef(null)
+  const calendarMutationSequence = useRef(0)
   const canRefreshCalendar = useRef(false)
   canRefreshCalendar.current = !calendarModal && !isSaving
   const userScopeKey = user
@@ -1607,9 +1608,12 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
     let isMounted = true
     let loading = false
 
-    const loadData = async () => {
+    const loadData = async ({ refresh = false } = {}) => {
       if (loading) return
       loading = true
+      const mutationSequence = calendarMutationSequence.current
+      const canApply = () => isMounted && mutationSequence === calendarMutationSequence.current
+        && (!refresh || canRefreshCalendar.current)
       const cachedValue = readViewCache(cacheKey)
       setErrorMessage('')
 
@@ -1620,7 +1624,7 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
             withRequestTimeout(() => getCalendarEvents({ user, clubWideOnly: true }), 'Could not load calendar events.'),
           ])
 
-          if (!isMounted) {
+          if (!canApply()) {
             return
           }
 
@@ -1693,7 +1697,7 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
           withRequestTimeout(() => getAssessmentReminderLogs({ user }), 'Could not load assessment reminders.'),
         ])
 
-        if (!isMounted) {
+        if (!canApply()) {
           return
         }
 
@@ -1822,7 +1826,7 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
     const refreshOnReturn = () => {
       if (loading || !canRefreshCalendar.current || document.visibilityState === 'hidden') return
       invalidateMemoryCacheByPrefix(`calendar-events:${user.clubId}:${user.id}:`)
-      void loadData()
+      void loadData({ refresh: true })
     }
     if (calendarOnly && user) window.addEventListener('focus', refreshOnReturn)
 
@@ -3350,6 +3354,7 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
       return
     }
     calendarChangeDecisionRef.current = null
+    calendarMutationSequence.current += 1
     setIsSaving(true)
     setErrorMessage('')
     setCalendarValidation(null)
@@ -3948,6 +3953,7 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
       return
     }
     calendarChangeDecisionRef.current = null
+    calendarMutationSequence.current += 1
     setIsSaving(true)
     setErrorMessage('')
     try {
@@ -4013,6 +4019,7 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
     }
     calendarChangeDecisionRef.current = null
 
+    calendarMutationSequence.current += 1
     setIsSaving(true)
     setErrorMessage('')
     let changeNotificationPreparation = null
@@ -4137,6 +4144,7 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
     const activeEvent = calendarModal?.event
     if (activeEvent?.sourceType !== 'development' || !activeEvent.sourceId) return
 
+    calendarMutationSequence.current += 1
     setIsSaving(true)
     setErrorMessage('')
     try {
