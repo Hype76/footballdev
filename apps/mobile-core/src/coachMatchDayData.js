@@ -482,6 +482,16 @@ export async function syncCoachMatchDayCommand(user, command, baseMatch) {
   return { ...normalizeCoachMatchDay({ ...mergeMatchDayCommandSnapshot(baseMatch, result), events }), isHydrated: baseMatch.isHydrated }
 }
 
+export async function endCoachMatchDayWithoutShootoutResult(user, match) {
+  await prepareMutation(user, match)
+  if (normalize(match?.currentMatchPhase) !== 'penalties' || normalize(match?.status) !== 'penalties') {
+    throw new Error('Refresh Match Day before ending this shootout.')
+  }
+  await rpc('end_match_day_without_shootout_result', { match_day_id_value: match.id })
+  await sendCoachMatchDayPush(match, 'full_time')
+  return getCoachMatchDayDetail(user, match.id)
+}
+
 export async function runCoachMatchDayTimerAction(user, match, action) {
   await prepareMutation(user, match)
   const value = normalize(action)
