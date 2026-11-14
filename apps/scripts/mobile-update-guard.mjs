@@ -13,8 +13,9 @@ const updateConfirmed = String(process.env.MOBILE_OTA_UPDATE_CONFIRMED || '').tr
 const updateMessage = String(process.env.MOBILE_OTA_UPDATE_MESSAGE || '').trim()
 const productionProfile = 'store-live'
 const legacyIosRelease = runtimeVersion === '1.1.1' && updatePlatform === 'ios'
-const releaseSource = legacyIosRelease ? 'origin/codex/ios-1.1.1-maintenance' : 'origin/main'
-const legacyIosBaseline = 'a9de799a2fef0b5ac4915a3c1c3417f877354421'
+const legacyAndroidRelease = runtimeVersion === '1.1.0' && updatePlatform === 'android' && appRole === 'coach'
+const releaseSource = legacyAndroidRelease ? 'origin/codex/android-1.1.0-maintenance' : legacyIosRelease ? 'origin/codex/ios-1.1.1-maintenance' : 'origin/main'
+const legacyAndroidBaseline = 'a9de799a2fef0b5ac4915a3c1c3417f877354421'
 
 if (!app) {
   console.error('Unknown mobile app role. Expected coach or parent.')
@@ -26,10 +27,8 @@ if (!supportedUpdatePlatforms.has(updatePlatform)) {
   process.exit(1)
 }
 
-// Current public iOS builds use 1.1.1; Android and older iOS use 1.1.0.
-// Only this known, native-compatible runtime can be selected for an iOS OTA.
-if (runtimeVersion && (runtimeVersion !== '1.1.1' || updatePlatform !== 'ios')) {
-  console.error('The additional OTA runtime is restricted to iOS 1.1.1.')
+if (runtimeVersion && !legacyAndroidRelease && (runtimeVersion !== '1.1.1' || updatePlatform !== 'ios')) {
+  console.error('Explicit OTA runtime selection is restricted to iOS 1.1.1 and Android Coach 1.1.0.')
   process.exit(1)
 }
 
@@ -77,8 +76,8 @@ if (!headCommit || headCommit !== releaseCommit) {
   process.exit(1)
 }
 
-if (legacyIosRelease) {
-  execFileSync('git', ['merge-base', '--is-ancestor', legacyIosBaseline, headCommit], { cwd: repoRoot })
+if (legacyAndroidRelease || legacyIosRelease) {
+  execFileSync('git', ['merge-base', '--is-ancestor', legacyAndroidBaseline, headCommit], { cwd: repoRoot })
 }
 
 assertEasLogin()
@@ -87,7 +86,20 @@ const updateEnvironment = {
   ...process.env,
   ...loadMobileLocalEnv(repoRoot, app.path),
   EXPO_PUBLIC_BUILD_PROFILE: productionProfile,
-  MOBILE_OTA_RUNTIME_VERSION: runtimeVersion,
+  MOBILE_OTA_RUNTIME_VERSION: legacyAndroidRelease ? '' : runtimeVersion,
+}
+
+if (legacyAndroidRelease) {
+  const configScript = "const { version, runtimeVersion } = require('./app.config.js').expo; if (runtimeVersion?.policy === 'appVersion') process.stdout.write(String(version))"
+  const resolvedRuntime = execFileSync(process.execPath, ['-e', configScript], {
+    cwd: resolve(repoRoot, app.path),
+    env: updateEnvironment,
+    encoding: 'utf8',
+  }).trim()
+  if (resolvedRuntime !== runtimeVersion) {
+    console.error('Production mobile update is blocked because the Android Coach runtime did not resolve to 1.1.0.')
+    process.exit(1)
+  }
 }
 
 if (legacyIosRelease) {
