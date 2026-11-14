@@ -16,7 +16,7 @@ const entry = `
   const base = {id:'fixture',clubId:'club',teamId:'team',teamName:'FP TEST',opponent:'Visitors',updatedAt:new Date(Date.now()-300000).toISOString(),
     status:'live',currentMatchPhase:'first_half',timerStatus:'running',timerStartedAt:new Date(Date.now()-300000).toISOString(),timerElapsedSeconds:0,
     homeAway:'away',homeScore:0,awayScore:0,matchDurationMinutes:70,clockMode:'fixed',events:[],squadDecisions:[],isToday:true,hasPresentationState:true,
-    conclusionRule:'normal_time',eventParticipants:[{id:'scorer-1',teamId:'team',playerName:'FP TEST'},{id:'scorer-2',teamId:'team',playerName:'FP TEST Second'}]};
+    eventParticipants:[{id:'scorer-1',teamId:'team',playerName:'FP TEST'},{id:'scorer-2',teamId:'team',playerName:'FP TEST Second'}]};
   window.server=JSON.parse(localStorage.getItem('server')||JSON.stringify(base));
   localStorage.setItem('server',JSON.stringify(window.server));
   window.online=localStorage.getItem('offline')!=='1'; window.listeners=[]; window.calls=[];
@@ -143,7 +143,7 @@ try {
     for (const finishQueued of [true, false]) {
       await page.evaluate(queued => {
         localStorage.clear()
-        const base = { ...window.server, status:'second_half', currentMatchPhase:'second_half', timerStatus:'running',
+        const base = { ...window.server, status:'second_half', currentMatchPhase:'second_half', timerStatus:'running', conclusionRule:'normal_time',
           updatedAt:new Date(Date.now()-300000).toISOString(), concludedAt:'', homeScore:0, awayScore:0, events:[] }
         const time = (seconds) => new Date(Date.parse(base.updatedAt)+seconds*1000).toISOString()
         const pending = [
