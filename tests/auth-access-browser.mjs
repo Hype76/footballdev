@@ -1751,6 +1751,7 @@ try {
       await page.getByText('Fixture created', { exact: true }).waitFor()
       assert.equal(savedMatch.team_id, 'team-u12')
       await page.goto(`${mainBaseUrl}/calendar`)
+      await page.getByRole('button', { name: 'Agenda', exact: true }).click()
       await assertVisibleTextContaining(page, 'FP TEST Visitors')
     } catch (error) {
       console.error((await page.locator('body').innerText()).slice(-2500))
