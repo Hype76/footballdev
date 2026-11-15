@@ -559,7 +559,7 @@
   "implementationHashes": {
     "scripts/security-supply-chain-gate.mjs": "dcf722bc6cbf2015da4250ea60cbb81e34d3c5c64ec7bb6059671cbae5ab4207",
     "scripts/security-apply-reviewed-backports.mjs": "7f0e9de0add15a121a0f60f89f71656b503450010b8b9c8d4aaf58bc355fc5ec",
-    "scripts/security-verify-reviewed-backports.mjs": "2abb969740e4e1bf3c36bc0109ba894d9faff2aa8325ff8dbe528b5515904b96",
+    "scripts/security-verify-reviewed-backports.mjs": "00765042a31311071b9e2a8d31d8748af68c26e3442a70be841dccc629dc0975",
     "security/patches/braces-3.0.3.patch": "e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699",
     "security/patches/node-forge-1.4.0.patch": "2de065ac998bf58917a14d0935112d97ec2957ac41b5f06958d500934f188ed4",
     "security/patches/reviewed-source-manifest.json": "facb364bbac44a8276d082068e8ed8415ca89777d24f4c7a05ff370f71e5a54d",
@@ -1696,7 +1696,7 @@
       "tests/attendance-migration-contract.mjs": "5da866fa3575c537494dde373f67f5fd1dcc140ba2123bef18a609e8362a3478",
       "tests/attendance-outbox.test.mjs": "3074e4b75292e0900d61ecd9733924b51a392d459550e233857d655af5b5df15",
       "tests/attendance-ui-handlers.test.mjs": "29e740037a3561c090c9957a632f5007faf2c2690a1a1cd2a43c2bd2c5d7968b",
-      "tests/auth-access-browser.mjs": "96f069d9afefcedfca0c1d641e8a0d04650f0f2a50120e8b9513fa08200980e8",
+      "tests/auth-access-browser.mjs": "b03b5c6cb7bc2d406ffd488e1bfc547a3974b6931632c8a60f848462f9d614eb",
       "tests/auth-email-app-role.test.mjs": "926c7bfba5dd3142eefbed6a8d6f328f98196aaed8b7cbd9fafc63e7292dc2ee",
       "tests/authority-containment-pglite.test.mjs": "ef779198237d79793964e868e14fa6db71bcb5692887a0856678cdc1e66aad03",
       "tests/billing-cancel-browser.mjs": "7f12abcbe958dbe1b9260896d097c001704c5a6e4d90f3587f329669ad402bbb",
@@ -2352,7 +2352,9 @@
       "supabase/migrations/20261113165700_v1_staff_invite_existing_accounts.sql": "b41b2a83bae4b72bfd06ca565603c060cf5d07ceb94a1dc583bbb75947e0b4bc",
       "tests/parent-invite-existing-account-hotfix.test.mjs": "cec2f3fa2a3adac49f75d8d729f2f06ea04d27d9fcc58c3d7040889ecf0e7af8",
       "tests/platform-club-access-management.test.mjs": "debe8aab4e767f6c4b1c354d45abeb3ce89a508337871b4e79184f73bbd21185",
-      "tests/coach-offline-preparation.test.mjs": "bfe10c411b5e16efe7690917827862a9ad62e15e105856a9245246e6e1f277b5"
+      "tests/coach-offline-preparation.test.mjs": "bfe10c411b5e16efe7690917827862a9ad62e15e105856a9245246e6e1f277b5",
+      "src/lib/matchday-communication-safety.js": "5088f3bc6042c10b4d340a7568f46627e8cbac146d6b1f806552a530ba4a9427",
+      "tests/matchday-parent-calendar-safety.test.mjs": "19e0babd904108f68fae4f1b4ce8f86331ff21268cf3039352125009c8197bec"
     },
     "externalTrustInputs": [
       "FOOTBALL_REVIEW_RECEIPT_BASE64",
@@ -3834,7 +3836,7 @@
       "independentExactSourceAcceptanceRequired": true
     }
   },
-  "releasePreparationSha256": "a0ffc737e94076154aa9f6eb4ac3c53017e13398b70dcf3b091cb68c7bdd9685",
+  "releasePreparationSha256": "9d7bbd195553475c6f94fdc5030d91b6df5b2c74699f98e87b7389b09f66523b",
   "rootOnlyProposalSha256": "45c3b7352c7328c84982e114b7e87e09cf79514d02d102297ae75ec0925812eb",
   "remediationMode": "maintained-source-fixes",
   "officialCompatibilityDependencies": [

@@ -14,6 +14,7 @@ export function isProductionMatchdayCommunicationHost(hostname) {
   const normalizedHostname = normalizeText(hostname)
   return normalizedHostname === 'footballplayer.online'
     || normalizedHostname === 'www.footballplayer.online'
+    || normalizedHostname === 'parent.footballplayer.online'
 }
 
 export function isPreviewMatchdayCommunicationHost(hostname) {

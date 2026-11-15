@@ -4,10 +4,37 @@ import { readFile } from 'node:fs/promises'
 import { test } from 'node:test'
 
 import {
+  isLiveMatchdayCommunicationAllowed,
   shouldSendMatchdayAvailabilityRequests,
   shouldSendMatchdayPushNotification,
 } from '../src/lib/matchday-communication-safety.js'
 import { buildMatchDayParentVisibility } from '../src/lib/matchday-parent-visibility.js'
+
+test('Parent production can send match alerts while preview and lookalike domains cannot', () => {
+  const check = hostname => isLiveMatchdayCommunicationAllowed({ env: { MODE: 'production' }, location: { hostname } })
+  assert.equal(check('parent.footballplayer.online'), true)
+  assert.equal(check('PARENT.FOOTBALLPLAYER.ONLINE'), true)
+  assert.equal(check('parent.footballplayer.online.attacker.test'), false)
+  assert.equal(check('parent-footballplayer.netlify.app'), false)
+  assert.equal(check('localhost'), false)
+})
+
+test('a Parent production goal sends its scorer and event to the notification endpoint', async () => {
+  const source = await readFile(new URL('../src/lib/push-notifications.js', import.meta.url), 'utf8')
+  const start = source.indexOf('export async function sendMatchDayPushNotification(')
+  const end = source.indexOf('\nexport async function sendParentMobilePushNotification(', start)
+  const declaration = source.slice(start, end).replace('export async function', 'async function')
+    .replace('import.meta.env', "{ MODE: 'production' }")
+    .replace('globalThis.window?.location', 'location')
+  const requests = []
+  const fetch = async (url, options) => { requests.push({ url, options }); return { json: async () => ({ success: true }) } }
+  const send = new Function('isLiveMatchdayCommunicationAllowed', 'getAccessToken', 'fetch', 'location',
+    `${declaration}; return sendMatchDayPushNotification`)(isLiveMatchdayCommunicationAllowed, async () => 'test-token', fetch, { hostname: 'parent.footballplayer.online' })
+  await send({ matchDayId: 'fixture', type: 'goal', eventId: 'goal', parentLinkId: 'parent' })
+  assert.equal(requests.length, 1)
+  assert.equal(requests[0].url, '/.netlify/functions/send-match-day-push')
+  assert.deepEqual(JSON.parse(requests[0].options.body), { matchDayId: 'fixture', type: 'goal', eventId: 'goal', parentLinkId: 'parent', targetParentLinkIds: [] })
+})
 
 const migrationUrl = migrationSourceUrl('20260614030531_20260613120000_parent_calendar_visibility_controls.sql', 'active')
 const grantHardeningMigrationUrl = migrationSourceUrl('20260614031148_20260614031058_harden_parent_portal_rpc_execute_grants.sql', 'active')
