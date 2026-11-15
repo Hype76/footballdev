@@ -1696,7 +1696,7 @@
       "tests/attendance-migration-contract.mjs": "5da866fa3575c537494dde373f67f5fd1dcc140ba2123bef18a609e8362a3478",
       "tests/attendance-outbox.test.mjs": "3074e4b75292e0900d61ecd9733924b51a392d459550e233857d655af5b5df15",
       "tests/attendance-ui-handlers.test.mjs": "29e740037a3561c090c9957a632f5007faf2c2690a1a1cd2a43c2bd2c5d7968b",
-      "tests/auth-access-browser.mjs": "96f069d9afefcedfca0c1d641e8a0d04650f0f2a50120e8b9513fa08200980e8",
+      "tests/auth-access-browser.mjs": "6b353bc9e4b7c473e60de332b58c37c75f0f720a28e7f41a3c6e2dcc92bf0d13",
       "tests/auth-email-app-role.test.mjs": "926c7bfba5dd3142eefbed6a8d6f328f98196aaed8b7cbd9fafc63e7292dc2ee",
       "tests/authority-containment-pglite.test.mjs": "ef779198237d79793964e868e14fa6db71bcb5692887a0856678cdc1e66aad03",
       "tests/billing-cancel-browser.mjs": "7f12abcbe958dbe1b9260896d097c001704c5a6e4d90f3587f329669ad402bbb",
