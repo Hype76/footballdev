@@ -31,7 +31,7 @@ import {
 import { getParentPortalLinks, withSelectedParentLink } from '../../mobile-core/src/parentLinks'
 import { applyParentNotificationAction } from '../../mobile-core/src/parentNotificationInboxCore'
 import { pruneRemovedParentOfflineScopes } from '../../mobile-core/src/parentAccessRemovalCore'
-import { appendParentScorerCommand, projectParentScorerOutbox, restoreRejectedShootout } from './parentScorerOutboxCore'
+import { appendParentScorerCommand, canReviewParentScorerActions, projectParentScorerOutbox, restoreRejectedShootout, reviewParentScorerConflict } from './parentScorerOutboxCore'
 import { applyParentScorerCommand } from './parentPortalData'
 
 const config = getMobileRuntimeConfig('parent')
@@ -305,6 +305,23 @@ export async function restoreParentRejectedShootout(user, link, matchId) {
   return journal
 }
 
+export async function reviewParentScorerSavedActions(user, link, latest, expectedIds, options) {
+  if (activeScorerSyncs.has(user.id)) throw new Error('Wait for sync to finish before reviewing saved actions.')
+  const review = (async () => {
+    let journal
+    await updateParentDocument(user, document => {
+      const current = document?.parentScorerOutboxes?.[link.id]?.[latest.id]
+      assertParentScorerScope(document, user, link, latest)
+      journal = reviewParentScorerConflict(current, latest, expectedIds, options)
+      return { ...document, parentScorerOutboxes: { ...document.parentScorerOutboxes,
+        [link.id]: { ...document.parentScorerOutboxes[link.id], [latest.id]: journal } } }
+    })
+    return journal
+  })()
+  activeScorerSyncs.set(user.id, review)
+  try { return await review } finally { activeScorerSyncs.delete(user.id) }
+}
+
 export async function refreshParentScorerOutboxes(user, link, matches) {
   const updated = await updateParentDocument(user, document => {
     const outboxes = document.parentScorerOutboxes || {}
@@ -324,7 +341,7 @@ export async function refreshParentScorerOutboxes(user, link, matches) {
 
 const activeScorerSyncs = new Map()
 
-export function syncParentScorerOutboxes(user) {
+export function syncParentScorerOutboxes(user, { explicitRetry = false } = {}) {
   if (activeScorerSyncs.has(user.id)) return activeScorerSyncs.get(user.id)
   const run = (async () => {
     let saved = 0
@@ -336,6 +353,7 @@ export function syncParentScorerOutboxes(user) {
           const latest = (await readParentScorerOutboxes(user, link.id))[matchId]
           const command = latest?.pending?.[0]
           if (!command) break
+          if (!explicitRetry && canReviewParentScorerActions(latest)) break
           try {
             const result = await applyParentScorerCommand(withSelectedParentLink(user, link), command, latest.baseMatch)
             await updateParentDocument(user, document => {

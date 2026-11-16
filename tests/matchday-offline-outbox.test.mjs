@@ -345,7 +345,9 @@ test('missing provider tickets cannot be counted as successful delivery', async 
 
 test('review after a confirmed conflict preserves command identity and uses the latest match version', async () => {
   let conflict = true
+  let attempts = 0
   const h = harness(async (command, base) => {
+    attempts += 1
     if (conflict) throw Object.assign(new Error('Changed on another device'), { code: '40001' })
     assert.equal(command.id, 'goal-review')
     assert.equal(command.expectedUpdatedAt, iso(10))
@@ -355,6 +357,9 @@ test('review after a confirmed conflict preserves command identity and uses the 
   const original = structuredClone(h.get().pending[0])
   await assert.rejects(h.controller.reviewAgainstLatest({ ...match, updatedAt: iso(10) }), /Sync saved/)
   await h.controller.sync()
+  await h.controller.sync()
+  assert.equal(attempts, 1, 'Automatic sync must pause once the server reports a conflict')
+  assert.equal(h.get().errorCode, '40001')
   await assert.rejects(h.controller.reviewAgainstLatest({ ...match, id: 'other', updatedAt: iso(10) }), /Refresh/)
   await assert.rejects(h.controller.reviewAgainstLatest({ ...match, status: 'full_time', updatedAt: iso(10) }), /Refresh/)
   await h.controller.reviewAgainstLatest({ ...match, awayScore: 2, updatedAt: iso(10) })
@@ -365,6 +370,23 @@ test('review after a confirmed conflict preserves command identity and uses the 
   await h.controller.sync()
   assert.equal(h.get().pending.length, 0)
   assert.equal(h.get().baseMatch.awayScore, 3)
+})
+
+test('Coach can explicitly remove only a redundant rejected start and retain the queued goal', async () => {
+  const h = harness(async () => { throw Object.assign(new Error('Changed on another device'), { code: '40001' }) })
+  await h.controller.enqueue({ id: 'start', kind: 'timer', payload: { action: 'start' }, capturedAt: iso(1) })
+  await h.controller.enqueue(goal('goal-after-start', 5))
+  await h.controller.sync()
+  const original = structuredClone(h.get().pending[1])
+  const latest = { ...match, status: 'live', currentMatchPhase: 'first_half', timerStatus: 'running', updatedAt: iso(3) }
+  await assert.rejects(h.controller.reviewAgainstLatest(latest), /already running/)
+  await assert.rejects(h.controller.reviewAgainstLatest(latest, { removeRedundantStart: true, expectedIds: ['start'] }), /changed/)
+  await h.controller.reviewAgainstLatest(latest, { removeRedundantStart: true, expectedIds: ['start', 'goal-after-start'] })
+  assert.equal(h.get().pending[0].id, original.id)
+  assert.deepEqual(h.get().pending[0].payload, original.payload)
+  assert.equal(h.get().pending[0].capturedAt, original.capturedAt)
+  assert.equal(h.get().pending[0].expectedUpdatedAt, latest.updatedAt)
+  assert.equal(h.get().pending[0].previousCommandId, null)
 })
 
 test('an uncertain timeout cannot rebase a command that might already have been accepted', async () => {

@@ -7,6 +7,7 @@ import { isMatchdayPlan } from '../apps/mobile-core/src/matchdayPolicyCore.js'
 import { createCoachFixtureForm, initializeCoachFixtureForm, validateCoachFixtureForm } from '../apps/mobile-core/src/coachFixtureCore.js'
 import { buildCoachCalendarEvents } from '../apps/mobile-core/src/coachCalendarCore.js'
 import { MATCHDAY_DEFAULT_FLAGS } from '../src/lib/matchday-policy.js'
+import { settleCoachFixtureAudit } from '../apps/mobile-core/src/coachFixtureAuditCore.js'
 
 const context = { planKey: 'matchday', role: 'head_manager', roleRank: 70, teamId: 'team', paymentAccess: { canMutate: true } }
 const config = { flags: MATCHDAY_DEFAULT_FLAGS }
@@ -130,7 +131,7 @@ test('the fixture save path persists a real match and supplies the Calendar matc
       return query
     } }),
   }
-  const dependencies = { assertCoachOperationalMutation: () => {}, validateCoachFixtureForm, normalize: value => String(value || '').trim(), saveCoachTeamNotificationDisplayName: async () => {}, supabase, normalizeTeamNotificationDisplayName: value => value, LIST_SELECT: '*', normalizeCoachMatchDay, recordCoachOperationalAudit: async () => {}, sendCoachFixtureInvitations: async () => { throw new Error('test must not send invitations') } }
+  const dependencies = { assertCoachOperationalMutation: () => {}, validateCoachFixtureForm, normalize: value => String(value || '').trim(), saveCoachTeamNotificationDisplayName: async () => {}, supabase, normalizeTeamNotificationDisplayName: value => value, LIST_SELECT: '*', normalizeCoachMatchDay, settleCoachFixtureAudit, recordCoachOperationalAudit: async () => {}, sendCoachFixtureInvitations: async () => { throw new Error('test must not send invitations') } }
   const create = new Function(...Object.keys(dependencies), `return (${body})`)(...Object.values(dependencies))
   const form = { ...createCoachFixtureForm({ defaultMatchDate: '2099-10-15' }), opponent: 'Visitors', fixtureType: 'friendly', rememberNotificationTeamName: false, parentVisible: false }
   const result = await create({ id: 'coach', clubId: 'club', activeTeamId: 'team' }, form)
@@ -152,10 +153,19 @@ test('created fixtures become the selected match and invalidate Calendar before 
   const invalidated = []
   const selectedMatchId = { current: 'previous-fixture' }
   const matchRef = { current: { id: 'previous-fixture' } }
-  const dependencies = { setFixtureFormOpen: () => {}, onRequestScrollTop: () => {}, setNotice: () => {}, normalizeCoachMatchDay, selectedMatchId, matchRef, invalidateMobileResource: (_user, key) => invalidated.push(key), user: {}, setMatches: () => {}, getCoachMatchDayDetail: async () => { assert.equal(selectedMatchId.current, 'fixture'); return { id: 'fixture' } }, setMatch: () => {}, setPanel: () => {}, setScoreDraft: () => {} }
+  const dependencies = { setFixtureFormOpen: () => {}, onRequestScrollTop: () => {}, setNotice: () => {}, normalizeCoachMatchDay, selectedMatchId, matchRef, invalidateMobileResource: (_user, key) => invalidated.push(key), user: {}, setMatches: () => {}, setOlderMatchOffset: () => {}, getCoachMatchDayDetail: async () => { assert.equal(selectedMatchId.current, 'fixture'); return { id: 'fixture' } }, setMatch: () => {}, setFixtureStale: () => {}, setPanel: () => {}, setScoreDraft: () => {} }
   const created = new Function(...Object.keys(dependencies), `return async (result) => {${handler}}`)(...Object.values(dependencies))
   await created({ match: { id: 'fixture', matchDate: '2099-10-15' } })
   assert.deepEqual(invalidated, ['coach:calendar', 'coach:match-list'])
   assert.equal(selectedMatchId.current, 'fixture')
   assert.equal(matchRef.current.id, 'fixture')
+})
+
+test('incomplete fixture invitations show a clear warning instead of an unconditional success message', async () => {
+  const source = await readFile(new URL('../apps/mobile-core/src/coachMatchDayData.js', import.meta.url), 'utf8')
+  const body = source.match(/function fixtureInvitationWarning\([^]*?\n\}/)[0]
+  const warning = new Function(`return (${body})`)()
+  assert.match(warning({ complete: false, missingContactCount: 2 }), /2 player invitations could not be sent/)
+  assert.match(warning({ complete: false, missingContactCount: 1 }), /account setup/)
+  assert.equal(warning({ complete: true }), '')
 })

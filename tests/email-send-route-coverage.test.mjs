@@ -5,6 +5,8 @@ const functionsRoot=new URL('../netlify/functions/',import.meta.url)
 async function sources(dir,prefix='') {const result=[];for(const e of await readdir(dir,{withFileTypes:true})){if(e.isDirectory()) result.push(...await sources(new URL(`${e.name}/`,dir),`${prefix}${e.name}/`));else if(/\.(?:[cm]?[jt]s)$/.test(e.name))result.push([`${prefix}${e.name}`,await readFile(new URL(e.name,dir),'utf8')])}return result}
 const sendRoutes={
  'adult-player-setup.js':'none',
+ 'manage-phone-team-administration.js':'delegate:lib/_phone-team-administration.js',
+ 'lib/_phone-team-administration.js':'coach',
  'lib/_fresh-coach-signup.js':'coach',
  'lib/_signup-notification-email.js':'both',
  'invite-coach.mts':'delegate:lib/_coach-referral.js','lib/_coach-referral.js':'coach',
@@ -13,7 +15,7 @@ const sendRoutes={
 test('every production email-provider caller has an audited app audience or explicit delegate',async()=>{
  const files=await sources(functionsRoot)
  const actual=files.filter(([name,s])=>name!=='lib/_email-provider.js'&&/import\s*\{[^}]*\bsendEmail\b[^}]*\}\s*from\s*['"][^'"]*_email-provider\.js['"]/.test(s)).map(([name])=>name).sort()
- const expected=Object.keys(sendRoutes).filter(n=>!['lib/_fan-account.js','lib/_coach-referral.js'].includes(n)).sort()
+ const expected=Object.keys(sendRoutes).filter(n=>!['lib/_fan-account.js','lib/_coach-referral.js','lib/_phone-team-administration.js'].includes(n)).sort()
  assert.deepEqual(actual,expected,'A new provider caller needs audience classification in this independent inventory.')
  for(const [name,role]of Object.entries(sendRoutes)){
   const code=files.find(([n])=>n===name)?.[1];assert.ok(code,name)

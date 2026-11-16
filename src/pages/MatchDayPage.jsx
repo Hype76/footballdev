@@ -3241,7 +3241,7 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
           : normalizedCalendarTarget === 'squad'
             ? 'The fixture was added to Coach and player calendars. No availability requests or notifications were sent.'
           : canSendAvailabilityRequests
-            ? `${result.queuedCount ?? result.sentCount ?? 0} availability request notification${(result.queuedCount ?? result.sentCount ?? 0) === 1 ? '' : 's'} scheduled. ${result.missingContactCount ?? 0} players need contact details.`
+            ? `${result.queuedCount ?? result.sentCount ?? 0} availability request notification${(result.queuedCount ?? result.sentCount ?? 0) === 1 ? '' : 's'} scheduled. ${result.missingContactCount ?? 0} player invitations need contact details or account setup.`
             : 'The fixture was saved. Availability sending is enabled only on production or approved live runtimes.',
         ...(calendarScopeWarning ? { tone: 'error' } : {}),
       })

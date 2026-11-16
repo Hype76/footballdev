@@ -51,7 +51,16 @@ export function createAdultPlayerSetupHandler({
     if (profile.clubId !== player.club_id || profile.roleRank < 20 || profile.role === 'super_admin') return inviteFailure('denied')
     assertFeature(profile, 'players')
     const invite = await rpc('reserve_adult_player_setup_invite', { actor_id: actor.id, target_player_id: playerId })
-    if (['sent', 'linked'].includes(invite?.state)) return reply(200, { success: true, state: invite.state })
+    if (invite?.state === 'linked') return reply(200, { success: true, state: invite.state })
+    if (invite?.state === 'sent') {
+      const { data: delivery, error: deliveryError } = await client.from('email_delivery_jobs').select('provider_status')
+        .eq('logical_key', `adult_player_setup_invite:player:${playerId}`).maybeSingle()
+      if (deliveryError) throw deliveryError
+      if (['bounced', 'complained', 'failed', 'suppressed'].includes(String(delivery?.provider_status || '').toLowerCase())) {
+        return fail(409, 'The Player invitation could not be delivered. Open the saved Player profile, check the email address and save it there.')
+      }
+      return reply(200, { success: true, state: invite.state })
+    }
     if (invite?.state !== 'pending') return inviteFailure(invite?.state)
 
     const link = `https://footballplayer.online/player-invite#invite=${invite.token}`

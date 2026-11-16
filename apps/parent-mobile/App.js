@@ -116,7 +116,7 @@ import { AttendancePendingRows } from '../mobile-core/src/AttendancePendingRows'
 import { readParentAttendanceCommands, updateParentAttendanceCommands } from './src/offline'
 import { sendCoachTrainingAvailabilityResponsePushSafely } from './src/parentPortalData'
 import { getParentScorerActionLabel, getParentScorerMatches } from './src/parentScorerCore'
-import { getVisibleParentScorerMatch } from './src/parentScorerOutboxCore'
+import { getVisibleParentScorerMatch, isRedundantParentStart } from './src/parentScorerOutboxCore'
 import { getMatchDayShirtChoiceLabel } from '../../src/lib/matchday-model.js'
 import {
   canSubmitParentPoll,
@@ -187,6 +187,7 @@ import {
   queueParentPollVote,
   queueParentScorerAction,
   restoreParentRejectedShootout,
+  reviewParentScorerSavedActions,
   readParentScorerOutboxes,
   readParentOfflineView,
   refreshParentScorerOutboxes,
@@ -952,7 +953,7 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
     setIsSyncing(true)
     try {
       const result = await syncParentOfflineCommands(selectedMobileUser, { explicitRetry })
-      const scorerResult = await syncParentScorerOutboxes(selectedMobileUser)
+      const scorerResult = await syncParentScorerOutboxes(selectedMobileUser, { explicitRetry })
       if (scope !== parentSyncScopeRef.current) return null
       if (selectedLink?.id) setScorerOutboxes(await readParentScorerOutboxes(selectedMobileUser, selectedLink.id))
       if (scorerResult.saved) void loadParentData()
@@ -2170,6 +2171,47 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
       setActiveActionId('')
     }
   }
+  async function handleReviewScorerActions(match) {
+    if (isOffline || activeActionId || !selectedMobileUser?.id || !selectedLink?.id) return
+    const expectedIds = (scorerOutboxes[match.id]?.pending || []).map(command => command.id)
+    const scope = parentSyncScopeRef.current
+    setActiveActionId(`scorer:${match.id}:review`)
+    try {
+      const latest = (await getParentPortalMatchDays(selectedMobileUser)).find(item => item.id === match.id)
+      if (scope !== parentSyncScopeRef.current) return
+      if (!latest?.isScorer || !latest.updatedAt || latest.concludedAt || ['full_time', 'cancelled', 'postponed'].includes(latest.status)) {
+        setNotice({ message: 'This match is closed or your scorer access changed. Your saved actions remain on this phone. Ask the Coach to review them.', tone: 'error' })
+        return
+      }
+      const removeStart = isRedundantParentStart(scorerOutboxes[match.id], latest)
+      const question = removeStart
+        ? `The match is already running at ${latest.homeScore} - ${latest.awayScore}. Remove only the rejected saved start and apply the remaining actions shown on screen?`
+        : `The current score is ${latest.homeScore} - ${latest.awayScore}. Review the saved actions shown on screen. Apply them to this latest match?`
+      Alert.alert('Review saved actions', question, [
+        { text: 'Cancel', style: 'cancel' },
+        { text: removeStart ? 'Remove start and apply' : 'Apply actions', onPress: () => { void (async () => {
+          if (scope !== parentSyncScopeRef.current) return
+          try {
+            const confirmed = (await getParentPortalMatchDays(selectedMobileUser)).find(item => item.id === match.id)
+            if (scope !== parentSyncScopeRef.current) return
+            if (!confirmed?.isScorer || confirmed.updatedAt !== latest.updatedAt || confirmed.clubId !== latest.clubId || confirmed.teamId !== latest.teamId
+              || confirmed.concludedAt || ['full_time', 'cancelled', 'postponed'].includes(confirmed.status)) {
+              setNotice({ message: 'The match or your access changed. Your saved actions remain on this phone. Refresh and review them again.', tone: 'error' })
+              return
+            }
+            const journal = await reviewParentScorerSavedActions(selectedMobileUser, selectedLink, confirmed, expectedIds, { removeRedundantStart: removeStart })
+            if (scope !== parentSyncScopeRef.current) return
+            setScorerOutboxes(current => ({ ...current, [match.id]: journal }))
+            const result = await syncParentScorerOutboxes(selectedMobileUser)
+            if (scope !== parentSyncScopeRef.current) return
+            setScorerOutboxes(await readParentScorerOutboxes(selectedMobileUser, selectedLink.id))
+            if (result.saved) void loadParentData()
+          } catch (error) { setNotice({ message: getParentFriendlyError(error, 'Saved actions could not be reviewed.'), tone: 'error' }) }
+        })() } },
+      ])
+    } catch (error) { setNotice({ message: getParentFriendlyError(error, 'The latest match could not be loaded.'), tone: 'error' }) }
+    finally { setActiveActionId('') }
+  }
   async function handleDisplayThemeChange(theme) {
     if (!['system', 'dark', 'light'].includes(theme)) return
     setThemePreference(theme)
@@ -2607,6 +2649,7 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
                 onOpenLink={handleOpenMatchLink}
                 onScorerAction={handleScorerAction}
                 onRestoreScorer={handleRestoreRejectedShootout}
+                onReviewScorer={handleReviewScorerActions}
                 onVolunteer={handleInvitationResponse}
                 onRespond={handleInvitationResponse}
                 onTransport={handleMatchTransport}

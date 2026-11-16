@@ -1,12 +1,12 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { createPhoneTeamAdministrationHandler } from '../netlify/functions/lib/_phone-team-administration.js'
+import { createExistingCoachTeamNotifier, createPhoneTeamAdministrationHandler } from '../netlify/functions/lib/_phone-team-administration.js'
 import { processTeamReminders } from '../netlify/functions/lib/_team-reminder-processor.js'
 
 const id = n => `10000000-0000-4000-8000-${String(n).padStart(12, '0')}`
 const event = body => ({ httpMethod: 'POST', headers: { authorization: 'Bearer verified-session' }, body: JSON.stringify(body) })
 const base = { action: 'save', teamId: id(2), squadEnabled: true, squadHoursBefore: 48, availabilityEnabled: false, availabilityHoursBefore: 48 }
-function harness({ editable = true, authError = null, invite = { kind: 'invite', inviteId: id(5), teamId: id(2), clubId: id(3), inviteToken: id(6), roleLabel: 'Coach', email: 'coach@example.com', teamName: '<Team>', alreadySent: false } } = {}) {
+function harness({ editable = true, authError = null, notifyFails = false, invite = { kind: 'invite', inviteId: id(5), teamId: id(2), clubId: id(3), inviteToken: id(6), roleLabel: 'Coach', email: 'coach@example.com', teamName: '<Team>', alreadySent: false } } = {}) {
   const calls = []; const mails = []; const assignments = []
   const handler = createPhoneTeamAdministrationHandler({
     client: { auth: { getUser: async () => ({ data: { user: { id: id(1), email_confirmed_at: '2026-01-01' } }, error: authError }) }, rpc: async (name, args) => {
@@ -18,8 +18,9 @@ function harness({ editable = true, authError = null, invite = { kind: 'invite',
       return { data: invite }
     } },
     getPlanProfile: async () => ({ planKey: 'team' }), getStaffLimit: () => 5,
-    authenticatedClient: () => ({ rpc: async (name, args) => { assignments.push({ name, args }); return { data: { success: true } } } }),
+    authenticatedClient: () => ({ rpc: async (name, args) => { assignments.push({ name, args }); return { data: { success: true, assignment: { id: id(9) } } } } }),
     sendInvite: async value => { mails.push(JSON.parse(value.body)); return { statusCode: 200 } },
+    notifyExistingCoach: async value => { if (notifyFails) throw new Error('email failed'); mails.push(value) },
   })
   return { handler, calls, mails, assignments }
 }
@@ -52,7 +53,29 @@ test('existing users are assigned through the authenticated canonical RPC, never
   const result = await h.handler(event({ action: 'invite', teamId: id(2), email: 'coach@example.com' }))
   assert.equal(result.statusCode, 200)
   assert.deepEqual(h.assignments, [{ name: 'assign_team_staff_role', args: { p_target_user_id: id(7), p_team_id: id(2), p_target_role_key: 'coach', p_request_source: 'staff_invitation' } }])
-  assert.equal(h.mails.length, 0)
+  assert.equal(h.mails.length, 1)
+  assert.equal(h.mails[0].email, 'coach@example.com')
+  assert.match(JSON.parse(result.body).message, /email was sent/)
+  const failed = harness({ notifyFails: true, invite: { kind: 'existing', userId: id(7), role: 'coach' } })
+  const failure = await failed.handler(event({ action: 'invite', teamId: id(2), email: 'coach@example.com' }))
+  assert.equal(failure.statusCode, 200)
+  assert.match(JSON.parse(failure.body).message, /email could not be sent/)
+})
+test('existing coach notification uses only the confirmed current account email and an assignment-specific key', async () => {
+  let authEmail = 'new@example.com'
+  const sent = []
+  const q = { select: () => q, eq: () => q, single: async () => ({ data: { name: '<Team>' } }) }
+  const client = { auth: { admin: { getUserById: async () => ({ data: { user: { email: authEmail, email_confirmed_at: '2026-01-01' } } }) } }, from: () => q }
+  const notify = createExistingCoachTeamNotifier({ client, from: () => 'Football Player <feedback@example.test>', deliver: async (...args) => sent.push(args) })
+  const params = { actorId: id(1), clubId: id(3), teamId: id(2), userId: id(7), assignmentId: id(9), role: 'coach', email: 'old@example.com' }
+  await assert.rejects(notify(params), /email could not be confirmed/)
+  assert.equal(sent.length, 0)
+  authEmail = 'OLD@example.com'
+  await notify(params)
+  assert.deepEqual(sent[0][0].to, ['old@example.com'])
+  assert.match(sent[0][0].html, /&lt;Team&gt;/)
+  assert.equal(sent[0][1].idempotencyKey, `existing-coach-team:${id(9)}:coach`)
+  assert.equal(sent[0][1].context.targetEntityId, id(9))
 })
 test('suspended sessions, privileged roles, unknown fields and unscoped teams are rejected', async () => {
   const h = harness({ authError: { message: 'Revoked' } })

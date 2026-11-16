@@ -46,7 +46,7 @@ import { useConfirmedConnectionMessage } from '../../mobile-core/src/useConfirme
 import ParentIcon from './ParentIcon'
 import { formatMatchAddedTimeClock, getMatchEventTime } from '../../../src/lib/matchday-event-time.js'
 import { captureParentScorerAction, getParentMatchTimeline, getParentScorerActionLabel, getParentScorerMatches } from './parentScorerCore'
-import { canRestoreRejectedShootout } from './parentScorerOutboxCore.js'
+import { canRestoreRejectedShootout, canReviewParentScorerActions, describeSavedScorerAction } from './parentScorerOutboxCore.js'
 import { getParentEventDateTimeLabel, getParentEventKey, getParentEventPresentation } from './parentEventPresentation'
 import {
   getParentScorerInterestInvitation,
@@ -998,7 +998,7 @@ function getScorerPeriodLabel(match) {
   return `${phase} (${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')})`
 }
 
-function ScorerControls({ activeActionId, isOffline, match, onAction, onRestore, placeholderColor, players = [], scorerSync, styles }) {
+function ScorerControls({ activeActionId, isOffline, match, onAction, onRestore, onReview, placeholderColor, players = [], scorerSync, styles }) {
   const busy = activeActionId.startsWith(`scorer:${match.id}:`)
   const [homeScore, setHomeScore] = useState(String(match.homeScore || 0))
   const [awayScore, setAwayScore] = useState(String(match.awayScore || 0))
@@ -1082,6 +1082,11 @@ function ScorerControls({ activeActionId, isOffline, match, onAction, onRestore,
         {isOffline ? <Text style={styles.warning}>Offline. Game Day actions save on this phone and sync when connected.</Text> : null}
         {scorerSync?.pending?.length ? <Text accessibilityRole="status" style={styles.helper}>{scorerSync.pending.length} saved action{scorerSync.pending.length === 1 ? '' : 's'} waiting to sync.</Text> : null}
         {scorerSync?.error ? <Text accessibilityRole="alert" style={styles.warning}>{scorerSync.error}</Text> : null}
+        {canReviewParentScorerActions(scorerSync) ? <>
+          <Text style={styles.helper}>Saved actions to review:</Text>
+          {scorerSync.pending.map((command, index) => <Text key={command.id} style={styles.body}>{index + 1}. {describeSavedScorerAction(command)}</Text>)}
+          <Button disabled={busy || isOffline} label="Review saved actions" onPress={onReview} outline styles={styles} />
+        </> : null}
         {canRestoreRejectedShootout(scorerSync) ? <Button disabled={busy} label="Restore shootout controls" onPress={onRestore} outline styles={styles} /> : null}
         {match.currentMatchPhase === 'penalties' && timerActions.some(item => item.action === 'full_time' && item.disabled) ? <Text style={styles.helper}>Keep recording kicks until one team has a clear winner.</Text> : null}
         {match.pendingReview ? <Text accessibilityRole="status" style={styles.helper}>Coach handover saved on this phone and waiting to sync.</Text> : null}
@@ -1226,7 +1231,7 @@ function ParentMatchFormationPlan({ error = '', onFocusBoard, plan = null, plans
   )
 }
 
-export function MatchdayScreen({ suppressParentFormation = false, activeActionId, clubKits, formationViewportHeight = 0, invitations = [], isOffline, link, onAddToCalendar, onBack, onDismiss, onFocusFormation, onLiveRefresh, onOpen, onOpenLink, onRespond, onRestoreScorer, onTransport, onScorerAction, onVolunteer, players = [], resource, scorerSync, selectedMatch, themeTokens }) {
+export function MatchdayScreen({ suppressParentFormation = false, activeActionId, clubKits, formationViewportHeight = 0, invitations = [], isOffline, link, onAddToCalendar, onBack, onDismiss, onFocusFormation, onLiveRefresh, onOpen, onOpenLink, onRespond, onRestoreScorer, onReviewScorer, onTransport, onScorerAction, onVolunteer, players = [], resource, scorerSync, selectedMatch, themeTokens }) {
   const { colors, styles } = usePortalStyles(themeTokens)
   const [matchSection, setMatchSection] = useState('upcoming')
   const [squadOpenMatchId, setSquadOpenMatchId] = useState('')
@@ -1269,7 +1274,7 @@ export function MatchdayScreen({ suppressParentFormation = false, activeActionId
       <View style={styles.stack}>
         {!selectedMatch.isScorer ? <MatchdayAction accessibilityLabel="Back to Matchday" label="Back" iconKey="action.back" onPress={onBack} colors={colors} styles={styles} back /> : null}
         {selectedMatch.scorerReviewRequestedAt && !selectedMatch.isScorer ? <View style={styles.card}><Text accessibilityRole="status" style={styles.body}>Sent to Coach to conclude. Your scoring access has ended.</Text></View> : null}
-        {selectedMatch.isScorer ? <ScorerControls activeActionId={activeActionId} isOffline={isOffline} match={selectedMatch} onAction={(action, value) => onScorerAction(selectedMatch, action, value)} onRestore={() => onRestoreScorer?.(selectedMatch)} placeholderColor={colors.muted} players={scorerPlayers} scorerSync={scorerSync} styles={styles} /> : null}
+        {selectedMatch.isScorer ? <ScorerControls activeActionId={activeActionId} isOffline={isOffline} match={selectedMatch} onAction={(action, value) => onScorerAction(selectedMatch, action, value)} onRestore={() => onRestoreScorer?.(selectedMatch)} onReview={() => onReviewScorer?.(selectedMatch)} placeholderColor={colors.muted} players={scorerPlayers} scorerSync={scorerSync} styles={styles} /> : null}
         {selectedMatch.isScorer ? <MatchdayAction accessibilityLabel="Back to Matchday" label="Back" iconKey="action.back" onPress={onBack} colors={colors} styles={styles} back /> : null}
         <View style={[styles.gameDayHero, selectedMatchIsLive && styles.gameDayHeroLive]}>
           {['cancelled', 'postponed'].includes(selectedMatch.status) ? <Text style={styles.pill}>{getParentMatchStatusLabel(selectedMatch)}</Text> : null}
