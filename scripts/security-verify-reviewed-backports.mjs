@@ -67,7 +67,7 @@ export function loadRecord(root) {
   assert.equal(record.baseline, '864a6ad3856a02b65ec33bfe8e952e6f98d13dbd')
   assert.equal(record.adoptionProposalSha256, 'd43f26f937658eb21395575b674e62a51a421ab93105eb4720df764f424ddc03', 'Maintained source policy identity changed')
   assert.equal(hash(fs.readFileSync(safe(root, 'security/maintained-source-policy.json'))), record.adoptionProposalSha256, 'Maintained source policy evidence drift')
-  assert.equal(record.releasePreparationSha256, "cd83f4eac026bf3722e0915e00d2eef68c260388ad3129082f56e4f712fed8a4", 'Release preparation scope drift')
+  assert.equal(record.releasePreparationSha256, "0a2e18ab16ed00d91fc7f15befa9c947d4420311cae3dd33513a4c0680477392", 'Release preparation scope drift')
   assert.equal(hash(Buffer.from(JSON.stringify(record.releasePreparation, null, 2) + '\n')), record.releasePreparationSha256, 'Release preparation pins drift')
   assert.equal(record.releasePreparation.baseline, record.baseline, 'Release preparation baseline mismatch')
   verifyReleasePreparation(root, record.releasePreparation)
