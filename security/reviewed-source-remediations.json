@@ -562,7 +562,7 @@
     "scripts/security-verify-reviewed-backports.mjs": "43b1cf6cddbaed244ce809869492b27f9dafd09a8a3fba67c5924f4e7e7890a2",
     "security/patches/braces-3.0.3.patch": "e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699",
     "security/patches/node-forge-1.4.0.patch": "2de065ac998bf58917a14d0935112d97ec2957ac41b5f06958d500934f188ed4",
-    "security/patches/reviewed-source-manifest.json": "facb364bbac44a8276d082068e8ed8415ca89777d24f4c7a05ff370f71e5a54d",
+    "security/patches/reviewed-source-manifest.json": "52d0b296071182c7354d87fdff4140270c59f6de90112eeda9feb6ded66cc600",
     "tests/security-reviewed-backports.test.mjs": "5649ef8e36530ef86941dcd683d447e974d875602d4172800e7d773006674425",
     "scripts/security-provision-reviewed-backports.mjs": "853c3c58c688b1a260651e38b2fff41d60d094c7a89e0352d3e53bebce753285",
     "tests/security-reviewed-provisioning.test.mjs": "edf0a13180d6b8b0fae0709adedafca9f255bec9ba2dd4d43a8752e10db53b3e",
@@ -585,7 +585,7 @@
     "security/patches/glob-7.2.3-minimatch11.patch": "0521132b1174bc849cb0c95ef463c84eead81a5b3ecd54369aba7eb1a86a7273",
     "tests/security-glob-compatibility.test.mjs": "b9825fa59c8e40ac02293e5797fc60ac7ce0c5bba6d007d262033aa70c618a11"
   },
-  "payloadSha256": "facb364bbac44a8276d082068e8ed8415ca89777d24f4c7a05ff370f71e5a54d",
+  "payloadSha256": "52d0b296071182c7354d87fdff4140270c59f6de90112eeda9feb6ded66cc600",
   "adoptionProposalSha256": "066655830cec24dd2144705e9dcc0102c81da153b494a55864cf7c36a4f4705e",
   "nativeInputs": [
     {
