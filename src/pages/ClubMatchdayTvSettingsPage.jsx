@@ -218,6 +218,20 @@ function DisplaySettings({ clubId, settings, storageKey }) {
         <label>Appearance <select aria-label="Appearance" value={draft.appearance} onChange={(event) => setDraft({ ...draft, appearance: event.target.value })}><option value="light">Light</option><option value="dark">Dark</option></select></label>
         <label>Club ground postcode <input value={draft.weatherPostcode} maxLength={10} placeholder="e.g. CB23 6FY" onChange={(event) => setDraft({ ...draft, weatherPostcode: event.target.value.toUpperCase() })} /></label>
         <small>Weather uses this ground, wherever the screen is running. Great Britain postcodes supported.</small>
+        <fieldset className="club-tv-match-options">
+          <legend>Live match details</legend>
+          {[
+            ['showMatchClock', 'Show match clocks'],
+            ['showHalfTime', 'Show half-time (HT)'],
+            ['showYellowCards', 'Show yellow cards'],
+          ].map(([key, label]) => (
+            <label className="club-tv-check" key={key}>
+              <input type="checkbox" checked={draft[key]} onChange={(event) => setDraft({ ...draft, [key]: event.target.checked })} />
+              {label}
+            </label>
+          ))}
+          <small>Saved changes apply to your club’s displays on their next score refresh.</small>
+        </fieldset>
         <label className="club-tv-check"><input type="checkbox" checked={draft.bigGoal} onChange={(event) => setDraft({ ...draft, bigGoal: event.target.checked })} /> Large goal celebration</label>
         <small>Switch off for a small goal popup. All celebrations are silent.</small>
         <label className={`club-tv-upload${dragTarget === 'map' ? ' club-tv-upload-active' : ''}`} onDragOver={(event) => { event.preventDefault(); setDragTarget('map') }} onDragLeave={() => setDragTarget('')} onDrop={(event) => dropFiles(event, 'map')}>Pitch map <span>Drag and drop or click to upload</span><input aria-label="Pitch map" type="file" accept="image/png,image/jpeg,image/webp" onChange={(event) => { void upload(event.target.files?.[0]); event.target.value = '' }} /></label>

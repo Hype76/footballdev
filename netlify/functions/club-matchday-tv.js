@@ -3,10 +3,10 @@ import { getAuthenticatedPlanProfile, getClubPlanProfile, canUsePlanEntitlement,
 import { supabaseAdmin, createPublicSupabaseClient } from './lib/_supabase.js'
 import { BILLING_ACTION_CATEGORIES, isBillingActionAllowed } from '../../src/lib/billing-access.js'
 import { isClubWorkspace } from '../../src/lib/workspace-scope.js'
-import { activeTvSponsors, clubTvDate, clubTvSlugStatus, isTvSponsorPath, normalizeClubTvSlug, normalizeTvPreferences, toClubTvMatch, TV_SPONSOR_BUCKET, TV_SPONSOR_EXTENSIONS, TV_SPONSOR_MAX_BYTES, tvPitchNumber, validTvSponsorSchedule, tvDateAfter, tvUpcomingPeriodWindow } from '../../src/lib/club-matchday-tv.js'
+import { activeTvSponsors, clubTvDate, clubTvSlugStatus, isTvSponsorPath, normalizeClubTvSlug, normalizeTvMatchDetails, normalizeTvPreferences, toClubTvMatch, TV_SPONSOR_BUCKET, TV_SPONSOR_EXTENSIONS, TV_SPONSOR_MAX_BYTES, tvPitchNumber, validTvSponsorSchedule, tvDateAfter, tvUpcomingPeriodWindow } from '../../src/lib/club-matchday-tv.js'
 import { getClubTvWeather, normaliseWeatherPostcode } from './lib/_club-tv-weather.js'
 
-export const CLUB_TV_MATCH_SELECT = 'id,club_id,team_id,opponent,match_date,kickoff_time,kickoff_time_tbc,home_away,venue_name,status,home_score,away_score,home_shootout_score,away_shootout_score,shootout_winner,timer_status,timer_elapsed_seconds,timer_started_at,concluded_at,deleted_at,teams:team_id(id,club_id,name),match_day_events(id,event_type,team_side,minute,stoppage_minute,scorer_shirt_number,event_status,match_phase,created_at)'
+export const CLUB_TV_MATCH_SELECT = 'id,club_id,team_id,opponent,match_date,kickoff_time,kickoff_time_tbc,home_away,venue_name,status,home_score,away_score,home_shootout_score,away_shootout_score,shootout_winner,timer_status,timer_elapsed_seconds,timer_started_at,phase_started_at,match_clock_mode,match_duration_minutes,concluded_at,deleted_at,teams:team_id(id,club_id,name),match_day_events(id,event_type,team_side,minute,stoppage_minute,scorer_shirt_number,event_status,match_phase,created_at)'
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const reply = (statusCode, payload) => ({ statusCode, headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'private, no-store, max-age=0', 'X-Content-Type-Options': 'nosniff' }, body: JSON.stringify(payload) })
 const settingsActions = new Set(['settings', 'availability', 'save', 'sponsorUpload'])
@@ -36,9 +36,9 @@ async function findLinkedClub(client, value) {
   return data?.club_id || ''
 }
 
-async function readLinkAccess(client, clubId) {
+async function readTvAccess(client, clubId) {
   const { data, error } = await client.from('club_matchday_tv_settings')
-    .select('access_mode:preferences->>accessMode,weather_postcode:preferences->>weatherPostcode')
+    .select('access_mode:preferences->>accessMode,weather_postcode:preferences->>weatherPostcode,showMatchClock:preferences->showMatchClock,showHalfTime:preferences->showHalfTime,showYellowCards:preferences->showYellowCards')
     .eq('club_id', clubId).maybeSingle()
   if (error) throw error
   return data
@@ -126,7 +126,7 @@ export function createClubMatchdayTvHandler({ authenticate = getAuthenticatedPla
         || (body.action && !['view', 'weather', 'unlock', 'sponsorArtwork'].includes(body.action) && !settingsActions.has(body.action))) return reply(400, { message: 'Choose a valid club and match date.' })
       const clubId = linkedRead ? await findLinkedClub(client, body.slug) : requestedClubId
       if (linkedRead && (!clubId || (requestedClubId && requestedClubId !== clubId))) return reply(403, { message: 'This display link is unavailable.' })
-      const linkAccess = linkedRead ? await readLinkAccess(client, clubId) : null
+      const linkAccess = linkedRead ? await readTvAccess(client, clubId) : null
       if (linkedRead && !linkAccess) return reply(403, { message: 'This display link is unavailable.' })
       const isPublic = linkAccess?.access_mode === 'public'
       let profile
@@ -186,8 +186,12 @@ export function createClubMatchdayTvHandler({ authenticate = getAuthenticatedPla
         try { postcode = normaliseWeatherPostcode(linkedRead ? linkAccess.weather_postcode : body.postcode) } catch { return reply(400, { message: 'Enter a Great Britain ground postcode.' }) }
         return reply(200, { club: { id: clubId }, weather: await weather(postcode) })
       }
-      const { data: club, error: clubError } = await client.from('clubs').select('id,name,logo_url,theme_accent').eq('id', clubId).single()
+      const [{ data: club, error: clubError }, displayAccess] = await Promise.all([
+        client.from('clubs').select('id,name,logo_url,theme_accent').eq('id', clubId).single(),
+        linkedRead ? linkAccess : readTvAccess(client, clubId),
+      ])
       if (clubError || !club || club.id !== clubId) throw new Error('Club details unavailable')
+      const matchDetails = normalizeTvMatchDetails(displayAccess)
       async function readMatches(startDate, endDate) {
         const matches = []
         // Stable pagination avoids the default Data API row cap dropping fixtures silently.
@@ -198,7 +202,7 @@ export function createClubMatchdayTvHandler({ authenticate = getAuthenticatedPla
             .order('kickoff_time', { ascending: true, nullsFirst: false }).order('id', { ascending: true }).range(offset, offset + 249)
           if (error) throw error
           for (const row of data ?? []) {
-            const match = toClubTvMatch(row, clubId)
+            const match = toClubTvMatch(row, clubId, matchDetails)
             if (match) matches.push(isPublic ? { ...match, venue: tvPitchNumber(match.venue) } : match)
           }
           if ((data ?? []).length < 250) return matches
@@ -211,7 +215,7 @@ export function createClubMatchdayTvHandler({ authenticate = getAuthenticatedPla
         matches = await readMatches(nextDate, endDate)
         window = { kind: 'week', startDate: nextDate, endDate }
       }
-      return reply(200, { club: { id: club.id, name: club.name, logoUrl: club.logo_url || '', accent: club.theme_accent || 'green' }, date, window, matches, refreshedAt: requestedAt.toISOString() })
+      return reply(200, { club: { id: club.id, name: club.name, logoUrl: club.logo_url || '', accent: club.theme_accent || 'green' }, date, window, matches, matchDetails, refreshedAt: requestedAt.toISOString(), serverNow: now().toISOString() })
     } catch (error) {
       const status = [401, 403].includes(error?.statusCode) ? error.statusCode : 503
       logger.error('Club matchday TV request failed', { statusCode: status, code: error?.code || 'unavailable' })

@@ -11,6 +11,8 @@
 .club-tv-admin legend { margin-bottom: .75rem; font-weight: 700; }
 .club-tv-admin label { display: grid; gap: .35rem; font-weight: 600; }
 .club-tv-admin .club-tv-check { display: flex; align-items: center; min-height: 44px; }
+.club-tv-admin .club-tv-match-options { gap: 0; }
+.club-tv-admin .club-tv-match-options legend { margin-bottom: 0; }
 .club-tv-admin input[type=checkbox] { width: 1.15rem; height: 1.15rem; accent-color: var(--accent); }
 .club-tv-admin .club-tv-upload {
   border: 1px dashed var(--border-color);
