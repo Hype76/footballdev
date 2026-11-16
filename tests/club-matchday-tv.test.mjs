@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import { readFile } from 'node:fs/promises'
 import { PGlite } from '@electric-sql/pglite'
-import { activeTvSponsors, canViewClubMatchdayTv, clubTvDate, clubTvSlugStatus, clubTvViewerUrl, newTvGoals, readTvPreferences, toClubTvMatch, TV_SPONSOR_BUCKET, TV_SPONSOR_MAX_BYTES, tvMatchSides, tvMatchStatus, tvPitchNumber, validTvDate, tvDateAfter, tvPeriodWindow } from '../src/lib/club-matchday-tv.js'
+import { activeTvSponsors, canViewClubMatchdayTv, clubTvDate, clubTvSlugStatus, clubTvViewerUrl, newTvGoals, normalizeTvMatchDetails, readTvPreferences, toClubTvMatch, TV_SPONSOR_BUCKET, TV_SPONSOR_MAX_BYTES, tvMatchClock, tvMatchSides, tvMatchStatus, tvPitchNumber, validTvDate, tvDateAfter, tvPeriodWindow } from '../src/lib/club-matchday-tv.js'
 import { isClubTvLocked, setClubTvLocked } from '../src/lib/club-tv-lock.js'
 
 process.env.VITE_SUPABASE_URL ||= 'https://example.supabase.co'
@@ -23,6 +23,7 @@ function clientFor(rows = [], failure = null) {
       is(...value) { call.filters.push(value); return chain },
       order(...value) { call.orders.push(value); return chain },
       single() { return { data: { id: clubId, name: 'Our Club', theme_accent: '#1255aa' }, error: failure } },
+      maybeSingle() { return { data: null, error: failure } },
       range(start, end) { call.range = [start, end]; return { data: (typeof rows === 'function' ? rows(call) : rows).slice(start, end + 1), error: failure } },
     }
     return chain
@@ -46,9 +47,12 @@ test('DTO discards player identities, invalid shirts, voided events, shootout ev
     { id: 'void', event_type: 'goal', team_side: 'club', event_status: 'voided' },
     { id: 'pen', event_type: 'goal', team_side: 'club', match_phase: 'penalties' },
     { id: 'sub', event_type: 'substitution', team_side: 'club' },
+    { id: 'yellow', event_type: 'yellow_card', team_side: 'opponent', minute: 23, scorer_shirt_number: '99', scorer_name: 'PRIVATE PLAYER', event_status: 'corrected' },
+    { id: 'void-yellow', event_type: 'yellow_card', team_side: 'club', event_status: 'voided' },
   )
   const display = toClubTvMatch(row, clubId)
-  assert.deepEqual(display.events.map(({ id, shirt }) => ({ id, shirt })), [{ id: 'goal-1', shirt: '9' }, { id: 'red', shirt: '' }])
+  assert.deepEqual(display.events.map(({ id, shirt }) => ({ id, shirt })), [{ id: 'goal-1', shirt: '9' }, { id: 'red', shirt: '' }, { id: 'yellow', shirt: '' }])
+  assert.deepEqual(toClubTvMatch(row, clubId, { showYellowCards: false }).events.map(({ id }) => id), ['goal-1', 'red'])
   assert.doesNotMatch(JSON.stringify(display), /PRIVATE|scorer_name|assist_name|notes/)
   assert.doesNotMatch(CLUB_TV_MATCH_SELECT, /scorer_name|assist_name|initials|notes|players|\*/)
   assert.equal(toClubTvMatch(fixture({ club_id: otherClub }), clubId), null)
@@ -61,10 +65,13 @@ test('DTO discards player identities, invalid shirts, voided events, shootout ev
 test('TV uses compact live, full-time and kickoff labels and London match dates', () => {
   const display = toClubTvMatch(fixture(), clubId)
   assert.deepEqual(tvMatchSides(display), { home: 'Visitors', away: 'U12 Blue', clubHome: false })
-  for (const status of ['live', 'half_time', 'second_half', 'extra_time', 'penalties']) {
+  for (const status of ['live', 'second_half', 'extra_time', 'penalties']) {
     assert.deepEqual(tvMatchStatus({ ...display, status }), { label: 'LIVE', kind: 'live' })
   }
   assert.equal(tvMatchStatus({ ...display, timerStatus: 'hydration' }).label, 'LIVE')
+  assert.deepEqual(tvMatchStatus({ ...display, status: 'half_time' }), { label: 'HT', kind: 'live' })
+  assert.equal(tvMatchStatus({ ...display, timerStatus: 'half_time' }).label, 'HT')
+  assert.equal(tvMatchStatus({ ...display, status: 'half_time' }, { showHalfTime: false }).label, 'LIVE')
   assert.equal(tvMatchStatus({ ...display, concluded: true }).label, 'FULL TIME')
   assert.equal(tvMatchStatus({ ...display, status: 'scheduled', kickoff: '10:30' }).label, 'KO 10:30')
   assert.equal(tvMatchStatus({ ...display, status: 'scheduled', kickoffTbc: true }).label, 'KO TBC')
@@ -73,6 +80,22 @@ test('TV uses compact live, full-time and kickoff labels and London match dates'
   assert.equal(clubTvDate(new Date('2026-07-01T23:30:00Z')), '2026-07-02')
   assert.equal(validTvDate('2026-02-30'), false)
   assert.equal(validTvDate('2028-02-29'), true)
+})
+
+test('TV clock uses the scorer time and handles half-time, corrections and configured match length', () => {
+  const display = toClubTvMatch(fixture({ match_duration_minutes: 70 }), clubId)
+  const now = Date.parse('2026-10-21T10:02:03Z')
+  assert.equal(tvMatchClock(display, now), '22:03')
+  assert.equal(tvMatchClock({ ...display, status: 'half_time' }, now), '20:00')
+  assert.equal(tvMatchClock({ ...display, timerStatus: 'paused', elapsed: 1261 }, now), '21:01')
+  assert.equal(tvMatchClock({ ...display, status: 'second_half', elapsed: 0 }, now), '37:03')
+  assert.equal(tvMatchClock({ ...display, status: 'second_half', clockMode: 'continuous', elapsed: 1200 }, now), '22:03')
+  assert.equal(tvMatchClock({ ...display, timerStatus: '', phaseStartedAt: display.timerStartedAt }, now), '2:03')
+  assert.equal(tvMatchClock({ ...display, timerStartedAt: '' }, now), null)
+  assert.equal(tvMatchClock({ ...display, status: 'full_time' }, now), null)
+  assert.equal(tvMatchClock({ ...display, status: 'scheduled' }, now), null)
+  assert.deepEqual(normalizeTvMatchDetails({ showMatchClock: false, showHalfTime: false, showYellowCards: false }),
+    { showMatchClock: false, showHalfTime: false, showYellowCards: false })
 })
 
 test('completed results use the club perspective and confirmed shootout winner', () => {
@@ -117,6 +140,19 @@ test('score feed authenticates requested club then queries only its date and act
   for (const query of queries) assert.deepEqual(query.filters, [['club_id', clubId], ['match_date', '2026-10-21'], ['deleted_at', null]])
   assert.deepEqual(queries[1].range, [250, 499])
   assert.doesNotMatch(response.body, /PRIVATE/)
+})
+
+test('score feed samples the clock after reading a match that started during the request', async () => {
+  let currentTime = '2026-10-21T09:00:00Z'
+  const client = clientFor(() => {
+    currentTime = '2026-10-21T09:00:05Z'
+    return [fixture({ timer_started_at: '2026-10-21T09:00:03Z', timer_elapsed_seconds: 0 })]
+  })
+  const { body } = await handler({ client, now: () => new Date(currentTime) })(request())
+  const payload = JSON.parse(body)
+  assert.equal(payload.refreshedAt, '2026-10-21T09:00:00.000Z')
+  assert.equal(payload.serverNow, '2026-10-21T09:00:05.000Z')
+  assert.equal(tvMatchClock(payload.matches[0], Date.parse(payload.serverNow)), '0:02')
 })
 
 test('empty matchdays fall back to the next seven days with the same club and privacy scope', async () => {
@@ -296,7 +332,7 @@ const artwork = 'data:image/webp;base64,YXJ0'
 const preferences = {
   accessMode: 'admin', appearance: 'dark', bigGoal: false, showMap: true, weatherPostcode: 'CB23 6FY', map: artwork,
   sponsorAds: [{ image: artwork, name: 'Fictional Sponsor', enabled: true, startDate: '2026-11-12', endDate: '2026-11-12' }],
-  sponsorSeconds: 15, showPitchsideOrdering: true,
+  sponsorSeconds: 15, showPitchsideOrdering: true, ...normalizeTvMatchDetails(),
 }
 
 test('private Matchday TV settings and aliases are saved atomically by authorized Club Admins', async (t) => {
@@ -348,7 +384,11 @@ test('private Matchday TV settings and aliases are saved atomically by authorize
       },
     },
     from(table) {
-      if (table === 'match_days') return clientFor([fixture({ venue_name: 'Pitch 7, club venue details' })]).from(table)
+      if (table === 'match_days') {
+        const match = fixture({ venue_name: 'Pitch 7, club venue details' })
+        match.match_day_events.push({ id: 'booking', event_type: 'yellow_card', team_side: 'club', minute: 15 })
+        return clientFor([match]).from(table)
+      }
       if (table === 'clubs') {
         const query = clientFor().from(table)
         query.maybeSingle = () => ({ data: { id: cedarfield, ...clubPlan }, error: null })
@@ -357,7 +397,7 @@ test('private Matchday TV settings and aliases are saved atomically by authorize
       const filters = []
       let columns
       return {
-        select(value) { columns = value.replace(/(\w+):(\w+)->>(\w+)/g, "$2->>'$3' as $1"); return this },
+        select(value) { columns = value.replace(/(\w+):(\w+)(->>?)(\w+)/g, '$2$3\'$4\' as "$1"'); return this },
         eq(column, value) { filters.push({ column, value }); return this },
         async maybeSingle() {
           const where = filters.map(({ column }, index) => `${column} = $${index + 1}`).join(' and ')
@@ -435,7 +475,8 @@ test('private Matchday TV settings and aliases are saved atomically by authorize
   assert.equal((await endpoint({ httpMethod: 'GET' })).statusCode, 405)
   const anonymousFeed = () => request(undefined, { slug: 'cedar-fc', date: '2026-10-21' })
   assert.equal((await anonymousFeed()).status, 401)
-  assert.equal((await save(cedarfield, null, 2, { ...preferences, accessMode: 'public' })).status, 200)
+  const matchDetails = { showMatchClock: false, showHalfTime: true, showYellowCards: false }
+  assert.equal((await save(cedarfield, null, 2, { ...preferences, accessMode: 'public', ...matchDetails })).status, 200)
   const publicView = await view(undefined, 'cedar-fc')
   assert.equal(publicView.status, 200)
   assert.equal(publicView.settings.preferences.accessMode, 'public')
@@ -448,6 +489,8 @@ test('private Matchday TV settings and aliases are saved atomically by authorize
   const feed = await anonymousFeed()
   assert.equal(feed.status, 200)
   assert.equal(feed.matches[0].venue, '7')
+  assert.deepEqual(feed.matchDetails, matchDetails)
+  assert.equal(feed.matches[0].events.some(({ type }) => type === 'yellow_card'), false)
   assert.doesNotMatch(JSON.stringify(feed), /club venue details|PRIVATE PLAYER/)
   assert.equal((await request(undefined, { action: 'weather', slug: 'cedar-fc', postcode: 'SW1A 1AA' })).status, 200)
   assert.equal(receivedPostcode, 'CB236FY')

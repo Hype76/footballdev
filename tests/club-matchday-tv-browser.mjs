@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto'
 import { mkdir, readFile } from 'node:fs/promises'
 import { build, createServer, preview } from 'vite'
 import { chromium } from 'playwright'
-import { activeTvSponsors, TV_RECOVERY_MS, TV_REFRESH_MS, TV_SPONSOR_BUCKET, TV_SPONSOR_EXTENSIONS, TV_SPONSOR_MAX_BYTES, tvUpcomingPeriodWindow } from '../src/lib/club-matchday-tv.js'
+import { activeTvSponsors, normalizeTvMatchDetails, TV_RECOVERY_MS, TV_REFRESH_MS, TV_SPONSOR_BUCKET, TV_SPONSOR_EXTENSIONS, TV_SPONSOR_MAX_BYTES, tvUpcomingPeriodWindow } from '../src/lib/club-matchday-tv.js'
 
 const port = Number(process.env.CLUB_TV_BROWSER_PORT || 43136), origin = `http://127.0.0.1:${port}`
 Object.assign(process.env, { VITE_AUTH_ACCESS_BROWSER_FIXTURES: 'true', VITE_APP_URL: origin, VITE_PARENT_APP_URL: origin, VITE_SUPABASE_URL: 'http://fixture.supabase.test', VITE_SUPABASE_ANON_KEY: 'fixture-anon-key' })
@@ -57,7 +57,8 @@ const makeMatch = (index) => ({ id: `match-${index}`, teamName: `U${index + 7} B
 let matches = Array.from({ length: 19 }, (_, index) => makeMatch(index)), denied = false, unavailable = false, requests = [], unlockAccepted = false
 const longTeamName = 'U7 Cambourne Town Football Club Saturday Development Team Blue 26/27'
 matches[0] = { ...matches[0], teamName: longTeamName, venue: 'Cambourne Sports Centre, Pitch 1, 45 High Street' }
-matches[2] = { ...matches[2], venue: 'Cambourne Fitness and Sports Centre' }
+matches[0].events.push({ id: 'booking', type: 'yellow_card', side: 'opponent', shirt: '', minute: 18 })
+matches[2] = { ...matches[2], venue: 'Cambourne Fitness and Sports Centre', status: 'half_time', timerStatus: 'half_time' }
 matches[4] = { ...matches[4], homeScore: 16, awayScore: 13 }
 matches[7] = { ...matches[7], kickoffTbc: true }
 let displayWindow
@@ -145,7 +146,7 @@ try {
         return route.fulfill({ json: { club: { id: 'club-fixture' }, settings: { ...settings, preferences } } })
       }
       if (body.action === 'unlock') return route.fulfill({ status: unlockAccepted ? 200 : 401, contentType: 'application/json', body: JSON.stringify(unlockAccepted ? { club: { id: body.clubId }, unlocked: true } : { message: 'Password not accepted. The display stays locked.' }) })
-      const payload = denied ? { message: 'Access is restricted to your own active Club Admin workspace.' } : unavailable ? { message: 'Scores could not be refreshed.' } : body.action === 'weather' ? { club: { id: body.clubId }, weather: { temperature: 13, windMph: 7, location: 'Club ground', condition: 'cloudy', time: '2026-10-21T09:00:00Z' } } : { club: { id: body.clubId, name: 'Test Club United', logoUrl: clubBadge, accent: '#1465c0' }, date: body.date, window: body.period && body.period !== 'day' ? tvUpcomingPeriodWindow(body.date, body.period, date) : displayWindow, matches, refreshedAt: '2026-10-21T09:00:00Z' }
+      const payload = denied ? { message: 'Access is restricted to your own active Club Admin workspace.' } : unavailable ? { message: 'Scores could not be refreshed.' } : body.action === 'weather' ? { club: { id: body.clubId }, weather: { temperature: 13, windMph: 7, location: 'Club ground', condition: 'cloudy', time: '2026-10-21T09:00:00Z' } } : { club: { id: body.clubId, name: 'Test Club United', logoUrl: clubBadge, accent: '#1465c0' }, date: body.date, window: body.period && body.period !== 'day' ? tvUpcomingPeriodWindow(body.date, body.period, date) : displayWindow, matches, matchDetails: normalizeTvMatchDetails(settings.preferences), refreshedAt: '2026-10-21T09:00:00Z', serverNow: '2026-10-21T09:00:15Z' }
       if (!body.action && holdNextScorePoll) {
         const hold = holdNextScorePoll
         holdNextScorePoll = null
@@ -209,7 +210,15 @@ try {
   assert.equal(await page.locator('.club-tv-team:not(.club-tv-own) .club-tv-team-badge').count(), 0)
   assert.equal(await page.locator('.club-tv-road-item').first().locator('.club-tv-team-badge').count(), 1)
   assert.equal(await page.locator('.club-tv-match').count(), 8)
-  assert.deepEqual(await page.locator('.club-tv-match-meta > strong').allTextContents(), ['LIVE', 'LIVE', 'LIVE', 'FULL TIME', 'FULL TIME', 'FULL TIME', 'KO 10:00', 'KO TBC'])
+  assert.deepEqual(await page.locator('.club-tv-match-status > strong').allTextContents(), ['LIVE', 'LIVE', 'HT', 'FULL TIME', 'FULL TIME', 'FULL TIME', 'KO 10:00', 'KO TBC'])
+  const runningClock = page.getByRole('timer', { name: 'Match clock' }).first()
+  const firstClockReading = await runningClock.textContent()
+  assert.ok(Number(firstClockReading.split(':')[1]) >= 15, 'Match clock starts from the server sample')
+  await page.clock.runFor(2000)
+  assert.notEqual(await runningClock.textContent(), firstClockReading)
+  assert.equal(await page.locator('.club-tv-match').nth(2).getByRole('timer').textContent(), '20:00')
+  assert.equal(await page.locator('.club-tv-match').nth(3).getByRole('timer').count(), 0)
+  assert.equal(await page.locator('.club-tv-match').first().getByRole('img', { name: 'Yellow card' }).count(), 1)
   assert.deepEqual((await page.locator('.club-tv-home-pitch').allTextContents()).slice(0, 2), ['1', ''])
   assert.ok((await page.locator('.club-tv-match-meta').first().boundingBox()).width >= 78)
   assert.ok((await page.locator('.club-tv-home-pitch').first().boundingBox()).width >= 76)
@@ -519,7 +528,17 @@ try {
   assert.equal(digest(artwork.get(firstPath).bytes), digest(originalAdvert), 'The exact 5 MB original reaches Storage')
   assert.ok((await page.getByAltText('Uploaded pitch map preview').getAttribute('src')).startsWith('data:image/webp;base64,'), 'Pitch maps are converted to WebP')
   await page.getByLabel('Show pitchside ordering').check()
+  const liveDetailsOptions = ['Show match clocks', 'Show half-time (HT)', 'Show yellow cards']
+  const liveDisplay = await context.newPage()
+  await liveDisplay.clock.install({ time: new Date('2026-10-21T09:00:00Z') })
+  await liveDisplay.goto(`${origin}/club-matchday-tv`)
+  await liveDisplay.getByRole('timer', { name: 'Match clock' }).first().waitFor()
+  for (const label of liveDetailsOptions) {
+    assert.equal(await page.getByLabel(label, { exact: true }).isChecked(), true)
+    await page.getByLabel(label, { exact: true }).uncheck()
+  }
   await saveAndPreview()
+  assert.deepEqual(normalizeTvMatchDetails(settings.preferences), { showMatchClock: false, showHalfTime: false, showYellowCards: false })
   assert.equal(await page.locator('.club-tv-match').count(), 8)
   await page.locator('.club-tv-pitch').waitFor()
   await page.getByAltText('Club sponsor advert').waitFor()
@@ -530,6 +549,12 @@ try {
   })
   assert.equal(displayedHash, digest(originalAdvert), 'The TV downloads the exact uploaded original')
   await page.screenshot({ path: `${output}/sponsor-artwork.png` })
+  await liveDisplay.clock.runFor(11000)
+  await liveDisplay.getByRole('timer', { name: 'Match clock' }).first().waitFor({ state: 'hidden' })
+  assert.equal(await liveDisplay.getByText('HT', { exact: true }).count(), 0)
+  assert.equal(await liveDisplay.getByRole('img', { name: 'Yellow card' }).count(), 0)
+  assert.ok(await liveDisplay.getByRole('img', { name: 'Red card' }).count() > 0)
+  await liveDisplay.close()
   await page.reload()
   await page.getByAltText('Club sponsor advert').waitFor()
   assert.equal(await page.getByAltText('Club sponsor advert').getAttribute('src'), firstSponsor)
@@ -542,6 +567,10 @@ try {
   await page.getByRole('button', { name: 'Pause carousel' }).click()
   await openSettings()
   assert.equal(await page.getByLabel('Time per advert').inputValue(), '10')
+  for (const label of liveDetailsOptions) {
+    assert.equal(await page.getByLabel(label, { exact: true }).isChecked(), false)
+    await page.getByLabel(label, { exact: true }).check()
+  }
   assert.equal(await page.getByLabel('Sponsor 1 start date').inputValue(), '2026-10-21')
   await page.getByLabel('Show advert 1').uncheck()
   await page.getByLabel('Sponsor 2 start date').fill('2026-10-22')

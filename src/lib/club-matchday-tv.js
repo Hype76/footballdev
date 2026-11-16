@@ -1,6 +1,8 @@
 import { isClubAdmin } from './auth-permissions.js'
 import { isPlanAccessActive } from './plans.js'
 import { canUseFeature, CAPABILITIES } from './paywall-access.js'
+import { normalizeMatchClockMode, normalizeMatchDurationMinutes } from './matchday-model.js'
+import { getMatchTimerState } from './matchday-timer.js'
 
 export const TV_PAGE_SIZE = 8
 export const TV_ROTATION_SECONDS = 30
@@ -98,12 +100,12 @@ export function activeTvSponsors(ads, today = clubTvDate()) {
 }
 
 // Explicit display DTO: never spread raw match/event records into the TV response.
-export function toClubTvMatch(row, clubId) {
+export function toClubTvMatch(row, clubId, { showYellowCards = true } = {}) {
   if (row?.club_id !== clubId || row.deleted_at || text(row.status).toLowerCase() === 'cancelled') return null
   const team = Array.isArray(row.teams) ? row.teams[0] : row.teams
   if (!team || team.club_id !== clubId) return null
   const events = (row.match_day_events ?? []).filter((event) =>
-    ['goal', 'red_card'].includes(event.event_type)
+    (['goal', 'red_card'].includes(event.event_type) || (showYellowCards && event.event_type === 'yellow_card'))
     && ['club', 'opponent'].includes(event.team_side)
     && (!event.event_status || ['active', 'corrected'].includes(event.event_status))
     && event.match_phase !== 'penalties',
@@ -111,7 +113,7 @@ export function toClubTvMatch(row, clubId) {
     id: text(event.id), type: event.event_type, side: event.team_side,
     minute: event.minute == null ? null : number(event.minute),
     stoppage: event.stoppage_minute == null ? 0 : number(event.stoppage_minute),
-    shirt: /^\d{1,3}$/.test(text(event.scorer_shirt_number)) ? text(event.scorer_shirt_number) : '',
+    shirt: event.event_type !== 'yellow_card' && /^\d{1,3}$/.test(text(event.scorer_shirt_number)) ? text(event.scorer_shirt_number) : '',
     createdAt: text(event.created_at),
   })).sort((a, b) => (a.minute ?? 0) - (b.minute ?? 0) || a.createdAt.localeCompare(b.createdAt))
   return {
@@ -123,7 +125,10 @@ export function toClubTvMatch(row, clubId) {
     homeShootoutScore: number(row.home_shootout_score), awayShootoutScore: number(row.away_shootout_score),
     shootoutWinner: ['home', 'away'].includes(row.shootout_winner) ? row.shootout_winner : '',
     timerStatus: text(row.timer_status), elapsed: Number.isFinite(Number(row.timer_elapsed_seconds)) ? Math.max(0, Math.min(86400, Number(row.timer_elapsed_seconds))) : 0,
-    timerStartedAt: text(row.timer_started_at), concluded: Boolean(row.concluded_at), events,
+    timerStartedAt: text(row.timer_started_at), phaseStartedAt: text(row.phase_started_at),
+    clockMode: normalizeMatchClockMode(row.match_clock_mode),
+    matchDurationMinutes: normalizeMatchDurationMinutes(row.match_duration_minutes),
+    concluded: Boolean(row.concluded_at), events,
   }
 }
 
@@ -133,7 +138,11 @@ export function tvMatchSides(match) {
     : { home: match.teamName, away: match.opponent, clubHome: true }
 }
 
-export function tvMatchStatus(match) {
+function isTvHalfTime(match) {
+  return match.status === 'half_time' || match.timerStatus === 'half_time'
+}
+
+export function tvMatchStatus(match, { showHalfTime = true } = {}) {
   if (match.status === 'cancelled' || match.status === 'postponed') {
     return { label: match.status.toUpperCase(), kind: 'inactive' }
   }
@@ -146,9 +155,21 @@ export function tvMatchStatus(match) {
     return { label: 'FULL TIME', kind: 'finished', result }
   }
   if (liveStatuses.has(match.status) || ['half_time', 'hydration'].includes(match.timerStatus)) {
-    return { label: 'LIVE', kind: 'live' }
+    return { label: showHalfTime && isTvHalfTime(match) ? 'HT' : 'LIVE', kind: 'live' }
   }
   return { label: match.kickoffTbc || !match.kickoff ? 'KO TBC' : `KO ${match.kickoff}`, kind: 'upcoming' }
+}
+
+export function tvMatchClock(match, now) {
+  if (tvMatchStatus(match).kind !== 'live') return null
+  const timerStatus = isTvHalfTime(match) ? 'half_time' : match.timerStatus
+  const timer = getMatchTimerState({ ...match, timerStatus, timerElapsedSeconds: match.elapsed }, now)
+  if (timer.elapsedSeconds === null) return null
+  const startedAt = Date.parse(timerStatus === 'running' ? match.timerStartedAt : match.phaseStartedAt)
+  if (timer.isRunning && (!Number.isFinite(startedAt) || startedAt > now)) return null
+  const minutes = Math.floor(timer.elapsedSeconds / 60)
+  const seconds = String(timer.elapsedSeconds % 60).padStart(2, '0')
+  return `${minutes}:${seconds}`
 }
 
 export function tvPitchNumber(venue) {
@@ -194,6 +215,14 @@ export function isTvSponsorPath(value) {
   return typeof value === 'string' && /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\/[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\.(png|jpg|webp)$/.test(value)
 }
 
+export function normalizeTvMatchDetails(saved) {
+  return {
+    showMatchClock: saved?.showMatchClock !== false,
+    showHalfTime: saved?.showHalfTime !== false,
+    showYellowCards: saved?.showYellowCards !== false,
+  }
+}
+
 export function normalizeTvPreferences(value) {
   const saved = value ?? {}
   const map = isTvArtwork(saved.map, 2850000) ? saved.map : ''
@@ -201,5 +230,5 @@ export function normalizeTvPreferences(value) {
     .filter(ad => isTvSponsorPath(ad?.imagePath) || isTvArtwork(ad?.image, 750000))
     .map(ad => ({ ...(isTvSponsorPath(ad.imagePath) ? { imagePath: ad.imagePath } : { image: ad.image }), name: text(ad.name).slice(0, 80), enabled: ad.enabled !== false, startDate: text(ad.startDate), endDate: text(ad.endDate) }))
   const sponsorSeconds = [10, 15, 30, 60].includes(saved.sponsorSeconds) ? saved.sponsorSeconds : 30
-  return { accessMode: saved.accessMode === 'public' ? 'public' : 'admin', appearance: saved.appearance === 'dark' ? 'dark' : 'light', bigGoal: saved.bigGoal !== false, showMap: saved.showMap !== false, weatherPostcode: text(saved.weatherPostcode).slice(0, 10), map, sponsorAds, sponsorSeconds, showPitchsideOrdering: saved.showPitchsideOrdering === true }
+  return { accessMode: saved.accessMode === 'public' ? 'public' : 'admin', appearance: saved.appearance === 'dark' ? 'dark' : 'light', bigGoal: saved.bigGoal !== false, showMap: saved.showMap !== false, weatherPostcode: text(saved.weatherPostcode).slice(0, 10), map, sponsorAds, sponsorSeconds, showPitchsideOrdering: saved.showPitchsideOrdering === true, ...normalizeTvMatchDetails(saved) }
 }
