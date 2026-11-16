@@ -67,7 +67,7 @@ import { useQuickActionVisibility } from './src/useQuickActionVisibility'
 import { applyCoachContext, createCoachContextTransition, resolveCoachStaffContext } from '../mobile-core/src/coachContextCore'
 import { canStartCoachNotificationRegistration, getCoachNotificationStatusLabel, getCoachPushSetupFailureMessage, preserveCoachNotificationRegistration, resolveCoachNotificationOpen, shouldRestoreCoachNotificationRegistration } from '../mobile-core/src/coachNotificationsCore'
 import { getMobileRuntimeConfig } from '../mobile-core/src/config'
-import { peekMobileResource, readMobileResource } from '../mobile-core/src/mobileResourceCache'
+import { invalidateMobileResource, peekMobileResource, readMobileResource } from '../mobile-core/src/mobileResourceCache'
 import { getCoachCalendarResources } from '../mobile-core/src/coachCalendarData'
 import { getCoachPlayerList } from '../mobile-core/src/coachPlayersData'
 import { getCoachChatRooms, getCoachDevelopmentSummary, getCoachInvitesAndAvailability } from '../mobile-core/src/coachPhase31EData'
@@ -112,7 +112,7 @@ import { CoachPhase31EScreen } from './src/CoachPhase31EScreens'
 import { CoachQuickActions } from './src/CoachQuickActions'
 import { getCoachFriendlyError } from './src/coachFriendlyErrors'
 import { getCoachQuickActions } from './src/coachQuickActionsCore'
-import { coachOfflineProfileStore, countPendingCoachMatchDayActions, inspectCoachOfflineState, readCoachHomeOfflineView, saveCoachOfflineResources } from './src/offline'
+import { coachOfflineProfileStore, countPendingCoachMatchDayActions, inspectCoachOfflineState, peekCoachHomeOfflineView, readCoachHomeOfflineView, saveCoachOfflineResources } from './src/offline'
 import { useCoachMatchDayBackgroundSync } from './src/useCoachMatchDayBackgroundSync'
 import { useCoachDevelopmentSync } from './src/useCoachDevelopmentSync'
 import { CoachOfflineReadiness } from './src/CoachOfflineReadiness'
@@ -230,6 +230,7 @@ function CoachHome() {
     () => resolveCoachStaffContext({ profile: user, requestedContextId: selectedContextId }),
     [selectedContextId, user],
   )
+  const preparationContexts = useMemo(() => resolveCoachStaffContext({ profile: user }).contexts, [user])
   const activeContext = contextResolution.allowed ? contextResolution.context : null
   const [matchdayPlanConfig, setMatchdayPlanConfig] = useState(null)
   const contentScrollRef = useRef(null)
@@ -306,7 +307,6 @@ function CoachHome() {
   }, [activeContext, activeRoute, matchdayPlanConfig, moreRoute])
   useCoachMatchDayBackgroundSync({ user, contexts: contextResolution.contexts, enabled: contextOwnedByCurrentUser && activeRoute !== 'matchday' })
   useCoachDevelopmentSync({ user, contexts: contextResolution.contexts, enabled: contextOwnedByCurrentUser })
-  useCoachOfflinePreparation({ user: selectedMobileUser, context: activeContext, enabled: contextOwnedByCurrentUser && activeRoute !== 'matchday' })
   const handleChatNotificationTargetHandled = useCallback(() => setChatNotificationTarget(null), [])
   const handleMatchDayTargetHandled = useCallback(() => setMatchDayTarget(null), [])
 
@@ -360,13 +360,19 @@ function CoachHome() {
     teamId: activeContext?.teamId || '',
   })
 
-  const resetContextDomainState = useCallback(() => {
+  const resetContextDomainState = useCallback((userId, context) => {
     requestIdRef.current += 1
     homeDeniedScopeRef.current = false
-    const resetHome = { activePolls: 0, developmentRecords: 0, error: '', loading: true, matches: [], nextCalendar: null, pendingAvailability: 0, savedAt: '', sessions: [], stale: false, summary: null, unreadChat: 0, unreadCommunication: 0 }
+    const saved = context && peekCoachHomeOfflineView(userId, context)
+    const drafts = saved?.home && mergeUnfinishedDevelopmentDrafts(saved.home.developmentDrafts || [], Object.values(saved.developmentDrafts))
+    const resetHome = saved?.home
+      ? { ...saved.home, developmentDrafts: drafts, developmentRecords: drafts.length, error: '', hasSnapshot: true, loading: false, savedAt: saved.home.savedAt || saved.savedAt, stale: true }
+      : { activePolls: 0, developmentRecords: 0, error: '', loading: true, matches: [], nextCalendar: null, pendingAvailability: 0, savedAt: '', sessions: [], stale: false, summary: null, unreadChat: 0, unreadCommunication: 0 }
     homeStateRef.current = resetHome
     setHomeState(resetHome)
-    setLastUpdatedAt('')
+    setLastUpdatedAt(resetHome.savedAt)
+    setIsRefreshing(false)
+    lastHomeRefreshAtRef.current = 0
     setMatchDayTarget(null)
     setMoreRoute('')
     setChatNotificationTarget(null)
@@ -707,6 +713,8 @@ function CoachHome() {
       const denied = error?.code === '42501' || error?.status === 403 || error?.statusCode === 403 || /permission denied|row.level security|not authori[sz]ed/i.test(String(error?.message || ''))
       if (denied) {
         homeDeniedScopeRef.current = true
+        invalidateMobileResource(selectedMobileUser, primaryCacheKey)
+        void saveCoachOfflineResources(user.id, activeContext, { home: null }).catch(() => {})
         chatRefreshIdRef.current += 1; availabilityRefreshIdRef.current += 1; developmentRefreshIdRef.current += 1
         const deniedHome = { activePolls: 0, developmentRecords: 0, error: getCoachFriendlyError(error, 'Coach overview could not be loaded.'), loading: false, matches: [], nextCalendar: null, pendingAvailability: 0, savedAt: '', sessions: [], stale: true, summary: null, unreadChat: 0, unreadCommunication: 0 }
         homeStateRef.current = deniedHome
@@ -718,6 +726,13 @@ function CoachHome() {
       if (requestId === requestIdRef.current) setIsRefreshing(false)
     }
   }, [activeContext, selectedMobileUser, user?.id])
+
+  useCoachOfflinePreparation({ user, contexts: preparationContexts, activeContext,
+    enabled: contextOwnedByCurrentUser && activeRoute !== 'matchday', activeInvites: isMatchInvitesRoute,
+    refreshActiveHome: () => {
+      if (Date.now() - lastHomeRefreshAtRef.current >= HOME_REFRESH_MIN_INTERVAL_MS) void loadHome()
+    },
+  })
 
   useEffect(() => {
     if (activeRoute !== 'home' || !contextOwnedByCurrentUser || !selectedMobileUser?.activeTeamId) return undefined
@@ -802,7 +817,7 @@ function CoachHome() {
       return false
     }
     if (targetContext.id !== activeContext?.id) {
-      resetContextDomainState()
+      resetContextDomainState(user.id, targetContext)
       setSelectedContextId(targetContext.id)
     }
     const target = getCoachRouteState(resolved)
@@ -819,7 +834,7 @@ function CoachHome() {
         }
       : null)
     return true
-  }, [activeContext?.id, contextResolution.contexts, matchdayPlanConfig, resetContextDomainState])
+  }, [activeContext?.id, contextResolution.contexts, matchdayPlanConfig, resetContextDomainState, user.id])
 
   useEffect(() => {
     let mounted = true
@@ -1016,14 +1031,14 @@ function CoachHome() {
       return
     }
     const transition = createCoachContextTransition(activeContext, nextContext)
-    if (transition.clearDomainState) resetContextDomainState()
+    if (transition.clearDomainState) resetContextDomainState(user.id, nextContext)
     const currentDestination = moreRoute || activeRoute
     const preserved = resolveCoachRoute(currentDestination, nextContext)
     const target = preserved ? getCoachRouteState(preserved) : { activeRoute: 'home', moreRoute: '' }
     setActiveRoute(target.activeRoute)
     setMoreRoute(target.moreRoute)
     setSelectedContextId(nextContext.id)
-  }, [activeContext, activeRoute, contextResolution.contexts, moreRoute, resetContextDomainState])
+  }, [activeContext, activeRoute, contextResolution.contexts, moreRoute, resetContextDomainState, user.id])
 
   const toggleTheme = useCallback(async (next) => {
     setThemePreference(next)

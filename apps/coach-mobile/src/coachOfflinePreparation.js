@@ -2,6 +2,43 @@ import { isMobileRouteAllowed } from '../../mobile-core/src/matchdayPolicyCore.j
 
 export const COACH_PREPARATION_REFRESH_MS = 5 * 60 * 1000
 
+function isPermissionDenied(error) {
+  return error?.code === '42501' || error?.status === 403 || error?.statusCode === 403
+    || /permission denied|row.level security|not authori[sz]ed/i.test(String(error?.message || error || ''))
+}
+
+export async function prepareCoachTeamOverview({ user, context, readResources, createSaver, getHome, getInvites, isCurrent, includeHome = true, includeInvites = true, now = Date.now }) {
+  const saved = await readResources(user.id, context)
+  if (!isCurrent()) return
+  const keys = includeHome ? { home: getHome } : {}
+  if (includeInvites && isMobileRouteAllowed(user, 'invites', user.matchdayPolicy)) keys['phase31e:invites'] = getInvites
+  const entries = Object.entries(keys).filter(([key]) => {
+    const metadata = saved?.resourceMetadata?.[key]
+    const checkedAt = Date.parse(metadata?.checkedAt || metadata?.savedAt)
+    return !saved?.resources?.[key] || !Number.isFinite(checkedAt) || now() - checkedAt >= COACH_PREPARATION_REFRESH_MS
+  })
+  if (!entries.length) return
+  const save = createSaver(user, context, { expectedResourceMetadata: saved?.resourceMetadata || {}, isCurrent })
+  const updates = {}
+  let retry = false
+  await Promise.all(entries.map(async ([key, load]) => {
+    try {
+      const value = await load(user, context)
+      if (key === 'home' && value.errors?.length) {
+        retry = true
+        if (value.errors.some(isPermissionDenied)) updates[key] = null
+        else if (!saved?.resources?.[key]) updates[key] = value
+      } else updates[key] = value
+    } catch (error) {
+      if (isPermissionDenied(error)) updates[key] = null
+      retry = true
+    }
+  }))
+  if (!isCurrent()) return
+  if (Object.keys(updates).length) await save(updates)
+  if (retry) throw new Error('Some Coach Team information could not refresh.')
+}
+
 async function runPreparationLoads(loads, concurrency = 3) {
   const entries = Object.entries(loads)
   const results = {}
