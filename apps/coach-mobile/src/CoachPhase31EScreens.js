@@ -2,7 +2,7 @@ import { MobileSwitch as Switch } from '../../mobile-core/src/MobileSwitch.js'
 import { formatFixtureDateTime } from '../../../src/lib/calendar-datetime-integrity.js'
 import { getResourceDisplayTitle } from '../../../src/lib/resource-date-presentation.js'
 import { formatUkDateTime } from '../../../src/lib/date-format.js'
-import { getMatchDayDisplayName } from '../../../src/lib/matchday-display.js'
+import { getMatchDayDisplayParts } from '../../../src/lib/matchday-display.js'
 import { getCoachInviteHistory } from '../../mobile-core/src/coachInviteHistoryData'
 import { COACH_RESOURCE_CATEGORIES, groupCoachResources } from '../../mobile-core/src/coachResourceBrowseCore'
 import { DevelopmentOfflineEditor } from './DevelopmentOfflineEditor'
@@ -1635,12 +1635,13 @@ function InvitesDomain({ data: serverData, context, load: loadDomain, onAvailabi
     const matchInvites = collapseCoachInvitesByPlayer((data.match || []).filter((invite) => invite.eventId === match.id && !invite.cancelled && !invite.stale))
     const matchSummary = summarizeCoachInvites(matchInvites)
     const expanded = match.id === matchId
+    const { firstTeam, secondTeam } = getMatchDayDisplayParts({ ...match, clubName: match.clubName || user.clubName })
     return (
       <View key={`match:${match.id}`} style={[styles.panel, expanded && { padding: 0, borderWidth: 0, backgroundColor: 'transparent' }]}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 1, borderColor: palette.border, borderRadius: 9, padding: 8, backgroundColor: palette.surface }}>
           <Pressable accessibilityRole="button" accessibilityLabel={`${expanded ? 'Hide' : 'Open'} availability for ${match.opponent || 'match'}`} onPress={() => showAvailability('match', match.id)} style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10, padding: 4 }}>
             <MaterialIcons name="event" size={28} color={palette.textSecondary} />
-            <View style={{ flex: 1, gap: 4 }}><Text style={[styles.heading, { fontSize: 15, lineHeight: 20 }]}>{getMatchDayDisplayName({ ...match, clubName: match.clubName || user.clubName })}</Text><Text style={styles.helper}>{match.matchDate ? new Date(`${match.matchDate}T12:00:00`).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }) : 'Date to be confirmed'} · {match.kickoffTimeTbc ? 'Time TBC' : match.kickoffTime?.slice(0, 5) || 'Time TBC'}{match.venueName ? ` · ${match.venueName}` : ''}</Text>{!expanded ? <Text style={styles.helper}>{hasCompleteCoachAvailabilitySnapshot(serverData) || fixtureSnapshot?.fixtureId === match.id && fixtureSnapshot.complete ? `Available ${matchSummary.available} · Awaiting ${matchSummary.awaiting}` : 'Saved totals need refreshing'}</Text> : null}</View>
+            <View style={{ flex: 1, gap: 4 }}><Text style={[styles.heading, { fontSize: 15, lineHeight: 20 }]}>{firstTeam} v {secondTeam}</Text><Text style={styles.helper}>{match.matchDate ? new Date(`${match.matchDate}T12:00:00`).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }) : 'Date to be confirmed'} · {match.kickoffTimeTbc ? 'Time TBC' : match.kickoffTime?.slice(0, 5) || 'Time TBC'}{match.venueName ? ` · ${match.venueName}` : ''}</Text>{!expanded ? <Text style={styles.helper}>{hasCompleteCoachAvailabilitySnapshot(serverData) || fixtureSnapshot?.fixtureId === match.id && fixtureSnapshot.complete ? `Available ${matchSummary.available} · Awaiting ${matchSummary.awaiting}` : 'Saved totals need refreshing'}</Text> : null}</View>
           </Pressable>
         </View>
         {expanded ? <>
@@ -1682,6 +1683,7 @@ function InvitesDomain({ data: serverData, context, load: loadDomain, onAvailabi
         <Button label="Close actions" onPress={() => setShowEventActions(false)} secondary styles={styles} />
       </View> : null}
       {!matchId && !trainingKey ? <Text style={styles.body}>Choose an upcoming Match or Training session to see its availability.</Text> : null}
+      {openMatches.length > 0 && !matchId && !trainingKey && (domainStale || user.isOfflineProfile) ? <Text accessibilityLiveRegion="polite" style={styles.helper}>Showing last saved fixture details. Connect and refresh to check for changes.</Text> : null}
       {availabilityTimeline.length
         ? availabilityTimeline.filter((entry) => matchId ? entry.kind === 'match' && entry.item.id === matchId : trainingKey ? entry.kind === 'training' && entry.item.key === trainingKey : true).map((entry) => entry.kind === 'training'
             ? renderTrainingAvailability(entry.item)
