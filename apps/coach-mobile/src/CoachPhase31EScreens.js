@@ -1673,7 +1673,7 @@ function InvitesDomain({ data: serverData, context, load: loadDomain, onAvailabi
         <Button label="Close actions" onPress={() => setShowEventActions(false)} secondary styles={styles} />
       </View> : null}
       {!matchId && !trainingKey ? <Text style={styles.body}>Choose an upcoming Match or Training session to see its availability.</Text> : null}
-      {openMatches.length > 0 && !trainingKey && (domainStale || user.isOfflineProfile) ? <Text accessibilityLiveRegion="polite" style={styles.helper}>Showing last saved fixture details. Connect and refresh to check for changes.</Text> : null}
+      {openMatches.length > 0 && !matchId && !trainingKey && (domainStale || user.isOfflineProfile) ? <Text accessibilityLiveRegion="polite" style={styles.helper}>Showing last saved fixture details. Connect and refresh to check for changes.</Text> : null}
       {availabilityTimeline.length
         ? availabilityTimeline.filter((entry) => matchId ? entry.kind === 'match' && entry.item.id === matchId : trainingKey ? entry.kind === 'training' && entry.item.key === trainingKey : true).map((entry) => entry.kind === 'training'
             ? renderTrainingAvailability(entry.item)
