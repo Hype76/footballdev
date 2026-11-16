@@ -18,7 +18,7 @@ import {CoachCalendarSync} from './apps/coach-mobile/src/CoachCalendarSync.js';
 import React,{useCallback,useEffect,useMemo,useRef,useState} from 'react'
 import {getCoachFormationAuthorityScope} from './apps/coach-mobile/src/coachFormationEntryCore.js'
 import {createRoot} from 'react-dom/client'
-import {Pressable,StyleSheet,Switch,Text,TextInput,View} from 'react-native'
+import {AppState,Pressable,StyleSheet,Switch,Text,TextInput,View} from 'react-native'
 import MaterialIcons from '@expo/vector-icons/MaterialIcons'
 import {createCoachTheme} from './apps/coach-mobile/src/coachThemeCore.js'
 import {themeContrastRatio} from './apps/mobile-core/src/themeContrast.js'
@@ -29,8 +29,8 @@ ${calendarImport}
 const BrandLoader=()=>null,useConfirmedConnectionIssue=v=>v,useConfirmedConnectionMessage=v=>v
 const deriveTeamNotificationDisplayName=v=>v,getCoachTeamNotificationDisplayName=async()=> 'FP TEST',message=e=>e.message
 const readCoachOfflineResources=async()=>null,saveCoachOfflineResources=async()=>{},peekMobileResource=()=>undefined
-const readMobileResource=async(_u,_key,loader)=>loader(),getCoachPlayerList=async()=>[],getCoachResources=async()=>[]
-const getCoachCalendarResources=async()=>window.events
+const readMobileResource=async(_u,key,loader,options)=>key==='coach:calendar' && !options?.force ? [] : loader(),getCoachPlayerList=async()=>[],getCoachResources=async()=>[]
+const getCoachCalendarResources=async()=>[...window.events]
 ${screen}
 const user={id:'FP TEST coach',activeTeamId:'team',roleRank:90}
 const context={id:'team',teamId:'team',teamName:'FP TEST',planKey:'large_club',planStatus:'active',role:'head_coach',roleRank:90,paymentAccess:{canMutate:true}}
@@ -116,6 +116,22 @@ try {
   await mixed.waitFor({ state: 'hidden' })
   await page.getByRole('button', { name: 'Previous', exact: true }).click()
   await mixed.waitFor()
+  await page.evaluate(() => {
+    window.events.push({
+      id: 'new-admin-fixture',
+      sourceId: 'new-admin-fixture',
+      sourceType: 'match_day',
+      title: 'FP TEST club admin fixture',
+      eventType: 'fixture',
+      status: 'scheduled',
+      teamId: 'team',
+      calendarDate: window.testDate,
+      startsAt: window.testDate + 'T15:00:00Z',
+    })
+  })
+  await page.getByRole('button', { name: 'Refresh calendar', exact: true }).click()
+  await page.getByRole('button', { name: /15 .*5 events/ }).click()
+  await page.getByText('FP TEST club admin fixture', { exact: true }).waitFor()
   assert.deepEqual(errors, [])
   const paging=await browser.newPage({viewport:{width:390,height:844}})
   const pagingErrors=[];paging.on('pageerror',error=>pagingErrors.push(error.message))

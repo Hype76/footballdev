@@ -42,6 +42,8 @@ jobs:
       - name: Provision exact externally reviewed backports
         run: npm run security:provision -- --install-mobile
       - name: Dependency, lifecycle and license gate
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: npm run security:supply-chain
       - name: Reviewed patch behaviour and qualification integrity
         run: node --test tests/security-reviewed-backports.test.mjs tests/security-reviewed-provisioning.test.mjs tests/security-backport-runtime.test.mjs tests/security-maintained-source.test.mjs tests/security-toml-upstream.test.mjs tests/security-glob-compatibility.test.mjs tests/tooling-glob-minimatch-compatibility.test.mjs
@@ -443,4 +445,6 @@ jobs:
           deny-licenses: AGPL-3.0, SSPL-1.0, BUSL-1.1
       - name: Enforce repository fallback when Dependency graph is unavailable
         if: steps.github-dependency-review.outcome == 'failure'
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: npm run security:supply-chain

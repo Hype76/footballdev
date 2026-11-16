@@ -12,6 +12,7 @@ import { ClubKitDisplay } from '../../mobile-core/src/ClubKitDisplay'
 import { groupCoachResources } from '../../mobile-core/src/coachResourceBrowseCore'
 import { getResourceDisplayTitle, getResourceTitleDate } from '../../../src/lib/resource-date-presentation.js'
 import { VenueMapPreview } from '../../mobile-core/src/VenueMapPreview'
+import { canReviewParentScorerActions, describeSavedScorerAction } from './parentScorerOutboxCore.js'
 import { PinnedEventNotes } from '../../mobile-core/src/PinnedEventNotes'
 import * as Crypto from 'expo-crypto'
 import { getGoalScorerSide, oppositeMatchSide } from '../../../src/lib/matchday-goal-credit.js'
@@ -956,7 +957,7 @@ function getScorerPeriodLabel(match) {
   return `${phase} (${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')})`
 }
 
-function ScorerControls({ activeActionId, isOffline, match, onAction, placeholderColor, players = [], scorerSync, styles }) {
+function ScorerControls({ activeActionId, isOffline, match, onAction, onReview, placeholderColor, players = [], scorerSync, styles }) {
   const busy = activeActionId.startsWith(`scorer:${match.id}:`)
   const [homeScore, setHomeScore] = useState(String(match.homeScore || 0))
   const [awayScore, setAwayScore] = useState(String(match.awayScore || 0))
@@ -1040,6 +1041,11 @@ function ScorerControls({ activeActionId, isOffline, match, onAction, placeholde
         {isOffline ? <Text style={styles.warning}>Offline. Game Day actions save on this phone and sync when connected.</Text> : null}
         {scorerSync?.pending?.length ? <Text accessibilityRole="status" style={styles.helper}>{scorerSync.pending.length} saved action{scorerSync.pending.length === 1 ? '' : 's'} waiting to sync.</Text> : null}
         {scorerSync?.error ? <Text accessibilityRole="alert" style={styles.warning}>{scorerSync.error}</Text> : null}
+        {canReviewParentScorerActions(scorerSync) ? <>
+          <Text style={styles.helper}>Saved actions to review:</Text>
+          {scorerSync.pending.map((command, index) => <Text key={command.id} style={styles.body}>{index + 1}. {describeSavedScorerAction(command)}</Text>)}
+          <Button disabled={busy || isOffline} label="Review saved actions" onPress={onReview} outline styles={styles} />
+        </> : null}
         {match.pendingReview ? <Text accessibilityRole="status" style={styles.helper}>Coach handover saved on this phone and waiting to sync.</Text> : null}
         {!keepAwake ? awakeControl : null}
         <View style={styles.actionGrid} testID="scorer-primary-actions">
@@ -1182,7 +1188,7 @@ function ParentMatchFormationPlan({ error = '', onFocusBoard, plan = null, plans
   )
 }
 
-export function MatchdayScreen({ suppressParentFormation = false, activeActionId, clubKits, formationViewportHeight = 0, invitations = [], isOffline, link, onAddToCalendar, onBack, onDismiss, onFocusFormation, onLiveRefresh, onOpen, onOpenLink, onRespond, onTransport, onScorerAction, onVolunteer, players = [], resource, scorerSync, selectedMatch, themeTokens }) {
+export function MatchdayScreen({ suppressParentFormation = false, activeActionId, clubKits, formationViewportHeight = 0, invitations = [], isOffline, link, onAddToCalendar, onBack, onDismiss, onFocusFormation, onLiveRefresh, onOpen, onOpenLink, onRespond, onReviewScorer, onTransport, onScorerAction, onVolunteer, players = [], resource, scorerSync, selectedMatch, themeTokens }) {
   const { colors, styles } = usePortalStyles(themeTokens)
   const [matchSection, setMatchSection] = useState('upcoming')
   const [squadOpenMatchId, setSquadOpenMatchId] = useState('')
@@ -1225,7 +1231,7 @@ export function MatchdayScreen({ suppressParentFormation = false, activeActionId
       <View style={styles.stack}>
         {!selectedMatch.isScorer ? <MatchdayAction accessibilityLabel="Back to Matchday" label="Back" iconKey="action.back" onPress={onBack} colors={colors} styles={styles} back /> : null}
         {selectedMatch.scorerReviewRequestedAt && !selectedMatch.isScorer ? <View style={styles.card}><Text accessibilityRole="status" style={styles.body}>Sent to Coach to conclude. Your scoring access has ended.</Text></View> : null}
-        {selectedMatch.isScorer ? <ScorerControls activeActionId={activeActionId} isOffline={isOffline} match={selectedMatch} onAction={(action, value) => onScorerAction(selectedMatch, action, value)} placeholderColor={colors.muted} players={scorerPlayers} scorerSync={scorerSync} styles={styles} /> : null}
+        {selectedMatch.isScorer ? <ScorerControls activeActionId={activeActionId} isOffline={isOffline} match={selectedMatch} onAction={(action, value) => onScorerAction(selectedMatch, action, value)} onReview={() => onReviewScorer?.(selectedMatch)} placeholderColor={colors.muted} players={scorerPlayers} scorerSync={scorerSync} styles={styles} /> : null}
         {selectedMatch.isScorer ? <MatchdayAction accessibilityLabel="Back to Matchday" label="Back" iconKey="action.back" onPress={onBack} colors={colors} styles={styles} back /> : null}
         <View style={[styles.gameDayHero, selectedMatchIsLive && styles.gameDayHeroLive]}>
           {['cancelled', 'postponed'].includes(selectedMatch.status) ? <Text style={styles.pill}>{getParentMatchStatusLabel(selectedMatch)}</Text> : null}

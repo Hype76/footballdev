@@ -144,6 +144,12 @@ async function sendCoachFixtureInvitations(user, match, playerIds) {
   return result
 }
 
+function fixtureInvitationWarning(result) {
+  if (!result || result.complete !== false) return ''
+  const count = Math.max(Number(result.missingContactCount) || 0, 0)
+  return `${count || 'Some'} player ${count === 1 ? 'invitation could' : 'invitations could'} not be sent. Check player contact details and account setup, then resend.`
+}
+
 export async function createCoachMatchDayFixture(user, form, { calendarOnly = false, calendarTarget = '' } = {}) {
   assertCoachOperationalMutation(user, { minimumRank: 20, requiresTeam: true })
   const normalizedCalendarTarget = ['coach', 'squad'].includes(normalize(calendarTarget))
@@ -255,6 +261,7 @@ export async function createCoachMatchDayFixture(user, form, { calendarOnly = fa
   if (fixture.parentVisible && !normalizedCalendarTarget) {
     try {
       invitationResult = await sendCoachFixtureInvitations(user, { ...match, parentVisible: true }, fixture.selectedPlayerIds)
+      invitationWarning = fixtureInvitationWarning(invitationResult)
     } catch (invitationError) {
       invitationWarning = normalize(invitationError?.message) || 'The fixture was saved, but Parent invitations remain unsent.'
     }

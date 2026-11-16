@@ -71,6 +71,7 @@ const shared = `import {getParentStatusColours,PARENT_SCORER_ICON_COLOURS} from 
   const root = createRoot(document.getElementById('root'))
 `
 const parentCode = `${shared}
+  import { canReviewParentScorerActions, describeSavedScorerAction } from './apps/parent-mobile/src/parentScorerOutboxCore.js'
   import { createParentMobileTheme, DEFAULT_PARENT_MOBILE_THEME } from './apps/mobile-core/src/parentThemeCore.js'
   import { SCORER_EVENT_LABELS, validateScorerMatchEvent } from './src/lib/matchday-scorer-event.js'
   import { captureParentScorerAction } from './apps/parent-mobile/src/parentScorerCore.js'
