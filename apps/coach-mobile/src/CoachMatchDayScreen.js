@@ -77,7 +77,7 @@ import { CoachSquadPanel } from './CoachSquadPanel'
 import { createCoachSquadTemplateStore } from '../../mobile-core/src/coachSquadTemplateData'
 import { useCoachMatchDayOutbox } from './useCoachMatchDayOutbox'
 import { selectCoachMatchDayDisplayMatch } from './coachMatchDayDisplayCore'
-import { canCorrectMatchDayCommand, MATCH_DAY_OFFLINE_MAX_AGE, OFFLINE_MATCH_TIMER_ACTIONS } from '../../mobile-core/src/matchDayOutboxCore'
+import { canCorrectMatchDayCommand, canReviewCoachMatchDayActions, isRedundantCoachStart, MATCH_DAY_OFFLINE_MAX_AGE, OFFLINE_MATCH_TIMER_ACTIONS } from '../../mobile-core/src/matchDayOutboxCore'
 import { getCoachFriendlyError } from './coachFriendlyErrors'
 
 const config = getMobileRuntimeConfig('coach')
@@ -1045,8 +1045,17 @@ function CoachMatchDayScoped({ context, matchDayTarget, onMatchDayTargetHandled,
     try {
       const latest = await getCoachMatchDayDetail(user, match.id)
       setMatch(latest)
-      setPending({ kind: 'review-saved', label: `Apply the ${pendingCount} saved ${pendingCount === 1 ? 'action' : 'actions'} shown above to the latest match at ${getCoachMatchDayPresentation(latest).displayScore}? Review the current score and events first.`,
-        run: async () => { try { await outbox.review(latest); await outbox.retry() } catch (reviewError) { setError(errorMessage(reviewError, 'Saved actions could not be reviewed.')) } } })
+      const expectedIds = (outbox.journal?.pending || []).map(command => command.id)
+      const removeRedundantStart = isRedundantCoachStart(outbox.journal, latest)
+      setPending({ kind: 'review-saved', label: removeRedundantStart
+        ? `The match is already running at ${getCoachMatchDayPresentation(latest).displayScore}. Remove only the rejected saved start and apply the remaining actions shown above?`
+        : `Apply the ${pendingCount} saved ${pendingCount === 1 ? 'action' : 'actions'} shown above to the latest match at ${getCoachMatchDayPresentation(latest).displayScore}? Review the current score and events first.`,
+      run: async () => { try {
+        const confirmed = await getCoachMatchDayDetail(user, latest.id)
+        if (confirmed.id !== latest.id || confirmed.updatedAt !== latest.updatedAt || confirmed.clubId !== latest.clubId || confirmed.teamId !== latest.teamId
+          || confirmed.concludedAt || ['full_time', 'cancelled', 'postponed'].includes(confirmed.status)) throw new Error('The match or your access changed. Saved actions remain on this phone. Refresh and review them again.')
+        await outbox.review(confirmed, { removeRedundantStart, expectedIds }); await outbox.retry()
+      } catch (reviewError) { setError(errorMessage(reviewError, 'Saved actions could not be reviewed.')) } } })
     } catch (reviewError) { setError(errorMessage(reviewError, 'The latest match could not be loaded.')) }
     finally { setBusy(false) }
   }
@@ -1186,7 +1195,7 @@ function CoachMatchDayScoped({ context, matchDayTarget, onMatchDayTargetHandled,
         <Button danger label="Discard saved actions" onPress={() => setPending({ kind: 'discard-local', label: `Discard all ${pendingCount} unsynced actions from this device? They will not be added to the match. The server record will stay unchanged.`, run: async () => { try { await outbox.discard(serverMatch) } catch (discardError) { setError(discardError.message) } } })} secondary styles={styles} />
       </> : null}
       <Button label="Sync saved actions" onPress={() => void outbox.retry()} secondary styles={styles} />
-      {outbox.journal.errorCode === '40001' && serverMatch?.status !== 'full_time' ? <Button disabled={busy} label="Review and apply saved actions" onPress={() => void reviewSavedActions()} styles={styles} /> : null}
+      {canReviewCoachMatchDayActions(outbox.journal) && serverMatch?.status !== 'full_time' ? <Button disabled={busy} label="Review and apply saved actions" onPress={() => void reviewSavedActions()} styles={styles} /> : null}
       {serverMatch?.status === 'full_time' ? <Text style={styles.body}>The server match has reached full time. Review the saved actions above and sync them, or discard them if they are no longer needed, before concluding.</Text> : null}
     </View> : null}
     {panel === 'saved-actions' && pendingCount === 0 && match ? <View style={styles.stack}>
