@@ -21,7 +21,7 @@ import {createCoachTheme} from './apps/coach-mobile/src/coachThemeCore.js';
 import {getCoachFormationAuthorityScope} from './apps/coach-mobile/src/coachFormationEntryCore.js';
 import {coachPlayerFormFromPlayer,filterCoachPlayers,formatCoachParentAppInstallationStatus,getCoachPlayerMutationPolicy,normalizeCoachPlayerEvaluation} from './apps/mobile-core/src/coachPlayersCore.js';
 import {getPlayerParentInviteContacts,getUnlistedParentAccessLinks} from './src/lib/parent-portal-invite-actions.js';
-import {getAdultPlayerSetupEmail,isAdultPlayerBirthDate} from './src/lib/adult-player-setup.js';
+import {adultPlayerLinkStatusLabel,getAdultPlayerSetupEmail,isAdultPlayerBirthDate} from './src/lib/adult-player-setup.js';
 import {CAPABILITIES,getFeatureAccess} from './src/lib/paywall-access.js';
 import {sendNewMatchdayParentInvites} from './apps/mobile-core/src/coachParentAutoInvite.js';
 import {getCoachParentInviteStatus} from './apps/mobile-core/src/coachParentInviteStatus.js';
@@ -30,6 +30,8 @@ const BrandLoader=()=>null,useConfirmedConnectionIssue=v=>v,useConfirmedConnecti
 const readCoachOfflineResources=async()=>null,saveCoachOfflineResources=async()=>{},peekMobileResource=()=>undefined,readMobileResource=async(u,k,fn)=>fn(),invalidateMobileResource=()=>{};
 const players=Array.from({length:16},(_,i)=>({id:'player-'+i,teamId:'team',clubId:'club',playerName:'FP TEST Player '+i,section:'Squad',positions:['Defender'],shirtNumber:String(i+1),status:'active',parentContacts:[{name:'FP TEST Parent',email:'parent@example.test',type:'parent'},{name:'Second Parent',email:'second@example.test',type:'parent'}],parentAppInstallationStatusAvailable:true,parentAppContactCount:2,parentAppInstalledContactCount:1}));
 const sendCoachAdultPlayerSetupInvite=async id=>{window.adultInvite=id;return {state:'sent'}};
+window.adultStatus='awaiting_acceptance';window.adultStatusChecks=0;
+const getCoachAdultPlayerLinkStatus=async()=>{window.adultStatusChecks++;return {state:window.adultStatus}};
 const getCoachPlayerList=async()=>players.map(p=>({...p}));window.saved=[];window.inviteCalls=[];let parentLinks=[];window.setParentLinks=links=>{parentLinks=links};const saveCoachPlayer=async(u,f,p)=>{window.saved.push(f);if(window.holdSave)await new Promise((resolve,reject)=>{window.resolveSave=resolve;window.rejectSave=()=>reject(new Error('Earlier save failed.'))});const saved={...(p||{id:'created-player',status:'active'}),...f,positions:f.positions?f.positions.split(','):[]};const i=players.findIndex(row=>row.id===saved.id);if(i>=0)players[i]=saved;else players.push(saved);return saved};const sendCoachParentInvite=async(u,id,c)=>{window.inviteCalls.push(c.email);if(window.failInviteEmail===c.email)throw new Error('Invite failed');parentLinks=[...parentLinks.filter(l=>l.email!==c.email),{id:'link-'+c.email,email:c.email,status:'pending',invite_sent_at:'2026-09-21'}];return{success:true}};const getCoachParentLinks=async()=>parentLinks;const revokeCoachParentAccess=async()=>{parentLinks=[]};
 window.requests=[];window.scrollRequests=0;window.pending={};
 const getCoachPlayerDetail=async(user,id)=>{
@@ -252,10 +254,22 @@ try {
   await page.getByLabel('Contact 1 email',{exact:true}).fill('adult@example.test')
   const priorParentInvites = await page.evaluate(() => window.inviteCalls.length)
   await page.getByRole('button',{name:'Save Player',exact:true}).click()
-  await page.getByText('Invite sent awaiting acceptance',{exact:true}).waitFor()
+  await page.getByText('Invitation sent. Delivery is unconfirmed; waiting for the player to accept.',{exact:true}).waitFor()
   assert.equal(await page.evaluate(() => window.saved.at(-1).dateOfBirth), '1996-11-13')
   assert.equal(await page.evaluate(() => window.adultInvite), 'created-player')
   assert.equal(await page.evaluate(() => window.inviteCalls.length), priorParentInvites)
+  await page.evaluate(() => { window.adultStatus='linked' })
+  await page.getByRole('button',{name:'Refresh Player account status'}).click()
+  await page.getByText('Player account linked',{exact:true}).waitFor()
+  assert.equal(await page.evaluate(() => window.adultStatusChecks), 2)
+  await page.evaluate(() => { window.adultStatus='parent_linked';window.setParentLinks([{id:'legacy-link',email:'former@example.test',status:'active'}]) })
+  await page.getByRole('button',{name:'Refresh player details',exact:true}).click()
+  await page.getByRole('button',{name:'Show parent and player contacts',exact:true}).click()
+  await page.getByText('Parent access is active. Review it before setting up separate Player access.',{exact:true}).waitFor()
+  await page.evaluate(() => { window.adultStatus='not_invited' })
+  await page.getByRole('button',{name:'Remove Parent access',exact:true}).click()
+  await page.getByRole('button',{name:'Confirm remove access',exact:true}).click()
+  await page.getByText('Player account not linked. Save the player to send an invitation.',{exact:true}).waitFor()
   assert.deepEqual(errors,[])
   console.log('PASS: Exact saved development A/B records, selected-player guard, read-only authorised snapshot responses, legacy fallback, team/account/role revocation and immediate open ('+recordOpenMs+'ms). Coach player profiles preserve contacts, reject duplicate saves, preserve newer Quick Add forms after delayed save success/error, retain filters, reject late detail responses, preserve permissions, and render at 320/390px in light/dark themes.')
 } finally {await browser.close()}
