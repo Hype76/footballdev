@@ -13,6 +13,16 @@ const goalValidationErrors = new Set([
   'Opponent assists cannot link team players.',
 ])
 
+export function canReviewCoachMatchDayActions(journal) {
+  return journal?.errorCode === '40001' || (journal?.errorCode === 'P0001' && journal.pending?.[0]?.kind === 'timer'
+    && journal.pending[0].payload?.action === 'start' && journal.error === 'This saved clock action predates the current clock. Review it before continuing.')
+}
+
+export function isRedundantCoachStart(journal, match) {
+  return canReviewCoachMatchDayActions(journal) && journal.pending?.[0]?.kind === 'timer' && journal.pending[0].payload?.action === 'start'
+    && match?.status === 'live' && match?.currentMatchPhase === 'first_half' && match?.timerStatus === 'running'
+}
+
 export function canCorrectMatchDayCommand(journal) {
   const command = journal?.pending?.[0]
   if (command?.kind !== 'event' || !['22023', 'P0001'].includes(journal.errorCode)
@@ -80,7 +90,7 @@ export function appendMatchDayCommand(journal, { id, kind, payload, capturedAt =
   if (previous && time < Date.parse(previous.capturedAt)) throw new Error('The device clock changed. Check its time before recording another action.')
   const command = { id, matchId: journal.baseMatch.id, kind, payload: JSON.parse(JSON.stringify(payload)), capturedAt,
     expectedUpdatedAt: previous ? null : journal.baseMatch.updatedAt, previousCommandId: previous?.id || null }
-  return { ...journal, pending: [...journal.pending, command], error: canCorrectMatchDayCommand(journal) ? journal.error : '' }
+  return { ...journal, pending: [...journal.pending, command], error: canReviewCoachMatchDayActions(journal) || canCorrectMatchDayCommand(journal) ? journal.error : '' }
 }
 
 // Persist before showing success. Reuse each command ID after an uncertain response.
@@ -144,13 +154,17 @@ export function createMatchDayOutbox({ read, update, send, key = '', onChange = 
       publish(journal)
       return journal
     },
-    async reviewAgainstLatest(match) {
+    async reviewAgainstLatest(match, { removeRedundantStart = false, expectedIds } = {}) {
       if (syncing || key && activeSyncs.has(key)) throw new Error('Wait for the current sync to finish before reviewing saved actions.')
       const journal = await update(current => {
-        if (current?.errorCode !== '40001') throw new Error('Sync saved actions first so the server can confirm whether they were applied.')
+        if (!canReviewCoachMatchDayActions(current) || !current.pending?.length) throw new Error('Sync saved actions first so the server can confirm whether they were applied.')
+        if (expectedIds && (current.pending.length !== expectedIds.length || current.pending.some((command, index) => command.id !== expectedIds[index]))) throw new Error('The saved actions changed. Review them again.')
         if (!match?.updatedAt || match.id !== current.baseMatch?.id || match.concludedAt || ['full_time', 'cancelled', 'postponed'].includes(match.status)) throw new Error('Refresh the open match before reviewing saved actions.')
+        if (removeRedundantStart && (!expectedIds || !isRedundantCoachStart(current, match))) throw new Error('The saved start cannot be removed for this match state.')
+        if (!removeRedundantStart && isRedundantCoachStart(current, match)) throw new Error('The match is already running. Review the saved start before continuing.')
+        const pending = removeRedundantStart ? current.pending.slice(1) : current.pending
         return { ...current, baseMatch: match, error: '', errorCode: '', verifiedAt: new Date().toISOString(),
-          pending: current.pending.map((command, index) => index === 0 ? { ...command, expectedUpdatedAt: match.updatedAt, previousCommandId: null } : command) }
+          pending: pending.map((command, index) => index === 0 ? { ...command, expectedUpdatedAt: match.updatedAt, previousCommandId: null } : command) }
       })
       publish(journal)
       return journal
@@ -166,7 +180,7 @@ export function createMatchDayOutbox({ read, update, send, key = '', onChange = 
           if (stopped) return
           const command = journal?.pending?.[0]
           if (!command) return
-          if (!retryRejected && command.payload.eventType === 'goal' && canCorrectMatchDayCommand(journal)) return
+          if (!retryRejected && (canReviewCoachMatchDayActions(journal) || canCorrectMatchDayCommand(journal))) return
           if (!reportedSync) { reportedSync = true; onSyncStateChange(true) }
           try {
             const match = await send(command, journal.baseMatch)

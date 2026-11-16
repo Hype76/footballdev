@@ -5,7 +5,7 @@ import { parse } from '@babel/parser'
 import { normalizeMatchDayShirtChoice } from '../src/lib/matchday-model.js'
 import { normalizePitchType } from '../src/lib/pitch-type.js'
 import { normalizePersonName } from '../src/lib/person-name.js'
-import { appendParentScorerCommand, canRestoreRejectedShootout, getVisibleParentScorerMatch, mergeParentScorerAcknowledgement, projectParentScorerOutbox, restoreRejectedShootout } from '../apps/parent-mobile/src/parentScorerOutboxCore.js'
+import { appendParentScorerCommand, canRestoreRejectedShootout, canReviewParentScorerActions, getVisibleParentScorerMatch, mergeParentScorerAcknowledgement, projectParentScorerOutbox, restoreRejectedShootout, reviewParentScorerConflict } from '../apps/parent-mobile/src/parentScorerOutboxCore.js'
 
 test('unfinished shootout cannot enter the offline finish queue and a rejected finish can be restored', () => {
   const shootout = { ...base, status: 'penalties', currentMatchPhase: 'penalties', timerStatus: 'paused',
@@ -32,6 +32,37 @@ const base = { id: 'match', clubId: 'club', teamId: 'team', updatedAt: startAt, 
   matchDurationMinutes: 80, events: [], shootoutEvents: [], isScorer: true }
 const journal = () => ({ baseMatch: base, pending: [], verifiedAt: startAt, error: '' })
 
+test('Parent conflict review requires the exact queued actions and a fresh authorised match', () => {
+  const original = appendParentScorerCommand(journal(), { id: 'start', kind: 'start', capturedAt: startAt })
+  const conflicted = { ...original, errorCode: '40001', error: 'Changed on another device' }
+  const latest = { ...base, updatedAt: '2026-09-26T11:02:00Z', homeScore: 1 }
+  assert.throws(() => reviewParentScorerConflict(conflicted, latest, []), /changed/)
+  assert.throws(() => reviewParentScorerConflict(conflicted, { ...latest, isScorer: false }, ['start']), /Refresh/)
+  assert.throws(() => reviewParentScorerConflict({ ...conflicted, errorCode: '' }, latest, ['start']), /Sync saved/)
+  const reviewed = reviewParentScorerConflict(conflicted, latest, ['start'])
+  assert.equal(reviewed.pending[0].id, 'start')
+  assert.equal(reviewed.pending[0].expectedUpdatedAt, latest.updatedAt)
+  assert.equal(reviewed.pending[0].capturedAt, startAt)
+  assert.equal(reviewed.baseMatch.homeScore, 1)
+})
+
+test('an explicitly reviewed redundant start can be removed without losing the following goal', () => {
+  const first = appendParentScorerCommand(journal(), { id: 'start', kind: 'start', capturedAt: startAt })
+  const withGoal = appendParentScorerCommand(first, { id: 'goal', kind: 'goal', payload: { minute: 5 }, capturedAt: '2026-09-26T11:05:00Z' })
+  const rejected = { ...withGoal, errorCode: '40001', error: 'Changed on another device' }
+  const latest = { ...base, status: 'live', currentMatchPhase: 'first_half', timerStatus: 'running', updatedAt: '2026-09-26T11:01:00Z' }
+  assert.throws(() => reviewParentScorerConflict(rejected, latest, ['start', 'goal']), /already running/)
+  assert.throws(() => reviewParentScorerConflict(rejected, { ...latest, timerStatus: 'paused' }, ['start', 'goal'], { removeRedundantStart: true }), /cannot be removed/)
+  const reviewed = reviewParentScorerConflict(rejected, latest, ['start', 'goal'], { removeRedundantStart: true })
+  assert.equal(reviewed.pending.length, 1)
+  assert.equal(reviewed.pending[0].id, 'goal')
+  assert.deepEqual(reviewed.pending[0].payload, withGoal.pending[1].payload)
+  assert.equal(reviewed.pending[0].capturedAt, withGoal.pending[1].capturedAt)
+  assert.equal(reviewed.pending[0].expectedUpdatedAt, latest.updatedAt)
+  assert.equal(reviewed.pending[0].previousCommandId, null)
+  assert.equal(canReviewParentScorerActions({ ...rejected, errorCode: 'P0001', error: 'This saved clock action predates the current clock. Review it before continuing.' }), true)
+})
+
 async function actualFunctions(file, names) {
   const source = await readFile(new URL(file, import.meta.url), 'utf8')
   const declarations = parse(source, { sourceType: 'module' }).program.body.map(node => node.declaration || node)
@@ -43,6 +74,28 @@ async function actualFunctions(file, names) {
 }
 const coreFunctions = await actualFunctions('../apps/mobile-core/src/data.js', ['normalizeText', 'getRelatedRow', 'normalizeMatchDayEvent', 'normalizeMatchDay'])
 const parentFunctions = await actualFunctions('../apps/parent-mobile/src/parentPortalData.js', ['normalizeParentMatchEvent', 'normalizeParentMatchDay', 'applyParentScorerCommand'])
+const parentSyncFunction = await actualFunctions('../apps/parent-mobile/src/offline.js', ['syncParentScorerOutboxes'])
+
+test('Parent scorer pauses automatic retries after a confirmed conflict and preserves the queue', async () => {
+  const command = { id: 'start', kind: 'start', payload: {} }
+  let document = { parentScorerOutboxes: { link: { match: { baseMatch: { id: 'match' }, pending: [command] } } } }
+  let calls = 0
+  const deps = {
+    activeScorerSyncs: new Map(), canReviewParentScorerActions, getParentPortalLinks: () => [{ id: 'link' }],
+    readParentScorerOutboxes: async () => document.parentScorerOutboxes.link,
+    withSelectedParentLink: user => user,
+    applyParentScorerCommand: async () => { calls += 1; throw Object.assign(new Error('Changed on another device'), { code: '40001' }) },
+    updateParentDocument: async (_, change) => { document = change(document) },
+  }
+  const sync = new Function(...Object.keys(deps), `${parentSyncFunction}\nreturn syncParentScorerOutboxes`)(...Object.values(deps))
+  await sync({ id: 'user' })
+  await sync({ id: 'user' })
+  assert.equal(calls, 1)
+  assert.deepEqual(document.parentScorerOutboxes.link.match.pending, [command])
+  await sync({ id: 'user' }, { explicitRetry: true })
+  assert.equal(calls, 2)
+  assert.equal(document.parentScorerOutboxes.link.match.errorCode, '40001')
+})
 let rpcResult
 const dependencies = { normalizeMatchDayShirtChoice, normalizePitchType, normalizePersonName, mergeParentScorerAcknowledgement,
   normalizeParentMatchFormationPlan: () => { throw new Error('Unexpected formation access') },

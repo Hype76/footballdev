@@ -125,11 +125,12 @@ test('staff delivery uses the reserved recipient and repeats the same provider i
   const deliveries = []
   let sent = false
   let state = 'pending'
+  let providerStatus = 'delivered'
   const handler = createAdultPlayerSetupHandler({
     client: {
-      from: () => ({
+      from: table => ({
         select: () => ({
-          eq: () => ({ maybeSingle: async () => ({ data: { id: player, club_id: club, team_id: team } }) }),
+          eq: () => ({ maybeSingle: async () => ({ data: table === 'email_delivery_jobs' ? { provider_status: providerStatus } : { id: player, club_id: club, team_id: team } }) }),
         }),
       }),
       rpc: async (name) => {
@@ -157,6 +158,14 @@ test('staff delivery uses the reserved recipient and repeats the same provider i
   assert.deepEqual(deliveries[0].payload.to, ['player@example.test'])
   assert.equal(deliveries[0].payload.emailAppRole, 'none')
   assert.equal((await send()).statusCode, 200)
+  assert.equal(deliveries.length, 2)
+  providerStatus = 'bounced'
+  const bounced = await send()
+  assert.equal(bounced.statusCode, 409)
+  assert.match(JSON.parse(bounced.body).message, /could not be delivered/)
+  assert.equal(deliveries.length, 2)
+  providerStatus = 'suppressed'
+  assert.equal((await send()).statusCode, 409)
   assert.equal(deliveries.length, 2)
   sent = false
   state = 'denied'

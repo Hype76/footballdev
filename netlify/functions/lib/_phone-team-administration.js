@@ -2,7 +2,23 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-
 const escape = value => String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char])
 const response = (statusCode, value) => ({ statusCode, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }, body: JSON.stringify(value) })
 
-export function createPhoneTeamAdministrationHandler({ client, getPlanProfile, getStaffLimit, authenticatedClient, sendInvite }) {
+export function createExistingCoachTeamNotifier({ client, deliver, from }) {
+  return async ({ actorId, clubId, teamId, email, assignmentId, userId, role }) => {
+    if (!assignmentId) throw new Error('Coach assignment could not be confirmed.')
+    const auth = await client.auth.admin.getUserById(userId)
+    if (auth.error || !auth.data?.user?.email_confirmed_at || auth.data.user.deleted_at
+      || (auth.data.user.banned_until && Date.parse(auth.data.user.banned_until) > Date.now())
+      || String(auth.data.user.email || '').trim().toLowerCase() !== email) throw new Error('Coach account email could not be confirmed.')
+    const { data, error } = await client.from('teams').select('name').eq('id', teamId).eq('club_id', clubId).single()
+    if (error || !data?.name) throw error || new Error('Team could not be loaded.')
+    await deliver({ emailAppRole: 'coach', from: from(), to: [email], subject: 'Your Football Player team access',
+      html: `<p>You have been added as a coach for ${escape(data.name)}.</p><p><a href="https://footballplayer.online/">Sign in to Football Player</a> using your existing account to open your team.</p>`,
+      text: `You have been added as a coach for ${data.name}. Sign in using your existing account at https://footballplayer.online/ to open your team.`,
+    }, { idempotencyKey: `existing-coach-team:${assignmentId}:${role}`, context: { emailType: 'existing_coach_team_access', actorId, clubId, teamId, targetEntityType: 'staff_assignment', targetEntityId: assignmentId } })
+  }
+}
+
+export function createPhoneTeamAdministrationHandler({ client, getPlanProfile, getStaffLimit, authenticatedClient, sendInvite, notifyExistingCoach }) {
   return async event => {
     try {
       if (event.httpMethod !== 'POST') return response(405, { message: 'Method not allowed.' })
@@ -70,7 +86,15 @@ export function createPhoneTeamAdministrationHandler({ client, getPlanProfile, g
         })
         if (assigned.error) throw assigned.error
         if (!assigned.data?.success) return response(403, { message: assigned.data?.message || 'Coach access could not be assigned.' })
-        return response(200, { kind: 'user', message: 'Coach access updated.', teamId: body.teamId, clubId: policy.data.clubId })
+        let message = 'Coach access updated. The coach can sign in with their existing account.'
+        try {
+          await notifyExistingCoach({ actorId, clubId: policy.data.clubId, teamId: body.teamId, email: String(body.email).trim().toLowerCase(),
+            assignmentId: assigned.data?.assignment?.id, userId: invitation.userId, role: invitation.role })
+          message = 'Coach access updated and an email was sent. They can sign in with their existing account.'
+        } catch {
+          message = 'Coach access updated, but the email could not be sent. Check their account email and ask them to sign in with their existing account.'
+        }
+        return response(200, { kind: 'user', message, teamId: body.teamId, clubId: policy.data.clubId })
       }
       if (!invitation.alreadySent) {
         const link = `https://footballplayer.online/staff-invite/${encodeURIComponent(invitation.inviteToken)}`

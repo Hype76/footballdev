@@ -6,6 +6,45 @@ const TIMER_ACTIONS = new Set(['pause', 'hydration', 'half_time', 'resume', 'ful
 const EXTENDED_ACTIONS = new Set(['normal_time_complete', 'start_extra_time', 'extra_time_half_time', 'start_extra_time_second_half', 'complete_extra_time', 'start_penalties'])
 const REJECTED_SHOOTOUT_FINISH = 'Complete the penalty shootout with a clear winner before Full Time.'
 
+export function describeSavedScorerAction(command) {
+  const payload = command?.payload || {}
+  const detail = payload.goal || payload
+  const title = String(detail.eventType || payload.action || command?.kind || 'action').replaceAll('-', ' ').replaceAll('_', ' ')
+  const parts = [title]
+  if (detail.teamSide) parts.push(detail.teamSide === 'club' ? 'your team' : 'opponents')
+  if (detail.minute != null) parts.push(`minute ${detail.minute}`)
+  if (detail.scorerName || detail.playerName) parts.push(detail.scorerName || detail.playerName)
+  if (detail.assistName) parts.push(`assist ${detail.assistName}`)
+  if (detail.playerOnName) parts.push(`on ${detail.playerOnName}`)
+  if (detail.outcome) parts.push(detail.outcome)
+  if (command?.kind === 'score') parts.push(`${payload.homeScore} - ${payload.awayScore}`)
+  if (payload.reason) parts.push(payload.reason)
+  return parts.join(', ')
+}
+
+export function canReviewParentScorerActions(journal) {
+  return journal?.errorCode === '40001' || (journal?.errorCode === 'P0001' && journal.pending?.[0]?.kind === 'start'
+    && journal.error === 'This saved clock action predates the current clock. Review it before continuing.')
+}
+
+export function isRedundantParentStart(journal, latest) {
+  return canReviewParentScorerActions(journal) && journal.pending?.[0]?.kind === 'start'
+    && latest?.status === 'live' && latest?.currentMatchPhase === 'first_half' && latest?.timerStatus === 'running'
+}
+
+export function reviewParentScorerConflict(journal, latest, expectedIds, { removeRedundantStart = false } = {}) {
+  if (!canReviewParentScorerActions(journal) || !journal.pending?.length) throw new Error('Sync saved actions first so the server can confirm whether they were applied.')
+  if (!Array.isArray(expectedIds) || journal.pending.length !== expectedIds.length || journal.pending.some((command, index) => command.id !== expectedIds[index])) throw new Error('The saved actions changed. Review them again.')
+  if (!latest?.isScorer || !latest.updatedAt || latest.id !== journal.baseMatch?.id || latest.clubId !== journal.baseMatch?.clubId || latest.teamId !== journal.baseMatch?.teamId || latest.concludedAt || ['full_time', 'cancelled', 'postponed'].includes(latest.status)) {
+    throw new Error('Refresh the open match before reviewing saved actions.')
+  }
+  if (removeRedundantStart && !isRedundantParentStart(journal, latest)) throw new Error('The saved start cannot be removed for this match state.')
+  if (!removeRedundantStart && isRedundantParentStart(journal, latest)) throw new Error('The match is already running. Review the saved start before continuing.')
+  const pending = removeRedundantStart ? journal.pending.slice(1) : journal.pending
+  return { ...journal, baseMatch: latest, error: '', errorCode: '', verifiedAt: new Date().toISOString(),
+    pending: pending.map((command, index) => index === 0 ? { ...command, expectedUpdatedAt: latest.updatedAt, previousCommandId: null } : command) }
+}
+
 export function canRestoreRejectedShootout(journal) {
   return journal?.error?.includes(REJECTED_SHOOTOUT_FINISH)
     && journal.pending?.[0]?.kind === 'timer'
@@ -51,7 +90,7 @@ export function appendParentScorerCommand(journal, { id, kind, payload = {}, cap
   }
   const command = { id, matchId: journal.baseMatch.id, kind, payload: JSON.parse(JSON.stringify(payload)), capturedAt,
     expectedUpdatedAt: previous ? null : journal.baseMatch.updatedAt, previousCommandId: previous?.id || null }
-  return { ...journal, pending: [...journal.pending, command], error: '' }
+  return { ...journal, pending: [...journal.pending, command], error: canReviewParentScorerActions(journal) ? journal.error : '' }
 }
 
 export function projectParentScorerCommand(match, command) {

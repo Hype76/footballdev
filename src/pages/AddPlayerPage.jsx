@@ -311,7 +311,7 @@ export function AddPlayerPage() {
     const failure = results.find(result => result.status === 'rejected')
     if (failure) {
       setSavedPlayerForRetry(player)
-      setErrorMessage(`Player saved. ${failure.reason?.message || 'An invitation could not be sent.'} Select Save Player to retry.`)
+      setErrorMessage(`Player saved. ${failure.reason?.message || 'An invitation could not be sent.'} To change saved details, continue without sending and edit the Player profile. To retry without changes, select Save Player.`)
       return
     }
 

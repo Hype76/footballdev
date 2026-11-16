@@ -152,6 +152,12 @@ async function sendCoachFixtureInvitations(user, match, playerIds) {
   return result
 }
 
+function fixtureInvitationWarning(result) {
+  if (!result || result.complete !== false) return ''
+  const count = Math.max(Number(result.missingContactCount) || 0, 0)
+  return `${count || 'Some'} player ${count === 1 ? 'invitation could' : 'invitations could'} not be sent. Check player contact details and account setup, then resend.`
+}
+
 export async function getCoachFixtureInvitedPlayerIds(user, match) {
   assertCoachMatchDayAccess(user)
   assertScope(user, match)
@@ -182,7 +188,7 @@ export async function addCoachFixtureParents(user, match, playerIds) {
     expected_player_ids_value: currentPlayerIds, request_token_value: requestId(),
   })
   let warning = ''
-  try { await sendCoachFixtureInvitations(user, { ...match, parentVisible: true }, addedIds) }
+  try { warning = fixtureInvitationWarning(await sendCoachFixtureInvitations(user, { ...match, parentVisible: true }, addedIds)) }
   catch (error) { warning = normalize(error?.message) || 'Parents were added, but invitations could not be confirmed.' }
   return { match: await getCoachMatchDayDetail(user, match.id), warning }
 }
@@ -298,6 +304,7 @@ export async function createCoachMatchDayFixture(user, form, { calendarOnly = fa
   if (fixture.parentVisible && !normalizedCalendarTarget) {
     try {
       invitationResult = await sendCoachFixtureInvitations(user, { ...match, parentVisible: true }, fixture.selectedPlayerIds)
+      invitationWarning = fixtureInvitationWarning(invitationResult)
     } catch (invitationError) {
       invitationWarning = normalize(invitationError?.message) || 'The fixture was saved, but Parent invitations remain unsent.'
     }
