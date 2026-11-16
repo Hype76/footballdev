@@ -69,8 +69,8 @@
       "ghsaId": "GHSA-gcqx-w48m-w2h4",
       "cveId": "CVE-2026-93753",
       "severity": "low",
-      "summary": "deepmerge mergeObject() allows prototype poisoning of returned objects",
-      "description": "deepmerge through 4.3.1 contains a prototype poisoning vulnerability in the mergeObject() function that fails to properly validate keys being written to target objects. Attackers can supply malicious source objects in merge operations to inject attacker-controlled properties into the returned object's prototype, causing applications to inherit unintended values when accessing properties without own-property checks.",
+      "summary": "Withdrawn Advisory: deepmerge mergeObject() allows prototype poisoning of returned objects",
+      "description": "## Withdrawn Advisory\n\nThis advisory has been withdrawn because it does not describe a security vulnerability. This link is maintained to preserve external references.\n\n## Original Description\ndeepmerge through 4.3.1 contains a prototype poisoning vulnerability in the mergeObject() function that fails to properly validate keys being written to target objects. Attackers can supply malicious source objects in merge operations to inject attacker-controlled properties into the returned object's prototype, causing applications to inherit unintended values when accessing properties without own-property checks.",
       "vulnerabilities": [
         {
           "package": {
@@ -89,8 +89,8 @@
         "https://www.vulncheck.com/advisories/deepmerge-through-4.3.1-prototype-poisoning-via-mergeobject",
         "https://github.com/advisories/GHSA-gcqx-w48m-w2h4"
       ],
-      "withdrawnAt": null,
-      "updatedAt": "2026-10-27T21:34:58Z",
+      "withdrawnAt": "2026-11-16T18:55:38Z",
+      "updatedAt": "2026-11-16T18:55:42Z",
       "url": "https://github.com/advisories/GHSA-gcqx-w48m-w2h4"
     }
   ],
