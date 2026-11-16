@@ -1637,8 +1637,8 @@ function InvitesDomain({ data: serverData, context, load: loadDomain, onAvailabi
     const expanded = match.id === matchId
     const { firstTeam, secondTeam } = getMatchDayDisplayParts({ ...match, clubName: match.clubName || user.clubName })
     return (
-      <View key={`match:${match.id}`} style={styles.stack}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, borderBottomWidth: 1, borderBottomColor: palette.border, paddingVertical: 8 }}>
+      <View key={`match:${match.id}`} style={[styles.panel, expanded && { padding: 0, borderWidth: 0, backgroundColor: 'transparent' }]}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 1, borderColor: palette.border, borderRadius: 9, padding: 8, backgroundColor: palette.surface }}>
           <Pressable accessibilityRole="button" accessibilityLabel={`${expanded ? 'Hide' : 'Open'} availability for ${match.opponent || 'match'}`} onPress={() => showAvailability('match', match.id)} style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10, padding: 4 }}>
             <MaterialIcons name="event" size={28} color={palette.textSecondary} />
             <View style={{ flex: 1, gap: 4 }}><Text style={[styles.heading, { fontSize: 15, lineHeight: 20 }]}>{firstTeam} v {secondTeam}</Text><Text style={styles.helper}>{match.matchDate ? new Date(`${match.matchDate}T12:00:00`).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }) : 'Date to be confirmed'} · {match.kickoffTimeTbc ? 'Time TBC' : match.kickoffTime?.slice(0, 5) || 'Time TBC'}{match.venueName ? ` · ${match.venueName}` : ''}</Text>{!expanded ? <Text style={styles.helper}>{hasCompleteCoachAvailabilitySnapshot(serverData) || fixtureSnapshot?.fixtureId === match.id && fixtureSnapshot.complete ? `Available ${matchSummary.available} · Awaiting ${matchSummary.awaiting}` : 'Saved totals need refreshing'}</Text> : null}</View>
