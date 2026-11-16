@@ -526,6 +526,29 @@ function RuntimeAuthProvider({ children }) {
         return
       }
 
+      if (window.location.pathname.replace(/\/+$/, '') === '/player-invite') {
+        activeSyncIdRef.current += 1
+        const currentUserId = String(userRef.current?.id ?? '')
+        if (currentUserId && currentUserId !== String(nextSession.user.id ?? '')) {
+          setUser(null)
+          setClubOptions([])
+          setAccessModeOptions([])
+          setTeamOptions([])
+          setHasPlatformAdminAccess(false)
+          setAccessRouteMismatch(null)
+          window.sessionStorage.removeItem(SELECTED_CLUB_STORAGE_KEY)
+          window.sessionStorage.removeItem(SELECTED_TEAM_STORAGE_KEY)
+          window.sessionStorage.removeItem(SELECTED_ACCESS_MODE_STORAGE_KEY)
+          window.sessionStorage.removeItem(SELECTED_ACCESS_MODE_EXPLICIT_KEY)
+          clearLoginAccessIntent()
+        }
+        setSession(nextSession)
+        setAuthUser(nextSession.user)
+        setIsProfileLoading(false)
+        finishBootstrap()
+        return
+      }
+
       const syncId = activeSyncIdRef.current + 1
       activeSyncIdRef.current = syncId
       const nextUserId = String(nextSession.user?.id ?? '')
@@ -557,7 +580,7 @@ function RuntimeAuthProvider({ children }) {
         }
         const hasPlatformAccess = await refreshPlatformAdminAccess(nextSession.user)
 
-        if (hasPlatformAccess && selectedAccessMode !== 'parent' && (selectedAccessMode !== 'team' || !selectedAccessModeIsExplicit)) {
+        if (hasPlatformAccess && !['parent', 'player'].includes(selectedAccessMode) && (selectedAccessMode !== 'team' || !selectedAccessModeIsExplicit)) {
           const platformProfile = await openPlatformAdminProfile()
 
           if (!isMounted || activeSyncIdRef.current !== syncId) {

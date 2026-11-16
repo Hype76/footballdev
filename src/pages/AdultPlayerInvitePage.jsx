@@ -1,6 +1,7 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { PasswordInput } from '../components/ui/PasswordInput.jsx'
-import { useAuth } from '../lib/auth.js'
+import { createTemporaryPlayerInviteClient, supabase } from '../lib/supabase-client.js'
+import { rememberLoginAccessIntent } from '../lib/login-access-intent.js'
 import { assertPasswordPolicy, PASSWORD_POLICY_SUMMARY } from '../lib/password-policy.js'
 
 async function submitInvite(body, accessToken) {
@@ -13,22 +14,38 @@ async function submitInvite(body, accessToken) {
     body: JSON.stringify(body),
   })
   const result = await response.json().catch(() => ({}))
-  if (!response.ok || !result.success) throw new Error(result.message || 'Player access could not be set up. Please try again.')
+  if (!response.ok || !result.success) {
+    const error = new Error(result.message || 'Player access could not be set up. Please try again.')
+    error.state = result.state
+    throw error
+  }
 }
 
 export function AdultPlayerInvitePage() {
-  const { signInWithPassword } = useAuth()
-  const [token] = useState(() => new URLSearchParams(window.location.hash.slice(1)).get('invite'))
+  const [token, setToken] = useState(() => new URLSearchParams(window.location.hash.slice(1)).get('invite'))
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [existingAccount, setExistingAccount] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const submission = useRef(false)
+  const mounted = useRef(false)
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false } }, [])
+  useEffect(() => {
+    const onHashChange = () => {
+      setToken(new URLSearchParams(window.location.hash.slice(1)).get('invite'))
+      setPassword('')
+      setError('')
+    }
+    window.addEventListener('hashchange', onHashChange)
+    return () => window.removeEventListener('hashchange', onHashChange)
+  }, [])
+  const stillOnInvite = () => mounted.current && window.location.pathname.replace(/\/+$/, '') === '/player-invite'
+    && new URLSearchParams(window.location.hash.slice(1)).get('invite') === token
 
   async function accept(event) {
     event.preventDefault()
-    if (!token || submission.current) return
+    if (!token || submission.current || !stillOnInvite()) return
     submission.current = true
     setBusy(true)
     setError('')
@@ -38,13 +55,27 @@ export function AdultPlayerInvitePage() {
         assertPasswordPolicy(password)
         await submitInvite({ action: 'create', email: address, password, token })
       }
-      const result = await signInWithPassword({ email: address, password })
+      if (!stillOnInvite()) return
+      const temporaryClient = createTemporaryPlayerInviteClient()
+      const { data: result, error: signInError } = await temporaryClient.auth.signInWithPassword({ email: address, password })
+      if (signInError || !result?.session?.access_token || !result.session.refresh_token) {
+        throw new Error('Unable to sign in. Check your email and password and try again.')
+      }
+      if (!stillOnInvite()) return
       if (existingAccount) {
-        if (!result.session?.access_token) throw new Error('Sign in again to accept your invitation.')
         await submitInvite({ action: 'accept', token }, result.session.access_token)
       }
+      if (!stillOnInvite()) return
+      const { error: sessionError } = await supabase.auth.setSession({ access_token: result.session.access_token, refresh_token: result.session.refresh_token })
+      if (sessionError) throw new Error('Your Player access is linked, but sign in could not be completed. Sign in again.')
+      if (!stillOnInvite()) return
+      rememberLoginAccessIntent('player')
       window.location.replace('/player')
     } catch (failure) {
+      if (failure.state === 'account_exists') {
+        setExistingAccount(true)
+        setPassword('')
+      }
       setError(failure.message || 'Player access could not be set up. Please try again.')
     } finally {
       setBusy(false)

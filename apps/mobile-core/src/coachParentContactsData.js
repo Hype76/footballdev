@@ -9,12 +9,20 @@ import { getAccessToken, supabase } from './supabase'
 const LINK_COLUMNS = 'id,player_id,email,status,invite_sent_at,expires_at,link_type'
 
 export async function sendCoachAdultPlayerSetupInvite(playerId) {
+  return coachAdultPlayerSetupRequest(playerId, 'send')
+}
+
+export async function getCoachAdultPlayerLinkStatus(playerId) {
+  return coachAdultPlayerSetupRequest(playerId, 'status')
+}
+
+async function coachAdultPlayerSetupRequest(playerId, action) {
   const token = await getAccessToken()
   if (!token) throw new Error('Sign in again before sending a Player invitation.')
   const { ok, result } = await fetchJsonWithTimeout(joinApiPath(getMobileRuntimeConfig('coach').apiBaseUrl, '.netlify/functions/adult-player-setup'), {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ action: 'send', playerId }),
+    body: JSON.stringify({ action, playerId }),
   })
   if (!ok || result.success !== true) throw new Error(result.message || 'Player invitation could not be sent.')
   return result

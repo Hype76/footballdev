@@ -63,6 +63,12 @@ createRoot(document.getElementById('root')).render(<Editor />)`,
     }),
   },
 })
+const adultStatusView = await build({
+  stdin: { contents: `import React,{useState} from 'react';import {createRoot} from 'react-dom/client';
+import {PlayerDetailsSection} from './src/components/players/PlayerDetailsSection.jsx';
+function App(){const [state,setState]=useState('awaiting_acceptance');const player={id:'adult',playerName:'Adult',contactType:'self',section:'Squad',team:'Team',parentContacts:[{type:'self',email:'adult@example.test'}]};return <PlayerDetailsSection profilePlayers={[player]} playerDrafts={{}} selectedDirectInviteDates={{}} getDirectEmailTemplateOptions={()=>[]} getSelectedDirectEmailTemplateOption={()=>null} adultLinkStatuses={{adult:state}} onRefreshAdultLinkStatus={()=>setState('linked')}/>};createRoot(document.getElementById('root')).render(<App/>);`, resolveDir: process.cwd(), loader: 'jsx' },
+  bundle: true, write: false, jsx: 'automatic', define: { 'process.env.NODE_ENV': '"production"' },
+})
 const assets=await readdir('dist/assets');const css=await Promise.all(assets.filter(name=>name.endsWith('.css')).map(name=>readFile('dist/assets/'+name,'utf8')))
 const browser=await chromium.launch({headless:true});await mkdir('output/playwright/player-contact-layout',{recursive:true})
 try {
@@ -86,6 +92,12 @@ try {
  assert.deepEqual(errors,[]);console.log('PASS: actual contact summary, long emails, active and pending invitation status and full-width cards at 320/390/768/1100/1600px in light/dark themes.')
 
  const editorPage = await browser.newPage()
+ const adultPage = await browser.newPage()
+ await adultPage.setContent('<div id="root"></div>')
+ await adultPage.addScriptTag({ content: adultStatusView.outputFiles[0].text })
+ await adultPage.getByText('Invitation sent. Delivery is unconfirmed; waiting for the player to accept.').waitFor()
+ await adultPage.getByRole('button', { name: 'Refresh Player account status' }).click()
+ await adultPage.getByText('Player account linked').waitFor()
  await editorPage.route('http://127.0.0.1/player-contact-test', route =>
   route.fulfill({ contentType: 'text/html', body: '<div id="root"></div>' }))
  await editorPage.goto('http://127.0.0.1/player-contact-test')

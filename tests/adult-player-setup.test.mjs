@@ -1,11 +1,13 @@
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import test from 'node:test'
+import { createHash } from 'node:crypto'
 import { PGlite } from '@electric-sql/pglite'
 import { getAdultPlayerSetupEmail, isAdultPlayerBirthDate } from '../src/lib/adult-player-setup.js'
 import { getPlayerParentInviteContacts } from '../src/lib/parent-portal-invite-actions.js'
 
 const sql = await readFile(new URL('../supabase/migrations/20261113114647_adult_player_setup_invites.sql', import.meta.url), 'utf8')
+const statusSql = await readFile(new URL('../supabase/migrations/20261116123543_adult_player_link_status.sql', import.meta.url), 'utf8')
 const foundation = (await readFile(new URL('../supabase/migrations/20260730110000_adult_player_account_foundation.sql', import.meta.url), 'utf8')).split('create or replace function public.get_own_adult_player_account_state')[0]
 const actor = '00000000-0000-4000-8000-000000000001'
 const player = '00000000-0000-4000-8000-000000000002'
@@ -58,15 +60,27 @@ test('adult invitation is private, scoped, invalidates changed emails and only l
     `)
     await db.exec(foundation)
     await db.exec(sql)
+    await db.exec(statusSql)
     await db.exec('set role service_role')
     const reserve = async (id = actor) => (await db.query('select public.reserve_adult_player_setup_invite($1,$2) as result', [id, player])).rows[0].result
     const redeem = async (token, id = null) => (await db.query('select public.redeem_adult_player_setup_invite($1,$2) as result', [token, id])).rows[0].result
+    const linkStatus = async (id = actor) => (await db.query('select public.get_adult_player_link_status($1,$2) as result', [id, player])).rows[0].result
 
     assert.deepEqual(await reserve(other), { state: 'denied' })
+    assert.deepEqual(await linkStatus(other), { state: 'denied' })
+    assert.deepEqual(await linkStatus(), { state: 'not_invited' })
     const first = await reserve()
     assert.equal(first.state, 'pending')
     assert.deepEqual(await reserve(), first)
     await db.query('select public.confirm_adult_player_setup_email($1)', [first.token])
+    assert.deepEqual(await linkStatus(), { state: 'awaiting_acceptance', invite_digest: createHash('sha256').update(first.token).digest('hex') })
+    await db.exec('reset role')
+    await db.query('update app_private.adult_player_setup_invites set expires_at = now() - interval \'1 second\' where player_id = $1', [player])
+    await db.exec('set role service_role')
+    assert.deepEqual(await linkStatus(), { state: 'expired' })
+    await db.exec('reset role')
+    await db.query('update app_private.adult_player_setup_invites set expires_at = now() + interval \'1 day\' where player_id = $1', [player])
+    await db.exec('set role service_role')
     assert.equal((await reserve()).state, 'sent')
     assert.deepEqual(await redeem(first.token, other), { state: 'wrong_account' })
 
@@ -83,13 +97,21 @@ test('adult invitation is private, scoped, invalidates changed emails and only l
     await db.query(`insert into public.parent_player_links values ($1,$2,'active')`, [other, player])
     await db.exec('set role service_role')
     assert.deepEqual(await redeem(current.token, account), { state: 'parent_linked' })
+    assert.deepEqual(await linkStatus(), { state: 'parent_linked' })
     await db.exec('reset role')
     await db.exec('delete from public.parent_player_links')
     await db.exec('set role service_role')
     assert.deepEqual(await redeem(current.token, account), { state: 'accepted' })
+    assert.deepEqual(await linkStatus(), { state: 'linked' })
     assert.deepEqual(await redeem(current.token, account), { state: 'accepted' })
     assert.deepEqual(await reserve(), { state: 'linked' })
     await db.exec('reset role')
+    await db.exec('begin')
+    await db.query('delete from public.adult_player_account_links where player_id = $1', [player])
+    await db.exec('set local role service_role')
+    assert.deepEqual(await linkStatus(), { state: 'previous_invite_used' })
+    assert.deepEqual(await redeem(current.token, account), { state: 'invalid' })
+    await db.exec('rollback')
     await db.query(`update public.players set parent_contacts = '[{"type":"self","email":"different@example.test"}]' where id = $1`, [player])
     assert.equal((await db.query('select status from public.adult_player_account_links where user_id = $1', [account])).rows[0].status, 'revoked')
     await db.exec('set role service_role')
@@ -109,13 +131,68 @@ test('adult invitation is private, scoped, invalidates changed emails and only l
     assert.equal((await db.query("select count(*)::int as count from public.adult_player_account_links where status = 'active'")).rows[0].count, 0)
     await db.exec('set role service_role')
     assert.deepEqual(await reserve(), { state: 'ineligible' })
+    assert.deepEqual(await linkStatus(), { state: 'ineligible' })
     await db.exec('reset role; set role authenticated')
     await assert.rejects(reserve(), /permission denied/)
+    await assert.rejects(linkStatus(), /permission denied/)
     await assert.rejects(redeem(current.token, account), /permission denied/)
     await assert.rejects(db.query('select * from app_private.adult_player_setup_invites'), /permission denied/)
   } finally {
     await db.close()
   }
+})
+
+test('status checks staff authority and never sends or exposes invitation details', async () => {
+  process.env.VITE_SUPABASE_URL ||= 'https://fixture.supabase.test'
+  process.env.SUPABASE_SERVICE_ROLE_KEY ||= 'fixture-only-service-key'
+  const { createAdultPlayerSetupHandler } = await import('../netlify/functions/adult-player-setup.js')
+  let state = 'linked'
+  let digest = 'a'.repeat(64)
+  let delivered = 0
+  const deliveryKeys = []
+  const handler = createAdultPlayerSetupHandler({
+    client: {
+      from: table => ({ select: () => ({ eq: (_column, key) => {
+        if (table === 'email_delivery_jobs') deliveryKeys.push(key)
+        return { maybeSingle: async () => ({ data: table === 'email_delivery_jobs' ? (key.endsWith('a'.repeat(64)) ? { provider_status: 'bounced', provider_message_id: 'provider-1' } : key.endsWith('c'.repeat(64)) ? { provider_status: 'failed', provider_message_id: null } : null) : { id: player, club_id: club, team_id: team } }) }
+      } }) }),
+      rpc: async (name, args) => {
+        assert.equal(name, 'get_adult_player_link_status')
+        assert.deepEqual(args, { actor_id: actor, target_player_id: player })
+        return { data: { state, ...(state === 'awaiting_acceptance' ? { invite_digest: digest } : {}) } }
+      },
+    },
+    getActor: async () => ({ id: actor, email: 'coach@example.test' }),
+    getProfile: async () => ({ clubId: club, roleRank: 30, role: 'coach' }),
+    assertFeature: () => {},
+    deliver: async () => { delivered += 1 },
+  })
+  const check = () => handler({ httpMethod: 'POST', body: JSON.stringify({ action: 'status', playerId: player }) })
+  const result = await check()
+  assert.equal(result.statusCode, 200)
+  assert.deepEqual(JSON.parse(result.body), { success: true, state: 'linked' })
+  state = 'awaiting_acceptance'
+  assert.deepEqual(JSON.parse((await check()).body), { success: true, state: 'delivery_failed' })
+  assert.deepEqual(deliveryKeys, [`adult_player_setup_invite:player:${player}:${'a'.repeat(64)}`])
+  digest = 'b'.repeat(64)
+  assert.deepEqual(JSON.parse((await check()).body), { success: true, state: 'delivery_unknown' })
+  assert.equal(deliveryKeys[1], `adult_player_setup_invite:player:${player}:${'b'.repeat(64)}`)
+  digest = 'c'.repeat(64)
+  assert.deepEqual(JSON.parse((await check()).body), { success: true, state: 'delivery_unknown' })
+  state = 'denied'
+  assert.equal((await check()).statusCode, 403)
+  assert.equal(delivered, 0)
+})
+
+test('an existing invited account gets a recoverable sign-in response', async () => {
+  const { createAdultPlayerSetupHandler } = await import('../netlify/functions/adult-player-setup.js')
+  const handler = createAdultPlayerSetupHandler({ client: {
+    rpc: async () => ({ data: { state: 'pending', email: 'player@example.test' } }),
+    auth: { admin: { createUser: async () => ({ error: { code: 'email_exists' } }) } },
+  } })
+  const result = await handler({ httpMethod: 'POST', body: JSON.stringify({ action: 'create', token: other, email: 'player@example.test', password: 'LongEnough123!' }) })
+  assert.equal(result.statusCode, 409)
+  assert.equal(JSON.parse(result.body).state, 'account_exists')
 })
 
 test('staff delivery uses the reserved recipient and repeats the same provider idempotency key after a failure', async () => {
@@ -130,7 +207,7 @@ test('staff delivery uses the reserved recipient and repeats the same provider i
     client: {
       from: table => ({
         select: () => ({
-          eq: () => ({ maybeSingle: async () => ({ data: table === 'email_delivery_jobs' ? { provider_status: providerStatus } : { id: player, club_id: club, team_id: team } }) }),
+          eq: () => ({ maybeSingle: async () => ({ data: table === 'email_delivery_jobs' ? { provider_status: providerStatus, provider_message_id: 'provider-1' } : { id: player, club_id: club, team_id: team } }) }),
         }),
       }),
       rpc: async (name) => {
@@ -145,7 +222,7 @@ test('staff delivery uses the reserved recipient and repeats the same provider i
     getProfile: async () => ({ clubId: club, roleRank: 30, role: 'coach' }),
     assertFeature: (_profile, feature) => assert.equal(feature, 'players'),
     deliver: async (payload, options) => {
-      deliveries.push({ payload, key: options.idempotencyKey })
+      deliveries.push({ payload, key: options.idempotencyKey, telemetryKey: options.context.deliveryTelemetry.logicalKey })
       if (deliveries.length === 1) throw new Error('temporary failure')
     },
   })
@@ -155,6 +232,7 @@ test('staff delivery uses the reserved recipient and repeats the same provider i
   assert.equal((await send()).statusCode, 200)
   assert.equal(sent, true)
   assert.deepEqual(deliveries[0], deliveries[1])
+  assert.equal(deliveries[0].telemetryKey, `adult_player_setup_invite:player:${player}:${createHash('sha256').update(other).digest('hex')}`)
   assert.deepEqual(deliveries[0].payload.to, ['player@example.test'])
   assert.equal(deliveries[0].payload.emailAppRole, 'none')
   assert.equal((await send()).statusCode, 200)

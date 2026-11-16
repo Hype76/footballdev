@@ -615,6 +615,14 @@ export function buildParentPortalInviteHtml({
 }
 
 export async function sendAdultPlayerSetupInvite(playerId) {
+  return adultPlayerSetupRequest(playerId, 'send')
+}
+
+export async function getAdultPlayerLinkStatus(playerId) {
+  return adultPlayerSetupRequest(playerId, 'status')
+}
+
+async function adultPlayerSetupRequest(playerId, action) {
   const { data } = await supabase.auth.getSession()
   const response = await fetch('/.netlify/functions/adult-player-setup', {
     method: 'POST',
@@ -622,7 +630,7 @@ export async function sendAdultPlayerSetupInvite(playerId) {
       Authorization: `Bearer ${data?.session?.access_token || ''}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ action: 'send', playerId }),
+    body: JSON.stringify({ action, playerId }),
   })
   const result = await response.json().catch(() => ({}))
   if (!response.ok || !result.success) throw new Error(result.message || 'Player invitation could not be sent.')

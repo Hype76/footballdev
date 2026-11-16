@@ -602,7 +602,7 @@ export async function fetchUserProfile(authUser, options = {}) {
       loginAccessIntent,
     })
 
-    if (!isDemoAuthUser && !requireExistingStaffAccess) {
+    if (!isDemoAuthUser && !requireExistingStaffAccess && selectedAccessMode !== 'player' && loginAccessIntent !== 'player') {
       const acceptedMemberships = await claimInvitedUserProfiles(authUser)
 
       if (acceptedMemberships.length > 0) {

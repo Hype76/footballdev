@@ -12,6 +12,7 @@ import {
 } from '../../lib/parent-portal-invite-actions.js'
 import { SectionCard } from '../ui/SectionCard.jsx'
 import { PlayerStatePanel } from './PlayerStatePanel.jsx'
+import { adultPlayerLinkStatusLabel } from '../../lib/adult-player-setup.js'
 
 const fieldClass = 'min-h-11 w-full rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 text-sm font-semibold text-[#101828] outline-none transition focus:border-[#047857] focus:bg-white focus:ring-2 focus:ring-[#d1fae5]'
 const labelClass = 'mb-2 block text-sm font-black text-[#101828]'
@@ -48,6 +49,8 @@ export function PlayerDetailsSection({
   parentPasswordResetSendingLinkId = '',
   parentPortalRevokingLinkId = '',
   parentPortalLinksByPlayerId = {},
+  adultLinkStatuses = {},
+  onRefreshAdultLinkStatus = () => {},
   playerDrafts,
   playerDetailsEmptyState = {
     action: 'Add the player to a team player type so this profile has one saved football record to manage.',
@@ -129,6 +132,11 @@ export function PlayerDetailsSection({
                     player={player}
                   />
                 )}
+                {!isEditing && player.contactType === 'self' ? <div className="mt-4 border-t border-[#d7e5dc] pt-4">
+                  <p className="text-sm font-bold">Player account</p>
+                  <p role="status" className="text-sm">{adultPlayerLinkStatusLabel(adultLinkStatuses[player.id] || 'loading')}</p>
+                  <button type="button" className="min-h-11 text-sm font-bold text-[#047857] underline" onClick={onRefreshAdultLinkStatus}>Refresh Player account status</button>
+                </div> : null}
               </div>
             )
           })}

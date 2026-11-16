@@ -310,6 +310,8 @@ jobs:
         run: node --test tests/tester-feedback.test.mjs tests/platform-feedback-visibility.test.mjs tests/user-feedback-flow.test.mjs tests/more-partners-banner-order.test.mjs && node tests/user-feedback-screen-browser.mjs && node tests/user-feedback-web-browser.mjs
       - name: Compile Coach and Parent mobile apps
         run: npm run mobile:export:web
+      - name: Adult Player account linking
+        run: node --test tests/adult-player-setup.test.mjs tests/adult-player-status-race.test.mjs tests/adult-player-auth-bootstrap.test.mjs && node tests/adult-player-linking-browser.mjs && node tests/player-contact-layout-browser.mjs
       - name: Coach player profile navigation
         run: node tests/coach-player-profile-browser.mjs && node tests/coach-development-selectors-browser.mjs && node tests/coach-sessions-cache-warning-browser.mjs
       - name: Coach Calendar month markers
