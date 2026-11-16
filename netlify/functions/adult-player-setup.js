@@ -3,8 +3,15 @@ import { assertPlanFeature, getAuthenticatedPlanProfile, getAuthenticatedRequest
 import { supabaseAdmin } from './lib/_supabase.js'
 import { assertPasswordPolicy } from '../../src/lib/password-policy.js'
 import { isDemoEmail } from '../../src/lib/demo.js'
+import { createHash } from 'node:crypto'
 
 const uuid = /^[\da-f]{8}(?:-[\da-f]{4}){3}-[\da-f]{12}$/i
+const inviteDigest = token => createHash('sha256').update(String(token).toLowerCase()).digest('hex')
+const inviteDeliveryKey = (playerId, digest) => `adult_player_setup_invite:player:${String(playerId).toLowerCase()}:${digest}`
+const deliveryFailed = delivery => Boolean(delivery?.provider_message_id)
+  && ['bounced', 'complained', 'failed', 'suppressed'].includes(String(delivery?.provider_status || '').toLowerCase())
+const deliveryUnknown = delivery => !delivery || (!delivery.provider_message_id
+  && ['bounced', 'complained', 'failed', 'suppressed'].includes(String(delivery.provider_status || '').toLowerCase()))
 
 function reply(statusCode, payload) {
   return {
@@ -53,12 +60,13 @@ export function createAdultPlayerSetupHandler({
     const invite = await rpc('reserve_adult_player_setup_invite', { actor_id: actor.id, target_player_id: playerId })
     if (invite?.state === 'linked') return reply(200, { success: true, state: invite.state })
     if (invite?.state === 'sent') {
-      const { data: delivery, error: deliveryError } = await client.from('email_delivery_jobs').select('provider_status')
-        .eq('logical_key', `adult_player_setup_invite:player:${playerId}`).maybeSingle()
+      const { data: delivery, error: deliveryError } = await client.from('email_delivery_jobs').select('provider_status,provider_message_id')
+        .eq('logical_key', inviteDeliveryKey(playerId, inviteDigest(invite.token))).maybeSingle()
       if (deliveryError) throw deliveryError
-      if (['bounced', 'complained', 'failed', 'suppressed'].includes(String(delivery?.provider_status || '').toLowerCase())) {
+      if (deliveryFailed(delivery)) {
         return fail(409, 'The Player invitation could not be delivered. Open the saved Player profile, check the email address and save it there.')
       }
+      if (deliveryUnknown(delivery)) return reply(200, { success: true, state: 'delivery_unknown' })
       return reply(200, { success: true, state: invite.state })
     }
     if (invite?.state !== 'pending') return inviteFailure(invite?.state)
@@ -80,11 +88,39 @@ export function createAdultPlayerSetupHandler({
         teamId: player.team_id,
         targetEntityType: 'player',
         targetEntityId: playerId,
+        deliveryTelemetry: { logicalKey: inviteDeliveryKey(playerId, inviteDigest(invite.token)) },
       },
       publicMessage: 'Player invitation could not be sent. Save again to retry.',
     })
     await rpc('confirm_adult_player_setup_email', { invite_token: invite.token })
     return reply(200, { success: true, state: 'sent' })
+  }
+
+  async function getLinkStatus(event, playerId) {
+    const actor = await getActor(event)
+    if (isDemoEmail(actor.email)) return inviteFailure('denied')
+    const { data: player, error } = await client.from('players').select('id,club_id,team_id').eq('id', playerId).maybeSingle()
+    if (error) throw error
+    if (!player) return inviteFailure('denied')
+    const profile = await getProfile(event, { clubId: player.club_id, teamId: player.team_id, playerId })
+    if (profile.clubId !== player.club_id || profile.roleRank < 20 || profile.role === 'super_admin') return inviteFailure('denied')
+    assertFeature(profile, 'players')
+    const result = await rpc('get_adult_player_link_status', { actor_id: actor.id, target_player_id: playerId })
+    if (result?.state === 'denied') return inviteFailure('denied')
+    if (!['linked', 'ineligible', 'parent_linked', 'not_invited', 'expired', 'awaiting_acceptance', 'previous_invite_used'].includes(result?.state)) {
+      throw new Error('Player access status unavailable')
+    }
+    if (result.state === 'awaiting_acceptance') {
+      if (!/^[a-f0-9]{64}$/.test(result.invite_digest || '')) throw new Error('Player invitation status unavailable')
+      const { data: delivery, error: deliveryError } = await client.from('email_delivery_jobs').select('provider_status,provider_message_id')
+        .eq('logical_key', inviteDeliveryKey(playerId, result.invite_digest)).maybeSingle()
+      if (deliveryError) throw deliveryError
+      if (deliveryFailed(delivery)) {
+        return reply(200, { success: true, state: 'delivery_failed' })
+      }
+      if (deliveryUnknown(delivery)) return reply(200, { success: true, state: 'delivery_unknown' })
+    }
+    return reply(200, { success: true, state: result.state })
   }
 
   async function redeemInvite(event, body) {
@@ -115,7 +151,7 @@ export function createAdultPlayerSetupHandler({
       user_metadata: { account_type: 'adult_player' },
     })
     if (error?.code === 'email_exists' || error?.code === 'user_already_exists') {
-      return fail(409, 'This email already has an account. Sign in below to accept the invitation.')
+      return reply(409, { success: false, state: 'account_exists', message: 'This email already has an account. Sign in to accept the invitation.' })
     }
     if (error) throw error
 
@@ -134,6 +170,9 @@ export function createAdultPlayerSetupHandler({
     try {
       if (body?.action === 'send' && typeof body.playerId === 'string' && uuid.test(body.playerId)) {
         return await sendInvite(event, body.playerId)
+      }
+      if (body?.action === 'status' && typeof body.playerId === 'string' && uuid.test(body.playerId)) {
+        return await getLinkStatus(event, body.playerId)
       }
       if (['create', 'accept'].includes(body?.action) && typeof body.token === 'string' && uuid.test(body.token)) {
         return await redeemInvite(event, body)

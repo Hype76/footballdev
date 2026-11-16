@@ -30,6 +30,7 @@ import {
 } from '../lib/email-templates.js'
 import {
   confirmDevelopmentSubmission,
+  getAdultPlayerLinkStatus,
   sendAdultPlayerSetupInvite,
   sendParentEmail,
   sendParentPasswordReset,
@@ -232,6 +233,8 @@ export function PlayerProfile() {
   const [addFutureEventsOnPromote, setAddFutureEventsOnPromote] = useState(false)
   const [sendEventInvitationsOnPromote, setSendEventInvitationsOnPromote] = useState(true)
   const [parentPortalLinksByPlayerId, setParentPortalLinksByPlayerId] = useState({})
+  const [adultLinkStatuses, setAdultLinkStatuses] = useState({})
+  const [adultStatusRefresh, setAdultStatusRefresh] = useState(0)
   const [parentPortalRevokeTarget, setParentPortalRevokeTarget] = useState(null)
   const [parentPortalRevokingLinkId, setParentPortalRevokingLinkId] = useState('')
   const [parentPortalRevokeError, setParentPortalRevokeError] = useState('')
@@ -566,6 +569,17 @@ export function PlayerProfile() {
       isMounted = false
     }
   }, [profilePlayers, user?.clubId, userScopeKey])
+
+  useEffect(() => {
+    let current = true
+    const adults = profilePlayers.filter(player => player.contactType === 'self')
+    setAdultLinkStatuses(Object.fromEntries(adults.map(player => [player.id, 'loading'])))
+    void Promise.all(adults.map(async player => {
+      try { return [player.id, (await getAdultPlayerLinkStatus(player.id)).state] }
+      catch { return [player.id, 'unavailable'] }
+    })).then(entries => { if (current) setAdultLinkStatuses(Object.fromEntries(entries)) })
+    return () => { current = false }
+  }, [profilePlayers, userScopeKey, adultStatusRefresh])
 
   const lastSection = profilePlayers[0]?.section || evaluations[0]?.section || 'Trial'
   const lastTeam = profilePlayers[0]?.team || evaluations[0]?.team || ''
@@ -1553,6 +1567,7 @@ export function PlayerProfile() {
           ? sendParentPortalInvitesForPlayer(savedPlayer, { automatic: true }) : [],
         adultReady ? sendAdultPlayerSetupInvite(savedPlayer.id) : null,
       ])
+      if (adultReady) setAdultStatusRefresh(value => value + 1)
       if (getPlayerParentInviteContacts(savedPlayer).length > 0) {
         await refreshParentPortalLinksForPlayer(playerId).catch(() => {})
       }
@@ -1568,6 +1583,7 @@ export function PlayerProfile() {
       }
       const message = failure ? 'An invitation could not be sent. Edit the player and save again to retry.'
         : adult.value?.state === 'sent' ? 'Player login invitation sent.'
+        : adult.value?.state === 'delivery_unknown' ? 'A previous Player invitation exists, but delivery cannot be confirmed.'
         : parents.value.length ? 'Parent app invitation sent.'
           : savedPlayer.contactType === 'self' && !adultReady
             ? 'Player login requires one Player email and a date of birth confirming they are 18 or over.'
@@ -1655,6 +1671,7 @@ export function PlayerProfile() {
         [revokeTarget.playerId]: (current[revokeTarget.playerId] || [])
           .filter((link) => String(link?.id) !== String(revokeTarget.id)),
       }))
+      setAdultStatusRefresh(value => value + 1)
       setParentPortalRevokeTarget(null)
       showToast({
         title: 'Parent access removed',
@@ -2032,6 +2049,8 @@ export function PlayerProfile() {
         parentPasswordResetSendingLinkId={parentPasswordResetSendingLinkId}
         parentPortalRevokingLinkId={parentPortalRevokingLinkId}
         parentPortalLinksByPlayerId={parentPortalLinksByPlayerId}
+        adultLinkStatuses={adultLinkStatuses}
+        onRefreshAdultLinkStatus={() => setAdultStatusRefresh(value => value + 1)}
         playerDetailsEmptyState={playerDetailsEmptyState}
         playerDrafts={playerDrafts}
         profilePlayers={profilePlayers}

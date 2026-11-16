@@ -206,6 +206,7 @@ test('club login intent only runs create-club completion for explicit public fre
   const signInSection = authSource.slice(signInStart, signInEnd)
 
   assert.match(profileSource, /export function shouldCompleteSignupClubProfile/)
+  assert.match(profileSection, /!requireExistingStaffAccess && selectedAccessMode !== 'player' && loginAccessIntent !== 'player'/)
   assert.match(profileSource, /if \(normalizedLoginAccessIntent === 'team'\) \{\s*return hasPublicFreeSignupMetadata\(authUser\)\s*\}/)
   assert.match(profileSource, /if \(\['parent', 'platform_admin'\]\.includes\(normalizedLoginAccessIntent\)\) \{\s*return false\s*\}/)
   assert.match(profileSection, /allowSignupClubProfileCompletion/)

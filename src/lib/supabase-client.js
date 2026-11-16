@@ -30,6 +30,14 @@ const standaloneMatchdayTv = globalThis.document?.documentElement?.dataset?.appS
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, standaloneMatchdayTv
   ? { auth: { storageKey: 'fp-matchday-tv-auth', detectSessionInUrl: false } }
   : undefined)
+let temporaryPlayerInviteClient
+export function createTemporaryPlayerInviteClient() {
+  if (temporaryPlayerInviteClient) return temporaryPlayerInviteClient
+  temporaryPlayerInviteClient = createClient(supabaseUrl, supabaseAnonKey, {
+    auth: { storageKey: 'fp-player-invite-temporary', persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+  })
+  return temporaryPlayerInviteClient
+}
 export const CLUB_LOGOS_BUCKET = 'club-logos'
 export const MAX_LOGO_FILE_SIZE_BYTES = 2 * 1024 * 1024
 export const EVALUATION_SECTIONS = ['Trial', 'Squad']

@@ -319,6 +319,7 @@ export function AddPlayerPage() {
     const summary = [
       parentCount ? `${parentCount} Parent app invite${parentCount === 1 ? '' : 's'} sent.` : '',
       results[1].value?.state === 'sent' ? 'Player login invitation sent.' : '',
+      results[1].value?.state === 'delivery_unknown' ? 'A previous Player invitation exists, but delivery cannot be confirmed.' : '',
       player.contactType === 'self' && !adultReady
         ? 'Player login requires one Player email and a date of birth confirming they are 18 or over.'
         : '',

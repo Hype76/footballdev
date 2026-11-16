@@ -50,7 +50,7 @@ import {
   getCoachPlayerMutationPolicy,
 } from '../../mobile-core/src/coachPlayersCore'
 import { getCoachClubPlayerTypes, getCoachPlayerDetail, getCoachPlayerList, saveCoachPlayer } from '../../mobile-core/src/coachPlayersData'
-import { getCoachParentLinks, revokeCoachParentAccess, sendCoachAdultPlayerSetupInvite, sendCoachParentInvite } from '../../mobile-core/src/coachParentContactsData'
+import { getCoachAdultPlayerLinkStatus, getCoachParentLinks, revokeCoachParentAccess, sendCoachAdultPlayerSetupInvite, sendCoachParentInvite } from '../../mobile-core/src/coachParentContactsData'
 import { sendNewMatchdayParentInvites } from '../../mobile-core/src/coachParentAutoInvite'
 import { getCoachParentInviteStatus } from '../../mobile-core/src/coachParentInviteStatus'
 import { getPlayerParentInviteContacts, getUnlistedParentAccessLinks } from '../../../src/lib/parent-portal-invite-actions.js'
@@ -74,7 +74,7 @@ import { CoachDateTimeField } from './CoachDateTimeField'
 import { withMobileAsyncTimeout } from '../../mobile-core/src/http'
 import { useConfirmedConnectionIssue, useConfirmedConnectionMessage } from '../../mobile-core/src/useConfirmedConnectionIssue'
 import { getMobileIconName } from '../../mobile-core/src/mobileIconSystem'
-import { getAdultPlayerSetupEmail, isAdultPlayerBirthDate } from '../../../src/lib/adult-player-setup.js'
+import { adultPlayerLinkStatusLabel, getAdultPlayerSetupEmail, isAdultPlayerBirthDate } from '../../../src/lib/adult-player-setup.js'
 import { CAPABILITIES, getFeatureAccess } from '../../../src/lib/paywall-access.js'
 import { PLAYER_SECTIONS, canPlayerJoinSession } from '../../../src/lib/player-participation.js'
 
@@ -934,9 +934,24 @@ function CoachPlayersScoped({ context, onNavigate, onQuickActionHandled, onReque
   const contactRequest = useRef(false)
   const [contactNotice, setContactNotice] = useState('')
   const [inviteResults, setInviteResults] = useState({})
+  const [adultLinkStatus, setAdultLinkStatus] = useState(null)
+  const [adultStatusRefresh, setAdultStatusRefresh] = useState(0)
   const [revokeTarget, setRevokeTarget] = useState(null)
   const playerPolicy = getCoachPlayerMutationPolicy({ context, player: detail?.player })
   const policy = stale ? { ...playerPolicy, canCreate: false, canEdit: false } : playerPolicy
+  const adultPlayerId = detail?.player?.id
+  const adultContactType = detail?.player?.contactType
+  useEffect(() => {
+    let current = true
+    setAdultLinkStatus(null)
+    if (!adultPlayerId || adultContactType !== 'self' || !policy.canEdit) return () => { current = false }
+    setAdultLinkStatus({ playerId: adultPlayerId, state: 'loading' })
+    getCoachAdultPlayerLinkStatus(adultPlayerId).then(
+      result => { if (current) setAdultLinkStatus({ playerId: adultPlayerId, state: result.state }) },
+      () => { if (current) setAdultLinkStatus({ playerId: adultPlayerId, state: 'unavailable' }) },
+    )
+    return () => { current = false }
+  }, [adultPlayerId, adultContactType, policy.canEdit, user.id, user.clubId, user.activeTeamId, adultStatusRefresh])
   const evaluationScope = useMemo(() => ({ userId: user.id, clubId: user.clubId, teamId: user.activeTeamId,
     roleRank: user.roleRank, contextId: context.id, contextTeamId: context.teamId, authorityId: context.authorityId,
     authoritySource: context.authoritySource, role: context.role, canViewDevelopment: policy.canViewDevelopment }),
@@ -1068,7 +1083,7 @@ function CoachPlayersScoped({ context, onNavigate, onQuickActionHandled, onReque
       const results = parents.status === 'fulfilled' ? parents.value : {}
       if (adultReady) {
         results[adultEmail] = adult.status === 'fulfilled'
-          ? { status: adult.value.state === 'linked' ? 'accepted' : 'sent', confirmedByServer: true }
+          ? { status: adult.value.state === 'linked' ? 'accepted' : adult.value.state === 'delivery_unknown' ? 'delivery_unknown' : 'sent', confirmedByServer: true }
           : { status: 'failed', message: adult.reason?.message }
       }
       const openingRequest = playerRequest.current + 1
@@ -1108,6 +1123,7 @@ function CoachPlayersScoped({ context, onNavigate, onQuickActionHandled, onReque
         ? { ...current, parentLinks: (current.parentLinks || []).filter(item => item.id !== link.id) }
         : current)
       setInviteResults(current => ({ ...current, [link.email.toLowerCase()]: { status: 'revoked' } }))
+      if (player.contactType === 'self') setAdultStatusRefresh(value => value + 1)
       setRevokeTarget(null)
       setContactNotice('Parent access removed for this player. You can now edit or remove their contact details.')
     } catch (revokeError) {
@@ -1176,12 +1192,16 @@ function CoachPlayersScoped({ context, onNavigate, onQuickActionHandled, onReque
                 {profileSections.contacts ? <>
                   {contactNotice ? <Text accessibilityLiveRegion="polite" style={styles.meta}>{contactNotice}</Text> : null}
                   {detail.parentLinksError ? <Text style={styles.danger}>{detail.parentLinksError}</Text> : null}
+                  {detail.player.contactType === 'self' && policy.canEdit ? <View style={styles.profileRow}>
+                    <View style={{ flex: 1 }}><Text style={styles.fieldLabel}>Player account</Text><Text accessibilityLiveRegion="polite" style={styles.meta}>{adultPlayerLinkStatusLabel(adultLinkStatus?.playerId === detail.player.id ? adultLinkStatus.state : 'loading')}</Text></View>
+                    <Pressable accessibilityRole="button" accessibilityLabel="Refresh Player account status" onPress={() => setAdultStatusRefresh(value => value + 1)} style={styles.profileAction}><Text style={styles.profileActionText}>Refresh</Text></Pressable>
+                  </View> : null}
                   {detail.player.parentContacts.length ? detail.player.parentContacts.map((contact, index) => {
                     const link = detail.parentLinks?.find((item) => item.email.toLowerCase() === contact.email.toLowerCase())
                     const inviteStatus = getCoachParentInviteStatus({ contact, inviteResults, isSending: contactBusy === contact.email, link })
                     return <View key={`${contact.email}:${index}`} style={styles.profileRow}>
                       <MaterialIcons color={palette.accentText} name={contact.type === 'self' ? 'person' : 'groups'} size={25} />
-                      <View style={{ flex: 1, gap: 2, minWidth: 0 }}><Text style={styles.fieldLabel}>{contact.name || (contact.type === 'self' ? 'Adult player' : 'Parent contact')}</Text><Text selectable style={styles.body}>{contact.email || 'No email added'}</Text><Text accessibilityLiveRegion="polite" style={inviteStatus.state === 'failed' ? [styles.meta, { color: palette.danger }] : styles.meta}>{inviteStatus.label}</Text></View>
+                      <View style={{ flex: 1, gap: 2, minWidth: 0 }}><Text style={styles.fieldLabel}>{contact.name || (contact.type === 'self' ? 'Adult player' : 'Parent contact')}</Text><Text selectable style={styles.body}>{contact.email || 'No email added'}</Text>{contact.type !== 'self' || inviteStatus.state === 'failed' ? <Text accessibilityLiveRegion="polite" style={inviteStatus.state === 'failed' ? [styles.meta, { color: palette.danger }] : styles.meta}>{inviteStatus.label}</Text> : null}</View>
                       {policy.canEdit && link ? <Pressable accessibilityLabel="Remove Parent access" accessibilityRole="button" accessibilityState={{ disabled: Boolean(contactBusy) }} disabled={Boolean(contactBusy)} onPress={() => setRevokeTarget(link)} style={styles.profileAction}><MaterialIcons color={palette.danger} name="delete-outline" size={20} /></Pressable> : null}
                     </View>
                   }) : <Text style={styles.body}>No contacts added yet. Add a parent contact to invite them to the Parent app.</Text>}
