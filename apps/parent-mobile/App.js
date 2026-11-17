@@ -1,3 +1,4 @@
+import { ClubFeatureWave } from '../mobile-core/src/ClubFeatureWave.js'
 import { MobileSwitch as Switch } from '../mobile-core/src/MobileSwitch.js'
 import { getAppleCalendarSubscriptionUrl } from '../mobile-core/src/calendarSubscriptionCore.js'
 import { NotificationSetupReminder } from '../mobile-core/src/NotificationSetupReminder'
@@ -2531,6 +2532,7 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
         style={styles.keyboardShell}
       >
         {!focusedChatRoom && !focusedScorer ? <AppHeader
+          featured={renderedActiveTab === 'matchday' && Boolean(selectedMatch) || renderedActiveTab === 'more' && ['invites', 'profile', 'resources'].includes(renderedMoreSection)}
           childCount={parentLinks.length}
           childSwitcherOpen={childSwitcherOpen}
           childNotificationBadges={childNotificationBadges}
@@ -2682,7 +2684,7 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
                 visibleKeys={['updates', 'invites', 'results', 'stats', 'fans', 'development', 'resources', 'polls', 'feedback', 'bug', 'profile', 'settings', 'partners'].filter((key) => parentRouteAllowed(key))}
               />
             ) : null}
-            {renderedActiveTab === 'more' && renderedMoreSection ? <BackButton label="Back to More" onPress={() => { setMoreSection(''); setSelectedInvitationId(''); setSelectedMessageId(''); setSelectedPollId('') }} /> : null}
+            {renderedActiveTab === 'more' && renderedMoreSection ? <BackButton featured={['invites', 'profile', 'resources'].includes(renderedMoreSection)} label="Back to More" onPress={() => { setMoreSection(''); setSelectedInvitationId(''); setSelectedMessageId(''); setSelectedPollId('') }} /> : null}
             {renderedActiveTab === 'more' && ['feedback', 'bug'].includes(renderedMoreSection) ? <UserFeedbackScreen key={renderedMoreSection} type={renderedMoreSection} appRole="parent" headingStyle={styles.detailTitle} textStyle={{ color: palette.text, fontSize: 16 }} /> : null}
             {renderedActiveTab === 'more' && renderedMoreSection === 'profile' ? <ParentProfileScreen key={`profile-${user.id}-${user.displayName || user.name || ''}`} activeActionId={activeActionId} isOffline={isOffline} isSyncing={isSyncing} onDisplayNameChange={handleDisplayNameChange} user={user} /> : null}
             {renderedActiveTab === 'more' && renderedMoreSection === 'partners' ? <PartnersScreen appRole="parent" headingStyle={styles.detailTitle} textStyle={{ color: palette.text, fontSize: 15, lineHeight: 22 }} /> : null}
@@ -2803,7 +2805,7 @@ function ClubBrandLogo({ link }) {
   )
 }
 
-function AppHeader({ childCount, childSwitcherOpen, childNotificationBadges, childNotificationBadgeError, links, notificationState, notificationStateStatus, onChildChange, onOpenNotificationSettings, onToggleChildSwitcher, selectedLink, theme }) {
+function AppHeader({ featured = false, childCount, childSwitcherOpen, childNotificationBadges, childNotificationBadgeError, links, notificationState, notificationStateStatus, onChildChange, onOpenNotificationSettings, onToggleChildSwitcher, selectedLink, theme }) {
   const { palette, styles } = useParentTheme()
   const isLight = theme === 'light'
   return (
@@ -2830,7 +2832,7 @@ function AppHeader({ childCount, childSwitcherOpen, childNotificationBadges, chi
             accessibilityRole="button"
             disabled={childCount <= 1}
             onPress={onToggleChildSwitcher}
-            style={({ pressed }) => [styles.childButton, isLight && styles.surfaceLight, pressed && styles.pressed]}
+            style={({ pressed }) => [styles.childButton, isLight && styles.surfaceLight, featured && styles.featuredChildButton, pressed && styles.pressed]}
           >
             <ParentIcon color={palette.accentText} iconKey="child" size={30} />
             <View style={styles.childButtonCopy}>
@@ -2838,7 +2840,7 @@ function AppHeader({ childCount, childSwitcherOpen, childNotificationBadges, chi
               <Text numberOfLines={1} style={[styles.childButtonName, isLight && styles.textLight]}>{selectedLink?.playerName || 'Choose a player'}</Text>
               <Text numberOfLines={1} style={[styles.childButtonTeam, isLight && styles.textMutedLight]}>{selectedLink?.teamName || 'No Team assigned'}</Text>
             </View>
-            {childCount > 1 ? <Text style={styles.childButtonAction}>{childSwitcherOpen ? 'Close' : 'Change'}</Text> : null}
+            {childCount > 1 ? <Text style={[styles.childButtonAction, featured && styles.featuredChildAction]}>{childSwitcherOpen ? 'Close' : 'Change'}</Text> : null}
           </Pressable>
           {childSwitcherOpen ? (
             <ScrollView
@@ -3418,15 +3420,20 @@ function ParentProfileScreen({ activeActionId, isOffline, isSyncing, onDisplayNa
   const canSave = normalizedName.length >= 2 && normalizedName.length <= 80 && normalizedName !== currentName.trim()
 
   return <View style={styles.screenStack}>
-    <ScreenIntro title="Profile" />
-    <Text style={styles.bodyText}>Your name is shared across your Football Player account, including other clubs, teams, apps and the website.</Text>
-    <View style={{ borderBottomColor: palette.border, borderBottomWidth: 1, paddingVertical: 14 }}>
-      <Text style={styles.bodyText}>Name</Text>
-      <TextInput accessibilityLabel="Profile name" autoCapitalize="words" editable={!isOffline && !isSyncing && activeActionId !== 'display-name'} maxLength={80} onChangeText={setDisplayName} placeholder="Your name" placeholderTextColor={palette.textMuted} style={styles.settingsInput} value={displayName} />
-      <PrimaryAction disabled={!canSave || isOffline || isSyncing || Boolean(activeActionId)} label="Save name" loading={activeActionId === 'display-name'} onPress={() => { void onDisplayNameChange(normalizedName).catch(() => {}) }} secondary />
+    <View style={[styles.profileHeading, { minHeight: 50 }]}>
+      <ClubFeatureWave color={palette.accent} />
+      <View style={styles.profileIcon}><ParentIcon color={palette.accentText} iconKey="child" size={26} /></View>
+      <ScreenIntro title="Profile" />
     </View>
-    <View style={{ borderBottomColor: palette.border, borderBottomWidth: 1, paddingVertical: 14 }}>
-      <InfoRow label="Email" value={user.email || 'Email unavailable'} />
+    <Text style={styles.bodyText}>Your display name is shared across your Football Player account, including other clubs, teams, apps and the website.</Text>
+    <View style={styles.profileCard}>
+      <Text style={styles.profileLabel}>Display name</Text>
+      <TextInput accessibilityLabel="Profile name" autoCapitalize="words" editable={!isOffline && !isSyncing && activeActionId !== 'display-name'} maxLength={80} onChangeText={setDisplayName} placeholder="Your name" placeholderTextColor={palette.textMuted} style={styles.settingsInput} value={displayName} />
+      <PrimaryAction disabled={!canSave || isOffline || isSyncing || Boolean(activeActionId)} label="Save display name" loading={activeActionId === 'display-name'} onPress={() => { void onDisplayNameChange(normalizedName).catch(() => {}) }} />
+    </View>
+    <View style={styles.profileCard}>
+      <View style={styles.profileHeading}><ParentIcon color={palette.accentText} iconKey="mail-outline" size={21} /><Text style={styles.profileLabel}>Email</Text></View>
+      <Text selectable style={styles.bodyText}>{user.email || 'Email unavailable'}</Text>
     </View>
   </View>
 }
@@ -3887,10 +3894,11 @@ function PrimaryAction({ disabled = false, iconKey, label, loading = false, onPr
   )
 }
 
-function BackButton({ label, onPress }) {
-  const { styles } = useParentTheme()
+function BackButton({ featured = false, label, onPress }) {
+  const { palette, styles } = useParentTheme()
   return (
-    <Pressable accessibilityRole="button" accessibilityLabel={label} onPress={onPress} style={({ pressed }) => [styles.backButton, pressed && styles.pressed]}>
+    <Pressable accessibilityRole="button" accessibilityLabel={label} onPress={onPress} style={({ pressed }) => [styles.backButton, featured && styles.featuredBackButton, pressed && styles.pressed]}>
+      {featured ? <ParentIcon color={palette.accentText} iconKey="action.back" size={18} /> : null}
       <Text style={styles.backButtonText}>{label}</Text>
     </Pressable>
   )
@@ -4050,6 +4058,13 @@ function createParentAppPalette(tokens) {
 function createParentAppStyles(tokens) {
   const palette = createParentAppPalette(tokens)
   return StyleSheet.create({
+  featuredBackButton: { alignItems: 'center', backgroundColor: palette.selectedSurface, borderRadius: 22, flexDirection: 'row', gap: 7, minHeight: 44, paddingHorizontal: 12 },
+  featuredChildButton: { backgroundColor: palette.card, borderColor: palette.border, borderRadius: 14, borderWidth: 1, paddingHorizontal: 12 },
+  featuredChildAction: { borderColor: palette.accentText, borderRadius: 10, borderWidth: 1, overflow: 'hidden', paddingHorizontal: 8, paddingVertical: 4 },
+  profileCard: { backgroundColor: palette.card, borderColor: palette.border, borderRadius: 14, borderWidth: 1, gap: 8, padding: 13 },
+  profileHeading: { alignItems: 'center', flexDirection: 'row', gap: 10 },
+  profileIcon: { alignItems: 'center', backgroundColor: palette.selectedSurface, borderRadius: 12, height: 42, justifyContent: 'center', width: 42 },
+  profileLabel: { color: palette.accentText, fontSize: 15, fontWeight: '800' },
   backButton: { alignSelf: 'flex-start', justifyContent: 'center', minHeight: 48, paddingHorizontal: 4 },
   backButtonText: { color: palette.accentText, fontSize: 15, fontWeight: '800' },
   badge: { alignSelf: 'flex-start', backgroundColor: palette.cardRaised, borderColor: palette.borderStrong, borderRadius: 999, borderWidth: 1, paddingHorizontal: 9, paddingVertical: 5 },

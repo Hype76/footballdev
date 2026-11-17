@@ -27,31 +27,35 @@ const fieldClass = 'min-h-12 w-full rounded-lg border border-[#d7e5dc] bg-[#f7fa
 const secondaryButtonClass = 'inline-flex min-h-12 w-full items-center justify-center rounded-lg border border-[#d7e5dc] bg-white px-4 py-3 text-sm font-black text-[#101828] shadow-sm shadow-[#047857]/10 transition hover:border-[#047857] hover:bg-[#ecfdf5] disabled:cursor-not-allowed disabled:opacity-60'
 const panelClass = 'rounded-lg border border-[#d7e5dc] bg-[#f7faf8] shadow-sm shadow-[#047857]/10'
 
+const teamNameRowClass = 'grid gap-3 md:grid-cols-[minmax(0,1fr)_13rem] md:items-end'
+const teamNameSaveClass = `${secondaryButtonClass} whitespace-nowrap`
+const tvCheckboxClass = 'm-0 size-4 shrink-0 accent-[var(--accent)]'
+const tvCheckboxLabelClass = 'flex min-h-10 w-fit max-w-full items-center gap-2'
 const announcementsHelp = 'Turning this off hides scores, results and goal celebrations on Matchday TV. Live fixtures show In progress. Normal notifications still go out.'
 
 export function TeamTvSettingsFields({ settings, onChange, disabled = false }) {
   const helpId = useId()
   const [showHelp, setShowHelp] = useState(false)
   return (
-    <fieldset className="mt-4 space-y-2 text-sm font-semibold text-[#101828]" disabled={disabled}>
+    <fieldset className="mt-4 min-w-0 space-y-1 text-sm font-semibold text-[#101828]" disabled={disabled}>
       <legend className="font-black">Matchday TV</legend>
-      <div className="flex flex-wrap items-center gap-2">
-        <label className="inline-flex items-center gap-2">
-          <input type="checkbox" checked={settings.tvPublicAnnouncements} aria-describedby={helpId}
+      <div className="flex min-w-0 items-center gap-2">
+        <label className={tvCheckboxLabelClass}>
+          <input type="checkbox" className={tvCheckboxClass} checked={settings.tvPublicAnnouncements} aria-describedby={helpId}
             onChange={(event) => onChange({ ...settings, tvPublicAnnouncements: event.target.checked })} />
-          Public Announcements
+          <span>Public Announcements</span>
         </label>
         <button type="button" aria-label="About Public Announcements" aria-controls={helpId} aria-expanded={showHelp}
           title={announcementsHelp} onClick={() => setShowHelp((visible) => !visible)}
-          className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-[#d7e5dc] font-black">
+          className="inline-flex size-7 shrink-0 items-center justify-center rounded-full border border-[#d7e5dc] font-black">
           ?
         </button>
       </div>
       <p id={helpId} className={showHelp ? bodyTextClass : 'sr-only'}>{announcementsHelp}</p>
-      <label className="flex items-center gap-2">
-        <input type="checkbox" checked={settings.tvGoalCelebrations}
+      <label className={tvCheckboxLabelClass}>
+        <input type="checkbox" className={tvCheckboxClass} checked={settings.tvGoalCelebrations}
           onChange={(event) => onChange({ ...settings, tvGoalCelebrations: event.target.checked })} />
-        Show goal celebrations on Matchday TV
+        <span>Show goal celebrations on Matchday TV</span>
       </label>
     </fieldset>
   )
@@ -264,12 +268,13 @@ function SelectedTeamPanel({
   teamRoleOptions,
   teamRoleAuthorityMessage,
 }) {
+  const notificationNameHelpId = useId()
   return (
     <div className={`${panelClass} p-4`}>
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="min-w-0 flex-1">
           {canRenameTeam ? (
-            <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
+            <div className={teamNameRowClass}>
             <label className="block">
               <span className="mb-2 block text-sm font-black text-[#101828]">Team name</span>
               <input
@@ -293,7 +298,7 @@ function SelectedTeamPanel({
                     : undefined
               }
               onClick={() => void onSaveTeamName(selectedTeam.id)}
-              className={`${secondaryButtonClass} md:w-auto`}
+              className={teamNameSaveClass}
             >
               Save name
             </button>
@@ -307,32 +312,35 @@ function SelectedTeamPanel({
           <p className="mt-2 text-sm font-semibold text-[#4b5f55]">
             {selectedTeamStaff.length} Coaches allocated to this team.
           </p>
-          <div className="mt-4 grid gap-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
-            <label className="block">
-              <span className="mb-2 block text-sm font-black text-[#101828]">Notification Team name</span>
-              <input
-                type="text"
-                maxLength={40}
-                value={teamNotificationNameDrafts[selectedTeam.id] ?? selectedTeam.notificationDisplayName ?? ''}
-                onChange={(event) => onTeamNotificationNameDraftChange(selectedTeam.id, event.target.value)}
-                className={fieldClass}
-              />
-              <span className="mt-2 block text-xs font-bold leading-5 text-[#4b5f55]">
-                Used only in notifications. The official Team name stays unchanged.
-              </span>
-            </label>
-            <button
-              type="button"
-              disabled={
-                isSaving
-                || !String(teamNotificationNameDrafts[selectedTeam.id] ?? '').trim()
-                || String(teamNotificationNameDrafts[selectedTeam.id] ?? '').trim() === selectedTeam.notificationDisplayName
-              }
-              onClick={() => void onSaveTeamNotificationName(selectedTeam.id)}
-              className={`${secondaryButtonClass} md:w-auto`}
-            >
-              Save notification name
-            </button>
+          <div className="mt-4">
+            <div className={teamNameRowClass}>
+              <label className="block">
+                <span className="mb-2 block text-sm font-black text-[#101828]">Notification Team name</span>
+                <input
+                  type="text"
+                  maxLength={40}
+                  aria-describedby={notificationNameHelpId}
+                  value={teamNotificationNameDrafts[selectedTeam.id] ?? selectedTeam.notificationDisplayName ?? ''}
+                  onChange={(event) => onTeamNotificationNameDraftChange(selectedTeam.id, event.target.value)}
+                  className={fieldClass}
+                />
+              </label>
+              <button
+                type="button"
+                disabled={
+                  isSaving
+                  || !String(teamNotificationNameDrafts[selectedTeam.id] ?? '').trim()
+                  || String(teamNotificationNameDrafts[selectedTeam.id] ?? '').trim() === selectedTeam.notificationDisplayName
+                }
+                onClick={() => void onSaveTeamNotificationName(selectedTeam.id)}
+                className={teamNameSaveClass}
+              >
+                Save notification name
+              </button>
+            </div>
+            <p id={notificationNameHelpId} className="mt-2 text-xs font-bold leading-5 text-[#4b5f55]">
+              Used only in notifications. The official Team name stays unchanged.
+            </p>
           </div>
           {matchdayTvSettings}
         </div>

@@ -1,3 +1,4 @@
+import { ClubFeatureWave } from '../../mobile-core/src/ClubFeatureWave.js'
 import { MobileSwitch as Switch } from '../../mobile-core/src/MobileSwitch.js'
 import { formatFixtureDateTime } from '../../../src/lib/calendar-datetime-integrity.js'
 import { getResourceDisplayTitle } from '../../../src/lib/resource-date-presentation.js'
@@ -117,13 +118,23 @@ function phaseStyles(palette) {
   return StyleSheet.create({
     stack: { gap: 12 },
     row: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-    chatRoomCard: { backgroundColor: palette.surface, borderColor: palette.border, borderRadius: 18, borderWidth: 1, gap: 5, padding: 14 },
+    featureHeading: { alignItems: 'center', flexDirection: 'row', gap: 12 },
+    featureCopy: { flex: 1, gap: 3, minWidth: 0 },
+    featureIcon: { alignItems: 'center', backgroundColor: palette.selected, borderRadius: 12, height: 42, justifyContent: 'center', width: 42 },
+    featureLink: { alignItems: 'center', backgroundColor: palette.selected, borderRadius: 22, flexDirection: 'row', gap: 8, justifyContent: 'flex-start' },
+    chatRoomCard: { alignItems: 'center', backgroundColor: palette.surface, borderColor: palette.border, borderRadius: 14, borderWidth: 1, flexDirection: 'row', gap: 11, padding: 12 },
+    chatRoomUnread: { backgroundColor: palette.selected, borderColor: palette.accentText },
+    chatRoomUnreadDot: { backgroundColor: palette.accentText, borderRadius: 5, height: 10, position: 'absolute', right: -2, top: -2, width: 10 },
+    inviteTile: { alignItems: 'center', backgroundColor: palette.surface, borderColor: palette.border, borderLeftWidth: 5, borderRadius: 16, borderWidth: 1, flexDirection: 'row', gap: 10, minHeight: 64, padding: 13 },
+    inviteTileExpanded: { minHeight: 44, paddingHorizontal: 10, paddingVertical: 5 },
+    inviteTileMeta: { alignItems: 'center', flexDirection: 'row', gap: 7 },
+    inviteTileChip: { alignItems: 'center', backgroundColor: palette.selected, borderRadius: 16, flexDirection: 'row', gap: 5, paddingHorizontal: 8, paddingVertical: 4 },
     chatRoomContext: { color: palette.textMuted, fontSize: 12, lineHeight: 17 },
     chatRoomSection: { gap: 8, paddingTop: 4 },
-    chatRoomSectionHeader: { alignItems: 'baseline', flexDirection: 'row', gap: 8, justifyContent: 'space-between' },
-    chatRoomSectionCount: { color: palette.textMuted, fontSize: 12, fontWeight: '800' },
+    chatRoomSectionHeader: { alignItems: 'center', flexDirection: 'row', gap: 8 },
+    chatRoomSectionCount: { backgroundColor: palette.selected, borderRadius: 12, color: palette.accentText, fontSize: 12, fontWeight: '800', marginLeft: 'auto', overflow: 'hidden', paddingHorizontal: 9, paddingVertical: 3 },
     chatModal: { backgroundColor: palette.background, flex: 1 },
-    chatModalHeader: { borderBottomColor: palette.border, borderBottomWidth: 1, gap: 5, paddingBottom: 14, paddingHorizontal: 14, paddingTop: 14 },
+    chatModalHeader: { backgroundColor: palette.surfaceRaised, borderBottomColor: palette.border, borderBottomWidth: 1, gap: 12, paddingBottom: 14, paddingHorizontal: 14, paddingTop: 14 },
     chatMessageList: { flex: 1 },
     chatMessageListContent: { flexGrow: 1, gap: 8, justifyContent: 'flex-end', padding: 14 },
     chatComposer: { alignItems: 'flex-end', backgroundColor: palette.surface, borderTopColor: palette.border, borderTopWidth: 1, flexDirection: 'row', gap: 8, padding: 10 },
@@ -205,9 +216,10 @@ function InviteCarpoolIcon({ invite, styles }) {
   return <MaterialIcons accessibilityLabel={label} name="directions-car" size={20} style={needsLift ? styles.carpoolNeed : styles.carpoolOffer} />
 }
 
-function Button({ destructive = false, disabled = false, label, onPress, secondary = false, styles }) {
+function Button({ destructive = false, disabled = false, icon, label, onPress, secondary = false, styles, variantStyle }) {
   return (
-    <Pressable accessibilityLabel={label} accessibilityRole="button" accessibilityState={{ disabled }} disabled={disabled} onPress={onPress} style={({ pressed }) => [destructive ? styles.destructive : secondary ? styles.secondary : styles.primary, disabled && styles.disabled, pressed && { opacity: 0.65 }]}>
+    <Pressable accessibilityLabel={label} accessibilityRole="button" accessibilityState={{ disabled }} disabled={disabled} onPress={onPress} style={({ pressed }) => [destructive ? styles.destructive : secondary ? styles.secondary : styles.primary, icon && { flexDirection: 'row', gap: 8 }, variantStyle, disabled && styles.disabled, pressed && { opacity: 0.65 }]}>
+      {icon ? <MaterialIcons name={icon} size={18} color={secondary ? styles.status.color : styles.primaryText.color} /> : null}
       <Text style={destructive ? styles.destructiveText : secondary ? styles.secondaryText : styles.primaryText}>{label}</Text>
     </Pressable>
   )
@@ -836,7 +848,7 @@ function ResourcesDomain({ data, load, setNotice, stale, styles, user }) {
   )
 }
 
-function ChatDomain({ chatNotificationTarget, context, data, load, notice, onChatNotificationTargetHandled, placeholderColor, reloadHome, setNotice, stale, styles, user }) {
+function ChatDomain({ chatNotificationTarget, context, data, load, notice, onChatNotificationTargetHandled, palette, placeholderColor, reloadHome, setNotice, stale, styles, user }) {
   const safeAreaInsets = useSafeAreaInsets()
   const chatModalTopInset = getCoachChatModalTopInset({ platform: Platform.OS, safeAreaTop: safeAreaInsets.top })
   const [deniedRoomIds, setDeniedRoomIds] = useState([])
@@ -985,26 +997,41 @@ function ChatDomain({ chatNotificationTarget, context, data, load, notice, onCha
   if (!room) {
     return (
       <View style={styles.stack}>
-        <Text accessibilityRole="header" style={styles.title}>Chat</Text>
-        <Text style={styles.body}>{rooms.length} conversation{rooms.length === 1 ? '' : 's'} for this Team.</Text>
-        {unreadRooms.length ? <Button disabled={markingAllRead || stale} label={markingAllRead ? 'Marking all as read...' : `Mark all as read (${unreadRooms.length})`} onPress={() => void markAllRead()} secondary styles={styles} /> : null}
+        <View style={[styles.featureHeading, { minHeight: 55 }]}>
+          <ClubFeatureWave color={palette.accent} />
+          <View style={styles.featureIcon}><MaterialIcons name="chat-bubble-outline" size={24} color={palette.accentText} /></View>
+          <View style={styles.featureCopy}>
+            <Text accessibilityRole="header" style={styles.title}>Chat</Text>
+            <Text style={styles.body}>{rooms.length} community conversation{rooms.length === 1 ? '' : 's'}.</Text>
+          </View>
+        </View>
+        {unreadRooms.length ? <Button disabled={markingAllRead || stale} label={markingAllRead ? 'Marking all as read...' : `Mark all as read (${unreadRooms.length})`} icon="mark-email-read" onPress={() => void markAllRead()} styles={styles} variantStyle={{ borderRadius: 24 }} /> : null}
         {roomSections.map((section) => {
+          const sectionIcon = section.key === 'staff' ? 'sports' : 'groups'
           const expanded = expandedEmptySections[section.key] === true
           const visibleRooms = expanded ? [...section.activeRooms, ...section.emptyRooms] : section.activeRooms
           return (
             <View key={section.key} style={styles.chatRoomSection}>
               <View style={styles.chatRoomSectionHeader}>
+                <MaterialIcons name={sectionIcon} size={24} color={palette.accentText} />
                 <Text accessibilityRole="header" style={styles.heading}>{section.title}</Text>
                 <Text style={styles.chatRoomSectionCount}>{section.total}</Text>
               </View>
               {visibleRooms.map((item) => {
                 const display = getCoachChatRoomDisplay(item)
                 return (
-                  <Pressable accessibilityRole="button" key={`${item.kind}:${item.id}`} onPress={() => void open(item)} style={styles.chatRoomCard}>
-                    <View style={styles.row}><Text style={styles.status}>{section.title}</Text>{item.unreadCount ? <Text style={styles.status}>{item.unreadCount} unread</Text> : null}</View>
-                    <Text style={styles.heading}>{display.title}</Text>
-                    {display.context ? <Text style={styles.chatRoomContext}>{display.context}</Text> : null}
-                    <Text numberOfLines={1} style={styles.body}>{item.latestMessage || 'No messages yet'}</Text>
+                  <Pressable accessibilityRole="button" key={`${item.kind}:${item.id}`} onPress={() => void open(item)} style={[styles.chatRoomCard, item.unreadCount > 0 && styles.chatRoomUnread]}>
+                    <View style={styles.featureIcon}>
+                      <MaterialIcons name={sectionIcon} size={23} color={palette.accentText} />
+                      {item.unreadCount ? <View style={styles.chatRoomUnreadDot} /> : null}
+                    </View>
+                    <View style={styles.featureCopy}>
+                      <View style={styles.row}><Text style={styles.status}>{section.title}</Text>{item.unreadCount ? <Text style={styles.status}>{item.unreadCount} unread</Text> : null}</View>
+                      <Text style={styles.heading}>{display.title}</Text>
+                      {display.context ? <Text style={styles.chatRoomContext}>{display.context}</Text> : null}
+                      <Text numberOfLines={1} style={styles.body}>{item.latestMessage || 'No messages yet'}</Text>
+                    </View>
+                    <MaterialIcons name="chevron-right" size={22} color={palette.accentText} />
                   </Pressable>
                 )
               })}
@@ -1028,9 +1055,15 @@ function ChatDomain({ chatNotificationTarget, context, data, load, notice, onCha
       <SafeAreaView edges={['right', 'bottom', 'left']} style={styles.chatModal}>
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.chatModal}>
           <View style={[styles.chatModalHeader, { paddingTop: chatModalTopInset + 14 }]}>
-            <Button label="Back to conversations" onPress={() => { activeRoomIdRef.current = ''; setRoomId(''); setMessages([]); setBody(''); setNotice('') }} secondary styles={styles} />
-            <Text accessibilityRole="header" style={styles.heading}>{display.title}</Text>
-            {display.context ? <Text style={styles.chatRoomContext}>{display.context}</Text> : null}
+            <ClubFeatureWave color={palette.accent} />
+            <Button icon="arrow-back" label="Back to conversations" onPress={() => { activeRoomIdRef.current = ''; setRoomId(''); setMessages([]); setBody(''); setNotice('') }} secondary styles={styles} variantStyle={styles.featureLink} />
+            <View style={styles.featureHeading}>
+              <View style={styles.featureIcon}><MaterialIcons name="groups" size={24} color={palette.accentText} /></View>
+              <View style={styles.featureCopy}>
+                <Text accessibilityRole="header" style={styles.heading}>{display.title}</Text>
+                {display.context ? <Text style={styles.chatRoomContext}>{display.context}</Text> : null}
+              </View>
+            </View>
             {notice ? <Text accessibilityLiveRegion="assertive" style={styles.danger}>{notice}</Text> : null}
           </View>
           <FlatList
@@ -1047,7 +1080,7 @@ function ChatDomain({ chatNotificationTarget, context, data, load, notice, onCha
           />
           <View style={styles.chatComposer}>
             <TextInput accessibilityLabel="Chat message" editable={!sending && !stale && room.canPost} multiline onChangeText={setBody} placeholder="Message" placeholderTextColor={placeholderColor} style={[styles.input, styles.chatComposerInput]} value={body} />
-            <Button disabled={sending || stale || !room.canPost || !body.trim() || (!config.isProduction && !isSyntheticCoachTarget(room.title))} label={sending ? 'Sending...' : config.isProduction ? 'Send' : 'Send to FP TEST channel'} onPress={send} styles={styles} />
+            <Button icon="send" disabled={sending || stale || !room.canPost || !body.trim() || (!config.isProduction && !isSyntheticCoachTarget(room.title))} label={sending ? 'Sending...' : config.isProduction ? 'Send' : 'Send to FP TEST channel'} onPress={send} styles={styles} />
           </View>
         </KeyboardAvoidingView>
       </SafeAreaView>
@@ -1211,6 +1244,38 @@ function PollsDomain({ data, load, placeholderColor, setNotice, stale, styles, u
         )
       }) : <Empty copy={showArchive ? 'No archived Polls are available.' : 'No open Team or Club Polls are available.'} styles={styles} />}
     </View>
+  )
+}
+
+function CoachInviteTile({ actionLabel, date, expanded, onPress, palette, styles, summary, title, training = false, venue }) {
+  const typeIcon = training ? 'sports' : 'sports-soccer'
+  return (
+    <Pressable accessibilityRole="button" accessibilityLabel={actionLabel} accessibilityState={{ expanded }} onPress={onPress}
+      style={[styles.inviteTile, { borderLeftColor: palette.accentText }, expanded && styles.inviteTileExpanded, expanded && { backgroundColor: palette.selected }]}>
+      <View style={styles.featureCopy}>
+        {expanded ? <View style={styles.inviteTileMeta}>
+          <MaterialIcons name={typeIcon} size={20} color={palette.accentText} />
+          <View style={styles.featureCopy}>
+            <Text style={[styles.heading, { fontSize: 14 }]}>{title}</Text>
+            <Text style={styles.helper}>{date}</Text>
+          </View>
+        </View> : <>
+          <View style={styles.inviteTileMeta}>
+            <MaterialIcons name={typeIcon} size={17} color={palette.accentText} />
+            <Text style={styles.status}>{training ? 'Training' : 'Match'}</Text>
+          </View>
+          <Text style={styles.heading}>{title}</Text>
+          <View style={styles.inviteTileMeta}><MaterialIcons name="event" size={17} color={palette.textSecondary} /><Text style={[styles.helper, { flex: 1 }]}>{date}</Text></View>
+          {venue ? <View style={styles.inviteTileMeta}><MaterialIcons name="place" size={17} color={palette.textSecondary} /><Text style={[styles.helper, { flex: 1 }]}>{venue}</Text></View> : null}
+        </>}
+        {!expanded && (summary ? (
+          <View style={styles.row}>
+            {summary.map((label) => <View key={label} style={styles.inviteTileChip}><MaterialIcons name="groups" size={16} color={palette.accentText} /><Text style={styles.label}>{label}</Text></View>)}
+          </View>
+        ) : <Text style={styles.helper}>Saved totals need refreshing</Text>)}
+      </View>
+      <MaterialIcons name={expanded ? 'expand-less' : 'chevron-right'} size={24} color={palette.accentText} />
+    </Pressable>
   )
 }
 
@@ -1619,11 +1684,12 @@ function InvitesDomain({ data: serverData, context, load: loadDomain, onAvailabi
     const trainingSummary = summarizeCoachInvites(collapseCoachInvitesByPlayer(group.invites))
     const expanded = group.key === trainingKey
     return (
-      <View key={`training:${group.key}`} style={[styles.panel, expanded && { padding: 0, borderWidth: 0, backgroundColor: 'transparent' }]}>
-        <Pressable accessibilityRole="button" accessibilityLabel={`${expanded ? 'Hide' : 'Open'} availability for ${group.title || 'Training'}`} onPress={() => showAvailability('training', group.key)} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, borderWidth: 1, borderColor: palette.border, borderRadius: 9, padding: 12, backgroundColor: palette.surface }}>
-          <MaterialIcons name="event" size={28} color={palette.textSecondary} />
-          <View style={{ flex: 1, gap: 4 }}><Text style={[styles.heading, { fontSize: 15, lineHeight: 20 }]}>{group.title || 'Training'}</Text><Text style={styles.helper}>{group.occurrenceDate ? new Date(`${group.occurrenceDate}T12:00:00`).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }) : 'Date to be confirmed'}</Text>{!expanded ? <Text style={styles.helper}>{hasCompleteCoachAvailabilitySnapshot(serverData, 'training') ? `Attending ${trainingSummary.attending} · Awaiting ${trainingSummary.awaitingResponse}` : 'Saved totals need refreshing'}</Text> : null}</View>
-        </Pressable>
+      <View key={`training:${group.key}`} style={styles.stack}>
+        <CoachInviteTile training title={group.title || 'Training'}
+          actionLabel={`${expanded ? 'Hide' : 'Open'} availability for ${group.title || 'Training'}`} expanded={expanded}
+          date={group.occurrenceDate ? new Date(`${group.occurrenceDate}T12:00:00`).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }) : 'Date to be confirmed'}
+          onPress={() => showAvailability('training', group.key)} palette={palette} styles={styles}
+          summary={hasCompleteCoachAvailabilitySnapshot(serverData, 'training') ? [`Attending ${trainingSummary.attending}`, `Awaiting ${trainingSummary.awaitingResponse}`] : null} />
         {expanded ? <>
           {hasCompleteCoachAvailabilitySnapshot(serverData, 'training') ? <CoachMatchInviteTable coachAttendance={selectedTrainingCoachAttendance} currentCoachId={user.id} onCoachRespond={respondToTrainingAsCoach} onLoadHistory={loadInviteHistory} key={group.key} kind="training" invites={selectedTrainingInvites} players={data.players} palette={palette} selectedPlayerIds={selectedPlayerIds} selectionDisabled={Boolean(bulkAction) || (stale && !activeInvites.some(invite => invite.attendancePreparation))} onToggleSelection={toggleSelection} onFilterChange={() => setSelectedPlayerIds([])} /> : <Text style={styles.helper}>Connect to refresh complete player availability.</Text>}
           {renderSelectedInviteActions()}
@@ -1637,13 +1703,12 @@ function InvitesDomain({ data: serverData, context, load: loadDomain, onAvailabi
     const expanded = match.id === matchId
     const { firstTeam, secondTeam } = getMatchDayDisplayParts({ ...match, clubName: match.clubName || user.clubName })
     return (
-      <View key={`match:${match.id}`} style={[styles.panel, expanded && { padding: 0, borderWidth: 0, backgroundColor: 'transparent' }]}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 1, borderColor: palette.border, borderRadius: 9, paddingHorizontal: 8, paddingVertical: expanded ? 0 : 8, backgroundColor: palette.surface }}>
-          <Pressable accessibilityRole="button" accessibilityLabel={`${expanded ? 'Hide' : 'Open'} availability for ${match.opponent || 'match'}`} onPress={() => showAvailability('match', match.id)} style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 44, padding: 4 }}>
-            <MaterialIcons name="event" size={28} color={palette.textSecondary} />
-            <View style={{ flex: 1, gap: 4 }}><Text style={[styles.heading, { fontSize: 15, lineHeight: 20 }]}>{firstTeam} v {secondTeam}</Text><Text style={styles.helper}>{match.matchDate ? new Date(`${match.matchDate}T12:00:00`).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }) : 'Date to be confirmed'} · {match.kickoffTimeTbc ? 'Time TBC' : match.kickoffTime?.slice(0, 5) || 'Time TBC'}{match.venueName ? ` · ${match.venueName}` : ''}</Text>{!expanded ? <Text style={styles.helper}>{hasCompleteCoachAvailabilitySnapshot(serverData) || fixtureSnapshot?.fixtureId === match.id && fixtureSnapshot.complete ? `Available ${matchSummary.available} · Awaiting ${matchSummary.awaiting}` : 'Saved totals need refreshing'}</Text> : null}</View>
-          </Pressable>
-        </View>
+      <View key={`match:${match.id}`} style={styles.stack}>
+        <CoachInviteTile title={`${firstTeam} v ${secondTeam}`}
+          actionLabel={`${expanded ? 'Hide' : 'Open'} availability for ${match.opponent || 'match'}`} expanded={expanded}
+          date={`${match.matchDate ? new Date(`${match.matchDate}T12:00:00`).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }) : 'Date to be confirmed'} · ${match.kickoffTimeTbc ? 'Time TBC' : match.kickoffTime?.slice(0, 5) || 'Time TBC'}`}
+          venue={match.venueName} onPress={() => showAvailability('match', match.id)} palette={palette} styles={styles}
+          summary={hasCompleteCoachAvailabilitySnapshot(serverData) || fixtureSnapshot?.fixtureId === match.id && fixtureSnapshot.complete ? [`Available ${matchSummary.available}`, `Awaiting ${matchSummary.awaiting}`] : null} />
         {expanded ? <>
           {requestPanelOpen ? <View style={styles.stack}>
             <Text style={styles.heading}>Create availability requests</Text>

@@ -97,5 +97,14 @@ export const DEFAULT_COACH_THEME = createCoachTheme()
 export function createMatchInvitesTheme(context, mode = 'dark') {
   const theme = createCoachTheme({ context, mode })
   if (theme.mode === 'light') return theme
-  return { ...theme, tokens: { ...theme.tokens, background: '#031208', surface: '#061b0d', surfaceRaised: '#0c2515', border: '#24432c', success: '#81e56f', danger: '#ff565c', textPrimary: '#edf5ed', textSecondary: '#adbcad', textMuted: '#91a491' } }
+  const { accent } = theme.tokens
+  const base = {
+    ...theme.tokens,
+    background: mixThemeColor(accent, '#080b11', 0.94),
+    surface: mixThemeColor(accent, '#10141c', 0.91),
+    surfaceRaised: mixThemeColor(accent, '#151923', 0.86),
+  }
+  const surfaces = [base.background, base.surface, base.surfaceRaised, base.selected]
+  const accentText = contrastSafeColor(accent, surfaces, theme.mode)
+  return { ...theme, tokens: { ...readableThemeTokens(base, surfaces, theme.mode), accentText, selectedForeground: accentText } }
 }

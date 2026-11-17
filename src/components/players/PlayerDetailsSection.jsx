@@ -39,6 +39,8 @@ export function PlayerDetailsSection({
   onRemoveParentContact,
   onRemoveParentPortalAccess = () => {},
   onSendParentPasswordReset = () => {},
+  onRetryParentInvite,
+  parentInviteSendingLinkId = '',
   onRemovePlayerPosition,
   onRefreshEmailTemplates,
   onSavePlayer,
@@ -124,6 +126,8 @@ export function PlayerDetailsSection({
                     onSelectedDirectInviteDateChange={(value) => onSelectedDirectInviteDateChange(player.id, value)}
                     onSelectedDirectEmailTemplateChange={(value) => onSelectedDirectEmailTemplateChange(player.id, value)}
                     onRemoveParentPortalAccess={(link) => onRemoveParentPortalAccess(player, link)}
+                    onRetryParentInvite={onRetryParentInvite ? (linkId, contact) => onRetryParentInvite(player, linkId, contact) : undefined}
+                    parentInviteSendingLinkId={parentInviteSendingLinkId}
                     onSendParentPasswordReset={(link) => onSendParentPasswordReset(player, link)}
                     onSendDirectEmail={() => onSendDirectEmail(player)}
                     onStartEditingPlayer={() => onStartEditingPlayer(player)}
@@ -348,6 +352,8 @@ function PlayerDetailsSummary({
   onSendParentPasswordReset = () => {},
   onSendDirectEmail,
   onStartEditingPlayer,
+  onRetryParentInvite,
+  parentInviteSendingLinkId = '',
   parentPasswordResetSendingLinkId = '',
   parentPortalRevokingLinkId = '',
   parentPortalLinks = [],
@@ -391,6 +397,7 @@ function PlayerDetailsSummary({
                 })
                 const activeParentLink = parentPortalLinks.find((link) => (
                   String(link?.status ?? '').trim().toLowerCase() === 'active'
+                  && (link?.linkType ?? link?.link_type ?? 'parent') === 'parent'
                   && normalizeParentPortalInviteEmail(link?.email) === email
                 ))
 
@@ -404,9 +411,16 @@ function PlayerDetailsSummary({
                         <span className="min-w-0 text-sm font-semibold leading-6 text-[#101828] [overflow-wrap:anywhere]">Email: {contact.email}</span>
                         <div className="mt-auto flex flex-wrap items-center gap-2 border-t border-[#d7e5dc] pt-3">
                           {inviteAction.statusLabel ? (
-                            <span className="w-full text-xs font-bold leading-5 text-[#047857]">
+                            <span className={`w-full text-xs font-bold leading-5 ${inviteAction.expired ? 'text-[#92400e]' : 'text-[#047857]'}`}>
                               {inviteAction.statusLabel}
                             </span>
+                          ) : null}
+                          {inviteAction.retryLinkId && onRetryParentInvite ? (
+                            <button type="button" disabled={Boolean(parentInviteSendingLinkId)}
+                              onClick={() => onRetryParentInvite(inviteAction.retryLinkId, contact)}
+                              className="inline-flex min-h-11 items-center rounded-lg border border-[#d7e5dc] bg-white px-3 py-2 text-xs font-black text-[#101828] hover:bg-[#ecfdf5] disabled:opacity-60">
+                              {parentInviteSendingLinkId === inviteAction.retryLinkId ? 'Sending invite...' : inviteAction.expired ? 'Resend invite' : 'Send invite'}
+                            </button>
                           ) : null}
                           {activeParentLink ? (
                             <>

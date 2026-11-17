@@ -651,6 +651,9 @@ async function adultPlayerSetupRequest(payload, { actorId, signal } = {}) {
 
 export async function sendParentPortalInvite(data) {
   const { data: sessionData } = await supabase.auth.getSession()
+  if (data.retryActorId && sessionData?.session?.user?.id !== data.retryActorId) {
+    throw new Error('The signed-in account changed. Reopen the invitation before sending.')
+  }
   const accessToken = sessionData?.session?.access_token || ''
 
   const response = await fetch('/.netlify/functions/send-parent-portal-invite', {
@@ -664,6 +667,10 @@ export async function sendParentPortalInvite(data) {
       automatic: data.automatic === true,
       inviteLinkId: data.inviteLinkId,
       senderEmail: data.senderEmail,
+      ...(data.retryPendingExpiresAt ? {
+        retryPendingExpiresAt: data.retryPendingExpiresAt,
+        retryPendingEmail: data.retryPendingEmail,
+      } : {}),
     }),
   })
 

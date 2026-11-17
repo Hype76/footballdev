@@ -196,21 +196,31 @@ async function fetchStaffContexts(authUserId) {
   if (assignmentsError) throw assignmentsError
 
   const membershipRows = Array.isArray(memberships) ? memberships : []
-  const contexts = (Array.isArray(assignments) ? assignments : [])
-    .map(normalizeAssignmentContext)
-    .filter(Boolean)
-  const adminMemberships = membershipRows.filter((membership) => normalizeText(membership.role) === 'admin')
-
-  for (const membership of adminMemberships) {
-    const clubContext = normalizeMembershipContext(membership)
+  let discovery = null
+  if (membershipRows.some(membership => membership.club_id && !getRelatedRow(membership, 'clubs')?.id)) {
+    const { data, error } = await supabase.rpc('list_own_staff_workspace_options')
+    if (error && !['PGRST202', '42883'].includes(error.code)) throw error
+    discovery = data
+  }
+  const secondaryClubs = new Map((discovery?.clubs ?? []).map(club => [club.id, club]))
+  const contexts = [...(assignments || []), ...(discovery?.assignments ?? [])].map(normalizeAssignmentContext).filter(Boolean)
+  for (const membership of membershipRows.filter(row => normalizeText(row.role) === 'admin')) {
+    const secondaryClub = secondaryClubs.get(membership.club_id)
+    const discoveredMembership = secondaryClub ? { ...membership, clubs: secondaryClub } : membership
+    if (!getRelatedRow(discoveredMembership, 'clubs')?.id) continue
+    const clubContext = normalizeMembershipContext(discoveredMembership)
     if (clubContext) contexts.push(clubContext)
-    const { data: teams, error: teamsError } = await supabase
-      .from('teams')
+    if (secondaryClub) {
+      const teams = discovery.adminTeams.filter(team => team.club_id === membership.club_id)
+      contexts.push(...teams.map(team => normalizeAdminTeamContext(team, discoveredMembership)).filter(Boolean))
+      continue
+    }
+    const { data: teams, error: teamsError } = await supabase.from('teams')
       .select('id, club_id, name, archived_at, theme_accent, theme_button_style')
       .eq('club_id', membership.club_id)
       .order('name', { ascending: true })
     if (teamsError) throw teamsError
-    contexts.push(...(teams || []).map((team) => normalizeAdminTeamContext(team, membership)).filter(Boolean))
+    contexts.push(...(teams || []).map(team => normalizeAdminTeamContext(team, membership)).filter(Boolean))
   }
 
   return Promise.all(contexts.filter((context, index, values) => values.findIndex((candidate) => candidate.id === context.id) === index)

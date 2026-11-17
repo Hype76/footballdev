@@ -35,11 +35,23 @@ export function canAutoSendParentInvite(link, now = Date.now()) {
       || Date.parse(link.expires_at || link.expiresAt) <= now))
 }
 
+export function canSendPendingParentInviteRetry({ link, email, expiresAt, now = Date.now() }) {
+  const expiry = typeof expiresAt === 'string' ? Date.parse(expiresAt) : NaN
+  return link?.link_type === 'parent'
+    && link.status === 'pending'
+    && !link.invite_sent_at
+    && typeof email === 'string'
+    && normalizeParentPortalInviteEmail(link.email) === normalizeParentPortalInviteEmail(email)
+    && expiry === Date.parse(link.expires_at)
+    && expiry > now
+}
+
 export function getParentPortalInviteActionForContact({
   contact,
   isSending = false,
   links = [],
   player,
+  now = Date.now(),
 } = {}) {
   const email = normalizeParentPortalInviteEmail(contact?.email)
 
@@ -52,7 +64,11 @@ export function getParentPortalInviteActionForContact({
     }
   }
 
-  const link = links.find((candidate) => normalizeParentPortalInviteEmail(candidate?.email) === email)
+  const matchingLinks = links.filter((candidate) => (
+    (candidate?.linkType ?? candidate?.link_type ?? 'parent') === 'parent'
+    && normalizeParentPortalInviteEmail(candidate?.email) === email
+  ))
+  const link = matchingLinks.find((candidate) => candidate.status === 'active') || matchingLinks[0]
 
   if (link?.status === 'active') {
     return {
@@ -65,10 +81,15 @@ export function getParentPortalInviteActionForContact({
 
   const wasSent = Boolean(link?.inviteSentAt || link?.invite_sent_at)
 
+  const expired = link?.status === 'pending' && Date.parse(link.expiresAt || link.expires_at) <= now
+  const canRetryPending = link?.id && link.status === 'pending' && (expired || !wasSent)
+
   return {
     canSend: !isSending,
+    retryLinkId: canRetryPending ? link.id : '',
+    expired,
     label: wasSent ? 'Resend parent portal invite' : 'Send parent portal invite',
-    statusLabel: wasSent ? 'Invite sent' : '',
+    statusLabel: expired ? 'Invite expired' : wasSent ? 'Invite sent' : canRetryPending ? 'Invite not sent' : '',
     title: isSending ? 'Please wait while this parent invite is being sent.' : '',
   }
 }

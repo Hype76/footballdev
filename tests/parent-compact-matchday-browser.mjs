@@ -12,7 +12,7 @@ async function extract(file, names) {
   const nodes = parse(source, { sourceType: 'module', plugins: ['jsx'] }).program.body.map(node => node.type === 'ExportNamedDeclaration' ? node.declaration : node)
   return names.map(name => { const node = nodes.find(node => node?.type === 'FunctionDeclaration' && node.id.name === name); assert.ok(node, name); return source.slice(node.start, node.end) }).join('\n')
 }
-const portal = (await extract('apps/parent-mobile/src/ParentPortalScreens.js', ['InvitationsScreen', 'MatchdayScreen', 'ParentMatchFormationPlan', 'FormationPresentation', 'FormationSubsStrip', 'isConfirmedGoalkeeperPlacement', 'formationShirtNumber', 'MatchCard', 'scoreVisible', 'MatchStatusBadge', 'MatchdayAction', 'InvitationResponseControl', 'ParentCarpoolControl', 'IconChoice', 'IconAction', 'Button', 'invitationResponsePresentation', 'invitationToneColor', 'volunteerIconKey', 'colorsFor', 'usePortalStyles', 'formatDateOnly', 'formatDate', 'labelize', 'normalizeText']))
+const portal = (await extract('apps/parent-mobile/src/ParentPortalScreens.js', ['PortalFeatureHeading', 'PortalFeatureLink', 'InvitationsScreen', 'MatchdayScreen', 'ParentMatchFormationPlan', 'FormationPresentation', 'FormationSubsStrip', 'isConfirmedGoalkeeperPlacement', 'formationShirtNumber', 'MatchCard', 'scoreVisible', 'MatchStatusBadge', 'MatchdayAction', 'InvitationResponseControl', 'ParentCarpoolControl', 'IconChoice', 'IconAction', 'Button', 'invitationResponsePresentation', 'invitationToneColor', 'volunteerIconKey', 'colorsFor', 'usePortalStyles', 'formatDateOnly', 'formatDate', 'labelize', 'normalizeText']))
   .replaceAll('../../mobile-core/assets/formation-shirt-white.png', './apps/mobile-core/assets/formation-shirt-white.png')
   .replaceAll('../../mobile-core/assets/formation-shirt-gold.png', './apps/mobile-core/assets/formation-shirt-gold.png')
 const invitationCore = await extract('apps/parent-mobile/src/parentPortalData.js', ['getInvitationResponseOptions', 'getParentVolunteerRoleLabel', 'isParentInvitationActionable'])
@@ -22,9 +22,7 @@ const handlers = appSource.slice(appSource.indexOf('  async function handleInvit
 const childChange = appSource.slice(appSource.indexOf('  function handleChildChange('), appSource.indexOf('  async function handleRemoveOwnPlayerAccess('))
 const app = await extract('apps/parent-mobile/App.js', ['SyncStatus', 'Notice', 'createParentAppPalette', 'createParentAppStyles'])
 const kit = await extract('apps/mobile-core/src/ClubKitDisplay.js', ['ClubKitDisplay']).then(source => source.replaceAll('../assets/', './apps/mobile-core/assets/'))
-const entry = `
-import {ScorerGuidePulse} from './apps/parent-mobile/src/ParentScorerGuide.js';
-import {getParentBadgeColours,getParentStatusColours,PARENT_FAN_SIGN_IN_COLOURS,PARENT_POLL_SEPARATOR_COLOUR} from './apps/mobile-core/src/parentStatusColours.js';
+const entry = `import {getParentBadgeColours,getParentStatusColours,PARENT_FAN_SIGN_IN_COLOURS,PARENT_POLL_SEPARATOR_COLOUR} from './apps/mobile-core/src/parentStatusColours.js';
 import {useAttendanceUiGuard} from './apps/mobile-core/src/useAttendanceOutbox.js';
 import {useMobileActivity} from './apps/mobile-core/src/MobileActivityContext.js';
 import {MobileFailureNotice} from './apps/mobile-core/src/MobileFailureNotice.js';
@@ -36,6 +34,10 @@ import {getFormationMarkerVisualPosition} from './apps/mobile-core/src/formation
 import {focusParentFormationBoard} from './apps/parent-mobile/src/parentFormationFocus.js';
 import React,{useState,useMemo,useEffect,useRef} from 'react';import {createRoot} from 'react-dom/client';
 import {View,Text,Pressable,StyleSheet,Platform,Image,Modal,SafeAreaView,ScrollView} from 'react-native';
+import {ScorerGuidePulse} from './apps/parent-mobile/src/ParentScorerGuide.js';
+import {ClubFeatureWave} from './apps/mobile-core/src/ClubFeatureWave.js';
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+const MATCHDAY_STADIUM=require('./apps/mobile-core/assets/matchday-stadium.png');
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import ParentIcon from './apps/parent-mobile/src/ParentIcon.js';
 import {MatchTypeIcon} from './apps/parent-mobile/src/MatchTypeIcon.js';
@@ -44,7 +46,7 @@ import {PitchTypeIcon} from './apps/parent-mobile/src/PitchTypeIcon.js';
 import {createParentMobileTheme,DEFAULT_PARENT_MOBILE_THEME,resolveParentMobileBranding} from './apps/mobile-core/src/parentThemeCore.js';
 import {getParentMatchGroups,getParentMatchStatusLabel,getParentScorerInterestInvitation,getParentMatchDirectionsUrl} from './apps/parent-mobile/src/parentExperience.js';
 import {getParentMatchTimeline,getParentScorerMatches,getParentScorerActionLabel,isParentScorerGuideMatch} from './apps/parent-mobile/src/parentScorerCore.js';
-import {canChangeParentMatchAvailability,getParentMatchAttendanceInvitation,getParentMatchAvailability,getParentMatchSquadStatus} from './apps/parent-mobile/src/parentMatchAvailability.js';
+import {canChangeParentMatchAvailability,getParentMatchAttendanceInvitation,getParentMatchAvailability,getParentMatchSquadStatus,getParentMatchVolunteerInvitations} from './apps/parent-mobile/src/parentMatchAvailability.js';
 import {getParentInvitationCounts,getParentInvitationEventKey,getParentInvitationSections,groupParentInvitationsByEvent,getParentInvitationLockReason,isParentInvitationOptionSelected} from './apps/parent-mobile/src/parentPresentationCore.js';
 import {getParentEventPresentation} from './apps/parent-mobile/src/parentEventPresentation.js';
 import {getMatchDayShirtChoiceLabel} from './src/lib/matchday-model.js';
@@ -58,6 +60,7 @@ const normalize = (value) => String(value ?? '').trim();
 const VOLUNTEER_ROLE_STATUS_LABEL='Volunteer role status',getResourceDisplayTitle=()=> 'Resource';
 const BrandLoader=()=>null,useConfirmedConnectionIssue=value=>value;
 const ResourceState=()=>null;
+const Share={share:async ({message})=>{window.sharedFixture=message}};
 const ScorerControls=()=> <Text>Authorised scorer controls</Text>;
 const LiveMatchFollowAction=()=>null;
 const supabase={},peekMobileClubKits=()=>({}),loadMobileClubKits=async()=>({}),peekMobileTeamKits=()=>({}),loadMobileTeamKits=async()=>({}),kitLabel=()=> 'Home kit';
@@ -72,7 +75,7 @@ const getParentFriendlyError=(error)=>error.message,saveParentOfflineSelection=a
 const respondToParentInvitation=async(user,invitation,response)=>{window.calls.push(['attendance',user.selectedParentLinkId,invitation.sourceRecordId,response]);if(window.defer)await new Promise((resolve,reject)=>window.pending.push(error=>error?reject(new Error(error)):resolve()));window.server={...window.server,availabilityStatus:response};if(invitation.invitationId===window.serverInvitation.invitationId)window.serverInvitation={...window.serverInvitation,responseState:response,isPending:false};else window.serverExtraInvitations=window.serverExtraInvitations.map(item=>item.invitationId===invitation.invitationId?{...item,responseState:response,isPending:false}:item)};
 const setParentMatchTransport=async(user,invitation,mode)=>{window.calls.push(['transport',user.selectedParentLinkId,invitation.sourceRecordId,mode]);window.serverInvitation={...window.serverInvitation,transportNeedsLift:mode==='needs_lift',transportCanOfferLift:mode==='offering_lift',transportRespondedAt:'2099-01-01'};window.server={...window.server,squadTransport:[{playerId:'child',playerName:'Synthetic Player',needsLift:mode==='needs_lift',canOfferLift:mode==='offering_lift'}]}};
 window.calls=[];window.pending=[];window.server=initial;window.serverInvitation=initialInvitation;window.serverExtraInvitations=[];
-function App(){const[match,setMatch]=useState(initial),[suppressFormation,setSuppressFormation]=useState(false),[mode,setMode]=useState('light'),[offline,setOffline]=useState(false),[warning,setWarning]=useState(false),[activeActionId,setActiveActionId]=useState(''),[notice,setNotice]=useState(null),[invitationRows,setInvitationRows]=useState([initialInvitation]),[selectedLinkId,setSelectedLinkId]=useState('parent'),[linkType,setLinkType]=useState('parent'),[showList,setShowList]=useState(false),[fixtures,setFixtures]=useState([]);
+function App(){const[match,setMatch]=useState(initial),[suppressFormation,setSuppressFormation]=useState(false),[mode,setMode]=useState('light'),[accent,setAccent]=useState('#075293'),[offline,setOffline]=useState(false),[warning,setWarning]=useState(false),[activeActionId,setActiveActionId]=useState(''),[notice,setNotice]=useState(null),[invitationRows,setInvitationRows]=useState([initialInvitation]),[selectedLinkId,setSelectedLinkId]=useState('parent'),[linkType,setLinkType]=useState('parent'),[showList,setShowList]=useState(false),[fixtures,setFixtures]=useState([]);
 const [invitation]=invitationRows;
 const setInvitation=update=>setInvitationRows(([first,...rest])=>[typeof update==='function'?update(first):update,...rest]);
 const[screen,setScreen]=useState('matchday'),[target,setTarget]=useState('invitation');
@@ -85,15 +88,15 @@ const setResources=update=>setInvitationRows(items=>update({invitations:{items}}
 const attendanceOutbox={enqueue:async()=>{if(window.defer)await new Promise((resolve,reject)=>window.pending.push(error=>error?reject(new Error(error)):resolve()));const patch={responseState:'available',attendancePending:true,attendancePendingStatus:'pending'};if(window.preserveQueueOnRefresh)window.serverInvitation={...window.serverInvitation,...patch};setInvitation(item=>({...item,...patch}))}};
 async function loadParentData(){window.refreshes=(window.refreshes||0)+1;if(window.deferRefresh)await new Promise(resolve=>window.pendingRefresh=resolve);setMatch(window.server);setInvitationRows([window.serverInvitation,...window.serverExtraInvitations])}
 ${handlers}\n${childChange}
-window.suppressFormation=setSuppressFormation;window.match=patch=>setMatch({...initial,...patch});window.mode=setMode;window.offline=setOffline;window.warning=setWarning;window.linkType=setLinkType;window.switchChild=handleChildChange;window.list=setShowList;window.fixtures=patches=>setFixtures(patches.map(p=>({...initial,...p})));window.invitation=patch=>setInvitation({...initialInvitation,...patch});window.refresh=loadParentData;window.current={activeActionId,notice,selectedLinkId,warning,offline};
+window.suppressFormation=setSuppressFormation;window.match=patch=>setMatch({...initial,...patch});window.mode=setMode;window.accent=setAccent;window.offline=setOffline;window.warning=setWarning;window.linkType=setLinkType;window.switchChild=handleChildChange;window.list=setShowList;window.fixtures=patches=>setFixtures(patches.map(p=>({...initial,...p})));window.invitation=patch=>setInvitation({...initialInvitation,...patch});window.refresh=loadParentData;window.current={activeActionId,notice,selectedLinkId,warning,offline};
 window.screen=setScreen;window.target=setTarget;
 window.extraInvitations=rows=>{window.serverExtraInvitations=rows.map(patch=>({...initialInvitation,...patch}));setInvitationRows(([first])=>[first,...window.serverExtraInvitations])};
-const tokens=createParentMobileTheme({mode,selectedLink:{themeAccent:'#075293'}}).tokens,palette=createParentAppPalette(tokens);theme={palette,styles:createParentAppStyles(palette)};
+const tokens=createParentMobileTheme({mode,selectedLink:{themeAccent:accent}}).tokens,palette=createParentAppPalette(tokens);theme={palette,styles:createParentAppStyles(palette)};
 return <ScrollView testID="response-scroll" ref={scrollViewRef} style={{height:420}}><View ref={contentColumnRef} style={{padding:16,backgroundColor:palette.background,minHeight:'100vh'}}>
 <SyncStatus cacheState={{source:'cache',stale:true}} isOffline={offline} summary={{waiting:0,needsAttention:0}}/>
 {warning?<Notice compact tone="warning" message="Could not refresh. Showing saved information." onDismiss={()=>setWarning(false)}/>:null}
 {notice?<Notice message={notice.message} tone={notice.tone} onDismiss={()=>setNotice(null)}/>:null}
-{screen==='invites'?<><View style={{height:120}}/><InvitationsScreen activeActionId={activeActionId} isOffline={isOffline} link={link} resource={{items:invitationRows}} targetInvitationId={target} themeTokens={tokens} onBackTarget={()=>{window.backCalls=(window.backCalls||0)+1;setTarget('')}} onRespond={handleInvitationResponse} onTransport={handleMatchTransport}/><View style={{height:500}}/></>:<MatchdayScreen suppressParentFormation={suppressFormation} formationViewportHeight={420} onFocusFormation={target=>focusParentFormationBoard(target,contentColumnRef.current,scrollViewRef.current)} activeActionId={activeActionId} isOffline={isOffline} invitations={fixtures.length?fixtures.map(f=>({...initialInvitation,eventId:f.id,invitationState:f.demoInvitationState||'active'})):invitation?[invitation]:[]} selectedMatch={showList?null:match} resource={{items:fixtures.length?fixtures:[match]}} clubKits={{home:{}}} link={link} themeTokens={tokens} onBack={()=>window.action='back'} onAddToCalendar={()=>window.action='calendar'} onOpenLink={()=>window.action='directions'} onOpen={()=>setShowList(false)} onRespond={handleInvitationResponse} onTransport={handleMatchTransport}/>}
+{screen==='invites'?<><View style={{height:120}}/><InvitationsScreen activeActionId={activeActionId} isOffline={isOffline} link={link} resource={{items:invitationRows}} targetInvitationId={target} themeTokens={tokens} onBackTarget={()=>{window.backCalls=(window.backCalls||0)+1;setTarget('')}} onRespond={handleInvitationResponse} onTransport={handleMatchTransport}/><View style={{height:500}}/></>:<MatchdayScreen suppressParentFormation={suppressFormation} formationViewportHeight={420} onFocusFormation={target=>focusParentFormationBoard(target,contentColumnRef.current,scrollViewRef.current)} activeActionId={activeActionId} isOffline={isOffline} invitations={fixtures.length?fixtures.map(f=>({...initialInvitation,eventId:f.id,invitationState:f.demoInvitationState||'active'})):invitationRows} selectedMatch={showList?null:match} resource={{items:fixtures.length?fixtures:[match]}} clubKits={{home:{}}} link={link} themeTokens={tokens} onBack={()=>window.action='back'} onAddToCalendar={()=>window.action='calendar'} onOpenLink={()=>window.action='directions'} onOpen={()=>setShowList(false)} onRespond={handleInvitationResponse} onTransport={handleMatchTransport}/>}
 </View></ScrollView>}
 createRoot(document.getElementById('root')).render(<App/>);`
 const result = await build({ stdin: { contents: entry, resolveDir: root, loader: 'jsx' }, bundle: true, write: false, jsx: 'automatic', loader: { '.js': 'jsx', '.ttf': 'dataurl', '.png': 'dataurl' }, platform: 'browser', conditions: ['browser'], mainFields: ['browser', 'module', 'main'], resolveExtensions: ['.web.tsx', '.web.ts', '.web.js', '.tsx', '.ts', '.jsx', '.js', '.json'], nodePaths: [modules], alias: { react: path.join(modules, 'react'), 'react-dom': path.join(modules, 'react-dom'), 'react-native': path.join(modules, 'react-native-web') }, define: { 'process.env.NODE_ENV': '"production"', __DEV__: 'false', global: 'globalThis' }, banner: { js: 'globalThis.process={env:{NODE_ENV:"production"}};' } })
@@ -142,9 +145,9 @@ try {
     for (const name of ['Peterborough Junior Blues U14', 'Cambourne Town FC']) {
       const textStyle = await detailNames.getByText(name, { exact: true }).evaluate(element => {
         const style = getComputedStyle(element)
-        return { fontSize: style.fontSize, whiteSpace: style.whiteSpace }
+        return { fontSize: style.fontSize, whiteSpace: style.whiteSpace, background: style.backgroundColor }
       })
-      assert.deepEqual(textStyle, { fontSize: '20px', whiteSpace: 'nowrap' }, `Readable detail name at ${width}px`)
+      assert.deepEqual(textStyle, { fontSize: '15px', whiteSpace: 'pre-wrap', background: 'rgb(7, 82, 147)' }, `Fixture banner wraps long team names at ${width}px`)
     }
     const defender = await page.getByText('Centre Defender', { exact: true }).boundingBox()
     const goalkeeper = await page.getByLabel('Goalkeeper, shirt 1, goalkeeper', { exact: true }).locator('img').boundingBox()
@@ -170,10 +173,40 @@ try {
   assert.equal(await page.getByText('Authorised scorer controls').count(), 0)
   for (const [name, action] of [['Back to Matchday', 'back'], ['Add to Google Calendar', 'calendar'], ['Get directions', 'directions']]) {
     const button = page.getByRole('button', { name, exact: true })
-    assert.equal(await button.evaluate(element => getComputedStyle(element).borderTopWidth), '0px')
+    assert.equal(await button.evaluate(element => getComputedStyle(element).borderTopWidth), name === 'Get directions' ? '1px' : '0px')
     await button.click()
     assert.equal(await page.evaluate(() => window.action), action)
   }
+  await page.getByRole('button', { name: 'Share fixture details', exact: true }).click()
+  const sharedFixture = await page.evaluate(() => window.sharedFixture)
+  assert.match(sharedFixture, /Peterborough Junior Blues U14.*Cambourne Town FC/)
+  assert.match(sharedFixture, /Bourne AGP/)
+  assert.doesNotMatch(sharedFixture, /Please arrive|Synthetic Player|PRIVATE COACH NOTE/)
+  await page.evaluate(() => window.extraInvitations([
+    { invitationId: 'fixture-linesman', invitationType: 'match_role', roleType: 'linesman', responseState: 'awaiting_response' },
+    { invitationId: 'other-match-referee', eventId: 'other-match', invitationType: 'match_role', roleType: 'referee', responseState: 'awaiting_response' },
+  ]))
+  await page.getByRole('button', { name: 'Volunteer to help', exact: true }).click()
+  await page.getByRole('heading', { name: 'Volunteer requests for this match' }).waitFor()
+  assert.equal(await page.getByText('Referee', { exact: true }).count(), 0)
+  await page.getByText('Linesman', { exact: true }).waitFor()
+  await page.getByRole('button', { name: 'Volunteer to help', exact: true }).click()
+  await page.evaluate(() => window.extraInvitations([]))
+  const waitForOpaqueFixtureLabels = (colour) => page.waitForFunction(expected => {
+    const hero = document.querySelector('[aria-label="Peterborough Junior Blues U14 v Cambourne Town FC"]')
+    if (!hero) return false
+    const labels = [...hero.querySelectorAll('*')]
+    return ['Peterborough Junior Blues U14', 'Cambourne Town FC', 'v'].every(name =>
+      labels.some(label => label.textContent === name && getComputedStyle(label).backgroundColor === expected))
+  }, colour)
+  await page.evaluate(() => window.accent('#777777'))
+  await waitForOpaqueFixtureLabels('rgb(119, 119, 119)')
+  await assertRenderedTextContrast(page, 'Parent fixture with a mid-grey club colour')
+  await page.evaluate(() => window.accent('#075293'))
+  await waitForOpaqueFixtureLabels('rgb(7, 82, 147)')
+  await page.getByTestId('response-scroll').evaluate(element => { element.style.height = '820px'; element.scrollTop = 0 })
+  await page.screenshot({ path: 'output/playwright/parent-compact/fixture-redesign.png' })
+  await page.getByTestId('response-scroll').evaluate(element => { element.style.height = '420px' })
   await page.getByRole('button', { name: 'See squad (1)' }).click()
   await page.getByText('Synthetic Player', { exact: true }).waitFor()
   await page.waitForFunction(() => {
@@ -436,5 +469,10 @@ try {
   await page.getByText("You've confirmed you are attending.",{exact:true}).waitFor()
   assert.deepEqual(await rowLayout(),initialLayout,'The answered fixture and all rows remain in place after server confirmation')
   assert.deepEqual(errors, [])
+  await page.getByRole('button', { name: 'Volunteer invites', exact: true }).click()
+  await page.getByText('Volunteer invite', { exact: true }).waitFor()
+  assert.equal(await responseRows.count(), 3, 'Volunteer view shows only role responses')
+  assert.equal(await page.getByRole('button', { name: 'Volunteer invites', exact: true }).getAttribute('aria-expanded'), 'true')
+  await page.screenshot({ path: 'output/playwright/parent-compact/volunteer-invites-redesign.png' })
   console.log('PASS: Parent Matchday at 320/390px light/dark with contrast and no overflow; availability and squad chips distinct; save/reload availability and carpool; squad lift badges; Parent/Player/Fan and offline gates; real App handlers reject stale A->B->A completion; score/timeline/scorer, back, calendar and directions retained. Targeted invites show immediate Saving selection, accepted confirmations without waiting for full refresh, failure restoration, scorer replies and offline durable status without automatic navigation.')
 } finally { await browser.close() }

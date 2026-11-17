@@ -170,11 +170,17 @@ async function getUserClubMemberships(authUser) {
     throw error
   }
 
-  return (data ?? [])
-    .filter((row) => {
-      const clubRow = Array.isArray(row.clubs) ? row.clubs[0] : row.clubs
-      return Boolean(row.club_id && clubRow?.id)
-    })
+  const rows = data ?? []
+  const getClub = (row) => Array.isArray(row.clubs) ? row.clubs[0] : row.clubs
+  let secondaryClubs = new Map()
+  if (rows.some(row => row.club_id && !getClub(row)?.id)) {
+    const { data: options, error: optionsError } = await supabase.rpc('list_own_staff_workspace_options')
+    if (optionsError && !['PGRST202', '42883'].includes(optionsError.code)) throw optionsError
+    secondaryClubs = new Map((options?.clubs ?? []).map(club => [club.id, club]))
+  }
+  return rows
+    .map(row => ({ ...row, clubs: getClub(row)?.id ? getClub(row) : secondaryClubs.get(row.club_id) }))
+    .filter(row => row.club_id && row.clubs?.id)
     .map(normalizeClubMembershipRow)
 }
 
@@ -499,24 +505,12 @@ export async function selectUserClub(authUser, clubId) {
   }
 
   const data = await applyActiveMembership(authUser, selectedMembership)
+  const clubData = await fetchClubDetails(selectedMembership.clubId)
   return normalizeUserProfile({
     ...data,
     user_metadata: authUser.user_metadata,
     clubOptions: memberships,
-    clubs: {
-      name: selectedMembership.clubName,
-      logo_url: selectedMembership.clubLogoUrl,
-      contact_email: selectedMembership.clubContactEmail,
-      contact_phone: selectedMembership.clubContactPhone,
-      require_approval: selectedMembership.requireApproval,
-      theme_accent: selectedMembership.themeAccent,
-      status: selectedMembership.clubStatus,
-      suspended_at: selectedMembership.clubSuspendedAt,
-      plan_key: selectedMembership.planKey,
-      subscription_team_capacity: selectedMembership.subscriptionTeamCapacity,
-      plan_status: selectedMembership.planStatus,
-      is_plan_comped: selectedMembership.isPlanComped,
-    },
+    clubs: clubData,
   })
 }
 

@@ -233,6 +233,10 @@ export function PlayerProfile() {
   const [sendParentPortalLinkOnPromote, setSendParentPortalLinkOnPromote] = useState(true)
   const [addFutureEventsOnPromote, setAddFutureEventsOnPromote] = useState(false)
   const [sendEventInvitationsOnPromote, setSendEventInvitationsOnPromote] = useState(true)
+  const [parentInviteRetryTarget, setParentInviteRetryTarget] = useState(null)
+  const [parentInviteSendingLinkId, setParentInviteSendingLinkId] = useState('')
+  const parentInviteRetryLock = useRef(false)
+  const parentInviteScopeRef = useRef(null)
   const [parentPortalLinksByPlayerId, setParentPortalLinksByPlayerId] = useState({})
   const [adultLinkStatuses, setAdultLinkStatuses] = useState({})
   const [adultStatusRefresh, setAdultStatusRefresh] = useState(0)
@@ -256,6 +260,13 @@ export function PlayerProfile() {
   const [isMergeConfirmOpen, setIsMergeConfirmOpen] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
   const userScopeKey = user ? `${user.id}:${user.clubId || 'platform'}:${user.role}:${user.roleRank}` : ''
+  const parentInviteScope = JSON.stringify([userScopeKey, activeTeamScope, routePlayerId, routePlayerName, scopedRouteTeamId])
+  if (parentInviteScopeRef.current?.key !== parentInviteScope) parentInviteScopeRef.current = { key: parentInviteScope }
+  useEffect(() => {
+    const scope = parentInviteScopeRef.current || { key: parentInviteScope }
+    parentInviteScopeRef.current = scope
+    return () => { if (parentInviteScopeRef.current === scope) parentInviteScopeRef.current = null }
+  }, [parentInviteScope])
 
   useEffect(() => {
     setSelectedExportLabels(
@@ -1657,6 +1668,55 @@ export function PlayerProfile() {
     }))
   }
 
+  const scopedParentInviteRetry = parentInviteRetryTarget?.scope === parentInviteScopeRef.current ? parentInviteRetryTarget : null
+
+  const confirmRetryParentInvite = async () => {
+    const target = scopedParentInviteRetry
+    const player = target && profilePlayers.find((candidate) => candidate.id === target.playerId)
+    if (!target || !player || !canUseSavedPlayerActions || !canUseUiFeature(user, CAPABILITIES.parentInvitations, { teamId: player.teamId })) {
+      throw new Error('Choose an available Parent invitation for this player.')
+    }
+    if (parentInviteRetryLock.current) return
+    const contact = getPlayerParentInviteContacts(player).find(candidate => candidate.email === target.email)
+    if (!contact) throw new Error('That contact is no longer listed for this player.')
+
+    parentInviteRetryLock.current = true
+    setParentInviteSendingLinkId(target.linkId)
+    try {
+      const invites = await createParentPortalInvites({
+        user, player, contacts: [contact], automatic: true, retryPendingLinkId: target.linkId,
+      })
+      if (parentInviteScopeRef.current !== target.scope) return
+      if (invites.length !== 1 || invites[0].id !== target.linkId) {
+        throw new Error('This invitation changed. Refresh the player details and check its current status.')
+      }
+      const result = await sendParentPortalInvite({
+        inviteLinkId: target.linkId, senderEmail: user.email, automatic: true, retryActorId: user.id,
+        retryPendingEmail: contact.email, retryPendingExpiresAt: invites[0].expiresAt,
+      })
+      if (parentInviteScopeRef.current !== target.scope) return
+      if (!result.success || result.duplicate || result.skipped || !result.sentAt) {
+        throw new Error('A new send was not confirmed. Check this invitation’s current status before retrying.')
+      }
+      setParentPortalLinksByPlayerId(current => ({
+        ...current,
+        [player.id]: (current[player.id] || []).map(link => link.id === target.linkId
+          ? { ...invites[0], inviteSentAt: result.sentAt }
+          : link),
+      }))
+      setParentInviteRetryTarget(null)
+      showToast({ title: 'Parent invitation sent', message: 'The Parent has been sent a link for this player.' })
+    } catch (error) {
+      if (parentInviteScopeRef.current === target.scope) {
+        await refreshParentPortalLinksForPlayer(player.id).catch(() => {})
+        if (parentInviteScopeRef.current === target.scope) throw error
+      }
+    } finally {
+      parentInviteRetryLock.current = false
+      setParentInviteSendingLinkId('')
+    }
+  }
+
   const confirmRemoveParentPortalAccess = async () => {
     if (!parentPortalRevokeTarget?.id || !parentPortalRevokeTarget?.playerId) {
       throw new Error('Choose a Parent link before removing access.')
@@ -2057,6 +2117,14 @@ export function PlayerProfile() {
         parentPortalLinksByPlayerId={parentPortalLinksByPlayerId}
         adultLinkStatuses={adultLinkStatuses}
         onRefreshAdultLinkStatus={() => setAdultStatusRefresh(value => value + 1)}
+        parentInviteSendingLinkId={parentInviteSendingLinkId}
+        onRetryParentInvite={canUseSavedPlayerActions && primaryPlayer && canUseUiFeature(user, CAPABILITIES.parentInvitations, { teamId: primaryPlayer.teamId }) ? (player, linkId, contact) => {
+          if (!canUseUiFeature(user, CAPABILITIES.parentInvitations, { teamId: player.teamId })) return
+          setParentInviteRetryTarget({
+            scope: parentInviteScopeRef.current, playerId: player.id, playerName: player.playerName,
+            email: String(contact.email || '').trim().toLowerCase(), linkId,
+          })
+        } : undefined}
         onResendAdultLink={(player) => setAdultInviteTarget({ playerId: player.id, actorId: user.id, scope: userScopeKey })}
         playerDetailsEmptyState={playerDetailsEmptyState}
         playerDrafts={playerDrafts}
@@ -2147,6 +2215,21 @@ export function PlayerProfile() {
           setParentPasswordResetTarget(null)
         }}
         onConfirm={confirmSendParentPasswordReset}
+      />
+
+      <ConfirmModal
+        isOpen={Boolean(scopedParentInviteRetry)}
+        isBusy={Boolean(parentInviteSendingLinkId)}
+        title="Send Parent invitation"
+        itemsTitle="Invitation details"
+        message="Send a Parent app invitation for this player. An expired link will be replaced."
+        items={[
+          `Parent: ${scopedParentInviteRetry?.email || 'Selected Parent'}`,
+          `Player: ${scopedParentInviteRetry?.playerName || 'Selected player'}`,
+        ]}
+        confirmLabel="Send invite"
+        onCancel={() => setParentInviteRetryTarget(null)}
+        onConfirm={confirmRetryParentInvite}
       />
 
       <ConfirmModal
