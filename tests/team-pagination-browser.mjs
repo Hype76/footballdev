@@ -5,8 +5,22 @@ import { chromium } from 'playwright'
 
 const output = 'output/playwright/team-pagination'
 await mkdir(output, { recursive: true })
-const entry = `import React,{useState} from 'react';import{createRoot}from'react-dom/client';import{Pagination}from'/src/components/ui/Pagination.jsx';import{TeamTvSettingsEditor}from'/src/components/teams/TeamStaffAllocationsSection.jsx';import'/src/index.css';
-function App(){const[page,setPage]=useState(2);const[showSettings,setShowSettings]=useState(false);window.showTeamTvSettings=()=>setShowSettings(true);return <div style={{width:280,maxWidth:'100%',padding:16}}><Pagination compact currentPage={page} onPageChange={setPage} pageSize={8} totalItems={14}/>{showSettings?<TeamTvSettingsEditor team={{ id:'team-a' }} onSave={(id,settings)=>window.savedTeamTvSettings={id,...settings}}/>:null}</div>};createRoot(document.getElementById('root')).render(<App/>);`
+const entry = `import React,{useState} from 'react';import{createRoot}from'react-dom/client';import{Pagination}from'/src/components/ui/Pagination.jsx';import{TeamStaffAllocationsSection,TeamTvSettingsEditor}from'/src/components/teams/TeamStaffAllocationsSection.jsx';import'/src/index.css';
+const team={id:'team-a',name:'U10 Boys Blue',staffIds:[]};
+const empty=[], drafts={}, noop=()=>{};
+function App(){
+  const[page,setPage]=useState(2),[showSettings,setShowSettings]=useState(false);
+  window.showTeamTvSettings=()=>setShowSettings(true);
+  return showSettings ? <TeamStaffAllocationsSection
+    canRenameTeam canDeleteTeam canManageStaffAllocations selectedTeam={team} teamAssignments={[team]}
+    paginatedTeams={{items:[team]}} teamPage={1} teamPageSize={8} onSelectedTeamChange={noop}
+    teamNameDrafts={drafts} teamNotificationNameDrafts={drafts} staffSearch="" staffToAddId=""
+    availableStaff={empty} selectedTeamStaff={empty} paginatedSelectedTeamStaff={{items:empty}}
+    staffPage={1} staffPageSize={8} teamRoleOptions={empty}
+    matchdayTvSettings={<TeamTvSettingsEditor team={team} onSave={(id,settings)=>window.savedTeamTvSettings={id,...settings}}/>}
+  /> : <div style={{width:280,maxWidth:'100%',padding:16}}><Pagination compact currentPage={page} onPageChange={setPage} pageSize={8} totalItems={14}/></div>;
+}
+createRoot(document.getElementById('root')).render(<App/>);`
 const server = await createServer({
   cacheDir: 'node_modules/.vite-team-pagination',
   server: { host: '127.0.0.1', port: 0 },
@@ -52,6 +66,25 @@ try {
   const publicAnnouncements = page.getByRole('checkbox', { name: 'Public Announcements', exact: true })
   const goalCelebrations = page.getByRole('checkbox', { name: 'Show goal celebrations on Matchday TV' })
   const saveTv = page.getByRole('button', { name: 'Save Matchday TV settings' })
+  for (const width of [1346, 768, 390]) {
+    await page.setViewportSize({ width, height: 840 })
+    const rows = await page.getByRole('checkbox').evaluateAll(boxes => boxes.map(box => {
+      const input = box.getBoundingClientRect()
+      const label = box.closest('label').querySelector('span').getBoundingClientRect()
+      return { left: input.left, width: input.width, gap: label.left - input.right, textCentre: (label.top + label.bottom) / 2, inputCentre: (input.top + input.bottom) / 2 }
+    }))
+    assert.equal(rows.length, 2)
+    assert.ok(rows.every(row => row.width === 16 && row.gap >= 6 && row.gap <= 12 && Math.abs(row.textCentre - row.inputCentre) <= 1), JSON.stringify({ width, rows }))
+    assert.ok(Math.abs(rows[0].left - rows[1].left) <= 1, 'checkboxes share their left edge')
+    if (width >= 768) {
+      const fields = await Promise.all(['Team name', 'Notification Team name'].map(name => page.getByRole('textbox', { name, exact: true }).boundingBox()))
+      const actions = await Promise.all(['Save name', 'Save notification name'].map(name => page.getByRole('button', { name, exact: true }).boundingBox()))
+      assert.ok(Math.abs(fields[0].x + fields[0].width - fields[1].x - fields[1].width) < 1, 'name inputs have the same right edge')
+      assert.ok(fields.every((field, index) => Math.abs(field.y + field.height - actions[index].y - actions[index].height) < 1), 'each save aligns with its input')
+    }
+    assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth))
+    await page.getByRole('group', { name: 'Matchday TV' }).screenshot({ path: `${output}/matchday-tv-${width}.png` })
+  }
   assert.equal(await publicAnnouncements.isChecked(), true)
   assert.equal(await goalCelebrations.isChecked(), true)
   assert.equal(await saveTv.isDisabled(), true)

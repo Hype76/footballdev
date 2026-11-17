@@ -40,6 +40,7 @@ export function getParentPortalInviteActionForContact({
   isSending = false,
   links = [],
   player,
+  now = Date.now(),
 } = {}) {
   const email = normalizeParentPortalInviteEmail(contact?.email)
 
@@ -52,7 +53,11 @@ export function getParentPortalInviteActionForContact({
     }
   }
 
-  const link = links.find((candidate) => normalizeParentPortalInviteEmail(candidate?.email) === email)
+  const matchingLinks = links.filter((candidate) => (
+    (candidate?.linkType ?? candidate?.link_type ?? 'parent') === 'parent'
+    && normalizeParentPortalInviteEmail(candidate?.email) === email
+  ))
+  const link = matchingLinks.find((candidate) => candidate.status === 'active') || matchingLinks[0]
 
   if (link?.status === 'active') {
     return {
@@ -65,10 +70,15 @@ export function getParentPortalInviteActionForContact({
 
   const wasSent = Boolean(link?.inviteSentAt || link?.invite_sent_at)
 
+  const expired = link?.status === 'pending' && Date.parse(link.expiresAt || link.expires_at) <= now
+  const canRetryPending = link?.id && link.status === 'pending' && (expired || !wasSent)
+
   return {
     canSend: !isSending,
+    retryLinkId: canRetryPending ? link.id : '',
+    expired,
     label: wasSent ? 'Resend parent portal invite' : 'Send parent portal invite',
-    statusLabel: wasSent ? 'Invite sent' : '',
+    statusLabel: expired ? 'Invite expired' : wasSent ? 'Invite sent' : canRetryPending ? 'Invite not sent' : '',
     title: isSending ? 'Please wait while this parent invite is being sent.' : '',
   }
 }

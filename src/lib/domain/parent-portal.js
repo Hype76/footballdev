@@ -404,7 +404,7 @@ export async function revokeFamilyPortalLink({ linkId }) {
   return normalizeParentLink(revokedRow)
 }
 
-export async function createParentPortalInvites({ user, player, contacts, includeSentPending = false, automatic = false }) {
+export async function createParentPortalInvites({ user, player, contacts, includeSentPending = false, automatic = false, retryPendingLinkId = null }) {
   if (!user?.clubId || !player?.id) {
     throw new Error('Choose a player before creating parent links.')
   }
@@ -440,6 +440,10 @@ export async function createParentPortalInvites({ user, player, contacts, includ
     featureName: CAPABILITIES.parentInvitations,
   })
 
+  if (retryPendingLinkId && (!automatic || normalizedContacts.length !== 1)) {
+    throw new Error('Choose one pending Parent invitation to resend.')
+  }
+
   const emails = normalizedContacts.map((contact) => contact.email)
   const now = new Date()
   const nowIso = now.toISOString()
@@ -465,6 +469,7 @@ export async function createParentPortalInvites({ user, player, contacts, includ
     .in('email', emails)
     .order('created_at', { ascending: false })
     .order('id', { ascending: false })
+  if (retryPendingLinkId) existingQuery = existingQuery.eq('club_id', user.clubId)
   existingQuery = automatic ? existingQuery.eq('link_type', 'parent') : existingQuery.neq('status', 'revoked')
   const { data: existingRows, error: existingError } = await existingQuery
 
@@ -509,8 +514,11 @@ export async function createParentPortalInvites({ user, player, contacts, includ
     .filter(contact => !automaticBlockedEmails.has(contact.email))
     .map((contact) => existingRowsByEmail.get(contact.email))
     .filter((row) => row && (automatic ? canAutoSendParentInvite(row) : row.status === 'pending' && (includeSentPending || !row.invite_sent_at)))
+  const retryRows = retryPendingLinkId
+    ? resendRows.filter((row) => row.id === retryPendingLinkId && row.status === 'pending')
+    : resendRows
   if (automatic) {
-    for (const [index, row] of resendRows.entries()) {
+    for (const [index, row] of retryRows.entries()) {
       if (row.status === 'pending' && (!row.expires_at || Date.parse(row.expires_at) > now.getTime())) continue
       let renewal = supabase.from('parent_player_links')
         .update({
@@ -524,9 +532,11 @@ export async function createParentPortalInvites({ user, player, contacts, includ
         .select('*, players:player_id (player_name, section, team), teams:team_id (name, theme_mode, theme_accent, theme_button_style), clubs:club_id (name, theme_accent, theme_button_style, plan_key, plan_status)')
         .maybeSingle()
       if (error) throw error
-      resendRows[index] = data
+      retryRows[index] = data
     }
   }
+  if (retryPendingLinkId) return retryRows.filter(Boolean).map(withInviteMetadata)
+
   const rows = normalizedContacts
     .filter((contact) => !existingRowsByEmail.has(contact.email) && !existingSentOrAcceptedEmails.has(contact.email))
     .map((contact) => ({

@@ -13,7 +13,7 @@ ${constants}
 ${summary}
 const contacts=[{name:'First Parent',email:'a.very.long.parent.email.address.for.layout@example.test'},{name:'Second Parent',email:'second@example.test'},{name:'Third Parent',email:'third@example.test'}];
 const noop=()=>{};window.calls=[];window.revoked=[];
-createRoot(document.getElementById('root')).render(<PlayerDetailsSummary contacts={contacts} player={{id:'player',section:'Squad',team:'FP TEST U14',shirtNumber:'22',positions:['Midfielder'],status:'active'}} parentPortalLinks={[{id:'active',email:contacts[0].email,status:'active'},{id:'pending',email:contacts[1].email,status:'pending',inviteSentAt:'2026-09-15'},{id:'unlisted',email:'former.parent@example.test',status:'active'}]} directEmailTemplates={[{optionKey:'parent:update',label:'Team update',audience:'parent'}]} selectedDirectEmailTemplateKey="parent:update" onSendParentPortalInviteForContact={c=>window.calls.push(c.email)} onSendParentPasswordReset={noop} onRemoveParentPortalAccess={link=>window.revoked.push(link.id)} onSendDirectEmail={noop} onStartEditingPlayer={noop} onMovePlayerToTrial={noop} onSelectedDirectEmailTemplateChange={noop}/>);`
+createRoot(document.getElementById('root')).render(<PlayerDetailsSummary contacts={contacts} player={{id:'player',section:'Squad',team:'FP TEST U14',shirtNumber:'22',positions:['Midfielder'],status:'active'}} parentPortalLinks={[{id:'active',email:contacts[0].email,status:'active'},{id:'pending',email:contacts[1].email,status:'pending',inviteSentAt:'2026-09-15'},{id:'expired',email:contacts[2].email,status:'pending',inviteSentAt:'2026-09-15',expiresAt:'2026-09-16'},{id:'unlisted',email:'former.parent@example.test',status:'active'}]} directEmailTemplates={[{optionKey:'parent:update',label:'Team update',audience:'parent'}]} selectedDirectEmailTemplateKey="parent:update" onRetryParentInvite={(id, contact)=>window.calls.push({id,email:contact.email})} onSendParentPasswordReset={noop} onRemoveParentPortalAccess={link=>window.revoked.push(link.id)} onSendDirectEmail={noop} onStartEditingPlayer={noop} onMovePlayerToTrial={noop} onSelectedDirectEmailTemplateChange={noop}/>);`
 const built=await build({stdin:{contents:entry,resolveDir:process.cwd(),loader:'jsx'},bundle:true,write:false,jsx:'automatic',define:{'process.env.NODE_ENV':'"production"'}})
 const editor = await build({
   stdin: {
@@ -87,6 +87,9 @@ try {
  }
  assert.equal(await page.getByRole('button',{name:/send parent portal invite/i}).count(),0)
  await page.getByText('Invite sent',{exact:true}).waitFor()
+ await page.getByText('Invite expired',{exact:true}).waitFor()
+ await page.getByRole('button',{name:'Resend invite',exact:true}).click()
+ assert.deepEqual(await page.evaluate(()=>window.calls),[{id:'expired',email:'third@example.test'}])
  await page.getByRole('region',{name:'Additional Parent access'}).getByText('former.parent@example.test',{exact:true}).waitFor()
  await page.getByRole('region',{name:'Additional Parent access'}).getByRole('button',{name:'Remove Parent access',exact:true}).click();assert.deepEqual(await page.evaluate(()=>window.revoked),['unlisted'])
  assert.deepEqual(errors,[]);console.log('PASS: actual contact summary, long emails, active and pending invitation status and full-width cards at 320/390/768/1100/1600px in light/dark themes.')
