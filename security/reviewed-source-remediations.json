@@ -523,14 +523,14 @@
       "version": "2.3.2",
       "registryIntegrity": "sha512-V7+vQEJ06Z+c5tSye8S+nHUfI51xoXIXjHQ99cQtKUkQqqO1kO/KCJUfZXuB47h/YBlDhah2H3hdUGXn8ie0oA==",
       "originalTreeSha256": "a6dbe19a0f88505d86e7d142b0d55030ffdf9556a8b1cb7af6bfd6d424dcc55d",
-      "patchedTreeSha256": "749c02d4f4bde402944433f8133e4ab77d569759295d07b185c82a9a320b0e9b",
+      "patchedTreeSha256": "7e5a35dd6091fbdce7062ab716d4aa668d072bb1704866a17997909273708515",
       "files": [
         {
           "path": "lib/parse.js",
           "originalSha256": "3a91656f440069aa8f8e15c9d695b9f6b2209df1eab2be8127c72cbcca45ff5f",
-          "patchedSha256": "598b94b5e456b8008bc420dfbc3539c216be6c6a325f3f240d13a3ec6c2bf56d",
+          "patchedSha256": "04174b3936e3dde50095f4dc96870e139e98864284513d0edde69939486f3873",
           "originalBytes": 33950,
-          "patchedBytes": 34857
+          "patchedBytes": 35143
         }
       ],
       "mode": "reviewed-source"
@@ -542,14 +542,14 @@
       "version": "2.3.2",
       "registryIntegrity": "sha512-V7+vQEJ06Z+c5tSye8S+nHUfI51xoXIXjHQ99cQtKUkQqqO1kO/KCJUfZXuB47h/YBlDhah2H3hdUGXn8ie0oA==",
       "originalTreeSha256": "a6dbe19a0f88505d86e7d142b0d55030ffdf9556a8b1cb7af6bfd6d424dcc55d",
-      "patchedTreeSha256": "749c02d4f4bde402944433f8133e4ab77d569759295d07b185c82a9a320b0e9b",
+      "patchedTreeSha256": "7e5a35dd6091fbdce7062ab716d4aa668d072bb1704866a17997909273708515",
       "files": [
         {
           "path": "lib/parse.js",
           "originalSha256": "3a91656f440069aa8f8e15c9d695b9f6b2209df1eab2be8127c72cbcca45ff5f",
-          "patchedSha256": "598b94b5e456b8008bc420dfbc3539c216be6c6a325f3f240d13a3ec6c2bf56d",
+          "patchedSha256": "04174b3936e3dde50095f4dc96870e139e98864284513d0edde69939486f3873",
           "originalBytes": 33950,
-          "patchedBytes": 34857
+          "patchedBytes": 35143
         }
       ],
       "mode": "reviewed-source"
@@ -561,14 +561,14 @@
       "version": "4.0.4",
       "registryIntegrity": "sha512-QP88BAKvMam/3NxH6vj2o21R6MjxZUAd6nlwAS/pnGvN9IVLocLHxGYIzFhg6fUQ+5th6P4dv4eW9jX3DSIj7A==",
       "originalTreeSha256": "a18d8dfe5f0fad86e51467433dd48c357af1504aa417cd37b64a95e1fde82e13",
-      "patchedTreeSha256": "2a8951dbb4b7706532b0969812dc8d170fd3c336bc82128bd2323bcd04d14621",
+      "patchedTreeSha256": "83c7adca3b3f9c76af03b5f01c400bb60dbd1f69b3bd6a93596339017c069920",
       "files": [
         {
           "path": "lib/parse.js",
           "originalSha256": "ce57c04e04994b83e2ca566170fa192e6fe19d710bea6da00ce2f76d01c0dea4",
-          "patchedSha256": "286420af0f5be7bc62792394e4a48e1432f80c7927f2645bd1c856dfdadb02d5",
+          "patchedSha256": "5c8574f2db3163ffe0d4f8a1ca0b70d54d21e007b1fc8800643876ecaeba250a",
           "originalBytes": 33731,
-          "patchedBytes": 34638
+          "patchedBytes": 34924
         }
       ],
       "mode": "reviewed-source"
@@ -580,14 +580,14 @@
       "version": "2.3.2",
       "registryIntegrity": "sha512-V7+vQEJ06Z+c5tSye8S+nHUfI51xoXIXjHQ99cQtKUkQqqO1kO/KCJUfZXuB47h/YBlDhah2H3hdUGXn8ie0oA==",
       "originalTreeSha256": "a6dbe19a0f88505d86e7d142b0d55030ffdf9556a8b1cb7af6bfd6d424dcc55d",
-      "patchedTreeSha256": "749c02d4f4bde402944433f8133e4ab77d569759295d07b185c82a9a320b0e9b",
+      "patchedTreeSha256": "7e5a35dd6091fbdce7062ab716d4aa668d072bb1704866a17997909273708515",
       "files": [
         {
           "path": "lib/parse.js",
           "originalSha256": "3a91656f440069aa8f8e15c9d695b9f6b2209df1eab2be8127c72cbcca45ff5f",
-          "patchedSha256": "598b94b5e456b8008bc420dfbc3539c216be6c6a325f3f240d13a3ec6c2bf56d",
+          "patchedSha256": "04174b3936e3dde50095f4dc96870e139e98864284513d0edde69939486f3873",
           "originalBytes": 33950,
-          "patchedBytes": 34857
+          "patchedBytes": 35143
         }
       ],
       "mode": "reviewed-source"
@@ -599,14 +599,14 @@
       "version": "2.3.2",
       "registryIntegrity": "sha512-V7+vQEJ06Z+c5tSye8S+nHUfI51xoXIXjHQ99cQtKUkQqqO1kO/KCJUfZXuB47h/YBlDhah2H3hdUGXn8ie0oA==",
       "originalTreeSha256": "a6dbe19a0f88505d86e7d142b0d55030ffdf9556a8b1cb7af6bfd6d424dcc55d",
-      "patchedTreeSha256": "749c02d4f4bde402944433f8133e4ab77d569759295d07b185c82a9a320b0e9b",
+      "patchedTreeSha256": "7e5a35dd6091fbdce7062ab716d4aa668d072bb1704866a17997909273708515",
       "files": [
         {
           "path": "lib/parse.js",
           "originalSha256": "3a91656f440069aa8f8e15c9d695b9f6b2209df1eab2be8127c72cbcca45ff5f",
-          "patchedSha256": "598b94b5e456b8008bc420dfbc3539c216be6c6a325f3f240d13a3ec6c2bf56d",
+          "patchedSha256": "04174b3936e3dde50095f4dc96870e139e98864284513d0edde69939486f3873",
           "originalBytes": 33950,
-          "patchedBytes": 34857
+          "patchedBytes": 35143
         }
       ],
       "mode": "reviewed-source"
@@ -618,14 +618,14 @@
       "version": "2.3.2",
       "registryIntegrity": "sha512-V7+vQEJ06Z+c5tSye8S+nHUfI51xoXIXjHQ99cQtKUkQqqO1kO/KCJUfZXuB47h/YBlDhah2H3hdUGXn8ie0oA==",
       "originalTreeSha256": "a6dbe19a0f88505d86e7d142b0d55030ffdf9556a8b1cb7af6bfd6d424dcc55d",
-      "patchedTreeSha256": "749c02d4f4bde402944433f8133e4ab77d569759295d07b185c82a9a320b0e9b",
+      "patchedTreeSha256": "7e5a35dd6091fbdce7062ab716d4aa668d072bb1704866a17997909273708515",
       "files": [
         {
           "path": "lib/parse.js",
           "originalSha256": "3a91656f440069aa8f8e15c9d695b9f6b2209df1eab2be8127c72cbcca45ff5f",
-          "patchedSha256": "598b94b5e456b8008bc420dfbc3539c216be6c6a325f3f240d13a3ec6c2bf56d",
+          "patchedSha256": "04174b3936e3dde50095f4dc96870e139e98864284513d0edde69939486f3873",
           "originalBytes": 33950,
-          "patchedBytes": 34857
+          "patchedBytes": 35143
         }
       ],
       "mode": "reviewed-source"
@@ -637,14 +637,14 @@
       "version": "4.0.4",
       "registryIntegrity": "sha512-QP88BAKvMam/3NxH6vj2o21R6MjxZUAd6nlwAS/pnGvN9IVLocLHxGYIzFhg6fUQ+5th6P4dv4eW9jX3DSIj7A==",
       "originalTreeSha256": "a18d8dfe5f0fad86e51467433dd48c357af1504aa417cd37b64a95e1fde82e13",
-      "patchedTreeSha256": "2a8951dbb4b7706532b0969812dc8d170fd3c336bc82128bd2323bcd04d14621",
+      "patchedTreeSha256": "83c7adca3b3f9c76af03b5f01c400bb60dbd1f69b3bd6a93596339017c069920",
       "files": [
         {
           "path": "lib/parse.js",
           "originalSha256": "ce57c04e04994b83e2ca566170fa192e6fe19d710bea6da00ce2f76d01c0dea4",
-          "patchedSha256": "286420af0f5be7bc62792394e4a48e1432f80c7927f2645bd1c856dfdadb02d5",
+          "patchedSha256": "5c8574f2db3163ffe0d4f8a1ca0b70d54d21e007b1fc8800643876ecaeba250a",
           "originalBytes": 33731,
-          "patchedBytes": 34638
+          "patchedBytes": 34924
         }
       ],
       "mode": "reviewed-source"
@@ -656,14 +656,14 @@
       "version": "2.3.2",
       "registryIntegrity": "sha512-V7+vQEJ06Z+c5tSye8S+nHUfI51xoXIXjHQ99cQtKUkQqqO1kO/KCJUfZXuB47h/YBlDhah2H3hdUGXn8ie0oA==",
       "originalTreeSha256": "a6dbe19a0f88505d86e7d142b0d55030ffdf9556a8b1cb7af6bfd6d424dcc55d",
-      "patchedTreeSha256": "749c02d4f4bde402944433f8133e4ab77d569759295d07b185c82a9a320b0e9b",
+      "patchedTreeSha256": "7e5a35dd6091fbdce7062ab716d4aa668d072bb1704866a17997909273708515",
       "files": [
         {
           "path": "lib/parse.js",
           "originalSha256": "3a91656f440069aa8f8e15c9d695b9f6b2209df1eab2be8127c72cbcca45ff5f",
-          "patchedSha256": "598b94b5e456b8008bc420dfbc3539c216be6c6a325f3f240d13a3ec6c2bf56d",
+          "patchedSha256": "04174b3936e3dde50095f4dc96870e139e98864284513d0edde69939486f3873",
           "originalBytes": 33950,
-          "patchedBytes": 34857
+          "patchedBytes": 35143
         }
       ],
       "mode": "reviewed-source"
@@ -675,14 +675,14 @@
       "version": "2.3.2",
       "registryIntegrity": "sha512-V7+vQEJ06Z+c5tSye8S+nHUfI51xoXIXjHQ99cQtKUkQqqO1kO/KCJUfZXuB47h/YBlDhah2H3hdUGXn8ie0oA==",
       "originalTreeSha256": "a6dbe19a0f88505d86e7d142b0d55030ffdf9556a8b1cb7af6bfd6d424dcc55d",
-      "patchedTreeSha256": "749c02d4f4bde402944433f8133e4ab77d569759295d07b185c82a9a320b0e9b",
+      "patchedTreeSha256": "7e5a35dd6091fbdce7062ab716d4aa668d072bb1704866a17997909273708515",
       "files": [
         {
           "path": "lib/parse.js",
           "originalSha256": "3a91656f440069aa8f8e15c9d695b9f6b2209df1eab2be8127c72cbcca45ff5f",
-          "patchedSha256": "598b94b5e456b8008bc420dfbc3539c216be6c6a325f3f240d13a3ec6c2bf56d",
+          "patchedSha256": "04174b3936e3dde50095f4dc96870e139e98864284513d0edde69939486f3873",
           "originalBytes": 33950,
-          "patchedBytes": 34857
+          "patchedBytes": 35143
         }
       ],
       "mode": "reviewed-source"
@@ -694,14 +694,14 @@
       "version": "2.3.2",
       "registryIntegrity": "sha512-V7+vQEJ06Z+c5tSye8S+nHUfI51xoXIXjHQ99cQtKUkQqqO1kO/KCJUfZXuB47h/YBlDhah2H3hdUGXn8ie0oA==",
       "originalTreeSha256": "a6dbe19a0f88505d86e7d142b0d55030ffdf9556a8b1cb7af6bfd6d424dcc55d",
-      "patchedTreeSha256": "749c02d4f4bde402944433f8133e4ab77d569759295d07b185c82a9a320b0e9b",
+      "patchedTreeSha256": "7e5a35dd6091fbdce7062ab716d4aa668d072bb1704866a17997909273708515",
       "files": [
         {
           "path": "lib/parse.js",
           "originalSha256": "3a91656f440069aa8f8e15c9d695b9f6b2209df1eab2be8127c72cbcca45ff5f",
-          "patchedSha256": "598b94b5e456b8008bc420dfbc3539c216be6c6a325f3f240d13a3ec6c2bf56d",
+          "patchedSha256": "04174b3936e3dde50095f4dc96870e139e98864284513d0edde69939486f3873",
           "originalBytes": 33950,
-          "patchedBytes": 34857
+          "patchedBytes": 35143
         }
       ],
       "mode": "reviewed-source"
@@ -713,14 +713,14 @@
       "version": "4.0.4",
       "registryIntegrity": "sha512-QP88BAKvMam/3NxH6vj2o21R6MjxZUAd6nlwAS/pnGvN9IVLocLHxGYIzFhg6fUQ+5th6P4dv4eW9jX3DSIj7A==",
       "originalTreeSha256": "a18d8dfe5f0fad86e51467433dd48c357af1504aa417cd37b64a95e1fde82e13",
-      "patchedTreeSha256": "2a8951dbb4b7706532b0969812dc8d170fd3c336bc82128bd2323bcd04d14621",
+      "patchedTreeSha256": "83c7adca3b3f9c76af03b5f01c400bb60dbd1f69b3bd6a93596339017c069920",
       "files": [
         {
           "path": "lib/parse.js",
           "originalSha256": "ce57c04e04994b83e2ca566170fa192e6fe19d710bea6da00ce2f76d01c0dea4",
-          "patchedSha256": "286420af0f5be7bc62792394e4a48e1432f80c7927f2645bd1c856dfdadb02d5",
+          "patchedSha256": "5c8574f2db3163ffe0d4f8a1ca0b70d54d21e007b1fc8800643876ecaeba250a",
           "originalBytes": 33731,
-          "patchedBytes": 34638
+          "patchedBytes": 34924
         }
       ],
       "mode": "reviewed-source"
@@ -798,7 +798,7 @@
     "tests/security-glob-compatibility.test.mjs": "84bfa27e35efe97fe9a4678620f0388609b628def0b1d4f2893ce72b5f781b08",
     "tests/security-picomatch-source.test.mjs": "ddc581db32f998898370d2a148d0d4d3ab5b81531df2894707602d41510df592"
   },
-  "payloadSha256": "383ee0a3b4704ef0733ac2f1bbcb5078915e1a1c642631b8ed20bc9c568175ce",
+  "payloadSha256": "78986a7a9ef795a65ea82b2954476874c252068ad989b228b95beb626cbf732e",
   "adoptionProposalSha256": "446ea8209347bba915ff7510e7539bcad974ce43e2c3cf5741143638bb370be8",
   "nativeInputs": [
     {
@@ -4203,14 +4203,14 @@
         "registryIntegrity": "sha512-V7+vQEJ06Z+c5tSye8S+nHUfI51xoXIXjHQ99cQtKUkQqqO1kO/KCJUfZXuB47h/YBlDhah2H3hdUGXn8ie0oA==",
         "gitHead": "81cba8d4b767cab3cb29d26eb4f691eed75b73b2",
         "originalTreeSha256": "a6dbe19a0f88505d86e7d142b0d55030ffdf9556a8b1cb7af6bfd6d424dcc55d",
-        "patchedTreeSha256": "749c02d4f4bde402944433f8133e4ab77d569759295d07b185c82a9a320b0e9b",
+        "patchedTreeSha256": "7e5a35dd6091fbdce7062ab716d4aa668d072bb1704866a17997909273708515",
         "files": [
           {
             "path": "lib/parse.js",
             "originalSha256": "3a91656f440069aa8f8e15c9d695b9f6b2209df1eab2be8127c72cbcca45ff5f",
-            "patchedSha256": "598b94b5e456b8008bc420dfbc3539c216be6c6a325f3f240d13a3ec6c2bf56d",
+            "patchedSha256": "04174b3936e3dde50095f4dc96870e139e98864284513d0edde69939486f3873",
             "originalBytes": 33950,
-            "patchedBytes": 34857
+            "patchedBytes": 35143
           }
         ]
       },
@@ -4219,14 +4219,14 @@
         "registryIntegrity": "sha512-QP88BAKvMam/3NxH6vj2o21R6MjxZUAd6nlwAS/pnGvN9IVLocLHxGYIzFhg6fUQ+5th6P4dv4eW9jX3DSIj7A==",
         "gitHead": "e5474fc1a4d7991870058170407dda8a42be5334",
         "originalTreeSha256": "a18d8dfe5f0fad86e51467433dd48c357af1504aa417cd37b64a95e1fde82e13",
-        "patchedTreeSha256": "2a8951dbb4b7706532b0969812dc8d170fd3c336bc82128bd2323bcd04d14621",
+        "patchedTreeSha256": "83c7adca3b3f9c76af03b5f01c400bb60dbd1f69b3bd6a93596339017c069920",
         "files": [
           {
             "path": "lib/parse.js",
             "originalSha256": "ce57c04e04994b83e2ca566170fa192e6fe19d710bea6da00ce2f76d01c0dea4",
-            "patchedSha256": "286420af0f5be7bc62792394e4a48e1432f80c7927f2645bd1c856dfdadb02d5",
+            "patchedSha256": "5c8574f2db3163ffe0d4f8a1ca0b70d54d21e007b1fc8800643876ecaeba250a",
             "originalBytes": 33731,
-            "patchedBytes": 34638
+            "patchedBytes": 34924
           }
         ]
       }
@@ -4236,6 +4236,6 @@
       "registryIntegrity": "sha512-qcJu88Q2IWqJsDD529JKMdwGm/dvInW4HvQnRwiH9JtihJvzGOscDtHE3x1pBKeUOTysQ8kVmLnJ2kJu7yhcGA==",
       "gitHead": "6bb40679c218cefba5d4e9662408c5fdf699a8bb"
     },
-    "behaviour": "Repeated extglob branches containing unbounded wildcard or nested grouping use the existing literal fallback. The exact existing star-of-literal simplification remains available. Ordinary globs, finite wildcards, escaping, quoted literals, classes and non-repeating extglobs retain their existing behaviour."
+    "behaviour": "Repeated extglob branches containing unbounded wildcard, nested parentheses or brace grouping use the existing literal fallback. Character-class scanning recognises literal opening brackets and the nobracket option. The exact existing star-of-literal simplification remains available. Ordinary globs, finite wildcards, escaping, quoted literals, character classes and non-repeating extglobs retain their existing behaviour."
   }
 }

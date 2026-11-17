@@ -36,26 +36,38 @@ for (const target of record.targets.filter(item => item.name === 'picomatch')) {
 test.after(() => fs.rmSync(temporary, { recursive: true, force: true }))
 
 for (const [version, directories] of variants) {
-  test(version + ' reproduces the original single-branch backtracking failure in a bounded process', () => {
-    const result = spawnSync(process.execPath, ['-e', `
-      const match = require(process.argv[1])
-      match.isMatch('a'.repeat(42) + '!', '+(*a)')
-    `, directories.original], { encoding: 'utf8', timeout: 1500 })
-    assert.equal(result.error?.code, 'ETIMEDOUT')
+  test(version + ' reproduces the original wildcard, bracket and brace failures in bounded processes', () => {
+    const attacks = [
+      { pattern: '+(*a)', input: 'a'.repeat(42) + '!' },
+      { pattern: '+([[]*a)', input: '[a'.repeat(26) + '!' },
+      { pattern: '+({a,aa})b', input: 'a'.repeat(42) + '!' },
+    ]
+    for (const attack of attacks) {
+      const result = spawnSync(process.execPath, ['-e', `
+        const match = require(process.argv[1])
+        match.isMatch(process.argv[3], process.argv[2])
+      `, directories.original, attack.pattern, attack.input], { encoding: 'utf8', timeout: 1500 })
+      assert.equal(result.error?.code, 'ETIMEDOUT', attack.pattern)
+    }
   })
 
   test(version + ' prevents repeated wildcard and nested-group backtracking', () => {
     const patterns = [
       '+(*)b', '+(*a)', '*(*)b', '*(*a)', '+(a*)b', '+(a*b*)',
       '+(@(*a))', '+(a*(a))', '+(@(*(a)))', '+(@(a|aa))', '+(a?(a))',
+      '+([[]*a)', '+([[]a*)b', '+([[]*)b', '+([[]*a|x)',
+      '+({a,aa})b', '*({a,aa})b', '+([[:alpha:]]*a)b',
     ]
     const result = spawnSync(process.execPath, ['-e', `
       const assert = require('node:assert/strict')
       const match = require(process.argv[1])
       const patterns = JSON.parse(process.argv[2])
       for (const pattern of patterns) {
-        assert.equal(match.isMatch('a'.repeat(256) + '!', pattern), false, pattern)
+        for (const repeated of ['a', '[a', ']a']) {
+          assert.equal(match.isMatch(repeated.repeat(256) + '!', pattern), false, pattern)
+        }
       }
+      assert.equal(match.isMatch('[a'.repeat(256) + '!', '+([*]a)', { nobracket: true }), false)
     `, directories.patched, JSON.stringify(patterns)], { encoding: 'utf8', timeout: 2000 })
     assert.ifError(result.error)
     assert.equal(result.status, 0, result.stderr)
@@ -69,10 +81,12 @@ for (const [version, directories] of variants) {
       '**/node_modules/**', '!**/*.test.js', '@(src|tests)/*.js',
       '+(abc)', '*(foo|bar)', '?(foo)', '!(foo)', '+([ab])', '+(a?)',
       '+(a\\*b)', '+("a*b")', '+([*])', '+(*(a))', '+(*(a)*(b))',
+      '+([[])', '+([a-z])', '+([[:alpha:]])', '+([^a])', '+(\\{a,b\\})',
     ]
     const names = [
       '', 'a', 'aaa', 'ab', 'abc', 'abcabc', 'foo', 'foobar', 'barfoo',
       '*', '**', 'a*b', 'a*ba*b', 'a.js', 'a.test.js', 'src/index.js',
+      '[', '[[', ']', '[a]', 'a[]', 'a{b}', '{a,b}', '{a,b}{a,b}',
       'src/nested/a.js', 'src/nested/a.test.js', 'tests/spec.ts',
       'node_modules/glob/index.js', 'a/b/c.tsx', '.hidden.js', 'a'.repeat(64),
     ]
