@@ -1124,7 +1124,7 @@ function ScorerControls({ activeActionId, isOffline, match, onAction, onRestore,
     }
   }
   const awakeControl = <View style={styles.row}><Text style={[styles.body, { flex: 1 }]}>{keepAwake ? 'Screen kept awake' : keepAwakeAvailable ? 'Keep screen awake' : 'Keep screen awake unavailable'}</Text><Switch accessibilityLabel="Keep screen awake" disabled={!keepAwakeAvailable} onValueChange={toggleKeepAwake} value={keepAwake} /></View>
-  if (handedOver) return <View style={styles.card}><Text accessibilityRole="status" style={styles.body}>Sent to Coach to conclude. Your scoring access has ended.</Text></View>
+  if (handedOver) return <View style={styles.card}><Text accessibilityLiveRegion="polite" style={styles.body}>Sent to Coach to conclude. Your scoring access has ended.</Text></View>
   return (
     <View style={styles.stack}>
       <View accessibilityLabel="Match scoring" style={styles.stack}>
@@ -1134,7 +1134,7 @@ function ScorerControls({ activeActionId, isOffline, match, onAction, onRestore,
           <Text accessibilityLabel={`Score ${match.homeScore || 0} to ${match.awayScore || 0}`} accessibilityLiveRegion="polite" adjustsFontSizeToFit minimumFontScale={0.6} numberOfLines={1} style={styles.scorerScore} testID="scorer-score">{match.homeScore || 0} - {match.awayScore || 0}</Text>
         </View>
         {isOffline ? <Text style={styles.warning}>Offline. Game Day actions save on this phone and sync when connected.</Text> : null}
-        {scorerSync?.pending?.length ? <Text accessibilityRole="status" style={styles.helper}>{scorerSync.pending.length} saved action{scorerSync.pending.length === 1 ? '' : 's'} waiting to sync.</Text> : null}
+        {scorerSync?.pending?.length ? <Text accessibilityLiveRegion="polite" style={styles.helper}>{scorerSync.pending.length} saved action{scorerSync.pending.length === 1 ? '' : 's'} waiting to sync.</Text> : null}
         {scorerSync?.error ? <Text accessibilityRole="alert" style={styles.warning}>{scorerSync.error}</Text> : null}
         {canReviewParentScorerActions(scorerSync) ? <>
           <Text style={styles.helper}>Saved actions to review:</Text>
@@ -1143,7 +1143,7 @@ function ScorerControls({ activeActionId, isOffline, match, onAction, onRestore,
         </> : null}
         {canRestoreRejectedShootout(scorerSync) ? <Button disabled={busy} label="Restore shootout controls" onPress={onRestore} outline styles={styles} /> : null}
         {match.currentMatchPhase === 'penalties' && timerActions.some(item => item.action === 'full_time' && item.disabled) ? <Text style={styles.helper}>Keep recording kicks until one team has a clear winner.</Text> : null}
-        {match.pendingReview ? <Text accessibilityRole="status" style={styles.helper}>Coach handover saved on this phone and waiting to sync.</Text> : null}
+        {match.pendingReview ? <Text accessibilityLiveRegion="polite" style={styles.helper}>Coach handover saved on this phone and waiting to sync.</Text> : null}
         {!keepAwake ? awakeControl : null}
         <View style={styles.actionGrid} testID="scorer-primary-actions">
           {canRecordEvents ? <ScorerActionButton disabled={disabled} icon="sports-soccer" label="Goal" onPress={() => openAction('goal', 'Add goal')} primary styles={styles} /> : null}
@@ -1343,7 +1343,7 @@ export function MatchdayScreen({ suppressParentFormation = false, activeActionId
     return (
       <View style={styles.stack}>
         {!selectedMatch.isScorer ? <MatchdayAction accessibilityLabel="Back to Matchday" label="Back" iconKey="action.back" onPress={onBack} colors={colors} styles={styles} back /> : null}
-        {selectedMatch.scorerReviewRequestedAt && !selectedMatch.isScorer ? <View style={styles.card}><Text accessibilityRole="status" style={styles.body}>Sent to Coach to conclude. Your scoring access has ended.</Text></View> : null}
+        {selectedMatch.scorerReviewRequestedAt && !selectedMatch.isScorer ? <View style={styles.card}><Text accessibilityLiveRegion="polite" style={styles.body}>Sent to Coach to conclude. Your scoring access has ended.</Text></View> : null}
         {selectedMatch.isScorer ? <ScorerControls activeActionId={activeActionId} isOffline={isOffline} match={selectedMatch} onAction={(action, value) => onScorerAction(selectedMatch, action, value)} onRestore={() => onRestoreScorer?.(selectedMatch)} onReview={() => onReviewScorer?.(selectedMatch)} placeholderColor={colors.muted} players={scorerPlayers} scorerGuide={isParentScorerGuideMatch(selectedMatch, scorerGuideDate)} scorerSync={scorerSync} styles={styles} /> : null}
         {selectedMatch.isScorer ? <MatchdayAction accessibilityLabel="Back to Matchday" label="Back" iconKey="action.back" onPress={onBack} colors={colors} styles={styles} back /> : null}
         <View style={[styles.featureCard, styles.gameDayHero, selectedMatchIsLive && styles.gameDayHeroLive]}>
