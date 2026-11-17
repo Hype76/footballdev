@@ -192,15 +192,18 @@ try {
   await page.getByText('Linesman', { exact: true }).waitFor()
   await page.getByRole('button', { name: 'Volunteer to help', exact: true }).click()
   await page.evaluate(() => window.extraInvitations([]))
+  const waitForOpaqueFixtureLabels = (colour) => page.waitForFunction(expected => {
+    const hero = document.querySelector('[aria-label="Peterborough Junior Blues U14 v Cambourne Town FC"]')
+    if (!hero) return false
+    const labels = [...hero.querySelectorAll('*')]
+    return ['Peterborough Junior Blues U14', 'Cambourne Town FC', 'v'].every(name =>
+      labels.some(label => label.textContent === name && getComputedStyle(label).backgroundColor === expected))
+  }, colour)
   await page.evaluate(() => window.accent('#777777'))
-  const hero = page.getByRole('heading', { name: 'Peterborough Junior Blues U14 v Cambourne Town FC', exact: true })
-  for (const name of ['Peterborough Junior Blues U14', 'Cambourne Town FC', 'v']) {
-    await hero.getByText(name, { exact: true }).evaluate(element => {
-      if (getComputedStyle(element).backgroundColor !== 'rgb(119, 119, 119)') throw new Error('Hero labels need the solid club colour behind their text')
-    })
-  }
+  await waitForOpaqueFixtureLabels('rgb(119, 119, 119)')
   await assertRenderedTextContrast(page, 'Parent fixture with a mid-grey club colour')
   await page.evaluate(() => window.accent('#075293'))
+  await waitForOpaqueFixtureLabels('rgb(7, 82, 147)')
   await page.getByTestId('response-scroll').evaluate(element => { element.style.height = '820px'; element.scrollTop = 0 })
   await page.screenshot({ path: 'output/playwright/parent-compact/fixture-redesign.png' })
   await page.getByTestId('response-scroll').evaluate(element => { element.style.height = '420px' })
