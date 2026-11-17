@@ -9,6 +9,12 @@ import { getPlayerParentInviteContacts } from '../src/lib/parent-portal-invite-a
 const sql = await readFile(new URL('../supabase/migrations/20261113114647_adult_player_setup_invites.sql', import.meta.url), 'utf8')
 const statusSql = await readFile(new URL('../supabase/migrations/20261116123543_adult_player_link_status.sql', import.meta.url), 'utf8')
 const resendSql = await readFile(new URL('../supabase/migrations/20261117100252_v1_adult_player_invitation_resend.sql', import.meta.url), 'utf8')
+const authorityTransactionSql = await readFile(new URL('../supabase/migrations/20261117172645_adult_player_status_authority_transaction.sql', import.meta.url), 'utf8')
+const staffAuthoritySql = await readFile(new URL('../supabase/migrations/20260728170000_staff_role_assignment_control.sql', import.meta.url), 'utf8')
+const authorityHelperSql = staffAuthoritySql.slice(
+  staffAuthoritySql.indexOf('create or replace function app_private.actor_can_manage_team_resource('),
+  staffAuthoritySql.indexOf('create or replace function app_private.record_staff_role_change_audit('),
+)
 const foundation = (await readFile(new URL('../supabase/migrations/20260730110000_adult_player_account_foundation.sql', import.meta.url), 'utf8')).split('create or replace function public.get_own_adult_player_account_state')[0]
 const actor = '00000000-0000-4000-8000-000000000001'
 const player = '00000000-0000-4000-8000-000000000002'
@@ -47,13 +53,14 @@ test('adult invitation is private, scoped, invalidates changed emails and only l
       create table public.teams(id uuid primary key, club_id uuid, status text);
       create table public.players(id uuid primary key, club_id uuid, team_id uuid, status text, archived_at timestamptz,
         contact_type text, date_of_birth date, parent_contacts jsonb);
-      create table public.users(id uuid primary key);
-      create table public.user_club_memberships(auth_user_id uuid);
+      create table public.users(id uuid primary key, club_id uuid, role text, role_rank integer, status text);
+      create table public.user_club_memberships(auth_user_id uuid, club_id uuid, role text, role_rank integer);
+      create table public.team_staff(id uuid primary key, team_id uuid, user_id uuid, role_rank integer);
       create table public.parent_player_links(auth_user_id uuid, player_id uuid, status text);
-      create function app_private.actor_can_manage_team_resource(uuid,uuid,uuid,integer) returns boolean
-        language sql as 'select $1 = ''${actor}'' and $2 = ''${club}'' and $3 in (''${team}'', ''${newTeam}'') and $4 in (20,50)';
-      revoke all on function app_private.actor_can_manage_team_resource(uuid,uuid,uuid,integer) from public;
+      ${authorityHelperSql}
       insert into public.clubs values ('${club}');
+      insert into public.users values ('${actor}', '${club}', 'admin', 90, 'active');
+      insert into public.user_club_memberships values ('${actor}', '${club}', 'admin', 90);
       insert into public.teams values ('${team}','${club}','active'), ('${newTeam}','${club}','active');
       insert into public.players values ('${player}','${club}','${team}','active',null,'self','1996-11-13',
         '[{"type":"self","email":"player@example.test"}]');
@@ -64,6 +71,49 @@ test('adult invitation is private, scoped, invalidates changed emails and only l
     await db.exec(statusSql)
     await db.exec(resendSql)
     await db.exec('set role service_role')
+    const statusFunctions = ['get_adult_player_link_status', 'list_adult_player_setup_resend_targets']
+    const functionMetadata = async () => (await db.query(`
+      select oid, proname, proowner, proacl::text, prosrc, prosecdef, proconfig
+      from pg_proc where pronamespace = 'public'::regnamespace and proname = any($1::text[])
+      order by proname
+    `, [statusFunctions])).rows
+    const beforeMetadata = await functionMetadata()
+    assert.equal(beforeMetadata.length, 2)
+    const postRpc = async (name, target) => {
+      assert.ok(statusFunctions.includes(name))
+      const { rows: [metadata] } = await db.query(
+        'select provolatile from pg_proc where pronamespace = $1::regnamespace and proname = $2', ['public', name],
+      )
+      // Match PostgREST POST access mode, including its read-only STABLE path.
+      await db.exec(metadata.provolatile === 'v' ? 'begin read write' : 'begin read only')
+      try {
+        return (await db.query(`select public.${name}($1,$2) as result`, [actor, target])).rows[0].result
+      } finally {
+        await db.exec('rollback')
+      }
+    }
+    for (const [name, target] of [[statusFunctions[0], player], [statusFunctions[1], team]]) {
+      await assert.rejects(postRpc(name, target), { code: '25006' })
+    }
+    await db.exec('reset role')
+    await db.exec(authorityTransactionSql)
+    await db.exec('set role service_role')
+    assert.deepEqual(await functionMetadata(), beforeMetadata, 'Only function volatility may change')
+    const access = await db.query(`
+      select proname, provolatile,
+        has_function_privilege('anon', oid, 'execute') as anon,
+        has_function_privilege('authenticated', oid, 'execute') as authenticated,
+        has_function_privilege('service_role', oid, 'execute') as service_role
+      from pg_proc where pronamespace = 'public'::regnamespace and proname = any($1::text[])
+    `, [statusFunctions])
+    for (const row of access.rows) {
+      assert.equal(row.provolatile, 'v')
+      assert.equal(row.anon, false)
+      assert.equal(row.authenticated, false)
+      assert.equal(row.service_role, true)
+    }
+    assert.deepEqual(await postRpc(statusFunctions[0], player), { state: 'not_invited' })
+    assert.deepEqual(await postRpc(statusFunctions[1], team), { state: 'ready', player_ids: [player] })
     const reserve = async (id = actor) => (await db.query('select public.reserve_adult_player_setup_invite($1,$2) as result', [id, player])).rows[0].result
     const redeem = async (token, id = null) => (await db.query('select public.redeem_adult_player_setup_invite($1,$2) as result', [token, id])).rows[0].result
     const linkStatus = async (id = actor) => (await db.query('select public.get_adult_player_link_status($1,$2) as result', [id, player])).rows[0].result
