@@ -1168,7 +1168,8 @@ function RequireUser() {
     return isParentHost() ? <ParentSignInRedirect /> : <Navigate to="/sign-in" replace />
   }
 
-  if (!user && clubOptions.length > 1 && !isParentHost() && !isParentIntentPath(location.pathname)) {
+  const isPasswordReset = location.pathname.replace(/\/+$/, '').toLowerCase() === '/reset-password'
+  if (!user && clubOptions.length > 1 && !isPasswordReset && !isParentHost() && !isParentIntentPath(location.pathname)) {
     return <ClubWorkspaceSelection />
   }
 

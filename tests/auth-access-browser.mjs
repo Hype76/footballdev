@@ -2570,6 +2570,10 @@ try {
     await picker.waitFor({ state: 'visible' })
     await page.getByRole('button', { name: /Fixture United/ }).waitFor()
 
+    await page.goto(`${mainBaseUrl}/reset-password`)
+    await page.getByRole('heading', { name: 'Reset password', exact: true }).waitFor()
+    assert.equal(await picker.count(), 0)
+
     await page.goto(`${mainBaseUrl}/coach`)
     await picker.waitFor({ state: 'visible' })
     await page.getByRole('button', { name: /Fixture Rovers/ }).click()
