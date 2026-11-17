@@ -75,7 +75,7 @@ const getParentFriendlyError=(error)=>error.message,saveParentOfflineSelection=a
 const respondToParentInvitation=async(user,invitation,response)=>{window.calls.push(['attendance',user.selectedParentLinkId,invitation.sourceRecordId,response]);if(window.defer)await new Promise((resolve,reject)=>window.pending.push(error=>error?reject(new Error(error)):resolve()));window.server={...window.server,availabilityStatus:response};if(invitation.invitationId===window.serverInvitation.invitationId)window.serverInvitation={...window.serverInvitation,responseState:response,isPending:false};else window.serverExtraInvitations=window.serverExtraInvitations.map(item=>item.invitationId===invitation.invitationId?{...item,responseState:response,isPending:false}:item)};
 const setParentMatchTransport=async(user,invitation,mode)=>{window.calls.push(['transport',user.selectedParentLinkId,invitation.sourceRecordId,mode]);window.serverInvitation={...window.serverInvitation,transportNeedsLift:mode==='needs_lift',transportCanOfferLift:mode==='offering_lift',transportRespondedAt:'2099-01-01'};window.server={...window.server,squadTransport:[{playerId:'child',playerName:'Synthetic Player',needsLift:mode==='needs_lift',canOfferLift:mode==='offering_lift'}]}};
 window.calls=[];window.pending=[];window.server=initial;window.serverInvitation=initialInvitation;window.serverExtraInvitations=[];
-function App(){const[match,setMatch]=useState(initial),[suppressFormation,setSuppressFormation]=useState(false),[mode,setMode]=useState('light'),[offline,setOffline]=useState(false),[warning,setWarning]=useState(false),[activeActionId,setActiveActionId]=useState(''),[notice,setNotice]=useState(null),[invitationRows,setInvitationRows]=useState([initialInvitation]),[selectedLinkId,setSelectedLinkId]=useState('parent'),[linkType,setLinkType]=useState('parent'),[showList,setShowList]=useState(false),[fixtures,setFixtures]=useState([]);
+function App(){const[match,setMatch]=useState(initial),[suppressFormation,setSuppressFormation]=useState(false),[mode,setMode]=useState('light'),[accent,setAccent]=useState('#075293'),[offline,setOffline]=useState(false),[warning,setWarning]=useState(false),[activeActionId,setActiveActionId]=useState(''),[notice,setNotice]=useState(null),[invitationRows,setInvitationRows]=useState([initialInvitation]),[selectedLinkId,setSelectedLinkId]=useState('parent'),[linkType,setLinkType]=useState('parent'),[showList,setShowList]=useState(false),[fixtures,setFixtures]=useState([]);
 const [invitation]=invitationRows;
 const setInvitation=update=>setInvitationRows(([first,...rest])=>[typeof update==='function'?update(first):update,...rest]);
 const[screen,setScreen]=useState('matchday'),[target,setTarget]=useState('invitation');
@@ -88,10 +88,10 @@ const setResources=update=>setInvitationRows(items=>update({invitations:{items}}
 const attendanceOutbox={enqueue:async()=>{if(window.defer)await new Promise((resolve,reject)=>window.pending.push(error=>error?reject(new Error(error)):resolve()));const patch={responseState:'available',attendancePending:true,attendancePendingStatus:'pending'};if(window.preserveQueueOnRefresh)window.serverInvitation={...window.serverInvitation,...patch};setInvitation(item=>({...item,...patch}))}};
 async function loadParentData(){window.refreshes=(window.refreshes||0)+1;if(window.deferRefresh)await new Promise(resolve=>window.pendingRefresh=resolve);setMatch(window.server);setInvitationRows([window.serverInvitation,...window.serverExtraInvitations])}
 ${handlers}\n${childChange}
-window.suppressFormation=setSuppressFormation;window.match=patch=>setMatch({...initial,...patch});window.mode=setMode;window.offline=setOffline;window.warning=setWarning;window.linkType=setLinkType;window.switchChild=handleChildChange;window.list=setShowList;window.fixtures=patches=>setFixtures(patches.map(p=>({...initial,...p})));window.invitation=patch=>setInvitation({...initialInvitation,...patch});window.refresh=loadParentData;window.current={activeActionId,notice,selectedLinkId,warning,offline};
+window.suppressFormation=setSuppressFormation;window.match=patch=>setMatch({...initial,...patch});window.mode=setMode;window.accent=setAccent;window.offline=setOffline;window.warning=setWarning;window.linkType=setLinkType;window.switchChild=handleChildChange;window.list=setShowList;window.fixtures=patches=>setFixtures(patches.map(p=>({...initial,...p})));window.invitation=patch=>setInvitation({...initialInvitation,...patch});window.refresh=loadParentData;window.current={activeActionId,notice,selectedLinkId,warning,offline};
 window.screen=setScreen;window.target=setTarget;
 window.extraInvitations=rows=>{window.serverExtraInvitations=rows.map(patch=>({...initialInvitation,...patch}));setInvitationRows(([first])=>[first,...window.serverExtraInvitations])};
-const tokens=createParentMobileTheme({mode,selectedLink:{themeAccent:'#075293'}}).tokens,palette=createParentAppPalette(tokens);theme={palette,styles:createParentAppStyles(palette)};
+const tokens=createParentMobileTheme({mode,selectedLink:{themeAccent:accent}}).tokens,palette=createParentAppPalette(tokens);theme={palette,styles:createParentAppStyles(palette)};
 return <ScrollView testID="response-scroll" ref={scrollViewRef} style={{height:420}}><View ref={contentColumnRef} style={{padding:16,backgroundColor:palette.background,minHeight:'100vh'}}>
 <SyncStatus cacheState={{source:'cache',stale:true}} isOffline={offline} summary={{waiting:0,needsAttention:0}}/>
 {warning?<Notice compact tone="warning" message="Could not refresh. Showing saved information." onDismiss={()=>setWarning(false)}/>:null}
@@ -145,9 +145,9 @@ try {
     for (const name of ['Peterborough Junior Blues U14', 'Cambourne Town FC']) {
       const textStyle = await detailNames.getByText(name, { exact: true }).evaluate(element => {
         const style = getComputedStyle(element)
-        return { fontSize: style.fontSize, whiteSpace: style.whiteSpace }
+        return { fontSize: style.fontSize, whiteSpace: style.whiteSpace, background: style.backgroundColor }
       })
-      assert.deepEqual(textStyle, { fontSize: '15px', whiteSpace: 'pre-wrap' }, `Fixture banner wraps long team names at ${width}px`)
+      assert.deepEqual(textStyle, { fontSize: '15px', whiteSpace: 'pre-wrap', background: 'rgb(7, 82, 147)' }, `Fixture banner wraps long team names at ${width}px`)
     }
     const defender = await page.getByText('Centre Defender', { exact: true }).boundingBox()
     const goalkeeper = await page.getByLabel('Goalkeeper, shirt 1, goalkeeper', { exact: true }).locator('img').boundingBox()
@@ -192,6 +192,15 @@ try {
   await page.getByText('Linesman', { exact: true }).waitFor()
   await page.getByRole('button', { name: 'Volunteer to help', exact: true }).click()
   await page.evaluate(() => window.extraInvitations([]))
+  await page.evaluate(() => window.accent('#777777'))
+  const hero = page.getByRole('heading', { name: 'Peterborough Junior Blues U14 v Cambourne Town FC', exact: true })
+  for (const name of ['Peterborough Junior Blues U14', 'Cambourne Town FC', 'v']) {
+    await hero.getByText(name, { exact: true }).evaluate(element => {
+      if (getComputedStyle(element).backgroundColor !== 'rgb(119, 119, 119)') throw new Error('Hero labels need the solid club colour behind their text')
+    })
+  }
+  await assertRenderedTextContrast(page, 'Parent fixture with a mid-grey club colour')
+  await page.evaluate(() => window.accent('#075293'))
   await page.getByTestId('response-scroll').evaluate(element => { element.style.height = '820px'; element.scrollTop = 0 })
   await page.screenshot({ path: 'output/playwright/parent-compact/fixture-redesign.png' })
   await page.getByTestId('response-scroll').evaluate(element => { element.style.height = '420px' })

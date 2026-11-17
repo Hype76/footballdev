@@ -16,22 +16,23 @@ function TeamLogo({ name, logoUrl, size }) {
   />
 }
 
-export function MatchTeamsLine({ match, clubLogoUrl = '', textStyle, compact = false, header = false, hero = false, singleLine = false }) {
+export function MatchTeamsLine({ match, clubLogoUrl = '', textStyle, compact = false, header = false, hero = false, heroLabelBackground, singleLine = false }) {
   const parts = getMatchDayDisplayParts(match)
   const clubIsHome = String(match?.homeAway ?? match?.home_away ?? '').trim().toLowerCase() !== 'away'
   const size = singleLine && !header ? 16 : compact ? 20 : 28
   const firstLogo = clubIsHome ? clubLogoUrl : ''
   const secondLogo = clubIsHome ? '' : clubLogoUrl
   if (hero) {
+    const labelStyle = [textStyle, { backgroundColor: heroLabelBackground, borderRadius: 4, overflow: 'hidden', paddingHorizontal: 4, textAlign: 'center' }]
     return <View accessibilityRole="header" accessibilityLabel={`${parts.firstTeam} v ${parts.secondTeam}`} style={{ alignItems: 'center', flexDirection: 'row', gap: 8 }}>
       {[[parts.firstTeam, firstLogo], [parts.secondTeam, secondLogo]].map(([name, logo], index) => (
         <View key={index} style={{ alignItems: 'center', flex: 1, gap: 6, minWidth: 0 }}>
           <View style={{ alignItems: 'center', backgroundColor: '#ffffff', borderRadius: 26, height: 52, justifyContent: 'center', width: 52 }}>
             <TeamLogo key={logo} name={name} logoUrl={logo} size={43} />
           </View>
-          <Text style={[textStyle, { textAlign: 'center' }]}>{name}</Text>
+          <Text style={labelStyle}>{name}</Text>
         </View>
-      )).flatMap((team, index) => index === 0 ? [team, <Text key="versus" style={textStyle}>v</Text>] : [team])}
+      )).flatMap((team, index) => index === 0 ? [team, <Text key="versus" style={labelStyle}>v</Text>] : [team])}
     </View>
   }
   if (singleLine) {
