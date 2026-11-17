@@ -21,6 +21,7 @@ export function adultPlayerLinkStatusLabel(state) {
   return ({
     linked: 'Player account linked',
     awaiting_acceptance: 'Invitation sent. Delivery is unconfirmed; waiting for the player to accept.',
+    delivered: 'Invitation delivered. Waiting for the player to accept.',
     delivery_unknown: 'An invitation was previously sent, but delivery cannot be confirmed. Ask the player to check their email or contact support.',
     delivery_failed: 'Invitation could not be delivered. Check the Player email in their profile. If it is correct, contact support.',
     expired: 'Invitation expired. Save the player to send a new invitation.',
@@ -31,4 +32,8 @@ export function adultPlayerLinkStatusLabel(state) {
     unavailable: 'Player account status could not be checked. Refresh and try again.',
     loading: 'Checking Player account...',
   })[state] || 'Player account status could not be checked. Refresh and try again.'
+}
+
+export function canResendAdultPlayerSetupInvite(state) {
+  return ['awaiting_acceptance', 'delivered', 'delivery_failed', 'delivery_unknown', 'expired', 'not_invited'].includes(state)
 }

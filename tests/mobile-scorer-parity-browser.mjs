@@ -60,7 +60,10 @@ const shared = `import {getParentStatusColours,PARENT_SCORER_ICON_COLOURS} from 
   const errorMessage = (error) => error.message
   const players = [{ id: 'alex', playerName: 'Alex', shirtNumber: '9', teamId: 'team' }, { id: 'clyde', playerName: 'Clyde Bates', shirtNumber: '4', teamId: 'team' }]
   const match = { id: 'test-match', teamId: 'team', teamName: 'FP TEST Team', opponent: 'Visitors', homeAway: 'away', homeScore: 0, awayScore: 0, matchDurationMinutes: 10, clockMode: 'fixed', currentMatchPhase: 'second_half', status: 'second_half', timerStatus: 'running', timerStartedAt: '2026-09-03T12:00:00Z', timerElapsedSeconds: 340, events: [], squadDecisions: [], eventParticipants: players, substitutionParticipants: [...players,{id:'unconfirmed',playerName:'Unconfirmed Player',shirtNumber:'12',teamId:'team'}] }
-  Date.now = () => Date.parse('2026-09-03T12:00:00Z')
+  const systemNow = Date.now
+  const fixtureNow = () => Date.parse('2026-09-03T12:00:00Z')
+  Date.now = fixtureNow
+  window.useAnimationClock = (enabled) => { Date.now = enabled ? systemNow : fixtureNow }
   window.preMatch = () => {match.status='scheduled';match.timerStatus='not_started';match.currentMatchPhase='pre_match'}
   window.updateMatch = (patch) => Object.assign(match, patch)
   window.calls = []
@@ -73,7 +76,8 @@ const shared = `import {getParentStatusColours,PARENT_SCORER_ICON_COLOURS} from 
 const parentCode = `${shared}
   import { createParentMobileTheme, DEFAULT_PARENT_MOBILE_THEME } from './apps/mobile-core/src/parentThemeCore.js'
   import { SCORER_EVENT_LABELS, validateScorerMatchEvent } from './src/lib/matchday-scorer-event.js'
-  import { captureParentScorerAction } from './apps/parent-mobile/src/parentScorerCore.js'
+  import { captureParentScorerAction, isParentScorerGuideMatch } from './apps/parent-mobile/src/parentScorerCore.js'
+  import { ScorerGuidePulse } from './apps/parent-mobile/src/ParentScorerGuide.js'
   import { canRestoreRejectedShootout, canReviewParentScorerActions, describeSavedScorerAction } from './apps/parent-mobile/src/parentScorerOutboxCore.js'
   import glyphs from './apps/parent-mobile/node_modules/@expo/vector-icons/build/vendor/react-native-vector-icons/glyphmaps/MaterialIcons.json'
   const MaterialIcons = ({ color, name, size }) => <Text aria-hidden="true" style={{ color, fontFamily: 'MaterialIcons', fontSize: size }}>{String.fromCodePoint(glyphs[name])}</Text>
@@ -83,7 +87,7 @@ const parentCode = `${shared}
   function Preview({ mode, accent }) {
     const tokens = createParentMobileTheme({ mode, selectedLink: { themeAccent: accent } }).tokens
     const { colors, styles } = usePortalStyles(tokens)
-    return <View style={{ backgroundColor: colors.background, padding: 16, minHeight: 900 }}><ScorerControls activeActionId="" match={match} players={players} styles={styles} placeholderColor={colors.muted} onAction={async (action, value) => { window.calls.push({ action, value }); return true }} /></View>
+    return <View style={{ backgroundColor: colors.background, padding: 16, minHeight: 900 }}><ScorerControls activeActionId="" match={match} players={players} styles={styles} placeholderColor={colors.muted} scorerGuide={isParentScorerGuideMatch(match, '2026-09-03')} onAction={async (action, value) => { window.calls.push({ action, value }); return true }} /></View>
   }
   // Finish the requested remount before Playwright can inspect the old theme.
   window.renderPreview = (mode, accent) => flushSync(() => root.render(<Preview key={mode + accent} mode={mode} accent={accent} />))
@@ -191,10 +195,43 @@ try {
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false)
     }
     if (app === 'parent') {
+      await page.emulateMedia({ reducedMotion: 'reduce' })
+      await page.evaluate(() => {
+        window.preMatch()
+        window.updateMatch({ isScorer: true, matchDate: '2026-09-03' })
+        window.renderPreview('dark', '#123456')
+      })
+      const start = page.getByRole('button', { name: 'Start match', exact: true })
+      const guide = start.getByTestId('parent-scorer-guide')
+      await guide.waitFor()
+      assert.equal(await guide.evaluate(node => getComputedStyle(node).opacity), '1')
+      await page.evaluate(() => window.useAnimationClock(true))
+      await page.emulateMedia({ reducedMotion: 'no-preference' })
+      await page.waitForFunction(() => {
+        const guide = document.querySelector('[data-testid="parent-scorer-guide"]')
+        return guide && Number(getComputedStyle(guide).opacity) < 0.8
+      }, null, { timeout: 4000 })
+      await page.emulateMedia({ reducedMotion: 'reduce' })
+      await page.waitForFunction(() => {
+        const guide = document.querySelector('[data-testid="parent-scorer-guide"]')
+        return guide && getComputedStyle(guide).opacity === '1'
+      })
+      await page.evaluate(() => window.useAnimationClock(false))
+      const callsBeforeStart = await page.evaluate(() => window.calls.length)
+      await start.click()
+      const confirmStart = page.getByRole('button', { name: 'Confirm start', exact: true })
+      await confirmStart.getByTestId('parent-scorer-guide').waitFor()
+      assert.equal(await start.getByTestId('parent-scorer-guide').count(), 0)
+      assert.equal(await page.evaluate(() => window.calls.length), callsBeforeStart, 'Visual guidance never starts the match')
+      await confirmStart.click()
+      await confirmStart.waitFor({ state: 'hidden' })
+      assert.equal(await page.evaluate(() => window.calls.at(-1).action), 'start')
+      await page.emulateMedia({ reducedMotion: 'no-preference' })
       for (const width of [320, 390, 430]) {
         await page.setViewportSize({ width, height: 740 })
-        await page.evaluate((width) => { window.updateMatch({ status: 'live', currentMatchPhase: 'first_half', timerElapsedSeconds: 175, homeScore: 0, awayScore: 1, matchDurationMinutes: 80 }); window.renderPreview('light', width === 320 ? '#2ba7aa' : width === 390 ? '#26999d' : '#2aa5aa') }, width)
+        await page.evaluate((width) => { window.updateMatch({ status: 'live', timerStatus: 'running', currentMatchPhase: 'first_half', timerElapsedSeconds: 175, homeScore: 0, awayScore: 1, matchDurationMinutes: 80 }); window.renderPreview('light', width === 320 ? '#2ba7aa' : width === 390 ? '#26999d' : '#2aa5aa') }, width)
         await page.getByText('First half (40:00)', { exact: true }).waitFor()
+        assert.equal(await page.getByTestId('parent-scorer-guide').count(), 0, 'Live event controls do not pulse')
         assert.equal(await page.getByTestId('scorer-clock').innerText(), '2:55')
         assert.equal(await page.getByTestId('scorer-score').innerText(), '0 - 1')
         await assertControllerTypography(page, width)

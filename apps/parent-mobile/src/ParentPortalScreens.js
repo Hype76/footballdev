@@ -45,7 +45,8 @@ import { getMatchDayDisplayName } from '../../../src/lib/matchday-display.js'
 import { useConfirmedConnectionMessage } from '../../mobile-core/src/useConfirmedConnectionIssue'
 import ParentIcon from './ParentIcon'
 import { formatMatchAddedTimeClock, getMatchEventTime } from '../../../src/lib/matchday-event-time.js'
-import { captureParentScorerAction, getParentMatchTimeline, getParentScorerActionLabel, getParentScorerMatches } from './parentScorerCore'
+import { captureParentScorerAction, getParentMatchTimeline, getParentScorerActionLabel, getParentScorerMatches, isParentScorerGuideMatch } from './parentScorerCore'
+import { ScorerGuidePulse } from './ParentScorerGuide'
 import { canRestoreRejectedShootout, canReviewParentScorerActions, describeSavedScorerAction } from './parentScorerOutboxCore.js'
 import { getParentEventDateTimeLabel, getParentEventKey, getParentEventPresentation } from './parentEventPresentation'
 import {
@@ -267,7 +268,7 @@ function usePortalStyles(themeTokens) {
   }, [themeTokens])
 }
 
-function Button({ compact = false, danger = false, disabled = false, expanded, iconKey, iconColor, label, onPress, outline = false, selected = false, styles }) {
+function Button({ compact = false, danger = false, disabled = false, expanded, iconKey, iconColor, label, onPress, outline = false, scorerGuide = false, selected = false, styles }) {
   return (
     <Pressable
       accessibilityLabel={label}
@@ -279,6 +280,7 @@ function Button({ compact = false, danger = false, disabled = false, expanded, i
     >
       {compact && iconKey ? <ParentIcon color={iconColor || styles.compactActionText.color} iconKey={iconKey} size={18} /> : null}
       <Text style={[compact ? styles.compactActionText : styles.actionText, !compact && outline && styles.actionTextOutline, !compact && selected && styles.actionTextSelected, danger && styles.actionTextDanger]}>{label}</Text>
+      {scorerGuide && !disabled ? <ScorerGuidePulse color={styles.actionText.color} rounded /> : null}
     </Pressable>
   )
 }
@@ -450,9 +452,9 @@ export function CalendarEventDetail({ activeActionId, backLabel = 'Back to Calen
         <InvitationResponseControl activeActionId={activeActionId} colors={colors} invitation={invitation} isOffline={isOffline} isLocked={isParentCalendarEventCancelled(event)} label="Attendance" onRespond={async (item, value) => { const current = captureResponseView(); const receipt = await onRespond(item, value); if (current() && receipt?.durable) onBack() }} styles={styles} />
         {isOffline ? <Text style={styles.helper}>Connect to change attendance.</Text> : null}
       </View> : null}
-      {event.location ? <View style={styles.section}><Text style={styles.cardTitle}>Location</Text><Text style={styles.body}>{event.location}</Text><VenueMapPreview key={event.location} location={event.location} offline={isOffline} colors={colors} styles={styles} />{directionsUrl ? <Button label="Get directions" onPress={() => onOpenLink?.(directionsUrl, 'directions')} outline styles={styles} /> : null}</View> : null}
-      {event.description && (!event.notesPinned || event.description !== event.notes) ? <Text style={styles.body}>{event.description}</Text> : null}
-      {!event.notesPinned && event.notes && event.notes !== event.description ? <View style={styles.section}><Text style={styles.cardTitle}>Shared notes</Text><Text style={styles.body}>{event.notes}</Text></View> : null}
+      {event.location ? <View style={styles.section}><Text style={styles.cardTitle}>Location</Text><Text selectable style={styles.body}>{event.location}</Text><VenueMapPreview key={event.location} location={event.location} offline={isOffline} colors={colors} styles={styles} />{directionsUrl ? <Button label="Get directions" onPress={() => onOpenLink?.(directionsUrl, 'directions')} outline styles={styles} /> : null}</View> : null}
+      {event.description && (!event.notesPinned || event.description !== event.notes) ? <Text selectable style={styles.body}>{event.description}</Text> : null}
+      {!event.notesPinned && event.notes && event.notes !== event.description ? <View style={styles.section}><Text style={styles.cardTitle}>Shared notes</Text><Text selectable style={styles.body}>{event.notes}</Text></View> : null}
       {event.resources?.length ? <View style={styles.section}><Text style={styles.cardTitle}>Attachments</Text>{event.resources.map(resource => <Button disabled={isOffline || Boolean(activeActionId)} key={resource.id} label={`Open ${getResourceDisplayTitle(resource)}`} onPress={() => onOpenResource?.(event, resource)} outline styles={styles} />)}</View> : null}
     </View>
   </View>
@@ -724,13 +726,13 @@ function MatchStatusBadge({ colors, status, prefix, styles, compact = false }) {
   return <View accessibilityLabel={`${prefix}: ${status.label}`} style={{ alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 5, borderRadius: 999, paddingHorizontal: compact ? 9 : 11, paddingVertical: compact ? 5 : 7, backgroundColor: badge.backgroundColor }}><ParentIcon color={badge.color} iconKey={status.icon} size={compact ? 14 : 18} /><Text style={[styles.meta, { color: badge.color, fontWeight: '700', ...(compact ? { fontSize: 11, lineHeight: 16 } : {}) }]}>{status.label}</Text></View>
 }
 
-function MatchCard({ colors, invitations, link, match, onOpen, styles }) {
+function MatchCard({ colors, invitations, link, match, onOpen, scorerGuide, styles }) {
   const invitation = getParentMatchAttendanceInvitation(match, invitations, link)
   const isCompleted = match.status === 'full_time'
   return (
     <View style={styles.card}>
       {!match.isFanView && !isCompleted ? <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}><MatchStatusBadge compact colors={colors} status={getParentMatchAvailability(match, invitation, link)} prefix="Availability" styles={styles} /><MatchStatusBadge compact colors={colors} status={getParentMatchSquadStatus(match)} prefix="Match squad" styles={styles} /></View> : null}
-      <Pressable accessibilityHint="Opens Match Day" accessibilityRole="button" onPress={() => onOpen(match)} style={{ minHeight: 48, gap: 5, paddingVertical: 3 }}>
+      <Pressable accessibilityHint={scorerGuide ? 'Opens the scoring controls' : 'Opens Match Day'} accessibilityRole="button" onPress={() => onOpen(match)} style={{ minHeight: 48, gap: 5, paddingVertical: 3 }}>
         <View style={styles.row}>
           <ParentIcon color={colors.text} iconKey="football" size={20} />
           {match.status !== 'scheduled' || match.isFanView ? <Text style={styles.pill}>{getParentMatchStatusLabel(match)}</Text> : null}
@@ -742,6 +744,7 @@ function MatchCard({ colors, invitations, link, match, onOpen, styles }) {
           <Text style={styles.meta}>{match.kickoffTimeTbc ? 'Time TBC' : formatParentProductTime(match.kickoffTime)} | {getMatchDayShirtChoiceLabel(match.shirtChoice)}</Text>
           {scoreVisible(match) ? <Text style={styles.score}>{match.homeScore} - {match.awayScore}</Text> : null}
         </View>
+        {scorerGuide ? <ScorerGuidePulse color={colors.accentText} /> : null}
       </Pressable>
       {match.arrivalTime ? <Text style={styles.meta}>Arrive {formatParentProductTime(match.arrivalTime)}</Text> : null}
     </View>
@@ -980,11 +983,12 @@ function ParentMatchDayActionSheet({ busy, capturedClock, children, onClose, sty
   </Modal>
 }
 
-function ScorerActionButton({ danger = false, disabled, icon, iconColor, label, onPress, primary = false, styles }) {
+function ScorerActionButton({ danger = false, disabled, icon, iconColor, label, onPress, primary = false, scorerGuide = false, styles }) {
   const textStyle = danger ? styles.actionTextDanger : primary ? styles.actionText : styles.actionTextOutline
   return <View style={styles.actionGridItem}><Pressable accessibilityLabel={label} accessibilityRole="button" accessibilityState={{ disabled: Boolean(disabled) }} disabled={disabled} onPress={onPress} style={[styles.action, !primary && !danger && styles.actionOutline, danger && styles.actionDanger, styles.scorerAction, disabled && styles.actionDisabled]}>
     <MaterialIcons accessible={false} color={iconColor || StyleSheet.flatten(textStyle).color} name={icon} size={29} />
     <Text style={[styles.actionText, textStyle, styles.scorerActionText]}>{label}</Text>
+    {scorerGuide && !disabled ? <ScorerGuidePulse color={styles.actionTextOutline.color} rounded /> : null}
   </Pressable></View>
 }
 
@@ -998,7 +1002,7 @@ function getScorerPeriodLabel(match) {
   return `${phase} (${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')})`
 }
 
-function ScorerControls({ activeActionId, isOffline, match, onAction, onRestore, onReview, placeholderColor, players = [], scorerSync, styles }) {
+function ScorerControls({ activeActionId, isOffline, match, onAction, onRestore, onReview, placeholderColor, players = [], scorerGuide, scorerSync, styles }) {
   const busy = activeActionId.startsWith(`scorer:${match.id}:`)
   const [homeScore, setHomeScore] = useState(String(match.homeScore || 0))
   const [awayScore, setAwayScore] = useState(String(match.awayScore || 0))
@@ -1094,7 +1098,7 @@ function ScorerControls({ activeActionId, isOffline, match, onAction, onRestore,
         <View style={styles.actionGrid} testID="scorer-primary-actions">
           {canRecordEvents ? <ScorerActionButton disabled={disabled} icon="sports-soccer" label="Goal" onPress={() => openAction('goal', 'Add goal')} primary styles={styles} /> : null}
           {Object.entries(SCORER_EVENT_LABELS).filter(([kind]) => canRecordParentScorerEvent(match, kind)).map(([kind, label]) => <ScorerActionButton disabled={disabled} icon={kind === 'substitution' ? 'swap-horiz' : 'style'} iconColor={kind === 'yellow_card' ? PARENT_SCORER_ICON_COLOURS.yellow : kind === 'red_card' ? PARENT_SCORER_ICON_COLOURS.red : PARENT_SCORER_ICON_COLOURS.substitution} key={kind} label={label} onPress={() => openAction(kind, label)} styles={styles} />)}
-          {timerActions.filter((item) => item.action !== 'hydration').map((item) => <ScorerActionButton danger={item.action === 'full_time'} disabled={disabled || item.disabled} icon={item.action === 'pause' ? 'pause' : item.action === 'full_time' ? 'stop' : item.action.includes('half_time') ? 'timer' : 'play-arrow'} key={item.action} label={item.label} onPress={() => chooseTimerAction(item.action)} styles={styles} />)}
+          {timerActions.filter((item) => item.action !== 'hydration').map((item) => <ScorerActionButton danger={item.action === 'full_time'} disabled={disabled || item.disabled} icon={item.action === 'pause' ? 'pause' : item.action === 'full_time' ? 'stop' : item.action.includes('half_time') ? 'timer' : 'play-arrow'} key={item.action} label={item.label} onPress={() => chooseTimerAction(item.action)} scorerGuide={scorerGuide && !actionSheet && item.action === 'start'} styles={styles} />)}
           {match.status === 'full_time' && !match.concludedAt ? <View style={styles.actionGridItem}><Button disabled={disabled} label="Send to Coach to conclude" onPress={() => onAction('request-review')} styles={styles} /></View> : null}
           <ScorerActionButton disabled={disabled || !canCorrectScore} icon="track-changes" label="Correct score" onPress={() => openAction('score', 'Correct score')} styles={styles} />
         </View>
@@ -1112,7 +1116,7 @@ function ScorerControls({ activeActionId, isOffline, match, onAction, onRestore,
         <Text style={styles.body}>{actionSheet.action === 'start' ? 'Start the match clock and publish the live match?' : 'Confirm the score before stopping play. At full time, the Coach can review and conclude the match.'}</Text>
         <Text style={styles.cardTitle}>{match.homeScore} - {match.awayScore}</Text>
         {actionError ? <Text accessibilityRole="alert" style={styles.error}>{actionError}</Text> : null}
-        <Button disabled={disabled} label={actionSheet.action === 'start' ? 'Confirm start' : 'Confirm finish'} onPress={() => { void confirmTimerAction() }} styles={styles} />
+        <Button disabled={disabled} label={actionSheet.action === 'start' ? 'Confirm start' : 'Confirm finish'} onPress={() => { void confirmTimerAction() }} scorerGuide={scorerGuide && actionSheet.action === 'start'} styles={styles} />
         <Button disabled={busy} label="Cancel" onPress={() => setActionSheet(null)} outline styles={styles} />
       </ParentMatchDayActionSheet> : null}
       {actionSheet?.kind === 'goal' ? <ParentMatchDayActionSheet busy={busy} capturedClock={actionSheet.capturedClock} onClose={() => setActionSheet(null)} styles={styles} title="Add goal"><Text style={styles.body}>The match time was captured when you pressed Goal. Add the details without rushing.</Text>{actionError ? <Text accessibilityRole="alert" style={styles.error}>{actionError}</Text> : null}<GoalForm disabled={disabled} events={match.events} initialMinute={actionSheet.capturedMinute} initialStoppageMinute={actionSheet.capturedStoppageMinute} onAdd={(goal) => submitAndClose('goal', goal)} placeholderColor={placeholderColor} players={players} styles={styles} /></ParentMatchDayActionSheet> : null}
@@ -1231,7 +1235,7 @@ function ParentMatchFormationPlan({ error = '', onFocusBoard, plan = null, plans
   )
 }
 
-export function MatchdayScreen({ suppressParentFormation = false, activeActionId, clubKits, formationViewportHeight = 0, invitations = [], isOffline, link, onAddToCalendar, onBack, onDismiss, onFocusFormation, onLiveRefresh, onOpen, onOpenLink, onRespond, onRestoreScorer, onReviewScorer, onTransport, onScorerAction, onVolunteer, players = [], resource, scorerSync, selectedMatch, themeTokens }) {
+export function MatchdayScreen({ suppressParentFormation = false, activeActionId, clubKits, formationViewportHeight = 0, invitations = [], isOffline, link, onAddToCalendar, onBack, onDismiss, onFocusFormation, onLiveRefresh, onOpen, onOpenLink, onRespond, onRestoreScorer, onReviewScorer, onTransport, onScorerAction, onVolunteer, players = [], resource, scorerGuideDate, scorerSync, selectedMatch, themeTokens }) {
   const { colors, styles } = usePortalStyles(themeTokens)
   const [matchSection, setMatchSection] = useState('upcoming')
   const [squadOpenMatchId, setSquadOpenMatchId] = useState('')
@@ -1274,7 +1278,7 @@ export function MatchdayScreen({ suppressParentFormation = false, activeActionId
       <View style={styles.stack}>
         {!selectedMatch.isScorer ? <MatchdayAction accessibilityLabel="Back to Matchday" label="Back" iconKey="action.back" onPress={onBack} colors={colors} styles={styles} back /> : null}
         {selectedMatch.scorerReviewRequestedAt && !selectedMatch.isScorer ? <View style={styles.card}><Text accessibilityRole="status" style={styles.body}>Sent to Coach to conclude. Your scoring access has ended.</Text></View> : null}
-        {selectedMatch.isScorer ? <ScorerControls activeActionId={activeActionId} isOffline={isOffline} match={selectedMatch} onAction={(action, value) => onScorerAction(selectedMatch, action, value)} onRestore={() => onRestoreScorer?.(selectedMatch)} onReview={() => onReviewScorer?.(selectedMatch)} placeholderColor={colors.muted} players={scorerPlayers} scorerSync={scorerSync} styles={styles} /> : null}
+        {selectedMatch.isScorer ? <ScorerControls activeActionId={activeActionId} isOffline={isOffline} match={selectedMatch} onAction={(action, value) => onScorerAction(selectedMatch, action, value)} onRestore={() => onRestoreScorer?.(selectedMatch)} onReview={() => onReviewScorer?.(selectedMatch)} placeholderColor={colors.muted} players={scorerPlayers} scorerGuide={isParentScorerGuideMatch(selectedMatch, scorerGuideDate)} scorerSync={scorerSync} styles={styles} /> : null}
         {selectedMatch.isScorer ? <MatchdayAction accessibilityLabel="Back to Matchday" label="Back" iconKey="action.back" onPress={onBack} colors={colors} styles={styles} back /> : null}
         <View style={[styles.gameDayHero, selectedMatchIsLive && styles.gameDayHeroLive]}>
           {['cancelled', 'postponed'].includes(selectedMatch.status) ? <Text style={styles.pill}>{getParentMatchStatusLabel(selectedMatch)}</Text> : null}
@@ -1288,7 +1292,7 @@ export function MatchdayScreen({ suppressParentFormation = false, activeActionId
           <Text style={styles.body}>{formatDateOnly(selectedMatch.matchDate)}</Text>
           {selectedMatch.arrivalTime ? <Text style={styles.body}>Arrival: {formatParentProductTime(selectedMatch.arrivalTime)}</Text> : null}
           <Text style={styles.body}>Kick-off: {selectedMatch.kickoffTimeTbc ? 'Time TBC' : formatParentProductTime(selectedMatch.kickoffTime)}</Text>
-          <Text style={styles.body}>{[selectedMatch.venueName, selectedMatch.venueAddress].filter(Boolean).join(', ') || 'Location not shared'}</Text>
+          <Text selectable style={styles.body}>{[selectedMatch.venueName, selectedMatch.venueAddress].filter(Boolean).join(', ') || 'Location not shared'}</Text>
           {selectedMatchIsLive ? <Text style={styles.liveSync}>Live sync on</Text> : null}
           {matchStarted ? <View style={styles.card}>
             <Text style={styles.fieldLabel}>Score</Text>
@@ -1307,7 +1311,7 @@ export function MatchdayScreen({ suppressParentFormation = false, activeActionId
             {availabilityOpen ? <View style={styles.stack}><InvitationResponseControl label="Availability" activeActionId={activeActionId} colors={colors} invitation={attendanceInvitation} isOffline={isOffline} onRespond={onRespond} showChoicesInitially styles={styles} /><ParentCarpoolControl activeActionId={activeActionId} colors={colors} invitation={attendanceInvitation} isOffline={isOffline} onTransport={onTransport} styles={styles} /></View> : null}
             <View style={{ gap: 6 }}><Text style={styles.fieldLabel}>Match squad</Text><MatchStatusBadge colors={colors} status={getParentMatchSquadStatus(selectedMatch)} prefix="Match squad" styles={styles} /></View>
           </View> : null}
-          {selectedMatch.notes ? <><Text style={styles.cardTitle}>Match notes</Text><Text style={styles.body}>{selectedMatch.notes}</Text></> : null}
+          {selectedMatch.notes ? <><Text style={styles.cardTitle}>Match notes</Text><Text selectable style={styles.body}>{selectedMatch.notes}</Text></> : null}
           <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-around', gap: 8 }}>
             {(!selectedMatch.isFanView || selectedMatch.canViewSelectedSquad) ? <MatchdayAction expanded={squadOpenMatchId === selectedMatch.id} accessibilityLabel={squadOpenMatchId === selectedMatch.id ? 'Hide squad' : `See squad (${selectedMatch.confirmedTeam?.length || 0})`} label={`Squad (${selectedMatch.confirmedTeam?.length || 0})`} iconKey="match.squad" onPress={() => setSquadOpenMatchId(current => {
               const next = current === selectedMatch.id ? '' : selectedMatch.id
@@ -1362,11 +1366,11 @@ export function MatchdayScreen({ suppressParentFormation = false, activeActionId
   return (
     <View style={styles.stack}>
       <View><Text accessibilityRole="header" style={styles.header}>Matchday</Text><Text style={styles.helper}>Shared fixtures and Game Day for {link?.playerName || 'your player'}.</Text></View>
-      {getParentScorerMatches(resource.items).map((match) => <View key={`scoring:${match.id}`} style={styles.section}><Text style={styles.cardTitle}>{getMatchDayDisplayName(match)}</Text><Button label={getParentScorerActionLabel(match)} onPress={() => onOpen(match)} styles={styles} /></View>)}
+      {getParentScorerMatches(resource.items).map((match) => <View key={`scoring:${match.id}`} style={styles.section}><Text style={styles.cardTitle}>{getMatchDayDisplayName(match)}</Text><Button label={getParentScorerActionLabel(match)} onPress={() => onOpen(match)} scorerGuide={isParentScorerGuideMatch(match, scorerGuideDate)} styles={styles} /></View>)}
       <View style={styles.actionRow}><Button label={`Coming up (${matchGroups.upcoming.length})`} onPress={() => setMatchSection('upcoming')} outline={matchSection !== 'upcoming'} styles={styles} /><Button label={`History (${matchGroups.recent.length})`} onPress={() => setMatchSection('recent')} outline={matchSection !== 'recent'} styles={styles} /></View>
       <ResourceState emptyCopy="There are no Parent-visible match cards for this player." {...resource} styles={styles} />
       {!resource.loading && resource.items.length > 0 && visibleMatches.length === 0 ? <Text style={styles.empty}>No matches are in this section.</Text> : null}
-      {visibleMatches.map((match) => <MatchCard colors={colors} invitations={invitations} link={link} key={match.id} match={match} onDismiss={onDismiss} onOpen={onOpen} styles={styles} />)}
+      {visibleMatches.map((match) => <MatchCard colors={colors} invitations={invitations} link={link} key={match.id} match={match} onDismiss={onDismiss} onOpen={onOpen} scorerGuide={isParentScorerGuideMatch(match, scorerGuideDate)} styles={styles} />)}
     </View>
   )
 }
@@ -1399,8 +1403,8 @@ function ParentMatchReportCard({ colors, isDownloading = false, match, onDownloa
           <Text style={styles.cardTitle}>Match report</Text>
           <Text style={styles.stat}>Goals {report.activeGoals.length} | Cards {report.activeCards.length} | Substitutions {report.activeSubstitutions.length}</Text>
           {match.kickoffTimeTbc ? <Text style={styles.meta}>Kick-off time was not confirmed.</Text> : <Text style={styles.meta}>Kick-off {formatParentProductTime(match.kickoffTime)}</Text>}
-          {match.venueName || match.venueAddress ? <Text style={styles.meta}>{[match.venueName, match.venueAddress].filter(Boolean).join(', ')}</Text> : null}
-          {match.notes ? <><Text style={styles.cardTitle}>Match notes</Text><Text style={styles.body}>{match.notes}</Text></> : null}
+          {match.venueName || match.venueAddress ? <Text selectable style={styles.meta}>{[match.venueName, match.venueAddress].filter(Boolean).join(', ')}</Text> : null}
+          {match.notes ? <><Text style={styles.cardTitle}>Match notes</Text><Text selectable style={styles.body}>{match.notes}</Text></> : null}
           <Text style={styles.cardTitle}>Match timeline</Text>
           {activeEvents.length === 0 ? <Text style={styles.helper}>No match events were recorded.</Text> : null}
           {activeEvents.map((event) => {
@@ -1553,7 +1557,7 @@ export function ChatScreen({ activeActionId, connectionUnverified = false, invit
   const sortedRooms = useMemo(() => prepareParentChatRooms(rooms.items), [rooms.items])
   const sortedMessages = useMemo(() => prepareParentChatMessages(messages.items), [messages.items])
   const isReminderRoom = selectedRoom?.id === 'coach-reminders'
-  const renderMessage = ({ item: message }) => <View style={[styles.messageBubble, message.canDelete && styles.messageBubbleOwn]}><View style={styles.row}><Text style={styles.messageSender}>{message.senderName}</Text><Text style={styles.meta}>{formatDate(message.createdAt)}</Text></View>{message.roomId === 'coach-reminders' ? <CoachReminderAttendance activeActionId={activeActionId} colors={colors} invitations={invitations} isOffline={isOffline} message={message} onRespond={onRespond} styles={styles} /> : null}<Text style={styles.body}>{message.deletedAt ? 'Message deleted' : message.body}</Text>{message.canDelete && !message.deletedAt ? <Pressable accessibilityLabel="Delete message" accessibilityRole="button" disabled={isOffline || activeActionId === `chat-delete:${message.id}`} onPress={() => onDelete(message)} style={styles.messageDelete}><Text style={styles.messageDeleteText}>{activeActionId === `chat-delete:${message.id}` ? 'Deleting...' : 'Delete'}</Text></Pressable> : null}{message.legacyMessageId && onDismissAnnouncement ? <Button label="Remove from this list" onPress={() => onDismissAnnouncement(message)} outline styles={styles} /> : null}</View>
+  const renderMessage = ({ item: message }) => <View style={[styles.messageBubble, message.canDelete && styles.messageBubbleOwn]}><View style={styles.row}><Text style={styles.messageSender}>{message.senderName}</Text><Text style={styles.meta}>{formatDate(message.createdAt)}</Text></View>{message.roomId === 'coach-reminders' ? <CoachReminderAttendance activeActionId={activeActionId} colors={colors} invitations={invitations} isOffline={isOffline} message={message} onRespond={onRespond} styles={styles} /> : null}<Text selectable={!message.deletedAt} style={styles.body}>{message.deletedAt ? 'Message deleted' : message.body}</Text>{message.canDelete && !message.deletedAt ? <Pressable accessibilityLabel="Delete message" accessibilityRole="button" disabled={isOffline || activeActionId === `chat-delete:${message.id}`} onPress={() => onDelete(message)} style={styles.messageDelete}><Text style={styles.messageDeleteText}>{activeActionId === `chat-delete:${message.id}` ? 'Deleting...' : 'Delete'}</Text></Pressable> : null}{message.legacyMessageId && onDismissAnnouncement ? <Button label="Remove from this list" onPress={() => onDismissAnnouncement(message)} outline styles={styles} /> : null}</View>
   const visibleMessageError = useConfirmedConnectionMessage(messages.error)
   const displayedSelectedRoom = useMemo(() => selectedRoom ? prepareParentChatRooms([selectedRoom])[0] : null, [selectedRoom])
   useEffect(() => {

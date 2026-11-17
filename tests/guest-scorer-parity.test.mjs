@@ -4,7 +4,21 @@ import { getGoalScorerSide, setGoalOwnGoal } from '../src/lib/matchday-goal-cred
 import { validateScorerMatchEvent } from '../src/lib/matchday-scorer-event.js'
 import { captureMatchEventTime, formatMatchAddedTimeClock, getMatchClockDescription } from '../src/lib/matchday-event-time.js'
 import { captureCoachMatchDayAction, createCoachMatchDayEventForm, validateCoachMatchDayEventForm } from '../apps/mobile-core/src/coachMatchDayCore.js'
-import { captureParentScorerAction } from '../apps/parent-mobile/src/parentScorerCore.js'
+import { captureParentScorerAction, isParentScorerGuideMatch } from '../apps/parent-mobile/src/parentScorerCore.js'
+import { getParentProductDateTimeParts } from '../apps/mobile-core/src/parentDateTimeCore.js'
+
+test('scorer guidance follows the London match date and only an active assigned scorer', () => {
+  const match = { matchDate: '2026-09-04', isScorer: true, status: 'scheduled' }
+  const day = instant => getParentProductDateTimeParts(new Date(instant)).date
+  assert.equal(isParentScorerGuideMatch(match, day('2026-09-03T22:59:59Z')), false)
+  assert.equal(isParentScorerGuideMatch(match, day('2026-09-03T23:00:00Z')), true)
+  assert.equal(isParentScorerGuideMatch({ ...match, status: 'live' }, '2026-09-04'), true)
+  for (const blocked of [
+    { isScorer: false }, { isFanView: true }, { pendingReview: true },
+    { concludedAt: 'set' }, { scorerReviewRequestedAt: 'set' },
+    { status: 'cancelled' }, { status: 'postponed' }, { status: 'full_time' },
+  ]) assert.equal(isParentScorerGuideMatch({ ...match, ...blocked }, '2026-09-04'), false)
+})
 
 test('ticking own goal preserves the chosen player and credits the other team exactly once', () => {
   for (const teamSide of ['club', 'opponent']) {

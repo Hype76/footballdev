@@ -301,6 +301,11 @@ async function fulfillJson(route, body) {
   await route.fulfill({
     status: 200,
     contentType: 'application/json',
+    headers: {
+      'access-control-allow-origin': '*',
+      'access-control-allow-headers': route.request().headers()['access-control-request-headers'] || 'authorization, apikey, content-type, x-client-info',
+      'access-control-allow-methods': 'GET, POST, OPTIONS',
+    },
     body: JSON.stringify(body),
   })
 }
@@ -464,6 +469,13 @@ async function preparePage(context) {
     playerRequests.push(url)
     await fulfillJson(route, filterRows(players, url.searchParams))
   })
+  await context.route('**/rest/v1/rpc/get_team_players', async (route) => {
+    await route.fulfill({
+      status: 404,
+      json: { code: 'PGRST202', message: 'Team player RPC is unavailable in this legacy fixture.' },
+      headers: { 'access-control-allow-origin': '*' },
+    })
+  })
   await context.route(/\/rest\/v1\/evaluations(?:\?|$)/, async (route) => {
     const url = new URL(route.request().url())
     await fulfillJson(route, filterRows(evaluations, url.searchParams))
@@ -546,6 +558,9 @@ try {
 
   page.on('console', (message) => {
     if (message.type() === 'error') {
+      const isSimulatedLegacyRpc = message.location().url.includes('/rest/v1/rpc/get_team_players')
+        && message.text().includes('404 (Not Found)')
+      if (isSimulatedLegacyRpc) return
       consoleErrors.push(message.text())
     }
   })
@@ -568,6 +583,7 @@ try {
   await page.getByPlaceholder('Enter password').fill(fixturePassword)
   await page.locator('form').getByRole('button', { name: /^Log in$/i }).click()
   await page.waitForURL((url) => url.pathname !== '/sign-in', { timeout: 15000 })
+  await page.waitForLoadState('networkidle')
 
   await page.goto(`${baseUrl}/players/current?section=Squad`, { waitUntil: 'domcontentloaded' })
   const profileLink = page.locator(`[data-player-profile-href="${fixturePlayerPath}"]`).first()
@@ -599,12 +615,22 @@ try {
   await profileLink.click()
   await page.waitForURL(`**${fixturePlayerPath}`, { timeout: 15000 })
 
+  const backState = await page.evaluate(() => ({ index: history.state?.idx, length: history.length }))
+  await page.getByRole('button', { name: 'Back', exact: true }).click()
+  await page.waitForURL(url => url.pathname === '/players/current' && url.searchParams.get('section') === 'Squad', { timeout: 5000 })
+    .catch(error => { throw new Error(`Back from player profile landed at ${page.url()} from history ${JSON.stringify(backState)}`, { cause: error }) })
+  await profileLink.click()
+  await page.waitForURL(`**${fixturePlayerPath}`, { timeout: 15000 })
+  const profileSections = page.getByRole('navigation', { name: 'Player profile sections' })
+  await profileSections.getByRole('button', { name: /^Details/ }).click()
   await page.getByRole('heading', { name: 'Player details' }).waitFor({ state: 'visible', timeout: 15000 })
   await page.getByText('U12 Fixture Team', { exact: true }).first().waitFor({ state: 'visible', timeout: 15000 })
   await page.getByText('Contact: Fixture Parent', { exact: true }).waitFor({ state: 'visible', timeout: 15000 })
   await page.getByText('Email: parent.fixture@example.test', { exact: true }).waitFor({ state: 'visible', timeout: 15000 })
   await page.getByText('Forward', { exact: true }).waitFor({ state: 'visible', timeout: 15000 })
   await page.getByRole('button', { name: 'Edit Details' }).waitFor({ state: 'visible', timeout: 15000 })
+  await profileSections.getByRole('button', { name: /^Communication/ }).click()
+  await page.getByRole('navigation', { name: 'Communication views' }).getByRole('button', { name: 'Linked chat', exact: true }).click()
   const playerChatSection = page.getByTestId('player-linked-chat-section')
   await playerChatSection.getByRole('heading', { name: 'Player-linked Chat' }).waitFor({ state: 'visible', timeout: 15000 })
   await playerChatSection.getByRole('heading', { name: 'Parent conversation' }).waitFor({ state: 'visible' })
@@ -626,13 +652,13 @@ try {
     && url.searchParams.get('type') === 'player_staff'
     && url.searchParams.get('conversationId') === 'staff-conversation-fixture'
   ), { timeout: 15000 })
-  await page.getByRole('button', { name: 'Team Staff' }).click()
+  await page.getByRole('button', { name: 'Team Coaches' }).click()
   await page.waitForURL((url) => (
     url.pathname === '/staff-chat'
     && !url.searchParams.has('type')
     && !url.searchParams.has('conversationId')
   ), { timeout: 15000 })
-  await page.goBack({ waitUntil: 'domcontentloaded', timeout: 60000 })
+  await page.getByRole('button', { name: 'Back', exact: true }).click()
   await page.getByTestId('player-linked-chat-section').waitFor({ state: 'visible', timeout: 15000 })
   await page.setViewportSize({ width: 1280, height: 720 })
 
@@ -649,9 +675,11 @@ try {
 
   await page.goto(`${baseUrl}/players/current?section=Squad`, { waitUntil: 'domcontentloaded' })
   const contaminatedLink = page.locator(`[data-player-profile-href="${contaminatedPlayerPath}"]`).first()
-  await contaminatedLink.waitFor({ state: 'visible', timeout: 15000 })
-  await contaminatedLink.click()
+  await profileLink.waitFor({ state: 'visible', timeout: 15000 })
+  assert.equal(await contaminatedLink.count(), 0)
+  await page.goto(`${baseUrl}${contaminatedPlayerPath}`, { waitUntil: 'domcontentloaded' })
   await page.waitForURL(`**${contaminatedPlayerPath}`, { timeout: 15000 })
+  await profileSections.getByRole('button', { name: /^Details/ }).click()
   await page.getByText('Selected team player could not be matched.', { exact: true }).waitFor({ state: 'visible', timeout: 15000 })
   await page.getByText('This player record could not be matched to the selected team.', { exact: true }).waitFor({ state: 'visible', timeout: 15000 })
 

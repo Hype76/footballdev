@@ -115,7 +115,8 @@ import { useAttendanceOutbox } from '../mobile-core/src/useAttendanceOutbox'
 import { AttendancePendingRows } from '../mobile-core/src/AttendancePendingRows'
 import { readParentAttendanceCommands, updateParentAttendanceCommands } from './src/offline'
 import { sendCoachTrainingAvailabilityResponsePushSafely } from './src/parentPortalData'
-import { getParentScorerActionLabel, getParentScorerMatches } from './src/parentScorerCore'
+import { getParentScorerActionLabel, getParentScorerMatches, isParentScorerGuideMatch } from './src/parentScorerCore'
+import { ScorerGuidePulse, useParentScorerGuideDate } from './src/ParentScorerGuide'
 import { getVisibleParentScorerMatch, isRedundantParentStart } from './src/parentScorerOutboxCore'
 import { getMatchDayShirtChoiceLabel } from '../../src/lib/matchday-model.js'
 import {
@@ -590,6 +591,7 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
     const journal = scorerOutboxes[match.id]
     return getVisibleParentScorerMatch(match, journal)
   })
+  const scorerGuideDate = useParentScorerGuideDate(parentRouteAllowed('matchday') && visibleMatches.some(match => match.isScorer === true))
   useEffect(() => {
     if (Platform.OS !== 'android' || !selectedMobileUser?.id || !selectedLink?.id) return
     const liveMatches = resources.matches.items.filter((match) =>
@@ -2509,7 +2511,7 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
   const tabs = [
     { key: 'home', label: 'Home' },
     { key: 'calendar', label: 'Calendar' },
-    { key: 'matchday', label: 'Matchday' },
+    { key: 'matchday', label: 'Matchday', scorerGuide: visibleMatches.some(match => isParentScorerGuideMatch(match, scorerGuideDate)) },
     { count: unreadChat, key: 'chat', label: 'Chat' },
     { count: unreadNotifications + (parentRouteAllowed('polls') ? homeModel.unansweredPolls : 0) + unansweredInvites, key: 'more', label: 'More' },
   ].filter(({ key }) => parentRouteAllowed(key))
@@ -2628,6 +2630,7 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
                 onOpenPolls={() => { setMoreSection('polls'); setActiveTab('more') }}
                 onOpenResource={handleOpenCalendarResource}
                 onRetry={handleRefresh}
+                scorerGuideDate={scorerGuideDate}
                 selectedMatch={selectedMatch}
               />
             ) : null}
@@ -2655,6 +2658,7 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
                 onTransport={handleMatchTransport}
                 players={matchDayPlayers}
                 resource={{ ...resources.matches, items: visibleMatches }}
+                scorerGuideDate={scorerGuideDate}
                 scorerSync={selectedMatch ? scorerOutboxes[selectedMatch.id] : null}
                 selectedMatch={selectedMatch}
                 theme={displayTheme}
@@ -2895,9 +2899,11 @@ function BottomTabs({ activeTab, onChange, tabs, theme }) {
     <View accessibilityLabel="Parent app navigation" style={[styles.tabBar, isLight && styles.tabBarLight]}>
       {tabs.map((tab) => {
         const active = activeTab === tab.key
+        const showScorerGuide = tab.scorerGuide && !active
         return (
           <Pressable
             accessibilityLabel={tab.count > 0 ? `${tab.label}, ${tab.count} new` : tab.label}
+            accessibilityHint={showScorerGuide ? 'You are the scorer for a match today' : undefined}
             accessibilityRole="tab"
             accessibilityState={{ selected: active }}
             key={tab.key}
@@ -2907,6 +2913,7 @@ function BottomTabs({ activeTab, onChange, tabs, theme }) {
             <ParentIcon color={active ? palette.accentText : palette.textMuted} iconKey={getParentTabIconKey(tab.key)} size={23} />
             <Text adjustsFontSizeToFit minimumFontScale={0.8} numberOfLines={1} style={[styles.tabLabel, isLight && styles.textMutedLight, active && styles.tabLabelActive]}>{tab.label}</Text>
             {tab.count > 0 ? <Text style={[styles.tabCount, styles.unreadCount]}>{tab.count}</Text> : null}
+            {showScorerGuide ? <ScorerGuidePulse color={palette.accentText} /> : null}
           </Pressable>
         )
       })}
@@ -2992,7 +2999,7 @@ function NotificationsScreen({ busy, isOffline, matches, onAction, onOpenNotific
   </View>
 }
 
-function HomeScreen({ userId, leagueUser, activeActionId, calendar, homeModel, inviteCount = 0, invitations = [], onRespond, isOffline, link, matches, messages, notifications, onOpenInvites, onOpenLink, onOpenMatch, onOpenUpdates, onOpenPolls, onOpenResource, onRetry, pollsVisible = true, selectedMatch, themeTokens, onOpenEventDetails }) {
+function HomeScreen({ userId, leagueUser, activeActionId, calendar, homeModel, inviteCount = 0, invitations = [], onRespond, isOffline, link, matches, messages, notifications, onOpenInvites, onOpenLink, onOpenMatch, onOpenUpdates, onOpenPolls, onOpenResource, onRetry, pollsVisible = true, scorerGuideDate, selectedMatch, themeTokens, onOpenEventDetails }) {
   const { palette, styles } = useParentTheme()
   const homeSections = useParentHomeSections(userId)
   const [selectedEventKey, setSelectedEventKey] = useState('')
@@ -3036,14 +3043,14 @@ function HomeScreen({ userId, leagueUser, activeActionId, calendar, homeModel, i
         <View key={`scoring:${match.id}`} style={styles.sectionStack}>
           <Text style={styles.cardTitle}>{getMatchDayDisplayName(match)}</Text>
           <Text style={styles.helperText}>{match.status === 'full_time' ? 'Check the score and events, then send them to Coach to conclude the match.' : 'You are the scorer for this match.'}</Text>
-          <PrimaryAction label={getParentScorerActionLabel(match)} onPress={() => onOpenMatch(match)} />
+          <PrimaryAction label={getParentScorerActionLabel(match)} onPress={() => onOpenMatch(match)} scorerGuide={isParentScorerGuideMatch(match, scorerGuideDate)} />
         </View>
       ))}
       {!isInitialLoading ? (
         <>
           <SectionHeading copy="The nearest Parent-visible fixture or event." title="Next up" />
           {homeModel.nextActivity?.type === 'match' ? (
-            <MatchPreviewCard invitations={invitations} link={link} match={homeModel.nextActivity.item} onPress={onOpenMatch} prominent />
+            <MatchPreviewCard invitations={invitations} link={link} match={homeModel.nextActivity.item} onPress={onOpenMatch} prominent scorerGuide={isParentScorerGuideMatch(homeModel.nextActivity.item, scorerGuideDate)} />
           ) : homeModel.nextActivity?.type === 'calendar' ? (
             <CalendarCard invitations={invitations} matches={matches.items} link={link} onPress={event => { setSelectedEventKey(getParentEventKey(event)); onOpenEventDetails?.() }} activeActionId={activeActionId} event={homeModel.nextActivity.item} isOffline={isOffline} onOpenLink={onOpenLink} onOpenResource={onOpenResource} prominent />
           ) : (
@@ -3057,7 +3064,7 @@ function HomeScreen({ userId, leagueUser, activeActionId, calendar, homeModel, i
       {homeFixtures.length > 0 ? (
         <HomeCollapsibleSection copy="Upcoming Parent-visible Matchday items." title="Fixtures" expanded={homeSections.sections.fixtures} disabled={!homeSections.ready} onToggle={() => homeSections.toggle('fixtures')}>
           {homeFixtures.map((match) => (
-            <MatchPreviewCard invitations={invitations} link={link} key={match.id} match={match} onPress={onOpenMatch} />
+            <MatchPreviewCard invitations={invitations} link={link} key={match.id} match={match} onPress={onOpenMatch} scorerGuide={isParentScorerGuideMatch(match, scorerGuideDate)} />
           ))}
         </HomeCollapsibleSection>
       ) : null}
@@ -3098,7 +3105,7 @@ function HomeCollapsibleSection({ title, copy, expanded, disabled, onToggle, chi
   )
 }
 
-function MatchPreviewCard({ match, onPress, prominent = false, invitations = [], link = {} }) {
+function MatchPreviewCard({ match, onPress, prominent = false, invitations = [], link = {}, scorerGuide = false }) {
   const { palette, styles } = useParentTheme()
   const status = getParentMatchStatusLabel(match)
   const isFinished = match.status === 'full_time'
@@ -3108,7 +3115,7 @@ function MatchPreviewCard({ match, onPress, prominent = false, invitations = [],
 
   return (
     <Pressable
-      accessibilityHint="Opens fixture details"
+      accessibilityHint={scorerGuide ? 'Opens the scoring controls' : 'Opens fixture details'}
       accessibilityLabel={`${getMatchDayDisplayName(match)}, ${status}`}
       accessibilityRole="button"
       onPress={() => onPress(match)}
@@ -3119,6 +3126,7 @@ function MatchPreviewCard({ match, onPress, prominent = false, invitations = [],
         <View style={styles.compactCopy}><View style={styles.cardTopRow}>{status.toLowerCase() !== 'scheduled' ? <Badge label={status} tone={match.status === 'cancelled' ? 'danger' : match.status === 'live' ? 'accent' : 'neutral'} /> : null}<Text style={styles.cardDate}>{formatDateOnly(match.matchDate)}</Text></View><Text style={styles.cardTitle}>{getMatchDayDisplayName(match)}</Text>{!isFinished && !match.isFanView ? <HomeStatusBadges badges={getParentMatchStatusBadges(match, invitations, link)} /> : null}<Text style={styles.cardMeta}>{match.arrivalTime ? `Arrive ${formatTime(match.arrivalTime)}` : `Kick-off ${formatTime(match.kickoffTime, match.kickoffTimeTbc)}`} | {getMatchDayShirtChoiceLabel(match.shirtChoice)}</Text></View>
         {score ? <Text style={styles.score}>{score}</Text> : <ParentIcon color={palette.accentText} iconKey="action.open" size={22} />}
       </View>
+      {scorerGuide ? <ScorerGuidePulse color={palette.accentText} /> : null}
     </Pressable>
   )
 }
@@ -3171,7 +3179,7 @@ function MatchDetail({ match, onBack }) {
 
       {match.notes ? (
         <InfoPanel title="Shared notes">
-          <Text style={styles.bodyText}>{match.notes}</Text>
+          <Text selectable style={styles.bodyText}>{match.notes}</Text>
         </InfoPanel>
       ) : null}
 
@@ -3855,7 +3863,7 @@ function LoadingLine({ label }) {
   return <MobileLoadingStatus message={label} />
 }
 
-function PrimaryAction({ disabled = false, iconKey, label, loading = false, onPress, secondary = false }) {
+function PrimaryAction({ disabled = false, iconKey, label, loading = false, onPress, scorerGuide = false, secondary = false }) {
   const { palette, styles } = useParentTheme()
   return (
     <Pressable
@@ -3874,6 +3882,7 @@ function PrimaryAction({ disabled = false, iconKey, label, loading = false, onPr
     >
       {loading ? <BrandLoader accessible={false} /> : null}
       {iconKey ? <ParentIcon iconKey={iconKey} color={palette.accentText} size={23} /> : null}<Text style={[styles.primaryActionText, secondary && styles.secondaryActionText, iconKey && { flex: 1, textAlign: 'left', fontSize: 14 }]}>{label}</Text>
+      {scorerGuide && !disabled && !loading ? <ScorerGuidePulse color={palette.accentForeground} rounded /> : null}
     </Pressable>
   )
 }

@@ -31,6 +31,7 @@ import {
 import {
   confirmDevelopmentSubmission,
   getAdultPlayerLinkStatus,
+  resendAdultPlayerSetupInvite,
   sendAdultPlayerSetupInvite,
   sendParentEmail,
   sendParentPasswordReset,
@@ -235,6 +236,7 @@ export function PlayerProfile() {
   const [parentPortalLinksByPlayerId, setParentPortalLinksByPlayerId] = useState({})
   const [adultLinkStatuses, setAdultLinkStatuses] = useState({})
   const [adultStatusRefresh, setAdultStatusRefresh] = useState(0)
+  const [adultInviteTarget, setAdultInviteTarget] = useState(null)
   const [parentPortalRevokeTarget, setParentPortalRevokeTarget] = useState(null)
   const [parentPortalRevokingLinkId, setParentPortalRevokingLinkId] = useState('')
   const [parentPortalRevokeError, setParentPortalRevokeError] = useState('')
@@ -584,6 +586,10 @@ export function PlayerProfile() {
   const lastSection = profilePlayers[0]?.section || evaluations[0]?.section || 'Trial'
   const lastTeam = profilePlayers[0]?.team || evaluations[0]?.team || ''
   const primaryPlayer = profilePlayers[0]
+  const adultInvitePlayer = adultInviteTarget?.scope === userScopeKey
+    ? profilePlayers.find(player => player.id === adultInviteTarget.playerId)
+    : null
+  useEffect(() => { setAdultInviteTarget(null) }, [userScopeKey])
   const {
     profileContactType,
     profileParentContacts,
@@ -2051,6 +2057,7 @@ export function PlayerProfile() {
         parentPortalLinksByPlayerId={parentPortalLinksByPlayerId}
         adultLinkStatuses={adultLinkStatuses}
         onRefreshAdultLinkStatus={() => setAdultStatusRefresh(value => value + 1)}
+        onResendAdultLink={(player) => setAdultInviteTarget({ playerId: player.id, actorId: user.id, scope: userScopeKey })}
         playerDetailsEmptyState={playerDetailsEmptyState}
         playerDrafts={playerDrafts}
         profilePlayers={profilePlayers}
@@ -2292,6 +2299,26 @@ export function PlayerProfile() {
         user={user}
         />
       ) : null}
+      <ConfirmModal
+        isOpen={Boolean(adultInvitePlayer)}
+        title="Send Player invitation"
+        message={`Send a setup email to ${adultInvitePlayer?.playerName || 'this player'} at the address saved on their profile? Any previous setup link will be replaced when a new link is issued.`}
+        confirmLabel="Send invitation"
+        onCancel={() => setAdultInviteTarget(null)}
+        onConfirm={async () => {
+          if (!adultInvitePlayer) return
+          const result = await resendAdultPlayerSetupInvite(adultInvitePlayer.id, adultInvitePlayer.teamId, { actorId: adultInviteTarget.actorId })
+          setAdultInviteTarget(null)
+          setAdultStatusRefresh(value => value + 1)
+          showToast({
+            title: result.state === 'sent' ? 'Player invitation sent' : 'Player invitation skipped',
+            message: result.state === 'linked' ? 'The Player account is already linked.'
+              : result.state === 'recently_sent' ? 'An invitation was sent in the last five minutes.'
+                : result.state === 'previous_invite_used' ? 'The previous invitation was already used.' : undefined,
+          })
+        }}
+      />
+
       <PlayerProfileModals
         emailConfirmTarget={emailConfirmTarget}
         emailSendingId={emailSendingId}

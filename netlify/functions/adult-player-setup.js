@@ -7,7 +7,8 @@ import { createHash } from 'node:crypto'
 
 const uuid = /^[\da-f]{8}(?:-[\da-f]{4}){3}-[\da-f]{12}$/i
 const inviteDigest = token => createHash('sha256').update(String(token).toLowerCase()).digest('hex')
-const inviteDeliveryKey = (playerId, digest) => `adult_player_setup_invite:player:${String(playerId).toLowerCase()}:${digest}`
+const legacyInviteDeliveryKey = playerId => `adult_player_setup_invite:player:${String(playerId).toLowerCase()}`
+const inviteDeliveryKey = (playerId, digest) => `${legacyInviteDeliveryKey(playerId)}:${digest}`
 const deliveryFailed = delivery => Boolean(delivery?.provider_message_id)
   && ['bounced', 'complained', 'failed', 'suppressed'].includes(String(delivery?.provider_status || '').toLowerCase())
 const deliveryUnknown = delivery => !delivery || (!delivery.provider_message_id
@@ -48,17 +49,21 @@ export function createAdultPlayerSetupHandler({
     return data
   }
 
-  async function sendInvite(event, playerId) {
+  async function sendInvite(event, playerId, { resend = false, expectedTeamId = null } = {}) {
     const actor = await getActor(event)
     if (isDemoEmail(actor.email)) return inviteFailure('denied')
     const { data: player, error } = await client.from('players').select('id,club_id,team_id').eq('id', playerId).maybeSingle()
     if (error) throw error
-    if (!player) return inviteFailure('denied')
+    if (!player || (expectedTeamId && player.team_id !== expectedTeamId)) return inviteFailure('denied')
     const profile = await getProfile(event, { clubId: player.club_id, teamId: player.team_id, playerId })
     if (profile.clubId !== player.club_id || profile.roleRank < 20 || profile.role === 'super_admin') return inviteFailure('denied')
     assertFeature(profile, 'players')
-    const invite = await rpc('reserve_adult_player_setup_invite', { actor_id: actor.id, target_player_id: playerId })
-    if (invite?.state === 'linked') return reply(200, { success: true, state: invite.state })
+    const invite = resend
+      ? await rpc('reserve_adult_player_setup_resend', { actor_id: actor.id, target_player_id: playerId, expected_team_id: expectedTeamId })
+      : await rpc('reserve_adult_player_setup_invite', { actor_id: actor.id, target_player_id: playerId })
+    if (['linked', 'recently_sent', 'previous_invite_used'].includes(invite?.state)) {
+      return reply(200, { success: true, state: invite.state })
+    }
     if (invite?.state === 'sent') {
       const { data: delivery, error: deliveryError } = await client.from('email_delivery_jobs').select('provider_status,provider_message_id')
         .eq('logical_key', inviteDeliveryKey(playerId, inviteDigest(invite.token))).maybeSingle()
@@ -90,13 +95,29 @@ export function createAdultPlayerSetupHandler({
         targetEntityId: playerId,
         deliveryTelemetry: { logicalKey: inviteDeliveryKey(playerId, inviteDigest(invite.token)) },
       },
-      publicMessage: 'Player invitation could not be sent. Save again to retry.',
+      publicMessage: resend ? 'The new invitation could not be sent. Use Resend to retry this setup link.'
+        : 'Player invitation could not be sent. Save again to retry.',
     })
     await rpc('confirm_adult_player_setup_email', { invite_token: invite.token })
     return reply(200, { success: true, state: 'sent' })
   }
 
-  async function getLinkStatus(event, playerId) {
+  async function listTeamResendTargets(event, teamId) {
+    const actor = await getActor(event)
+    if (isDemoEmail(actor.email)) return inviteFailure('denied')
+    const { data: team, error } = await client.from('teams').select('id,club_id').eq('id', teamId).maybeSingle()
+    if (error) throw error
+    if (!team) return inviteFailure('denied')
+    const profile = await getProfile(event, { clubId: team.club_id, teamId })
+    if (profile.clubId !== team.club_id || profile.roleRank < 50 || profile.role === 'super_admin') return inviteFailure('denied')
+    assertFeature(profile, 'players')
+    const result = await rpc('list_adult_player_setup_resend_targets', { actor_id: actor.id, target_team_id: teamId })
+    if (result?.state === 'denied') return inviteFailure('denied')
+    if (!Array.isArray(result?.player_ids)) throw new Error('Player invitation list unavailable')
+    return reply(200, { success: true, playerIds: result.player_ids })
+  }
+
+  async function getLinkStatus(event, playerId, reportDelivered) {
     const actor = await getActor(event)
     if (isDemoEmail(actor.email)) return inviteFailure('denied')
     const { data: player, error } = await client.from('players').select('id,club_id,team_id').eq('id', playerId).maybeSingle()
@@ -112,13 +133,26 @@ export function createAdultPlayerSetupHandler({
     }
     if (result.state === 'awaiting_acceptance') {
       if (!/^[a-f0-9]{64}$/.test(result.invite_digest || '')) throw new Error('Player invitation status unavailable')
-      const { data: delivery, error: deliveryError } = await client.from('email_delivery_jobs').select('provider_status,provider_message_id')
+      const { data: currentDelivery, error: deliveryError } = await client.from('email_delivery_jobs').select('provider_status,provider_message_id')
         .eq('logical_key', inviteDeliveryKey(playerId, result.invite_digest)).maybeSingle()
       if (deliveryError) throw deliveryError
+      let delivery = currentDelivery
+      const sentAt = Date.parse(result.sent_at)
+      if (!delivery && Number.isFinite(sentAt)) {
+        // Earlier invites recorded delivery against the player without a token digest.
+        const { data: legacy, error } = await client.from('email_delivery_jobs')
+          .select('provider_status,provider_message_id,provider_accepted_at')
+          .eq('logical_key', legacyInviteDeliveryKey(playerId))
+          .eq('club_id', player.club_id).eq('team_id', player.team_id).maybeSingle()
+        if (error) throw error
+        const acceptedAt = Date.parse(legacy?.provider_accepted_at)
+        if (acceptedAt <= sentAt && sentAt - acceptedAt <= 120000) delivery = legacy
+      }
       if (deliveryFailed(delivery)) {
         return reply(200, { success: true, state: 'delivery_failed' })
       }
       if (deliveryUnknown(delivery)) return reply(200, { success: true, state: 'delivery_unknown' })
+      if (reportDelivered && delivery.provider_status === 'delivered') return reply(200, { success: true, state: 'delivered' })
     }
     return reply(200, { success: true, state: result.state })
   }
@@ -171,8 +205,15 @@ export function createAdultPlayerSetupHandler({
       if (body?.action === 'send' && typeof body.playerId === 'string' && uuid.test(body.playerId)) {
         return await sendInvite(event, body.playerId)
       }
+      if (body?.action === 'resend' && typeof body.playerId === 'string' && uuid.test(body.playerId)
+        && (body.teamId == null || (typeof body.teamId === 'string' && uuid.test(body.teamId)))) {
+        return await sendInvite(event, body.playerId, { resend: true, expectedTeamId: body.teamId ?? null })
+      }
+      if (body?.action === 'team-resend-preview' && typeof body.teamId === 'string' && uuid.test(body.teamId)) {
+        return await listTeamResendTargets(event, body.teamId)
+      }
       if (body?.action === 'status' && typeof body.playerId === 'string' && uuid.test(body.playerId)) {
-        return await getLinkStatus(event, body.playerId)
+        return await getLinkStatus(event, body.playerId, body.reportDelivered === true)
       }
       if (['create', 'accept'].includes(body?.action) && typeof body.token === 'string' && uuid.test(body.token)) {
         return await redeemInvite(event, body)

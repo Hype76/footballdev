@@ -1,4 +1,4 @@
-import { useLocation } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import fallbackLogo from '../../assets/football-player-logo.webp'
 import { getWorkspaceHomeCopy, useAuth } from '../../lib/auth.js'
 import InstallAppButton from '../pwa/InstallAppButton.jsx'
@@ -7,8 +7,11 @@ import { getScopedTeamBranding } from '../../lib/team-branding-display.js'
 export function Topbar({ title, onMenuClick }) {
   const { isProfileLoading, user } = useAuth()
   const location = useLocation()
+  const navigate = useNavigate()
   const displayUser = user
   const isWorkspaceHome = location.pathname === '/coach' || location.pathname === '/home'
+  const hasWorkspaceHistory = Number(globalThis.history?.state?.idx) > 0
+  const backUnavailable = !hasWorkspaceHistory && (isWorkspaceHome || location.pathname === '/')
   const displayTitle = isWorkspaceHome ? getWorkspaceHomeCopy(displayUser).title : title
   const clubLabel = displayUser?.role === 'super_admin'
     ? 'Platform'
@@ -65,10 +68,23 @@ export function Topbar({ title, onMenuClick }) {
           </div>
         </div>
 
-        <InstallAppButton
-          wrapperClassName="hidden sm:block lg:hidden"
-          className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[#047857] bg-[#047857] px-3 py-3 text-sm font-black text-white"
-        />
+        <div className="flex shrink-0 items-center gap-2">
+          <button type="button" disabled={backUnavailable}
+            onClick={() => {
+              if (Number(globalThis.history?.state?.idx) > 0) navigate(-1)
+              else navigate('/', { replace: true })
+            }}
+            className="inline-flex min-h-11 items-center justify-center gap-1 rounded-lg border border-[#d7e5dc] bg-white px-2.5 text-sm font-black text-[#101828] hover:bg-[#ecfdf5] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#047857] disabled:cursor-default disabled:opacity-50">
+            <svg aria-hidden="true" viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="m14 6-6 6 6 6" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            Back
+          </button>
+          <InstallAppButton
+            wrapperClassName="hidden sm:block lg:hidden"
+            className="inline-flex min-h-11 items-center justify-center rounded-lg border border-[#047857] bg-[#047857] px-3 py-3 text-sm font-black text-white"
+          />
+        </div>
       </div>
     </header>
   )
