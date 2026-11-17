@@ -75,7 +75,7 @@ const entry = `import {CoachTeamBrandingSetup} from './apps/coach-mobile/src/Coa
 import {CoachClubPromotionScreen} from './apps/coach-mobile/src/CoachClubPromotionScreen.js';
 import {CoachKeyboardFocusContext} from './apps/coach-mobile/src/CoachKeyboardFocusContext.js';
 import {createCoachKeyboardViewport} from './apps/coach-mobile/src/coachKeyboardViewportCore.js';
-import {MobileActivityProvider} from './apps/mobile-core/src/MobileActivityContext.js';
+import {MobileActivityProvider,useMobileOffline} from './apps/mobile-core/src/MobileActivityContext.js';
 import {MobileHeaderActivity} from './apps/mobile-core/src/MobileHeaderActivity.js';
 const refreshUserProfile=async()=>{};
 
@@ -89,7 +89,7 @@ import {getCoachBottomNavigationPadding} from './apps/coach-mobile/src/coachNavi
 import {getCoachRouteIconKey} from './apps/mobile-core/src/mobileIconSystem.js';
 import {createCoachScrollBounds} from './apps/coach-mobile/src/coachScrollBounds.js';
 import {IconMenu} from './apps/mobile-core/src/IconSettings.js';
-const config={isProduction:false};let theme;
+const config={isProduction:true};let theme;
 const useCoachTheme=()=>theme;
 const CoachIcon=()=> <Text>+</Text>;
 const NotificationStatusButton=({onPress})=><Pressable accessibilityRole="button" accessibilityLabel="Notification settings" onPress={onPress}><Text>Alerts</Text></Pressable>;
@@ -99,6 +99,7 @@ ${selected}
 function CoachRoute({onRequestScrollTop,onNotificationSettingsFocus}){const reveal=React.useContext(CoachKeyboardFocusContext);if(window.route==='more'&&window.moreRoute==='club-promotion')return <ScreenIntro title=""><SecondaryAction label="Back to More" onPress={()=>window.setMoreRoute('')}/><CoachClubPromotionScreen user={{id:'coach-one'}} palette={theme.palette}/></ScreenIntro>;if(window.route==='more'&&!window.moreRoute)return <MoreScreen navigation={{more:['Notifications','Formation Boards','Sessions','Development','Resources','Chat','Polls','Invites and availability','Team','Settings','Feedback & Suggestions','Report a Bug'].map(label=>({key:label,label}))}} onSelectMore={()=>{}}/>;return <View><Text testID="content-anchor" style={{fontSize:24,color:theme.palette.textPrimary}}>Next calendar item</Text><TextInput accessibilityLabel="Fixture notes" multiline style={{marginTop:12,height:40}}/><View style={{height:window.shortContent?200:1100}}/>{!window.shortContent?<><Text>Overall Comments</Text><TextInput accessibilityLabel="Overall Comments" multiline onFocus={reveal} style={{height:96}}/><Text>Coach summary</Text><TextInput accessibilityLabel="Coach summary" multiline onFocus={reveal} style={{height:96}}/><View style={{height:100}}/></>:null}<Pressable accessibilityRole="button" accessibilityLabel="Return to top" onPress={onRequestScrollTop}><Text>Top</Text></Pressable></View>}
 function App(){
 const [mode,setMode]=useState('dark'),[activeRoute,setActiveRoute]=useState('home'),[selected,setSelected]=useState('a'),[isRefreshing,setRefreshing]=useState(false);
+const [showSavedInvites,setShowSavedInvites]=useState(false);window.setShowSavedInvites=setShowSavedInvites;
 const [moreRoute,setMoreRoute]=useState('');window.setMoreRoute=setMoreRoute;
 const [height,setHeight]=useState(850);window.setHeight=setHeight;
 window.setMode=setMode;window.setRoute=setActiveRoute;window.refresh=setRefreshing;
@@ -126,8 +127,9 @@ window.nativeScrollRef=()=>contentScrollRef.current;
 window.beginDrag=${dragSource};
 window.beginTouch=${touchSource};
 ${resetLifecycle}
-return <MobileActivityProvider active={isRefreshing}><View style={[styles.appShell,{height}]}>${shellSource}</View></MobileActivityProvider>;
+return <MobileActivityProvider active={isRefreshing}><SavedInvitesStatus stale={isMatchInvitesRoute && showSavedInvites}/><View style={[styles.appShell,{height}]}>${shellSource}</View></MobileActivityProvider>;
 }
+function SavedInvitesStatus({stale}){useMobileOffline(stale);return null;}
 window.corrections=[];createRoot(document.getElementById('root')).render(<App/>);`
 const result = await build({ stdin: { contents: entry, resolveDir: root, loader: 'jsx' }, plugins: [{name:'promotion-request',setup(builder){builder.onResolve({filter:/mobileSignup$/},()=>({path:'promotion-request',namespace:'fixture'}));builder.onLoad({filter:/.*/,namespace:'fixture'},()=>({contents:'export async function mobileAccountRequest(){return '+JSON.stringify(promotion)+'}',loader:'js'}))}}], bundle: true, write: false, jsx: 'automatic', loader: { '.js': 'jsx', '.png': 'dataurl' }, nodePaths:[modules], conditions:['browser'], mainFields:['browser','module','main'], resolveExtensions:['.web.tsx','.web.ts','.web.js','.tsx','.ts','.jsx','.js','.json'], alias: { 'react-native': path.join(modules, 'react-native-web'), react: path.join(modules, 'react'), 'react-dom': path.join(modules, 'react-dom') }, define: { 'process.env.NODE_ENV': '"production"', __DEV__: 'false', global: 'globalThis' }, banner:{js:'globalThis.process={env:{NODE_ENV:"production"}};'} })
 const out = 'output/playwright/coach-smooth-scroll'
@@ -146,6 +148,29 @@ try {
       await page.addScriptTag({ content: result.outputFiles[0].text })
       const scroll = page.getByTestId('coach-content-scroll'), header = page.getByTestId('mobile-header-activity')
       await header.waitFor()
+      for (const mode of ['light', 'dark']) {
+        await page.evaluate(mode => window.setMode(mode), mode)
+        for (const [route, label] of [['home', 'Live'], ['invites', 'Offline'], ['invites', 'Live']]) {
+          await page.evaluate(({ route, label }) => {
+            window.setRoute(route)
+            window.setShowSavedInvites(label === 'Offline')
+          }, { route, label })
+          const status = header.getByLabel(label, { exact: true })
+          await status.waitFor()
+          const contrast = await status.evaluate(element => {
+            const luminance = color => color.match(/\d+/g).slice(0, 3).map(channel => {
+              const value = Number(channel) / 255
+              return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4
+            }).reduce((sum, value, index) => sum + value * [0.2126, 0.7152, 0.0722][index], 0)
+            let surface = element.parentElement
+            while (getComputedStyle(surface).backgroundColor === 'rgba(0, 0, 0, 0)') surface = surface.parentElement
+            const lightness = [luminance(getComputedStyle(element).color), luminance(getComputedStyle(surface).backgroundColor)]
+            return (Math.max(...lightness) + 0.05) / (Math.min(...lightness) + 0.05)
+          })
+          assert.ok(contrast >= 4.5, `${label} is readable in ${mode} mode on ${route}: ${contrast}`)
+        }
+      }
+      await page.evaluate(() => window.setRoute('home'))
       await page.waitForTimeout(150)
       const initial = await scroll.boundingBox(), headerBox = await header.boundingBox()
       const activityBefore = await page.getByTestId('mobile-header-activity').boundingBox()
