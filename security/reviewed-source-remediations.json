@@ -517,15 +517,15 @@
   "scopeLocks": [
     {
       "scope": "root",
-      "normalisedUtf8Sha256": "66aea7f4ca7036a8c21770d61ec583a926ee0afd2e19db493003535e6e756a10"
+      "normalisedUtf8Sha256": "df510c9df3a89193a936f208cbc17441287106f59bd259282f5df50b55759682"
     },
     {
       "scope": "apps/parent-mobile",
-      "normalisedUtf8Sha256": "5132a2a67cc5fac7200af987c550e8e89705aaa66cf9819971b8e473b801f50c"
+      "normalisedUtf8Sha256": "42febc56366cfad21af3de5eb118d10143d7495e55595c2ea9b6a62052c4ff55"
     },
     {
       "scope": "apps/coach-mobile",
-      "normalisedUtf8Sha256": "8da5bde5909872df5ea8f58cf1f21b4d5f3fc9c392ecd8d6a66d769e938f6832"
+      "normalisedUtf8Sha256": "e019cdf4e61375edc9b3f32abc83445345d9665ea1f519ea628f0d918ccdf4ff"
     }
   ],
   "patches": [
