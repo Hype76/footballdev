@@ -71,8 +71,8 @@ function GroundWeather({ clubId, postcode, viewerSlug, configured }) {
   </div>
 }
 
-function EventLine({ events, side, showYellowCards }) {
-  return <div className="club-tv-events">{events.filter((event) => event.side === side && (showYellowCards || event.type !== 'yellow_card')).map((event) => <span key={event.id} className={tvEventClasses[event.type]}>
+function EventLine({ events, side, matchDetails }) {
+  return <div className="club-tv-events">{events.filter((event) => event.side === side && (matchDetails.showYellowCards || event.type !== 'yellow_card') && (matchDetails.showRedCards || event.type !== 'red_card')).map((event) => <span key={event.id} className={tvEventClasses[event.type]}>
     <span role="img" aria-label={tvEventLabels[event.type]}>{event.type === 'goal' ? '●' : '▮'}</span> {event.shirt ? `#${event.shirt}` : ''}{event.minute == null ? '' : ` ${event.minute}${event.stoppage ? `+${event.stoppage}` : ''}′`}
   </span>)}</div>
 }
@@ -81,16 +81,19 @@ function MatchRow({ match, status, clubLogo, showDate, matchDetails, clockNow })
   const sides = tvMatchSides(match)
   const homeSide = sides.clubHome ? 'club' : 'opponent', awaySide = sides.clubHome ? 'opponent' : 'club'
   const started = status.kind !== 'upcoming'
+  const showScore = started && match.publicAnnouncements !== false
   const pitch = status.kind === 'live' ? tvPitchNumber(match.venue) : ''
   const clock = matchDetails.showMatchClock && clockNow !== null ? tvMatchClock(match, clockNow) : null
   return <article className={`club-tv-match club-tv-${status.kind}`}>
     <div className="club-tv-match-meta"><div className="club-tv-match-status"><strong>{status.label === 'HT' ? <abbr title="Half-time">HT</abbr> : status.label}</strong>{clock ? <span className="club-tv-match-clock" role="timer" aria-label="Match clock">{clock}</span> : null}</div>{pitch ? <span className="club-tv-live-pitch">Pitch {pitch}</span> : null}{showDate ? <span>{fixtureDayLabel(match.matchDate)}</span> : null}</div>
-    <div className={`club-tv-team club-tv-home ${sides.clubHome ? 'club-tv-own' : ''}`}><div className="club-tv-team-heading">{sides.clubHome ? <TeamBadge key={clubLogo} src={clubLogo} /> : null}<strong className="club-tv-team-name" title={sides.home}>{sides.home}</strong></div>{started ? <EventLine events={match.events} side={homeSide} showYellowCards={matchDetails.showYellowCards} /> : null}</div>
+    <div className={`club-tv-team club-tv-home ${sides.clubHome ? 'club-tv-own' : ''}`}><div className="club-tv-team-heading">{sides.clubHome ? <TeamBadge key={clubLogo} src={clubLogo} /> : null}<strong className="club-tv-team-name" title={sides.home}>{sides.home}</strong></div>{started ? <EventLine events={match.events} side={homeSide} matchDetails={matchDetails} /> : null}</div>
     <div className="club-tv-score">
-      <strong data-result={status.result}>{started ? `${match.homeScore} : ${match.awayScore}` : 'v'}{status.result ? <span className="sr-only">, club {status.result}</span> : null}</strong>
-      {started && (match.status === 'penalties' || match.homeShootoutScore || match.awayShootoutScore) ? <small>PENS {match.homeShootoutScore} : {match.awayShootoutScore}</small> : null}
+      {!showScore && status.kind === 'live'
+        ? <span className="club-tv-score-private">In progress</span>
+        : <strong data-result={status.result}>{showScore ? `${match.homeScore} : ${match.awayScore}` : 'v'}{status.result ? <span className="sr-only">, club {status.result}</span> : null}</strong>}
+      {showScore && (match.status === 'penalties' || match.homeShootoutScore || match.awayShootoutScore) ? <small>PENS {match.homeShootoutScore} : {match.awayShootoutScore}</small> : null}
     </div>
-    <div className={`club-tv-team ${!sides.clubHome ? 'club-tv-own' : ''}`}><div className="club-tv-team-heading">{!sides.clubHome ? <TeamBadge key={clubLogo} src={clubLogo} /> : null}<strong className="club-tv-team-name" title={sides.away}>{sides.away}</strong></div>{started ? <EventLine events={match.events} side={awaySide} showYellowCards={matchDetails.showYellowCards} /> : null}</div>
+    <div className={`club-tv-team ${!sides.clubHome ? 'club-tv-own' : ''}`}><div className="club-tv-team-heading">{!sides.clubHome ? <TeamBadge key={clubLogo} src={clubLogo} /> : null}<strong className="club-tv-team-name" title={sides.away}>{sides.away}</strong></div>{started ? <EventLine events={match.events} side={awaySide} matchDetails={matchDetails} /> : null}</div>
   </article>
 }
 
@@ -287,6 +290,7 @@ function ClubDayDisplay({ user, preferences, standalone, preview, date, setDate,
           const latest = fresh.reduce((current, next) => goalTime(next) >= goalTime(current) ? next : current)
           setGoal(current => current && goalTime(current) > goalTime(latest) ? current : latest)
         }
+        setGoal(current => current && !result.matches.some(match => match.id === current.match.id && match.goalCelebrations !== false) ? null : current)
         previous = result.matches
         setFeed({ ...result, sampledAtMs: Date.now() }); setError('')
       } catch (failure) {
@@ -385,7 +389,7 @@ function ClubDayDisplay({ user, preferences, standalone, preview, date, setDate,
       </aside> : null}
     </div>
     <RoadTicker matches={awayFixtures} clubLogo={club?.logoUrl || user.clubLogoUrl} showDate={rangeView} paused={paused} />
-    <footer className="club-tv-footer"><div><span className="club-tv-live-dot" /> YOUR CLUB · EVERY TEAM <span className="club-tv-legend">● Goals <span className="club-tv-red">▮ Red cards</span>{matchDetails.showYellowCards ? <> <span className="club-tv-yellow">▮ Yellow cards</span></> : null} · Shirt numbers only</span></div><div className="club-tv-pages">Page {currentPage + 1} / {totalPages}{totalPages > 1 ? ` · ${paused ? 'Paused' : `Next in ${seconds}s`}` : ''}</div><BrandCredit /></footer>
+    <footer className="club-tv-footer"><div><span className="club-tv-live-dot" /> YOUR CLUB · EVERY TEAM <span className="club-tv-legend">● Goals{matchDetails.showRedCards ? <> <span className="club-tv-red">▮ Red cards</span></> : null}{matchDetails.showYellowCards ? <> <span className="club-tv-yellow">▮ Yellow cards</span></> : null} · Shirt numbers only</span></div><div className="club-tv-pages">Page {currentPage + 1} / {totalPages}{totalPages > 1 ? ` · ${paused ? 'Paused' : `Next in ${seconds}s`}` : ''}</div><BrandCredit /></footer>
     {!locked ? <nav className="club-tv-controls" aria-label="Display controls">{!standalone ? <Link to={preview ? "/club-matchday-tv/settings" : "/coach"}>Back to Club Admin</Link> : null}<label>Match date <input aria-label="Match date" type="date" min={today} value={date} onChange={(event) => { const next = event.target.value; if (validTvDate(next) && next >= clubTvDate()) { setDate(next); setPeriod('day') } }} /></label><button aria-pressed={period === 'day' && selectedToday} onClick={() => { setDate(clubTvDate()); setPeriod('day') }}>Today</button>{[['weekend', 'Weekend'], ['week', 'Week'], ['month', 'Month']].map(([value, label]) => <button key={value} aria-pressed={period === value} onClick={() => setPeriod(value)}>{label}</button>)}<button disabled={totalPages <= 1} onClick={() => changePage(-1)} aria-label="Previous match page">←</button><button disabled={totalPages <= 1} onClick={() => setPaused(!paused)}>{paused ? 'Resume carousel' : 'Pause carousel'}</button><button disabled={totalPages <= 1} onClick={() => changePage(1)} aria-label="Next match page">→</button><button onClick={fullScreen}>{standalone ? "Full screen" : "Full screen and lock"}</button>{fullscreenError ? <span role="status">{fullscreenError}</span> : null}</nav> : <div className="club-tv-lock-bar"><span>Display locked · Leaving full screen keeps Club Admin protected</span><button onClick={() => setUnlocking(true)}>Unlock Club Admin</button></div>}
     {unlocking ? <UnlockDisplay clubId={user.clubId} onClose={() => setUnlocking(false)} onUnlocked={async () => { setClubTvLocked(user, false); setLocked(false); setUnlocking(false); if (document.fullscreenElement) await document.exitFullscreen().catch(() => {}); navigate('/coach') }} /> : null}
     {goal && !denied ? <div role="status" className={preferences.bigGoal ? 'club-tv-goal-large' : 'club-tv-goal-small'}><div><small>{goal.event.side === 'club' ? goal.match.teamName : goal.match.opponent}</small><strong>GOAL!</strong><h2>{goal.event.shirt ? `#${goal.event.shirt}` : 'Goal scored'} {goal.event.minute == null ? '' : `· ${goal.event.minute}′`}</h2><p>{tvMatchSides(goal.match).home} <b>{goal.match.homeScore} : {goal.match.awayScore}</b> {tvMatchSides(goal.match).away}</p>{preferences.bigGoal ? <BrandCredit /> : null}</div></div> : null}

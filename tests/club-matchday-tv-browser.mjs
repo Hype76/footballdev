@@ -528,17 +528,30 @@ try {
   assert.equal(digest(artwork.get(firstPath).bytes), digest(originalAdvert), 'The exact 5 MB original reaches Storage')
   assert.ok((await page.getByAltText('Uploaded pitch map preview').getAttribute('src')).startsWith('data:image/webp;base64,'), 'Pitch maps are converted to WebP')
   await page.getByLabel('Show pitchside ordering').check()
-  const liveDetailsOptions = ['Show match clocks', 'Show half-time (HT)', 'Show yellow cards']
+  const liveDetailsOptions = ['Show match clocks', 'Show half-time (HT)', 'Show yellow cards', 'Show red cards']
   const liveDisplay = await context.newPage()
   await liveDisplay.clock.install({ time: new Date('2026-10-21T09:00:00Z') })
   await liveDisplay.goto(`${origin}/club-matchday-tv`)
   await liveDisplay.getByRole('timer', { name: 'Match clock' }).first().waitFor()
+  const originalMatches = matches
+  matches = matches.map((match, index) => [0, 3].includes(index) ? {
+    ...match, publicAnnouncements: false, goalCelebrations: false,
+    homeScore: null, awayScore: null, events: match.events.filter(event => event.type !== 'goal'),
+  } : match)
+  await liveDisplay.clock.runFor(11000)
+  const tvRows = liveDisplay.locator('.club-tv-match')
+  await tvRows.first().getByText('In progress', { exact: true }).waitFor()
+  assert.equal(await tvRows.first().getByRole('img', { name: 'Goal' }).count(), 0)
+  assert.equal(await tvRows.nth(1).locator('.club-tv-score strong').textContent(), '1 : 0')
+  assert.equal(await tvRows.nth(3).getByText('FULL TIME', { exact: true }).count(), 1)
+  assert.equal(await tvRows.nth(3).locator('[data-result]').count(), 0)
+  matches = originalMatches
   for (const label of liveDetailsOptions) {
     assert.equal(await page.getByLabel(label, { exact: true }).isChecked(), true)
     await page.getByLabel(label, { exact: true }).uncheck()
   }
   await saveAndPreview()
-  assert.deepEqual(normalizeTvMatchDetails(settings.preferences), { showMatchClock: false, showHalfTime: false, showYellowCards: false })
+  assert.deepEqual(normalizeTvMatchDetails(settings.preferences), { showMatchClock: false, showHalfTime: false, showYellowCards: false, showRedCards: false })
   assert.equal(await page.locator('.club-tv-match').count(), 8)
   await page.locator('.club-tv-pitch').waitFor()
   await page.getByAltText('Club sponsor advert').waitFor()
@@ -553,7 +566,8 @@ try {
   await liveDisplay.getByRole('timer', { name: 'Match clock' }).first().waitFor({ state: 'hidden' })
   assert.equal(await liveDisplay.getByText('HT', { exact: true }).count(), 0)
   assert.equal(await liveDisplay.getByRole('img', { name: 'Yellow card' }).count(), 0)
-  assert.ok(await liveDisplay.getByRole('img', { name: 'Red card' }).count() > 0)
+  assert.equal(await liveDisplay.getByRole('img', { name: 'Red card' }).count(), 0)
+  assert.equal(await liveDisplay.getByText('Red cards', { exact: false }).count(), 0)
   await liveDisplay.close()
   await page.reload()
   await page.getByAltText('Club sponsor advert').waitFor()

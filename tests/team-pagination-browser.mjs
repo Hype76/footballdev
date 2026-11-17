@@ -5,8 +5,8 @@ import { chromium } from 'playwright'
 
 const output = 'output/playwright/team-pagination'
 await mkdir(output, { recursive: true })
-const entry = `import React,{useState} from 'react';import{createRoot}from'react-dom/client';import{Pagination}from'/src/components/ui/Pagination.jsx';import'/src/index.css';
-function App(){const[page,setPage]=useState(2);return <div style={{width:280,maxWidth:'100%',padding:16}}><Pagination compact currentPage={page} onPageChange={setPage} pageSize={8} totalItems={14}/></div>};createRoot(document.getElementById('root')).render(<App/>);`
+const entry = `import React,{useState} from 'react';import{createRoot}from'react-dom/client';import{Pagination}from'/src/components/ui/Pagination.jsx';import{TeamTvSettingsEditor}from'/src/components/teams/TeamStaffAllocationsSection.jsx';import'/src/index.css';
+function App(){const[page,setPage]=useState(2);const[showSettings,setShowSettings]=useState(false);window.showTeamTvSettings=()=>setShowSettings(true);return <div style={{width:280,maxWidth:'100%',padding:16}}><Pagination compact currentPage={page} onPageChange={setPage} pageSize={8} totalItems={14}/>{showSettings?<TeamTvSettingsEditor team={{ id:'team-a' }} onSave={(id,settings)=>window.savedTeamTvSettings={id,...settings}}/>:null}</div>};createRoot(document.getElementById('root')).render(<App/>);`
 const server = await createServer({
   cacheDir: 'node_modules/.vite-team-pagination',
   server: { host: '127.0.0.1', port: 0 },
@@ -48,6 +48,25 @@ try {
   assert.equal(await page.getByRole('button', { name: 'Previous', exact: true }).isDisabled(), true)
   await page.getByRole('button', { name: 'Next', exact: true }).click()
   await page.getByText('Showing 9 to 14 of 14').waitFor()
+  await page.evaluate(() => window.showTeamTvSettings())
+  const publicAnnouncements = page.getByRole('checkbox', { name: 'Public Announcements', exact: true })
+  const goalCelebrations = page.getByRole('checkbox', { name: 'Show goal celebrations on Matchday TV' })
+  const saveTv = page.getByRole('button', { name: 'Save Matchday TV settings' })
+  assert.equal(await publicAnnouncements.isChecked(), true)
+  assert.equal(await goalCelebrations.isChecked(), true)
+  assert.equal(await saveTv.isDisabled(), true)
+  await page.getByRole('button', { name: 'About Public Announcements' }).click()
+  await page.getByText(/Normal notifications still go out/).waitFor()
+  await publicAnnouncements.uncheck()
+  await saveTv.click()
+  assert.deepEqual(await page.evaluate(() => window.savedTeamTvSettings), {
+    id: 'team-a', tvPublicAnnouncements: false, tvGoalCelebrations: true,
+  })
+  await goalCelebrations.uncheck()
+  await saveTv.click()
+  assert.deepEqual(await page.evaluate(() => window.savedTeamTvSettings), {
+    id: 'team-a', tvPublicAnnouncements: false, tvGoalCelebrations: false,
+  })
   assert.deepEqual(errors, [])
   console.log('PASS: compact Teams pagination fits narrow desktop and phone columns, retains touch targets and paging.')
 } finally { await browser.close(); await server.close() }

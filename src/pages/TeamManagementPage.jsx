@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Navigate } from 'react-router-dom'
 import { CreateStaffLoginSection } from '../components/teams/CreateStaffLoginSection.jsx'
 import { CreateTeamSection } from '../components/teams/CreateTeamSection.jsx'
-import { TeamStaffAllocationsSection } from '../components/teams/TeamStaffAllocationsSection.jsx'
+import { TeamStaffAllocationsSection, TeamTvSettingsEditor, TeamTvSettingsFields } from '../components/teams/TeamStaffAllocationsSection.jsx'
 import { TeamLeagueLinkSettings } from '../components/teams/TeamLeagueLinkSettings.jsx'
 import { TeamBrandingOffer } from '../components/teams/TeamBrandingOffer.jsx'
 import { ConfirmModal } from '../components/ui/ConfirmModal.jsx'
@@ -47,6 +47,7 @@ import {
   writeViewCache,
 } from '../lib/supabase.js'
 import { deriveTeamNotificationDisplayName } from '../lib/team-notification-display.js'
+import { canViewClubMatchdayTv } from '../lib/club-matchday-tv.js'
 import { canAddStaffAccessEmail, createLimitUpgradeMessage, getUniqueStaffAccessEmails, isWithinPlanLimit } from '../lib/plans.js'
 import {
   canManageAssignedTeamRole,
@@ -72,6 +73,7 @@ const teamSetupRules = [
 const bodyTextClass = 'text-sm font-semibold leading-6 text-[#4b5f55]'
 const panelClass = 'rounded-lg border border-[#d7e5dc] bg-[#f7faf8] shadow-sm shadow-[#047857]/10'
 const PENDING_INVITE_PREFIX = 'invite:'
+const initialTeamTvSettings = { tvPublicAnnouncements: true, tvGoalCelebrations: true }
 function pendingInviteToStaffMember(invite) {
   const inviteId = String(invite?.id ?? '').trim()
 
@@ -137,6 +139,8 @@ export function TeamManagementPage() {
     return cachedStats && typeof cachedStats === 'object' ? cachedStats : {}
   })
   const [newTeamName, setNewTeamName] = useState('')
+  const [newTeamTvSettings, setNewTeamTvSettings] = useState(initialTeamTvSettings)
+  const canManageMatchdayTv = canViewClubMatchdayTv(user)
   const [teamNameDrafts, setTeamNameDrafts] = useState({})
   const [teamNotificationNameDrafts, setTeamNotificationNameDrafts] = useState({})
   const [coachForm, setCoachForm] = useState(initialCoachForm)
@@ -170,7 +174,7 @@ export function TeamManagementPage() {
           isClubAdminUser
             ? withRequestTimeout(() => getClubUserInvites(user), 'Could not load pending Coach invites.')
             : Promise.resolve([]),
-          withRequestTimeout(() => getTeamStaffAssignments(user), 'Could not load team assignments.'),
+          withRequestTimeout(() => getTeamStaffAssignments(user, { includeClubMemberships: isClubAdminUser }), 'Could not load team assignments.'),
           withRequestTimeout(() => getClubRoles(user), 'Could not load club roles.'),
           withRequestTimeout(() => getPlayers({ user }), 'Could not load players.'),
           withRequestTimeout(() => getEvaluations({ user }), 'Could not load development records.'),
@@ -261,10 +265,15 @@ export function TeamManagementPage() {
     }
   }, [cacheKey, isClubAdminUser, user, userScopeKey])
 
-  const teamScopedUsers = useMemo(
-    () => users.filter(isTeamScopedStaffMember),
-    [users],
-  )
+  const teamScopedUsers = useMemo(() => {
+    const staff = new Map(users.filter(isTeamScopedStaffMember).map((member) => [member.id, member]))
+    for (const { staffProfile } of assignments) {
+      if (staffProfile && isTeamScopedStaffMember(staffProfile) && !staff.has(staffProfile.id)) {
+        staff.set(staffProfile.id, { ...staffProfile, membershipOnly: true })
+      }
+    }
+    return [...staff.values()]
+  }, [assignments, users])
 
   const teamAssignments = useMemo(
     () => {
@@ -348,7 +357,7 @@ export function TeamManagementPage() {
       selectedTeam
         ? teamScopedUsers
             .filter((member) => {
-              if (selectedTeam.staffIds.includes(member.id)) {
+              if (member.membershipOnly || selectedTeam.staffIds.includes(member.id)) {
                 return false
               }
 
@@ -452,6 +461,7 @@ export function TeamManagementPage() {
       const createdTeam = await createTeam({
         user,
         name: newTeamName,
+        tvSettings: canManageMatchdayTv ? newTeamTvSettings : undefined,
       })
 
       setTeams((current) => {
@@ -466,6 +476,7 @@ export function TeamManagementPage() {
         [createdTeam.id]: createdTeam.name,
       }))
       setNewTeamName('')
+      setNewTeamTvSettings(initialTeamTvSettings)
       setCoachForm((current) => ({
         ...current,
         teamId: '',
@@ -583,7 +594,7 @@ export function TeamManagementPage() {
       })
 
       await refreshUsersAndRoles()
-      const nextAssignments = await getTeamStaffAssignments(user)
+      const nextAssignments = await getTeamStaffAssignments(user, { includeClubMemberships: isClubAdminUser })
       setAssignments(nextAssignments)
       setCoachForm({
         email: '',
@@ -688,9 +699,13 @@ export function TeamManagementPage() {
     setErrorMessage('')
 
     try {
-      const nextAssignments = await replaceTeamStaffAssignments(teamId, nextStaffIds)
+      const nextAssignments = await replaceTeamStaffAssignments(teamId, nextStaffIds, { removeUserId: checked ? undefined : userId })
       setAssignments((current) => {
-        const mergedAssignments = [...current.filter((assignment) => assignment.teamId !== teamId), ...nextAssignments]
+        const staffProfiles = new Map(current.map(({ userId, staffProfile }) => [userId, staffProfile]))
+        const mergedAssignments = [
+          ...current.filter((assignment) => assignment.teamId !== teamId),
+          ...nextAssignments.map((assignment) => ({ ...assignment, staffProfile: staffProfiles.get(assignment.userId) })),
+        ]
         writeTeamCache({
           assignments: mergedAssignments,
         })
@@ -755,7 +770,7 @@ export function TeamManagementPage() {
         roleKey: roleChangeTarget.nextRole.roleKey,
         requestSource: 'team_management',
       })
-      const nextAssignments = await getTeamStaffAssignments(user)
+      const nextAssignments = await getTeamStaffAssignments(user, { includeClubMemberships: isClubAdminUser })
       setAssignments(nextAssignments)
       writeTeamCache({ assignments: nextAssignments })
       await refreshTeamSelection?.()
@@ -869,6 +884,28 @@ export function TeamManagementPage() {
     }
   }
 
+  const handleTeamTvSettingsSave = async (teamId, data) => {
+    setIsSaving(true)
+    setMessage('')
+    setErrorMessage('')
+    try {
+      const saved = await updateTeamSettings({ teamId, data, user })
+      setTeams((current) => {
+        const nextTeams = current.map(team => team.id === teamId ? {
+          ...team, tvPublicAnnouncements: saved.tvPublicAnnouncements, tvGoalCelebrations: saved.tvGoalCelebrations,
+        } : team)
+        writeTeamCache({ teams: nextTeams })
+        return nextTeams
+      })
+      setMessage('Matchday TV settings saved.')
+      showToast({ title: 'Matchday TV settings saved' })
+    } catch (error) {
+      setErrorMessage(error.message || 'Could not save Matchday TV settings.')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
   return (
     <div className="space-y-5 sm:space-y-6">
       <section className="overflow-hidden rounded-lg border border-[#d7e5dc] bg-white shadow-sm shadow-[#047857]/10">
@@ -974,6 +1011,14 @@ export function TeamManagementPage() {
         canDeleteTeam={isClubAdminUser}
         canManageStaffAllocations={canManageOwnedTeam}
         canRenameTeam={canManageOwnedTeam}
+        matchdayTvSettings={canManageMatchdayTv && selectedTeam ? (
+          <TeamTvSettingsEditor
+            key={`${selectedTeam.id}:${selectedTeam.tvPublicAnnouncements}:${selectedTeam.tvGoalCelebrations}`}
+            team={selectedTeam}
+            isSaving={isSaving}
+            onSave={handleTeamTvSettingsSave}
+          />
+        ) : null}
         isLoading={isLoading}
         isSaving={isSaving}
         onAddExistingStaff={handleAddExistingStaffToTeam}
@@ -1058,6 +1103,9 @@ export function TeamManagementPage() {
         isBusy={isSaving}
         isOpen={isCreateTeamModalOpen}
         newTeamName={newTeamName}
+        matchdayTvSettings={canManageMatchdayTv ? (
+          <TeamTvSettingsFields settings={newTeamTvSettings} onChange={setNewTeamTvSettings} disabled={isSaving} />
+        ) : null}
         onCancel={() => setIsCreateTeamModalOpen(false)}
         onCreateTeam={handleCreateTeam}
         onTeamNameChange={setNewTeamName}
@@ -1071,6 +1119,7 @@ function CreateTeamModal({
   canCreateMoreTeams,
   isBusy,
   isOpen,
+  matchdayTvSettings,
   newTeamName,
   onCancel,
   onCreateTeam,
@@ -1110,6 +1159,7 @@ function CreateTeamModal({
                 className="min-h-12 w-full rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-3 text-sm font-semibold text-[#101828] outline-none transition placeholder:text-[#66756c] focus:border-[#047857] focus:bg-white focus:ring-2 focus:ring-[#d1fae5]"
               />
             </label>
+            {matchdayTvSettings}
             {!canCreateMoreTeams ? (
               <p className="mt-3 rounded-lg border border-[#fedf89] bg-[#fffbeb] px-4 py-3 text-sm font-black text-[#93370d]">{teamLimitMessage}</p>
             ) : null}

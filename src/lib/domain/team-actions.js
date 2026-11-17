@@ -95,13 +95,15 @@ export async function updateTeamSettings({ teamId, data, user = null }) {
   }
 
   const onlyNameUpdate = data && Object.keys(data).length === 1 && data.name !== undefined
+  const onlyTvUpdate = data && Object.keys(data).length === 2
+    && typeof data.tvPublicAnnouncements === 'boolean' && typeof data.tvGoalCelebrations === 'boolean'
 
-  if (onlyNameUpdate && user?.clubId && (user.role === 'admin' || user.role === 'super_admin')) {
+  if (onlyTvUpdate || (onlyNameUpdate && user?.clubId && (user.role === 'admin' || user.role === 'super_admin'))) {
     const result = await manageTeamRequest({
-      action: 'update',
-      clubId: user.clubId,
+      action: onlyTvUpdate ? 'update-tv' : 'update',
+      clubId: user?.clubId,
       teamId,
-      name: data.name,
+      ...data,
     })
 
     invalidateMemoryCacheByPrefix(`teams:${user.clubId}`)
@@ -406,7 +408,7 @@ export async function getSessionTeamsForUser(user) {
   return getTeams(user)
 }
 
-export async function createTeam({ user, name }) {
+export async function createTeam({ user, name, tvSettings }) {
   await blockDemoMutation(user)
 
   if (!user?.clubId) {
@@ -424,6 +426,8 @@ export async function createTeam({ user, name }) {
       action: 'create',
       clubId: user.clubId,
       name: teamName,
+      tvPublicAnnouncements: tvSettings?.tvPublicAnnouncements,
+      tvGoalCelebrations: tvSettings?.tvGoalCelebrations,
     })
 
     invalidateMemoryCacheByPrefix(`teams:${user.clubId}`)
@@ -535,7 +539,7 @@ export async function deleteTeam(teamId, user = null) {
   }
 }
 
-export async function getTeamStaffAssignments(user) {
+export async function getTeamStaffAssignments(user, { includeClubMemberships = false } = {}) {
   const teams = await getTeams(user)
 
   if (teams.length === 0) {
@@ -543,7 +547,9 @@ export async function getTeamStaffAssignments(user) {
   }
 
   const teamIds = teams.map((team) => team.id)
-  return getCachedResource(`team-assignments:${user.clubId || user.id}`, async () => {
+  const includeMemberships = includeClubMemberships && ['admin', 'super_admin'].includes(user.role) && Boolean(user.clubId)
+  const cacheKey = `team-assignments:${user.clubId || user.id}${includeMemberships ? `:${user.id}:memberships` : ''}`
+  return getCachedResource(cacheKey, async () => {
     const { data, error } = await supabase
       .from('team_staff')
       .select('*')
@@ -555,6 +561,27 @@ export async function getTeamStaffAssignments(user) {
     }
 
     const acceptedAssignments = (data ?? []).map(normalizeTeamStaffRow)
+    if (includeMemberships && acceptedAssignments.length) {
+      const memberIds = [...new Set(acceptedAssignments.map((row) => row.userId))]
+      const memberships = new Map()
+      for (let index = 0; index < memberIds.length; index += 100) {
+        const { data: rows, error: membershipError } = await supabase.from('user_club_memberships')
+          .select('auth_user_id,email,name,username,role,role_label,role_rank')
+          .eq('club_id', user.clubId)
+          .in('auth_user_id', memberIds.slice(index, index + 100))
+        if (membershipError) throw membershipError
+        for (const row of rows ?? []) {
+          memberships.set(row.auth_user_id, {
+            id: row.auth_user_id, email: row.email, name: row.name, username: row.username,
+            role: row.role, roleLabel: row.role_label, roleRank: row.role_rank,
+          })
+        }
+      }
+      for (const assignment of acceptedAssignments) {
+        const staffProfile = memberships.get(assignment.userId)
+        if (staffProfile) assignment.staffProfile = staffProfile
+      }
+    }
 
     const nowIso = new Date().toISOString()
     const { data: pendingInvites, error: pendingInvitesError } = await supabase
@@ -609,7 +636,7 @@ export async function getTeamStaffAssignments(user) {
   })
 }
 
-export async function replaceTeamStaffAssignments(teamId, userIds) {
+export async function replaceTeamStaffAssignments(teamId, userIds, { removeUserId } = {}) {
   await blockDemoMutation()
 
   const normalizedUserIds = [...new Set((userIds ?? []).map((userId) => String(userId).trim()).filter(Boolean))]
@@ -640,6 +667,7 @@ export async function replaceTeamStaffAssignments(teamId, userIds) {
       teamId,
       userIds: acceptedUserIds,
       inviteIds: pendingInviteIds,
+      removeUserId,
     })
 
     invalidateMemoryCacheByPrefix('available-teams:')

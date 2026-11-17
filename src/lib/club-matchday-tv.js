@@ -100,12 +100,15 @@ export function activeTvSponsors(ads, today = clubTvDate()) {
 }
 
 // Explicit display DTO: never spread raw match/event records into the TV response.
-export function toClubTvMatch(row, clubId, { showYellowCards = true } = {}) {
+export function toClubTvMatch(row, clubId, { showYellowCards = true, showRedCards = true } = {}) {
   if (row?.club_id !== clubId || row.deleted_at || text(row.status).toLowerCase() === 'cancelled') return null
   const team = Array.isArray(row.teams) ? row.teams[0] : row.teams
   if (!team || team.club_id !== clubId) return null
+  const publicAnnouncements = team.tv_public_announcements !== false
   const events = (row.match_day_events ?? []).filter((event) =>
-    (['goal', 'red_card'].includes(event.event_type) || (showYellowCards && event.event_type === 'yellow_card'))
+    ((publicAnnouncements && event.event_type === 'goal')
+      || (showRedCards && event.event_type === 'red_card')
+      || (showYellowCards && event.event_type === 'yellow_card'))
     && ['club', 'opponent'].includes(event.team_side)
     && (!event.event_status || ['active', 'corrected'].includes(event.event_status))
     && event.match_phase !== 'penalties',
@@ -121,9 +124,12 @@ export function toClubTvMatch(row, clubId, { showYellowCards = true } = {}) {
     homeAway: row.home_away === 'away' ? 'away' : row.home_away === 'neutral' ? 'neutral' : 'home',
     matchDate: text(row.match_date), kickoff: text(row.kickoff_time).slice(0, 5), kickoffTbc: row.kickoff_time_tbc === true,
     venue: text(row.venue_name), status: text(row.status) || 'scheduled',
-    homeScore: number(row.home_score), awayScore: number(row.away_score),
-    homeShootoutScore: number(row.home_shootout_score), awayShootoutScore: number(row.away_shootout_score),
-    shootoutWinner: ['home', 'away'].includes(row.shootout_winner) ? row.shootout_winner : '',
+    publicAnnouncements, goalCelebrations: publicAnnouncements && team.tv_goal_celebrations !== false,
+    homeScore: publicAnnouncements ? number(row.home_score) : null,
+    awayScore: publicAnnouncements ? number(row.away_score) : null,
+    homeShootoutScore: publicAnnouncements ? number(row.home_shootout_score) : null,
+    awayShootoutScore: publicAnnouncements ? number(row.away_shootout_score) : null,
+    shootoutWinner: publicAnnouncements && ['home', 'away'].includes(row.shootout_winner) ? row.shootout_winner : '',
     timerStatus: text(row.timer_status), elapsed: Number.isFinite(Number(row.timer_elapsed_seconds)) ? Math.max(0, Math.min(86400, Number(row.timer_elapsed_seconds))) : 0,
     timerStartedAt: text(row.timer_started_at), phaseStartedAt: text(row.phase_started_at),
     clockMode: normalizeMatchClockMode(row.match_clock_mode),
@@ -147,6 +153,7 @@ export function tvMatchStatus(match, { showHalfTime = true } = {}) {
     return { label: match.status.toUpperCase(), kind: 'inactive' }
   }
   if (match.concluded || match.status === 'full_time' || match.timerStatus === 'full_time') {
+    if (match.publicAnnouncements === false) return { label: 'FULL TIME', kind: 'finished' }
     const winner = match.homeScore === match.awayScore
       ? match.shootoutWinner
       : match.homeScore > match.awayScore ? 'home' : 'away'
@@ -184,7 +191,8 @@ export function newTvGoals(previous, next) {
   const prior = new Map(previous.map((match) => [match.id, match]))
   return next.flatMap((match) => {
     const old = prior.get(match.id)
-    if (!old || (match.homeScore <= old.homeScore && match.awayScore <= old.awayScore)) return []
+    if (!old || old.goalCelebrations === false || match.goalCelebrations === false
+      || (match.homeScore <= old.homeScore && match.awayScore <= old.awayScore)) return []
     const ids = new Set(old.events.map((event) => event.id))
     return match.events.filter((event) => event.type === 'goal' && !ids.has(event.id)).map((event) => ({ match, event }))
   })
@@ -220,6 +228,7 @@ export function normalizeTvMatchDetails(saved) {
     showMatchClock: saved?.showMatchClock !== false,
     showHalfTime: saved?.showHalfTime !== false,
     showYellowCards: saved?.showYellowCards !== false,
+    showRedCards: saved?.showRedCards !== false,
   }
 }
 

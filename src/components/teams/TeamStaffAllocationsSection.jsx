@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useId, useState } from 'react'
 import { getRoleLabel } from '../../lib/auth.js'
 import { Pagination } from '../ui/Pagination.jsx'
 
@@ -27,6 +27,51 @@ const fieldClass = 'min-h-12 w-full rounded-lg border border-[#d7e5dc] bg-[#f7fa
 const secondaryButtonClass = 'inline-flex min-h-12 w-full items-center justify-center rounded-lg border border-[#d7e5dc] bg-white px-4 py-3 text-sm font-black text-[#101828] shadow-sm shadow-[#047857]/10 transition hover:border-[#047857] hover:bg-[#ecfdf5] disabled:cursor-not-allowed disabled:opacity-60'
 const panelClass = 'rounded-lg border border-[#d7e5dc] bg-[#f7faf8] shadow-sm shadow-[#047857]/10'
 
+const announcementsHelp = 'Turning this off hides scores, results and goal celebrations on Matchday TV. Live fixtures show In progress. Normal notifications still go out.'
+
+export function TeamTvSettingsFields({ settings, onChange, disabled = false }) {
+  const helpId = useId()
+  const [showHelp, setShowHelp] = useState(false)
+  return (
+    <fieldset className="mt-4 space-y-2 text-sm font-semibold text-[#101828]" disabled={disabled}>
+      <legend className="font-black">Matchday TV</legend>
+      <div className="flex flex-wrap items-center gap-2">
+        <label className="inline-flex items-center gap-2">
+          <input type="checkbox" checked={settings.tvPublicAnnouncements} aria-describedby={helpId}
+            onChange={(event) => onChange({ ...settings, tvPublicAnnouncements: event.target.checked })} />
+          Public Announcements
+        </label>
+        <button type="button" aria-label="About Public Announcements" aria-controls={helpId} aria-expanded={showHelp}
+          title={announcementsHelp} onClick={() => setShowHelp((visible) => !visible)}
+          className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-[#d7e5dc] font-black">
+          ?
+        </button>
+      </div>
+      <p id={helpId} className={showHelp ? bodyTextClass : 'sr-only'}>{announcementsHelp}</p>
+      <label className="flex items-center gap-2">
+        <input type="checkbox" checked={settings.tvGoalCelebrations}
+          onChange={(event) => onChange({ ...settings, tvGoalCelebrations: event.target.checked })} />
+        Show goal celebrations on Matchday TV
+      </label>
+    </fieldset>
+  )
+}
+
+export function TeamTvSettingsEditor({ team, isSaving, onSave }) {
+  const initial = { tvPublicAnnouncements: team.tvPublicAnnouncements !== false, tvGoalCelebrations: team.tvGoalCelebrations !== false }
+  const [settings, setSettings] = useState(initial)
+  const changed = settings.tvPublicAnnouncements !== initial.tvPublicAnnouncements || settings.tvGoalCelebrations !== initial.tvGoalCelebrations
+  return (
+    <>
+      <TeamTvSettingsFields settings={settings} onChange={setSettings} disabled={isSaving} />
+      <button type="button" className={`${secondaryButtonClass} mt-3 sm:w-auto`} disabled={isSaving || !changed}
+        onClick={() => void onSave(team.id, settings)}>
+        Save Matchday TV settings
+      </button>
+    </>
+  )
+}
+
 export function TeamStaffAllocationsSection({
   availableStaff,
   canDeleteTeam,
@@ -34,6 +79,7 @@ export function TeamStaffAllocationsSection({
   canRenameTeam,
   isLoading,
   isSaving,
+  matchdayTvSettings,
   onAddExistingStaff,
   onDeleteTeam,
   onRemoveStaff,
@@ -104,6 +150,7 @@ export function TeamStaffAllocationsSection({
               canManageStaffAllocations={canManageStaffAllocations}
               canRenameTeam={canRenameTeam}
               isSaving={isSaving}
+              matchdayTvSettings={matchdayTvSettings}
               onAddExistingStaff={onAddExistingStaff}
               onDeleteTeam={onDeleteTeam}
               onRemoveStaff={onRemoveStaff}
@@ -193,6 +240,7 @@ function SelectedTeamPanel({
   canManageStaffAllocations,
   canRenameTeam,
   isSaving,
+  matchdayTvSettings,
   onAddExistingStaff,
   onDeleteTeam,
   onRemoveStaff,
@@ -286,6 +334,7 @@ function SelectedTeamPanel({
               Save notification name
             </button>
           </div>
+          {matchdayTvSettings}
         </div>
         {canDeleteTeam ? (
           <button

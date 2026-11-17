@@ -53,6 +53,7 @@ test('DTO discards player identities, invalid shirts, voided events, shootout ev
   const display = toClubTvMatch(row, clubId)
   assert.deepEqual(display.events.map(({ id, shirt }) => ({ id, shirt })), [{ id: 'goal-1', shirt: '9' }, { id: 'red', shirt: '' }, { id: 'yellow', shirt: '' }])
   assert.deepEqual(toClubTvMatch(row, clubId, { showYellowCards: false }).events.map(({ id }) => id), ['goal-1', 'red'])
+  assert.deepEqual(toClubTvMatch(row, clubId, { showRedCards: false }).events.map(({ id }) => id), ['goal-1', 'yellow'])
   assert.doesNotMatch(JSON.stringify(display), /PRIVATE|scorer_name|assist_name|notes/)
   assert.doesNotMatch(CLUB_TV_MATCH_SELECT, /scorer_name|assist_name|initials|notes|players|\*/)
   assert.equal(toClubTvMatch(fixture({ club_id: otherClub }), clubId), null)
@@ -94,8 +95,8 @@ test('TV clock uses the scorer time and handles half-time, corrections and confi
   assert.equal(tvMatchClock({ ...display, timerStartedAt: '' }, now), null)
   assert.equal(tvMatchClock({ ...display, status: 'full_time' }, now), null)
   assert.equal(tvMatchClock({ ...display, status: 'scheduled' }, now), null)
-  assert.deepEqual(normalizeTvMatchDetails({ showMatchClock: false, showHalfTime: false, showYellowCards: false }),
-    { showMatchClock: false, showHalfTime: false, showYellowCards: false })
+  assert.deepEqual(normalizeTvMatchDetails({ showMatchClock: false, showHalfTime: false, showYellowCards: false, showRedCards: false }),
+    { showMatchClock: false, showHalfTime: false, showYellowCards: false, showRedCards: false })
 })
 
 test('completed results use the club perspective and confirmed shootout winner', () => {
@@ -125,6 +126,47 @@ test('initial loads and score corrections do not trigger goal celebrations', () 
   assert.equal(newTvGoals([old], [next]).length, 1)
   assert.deepEqual(newTvGoals([next], [old]), [])
   assert.deepEqual(newTvGoals([next], [next]), [])
+})
+
+test('the team celebration preference suppresses only new goal pop-ups', () => {
+  const previous = toClubTvMatch(fixture(), clubId)
+  const scored = fixture({ home_score: 2 })
+  scored.match_day_events.push({ id: 'goal-2', event_type: 'goal', team_side: 'club', minute: 22 })
+  const visible = toClubTvMatch(scored, clubId)
+  assert.deepEqual(newTvGoals([previous], [visible]).map(({ event }) => event.id), ['goal-2'])
+  const muted = toClubTvMatch({ ...scored, teams: { ...scored.teams, tv_goal_celebrations: false } }, clubId)
+  assert.equal(muted.homeScore, 2)
+  assert.deepEqual(muted.events, visible.events)
+  assert.deepEqual(newTvGoals([previous], [muted]), [])
+  assert.deepEqual(newTvGoals([{ ...previous, goalCelebrations: false }], [visible]), [])
+})
+
+test('legacy team rows keep TV announcements and managed writes can opt out', async (t) => {
+  const db = new PGlite()
+  t.after(() => db.close())
+  await db.exec(`
+    create role anon;
+    create role authenticated;
+    create role service_role;
+    create schema app_private;
+    create table public.teams (id integer primary key, name text);
+    grant select, insert, update on public.teams to authenticated, service_role;
+    insert into public.teams values (1, 'Existing team');
+  `)
+  await db.exec(await readFile(new URL('../supabase/migrations/20261117093242_v1_team_matchday_tv_announcements.sql', import.meta.url), 'utf8'))
+  await db.exec('set role authenticated')
+  await db.exec("update public.teams set name = 'Team renamed' where id = 1")
+  await db.exec("insert into public.teams (id, name) values (2, 'Second team')")
+  await assert.rejects(db.exec('update public.teams set tv_public_announcements = false where id = 1'), { code: '42501' })
+  await assert.rejects(db.exec("insert into public.teams (id, name, tv_goal_celebrations) values (3, 'Blocked', false)"), { code: '42501' })
+  await db.exec('set role service_role')
+  await db.exec("insert into public.teams (id, name, tv_public_announcements) values (3, 'Private team', false)")
+  await db.exec('update public.teams set tv_goal_celebrations = false where id = 1')
+  assert.deepEqual((await db.query('select id, tv_public_announcements, tv_goal_celebrations from public.teams order by id')).rows, [
+    { id: 1, tv_public_announcements: true, tv_goal_celebrations: false },
+    { id: 2, tv_public_announcements: true, tv_goal_celebrations: true },
+    { id: 3, tv_public_announcements: false, tv_goal_celebrations: true },
+  ])
 })
 
 test('score feed authenticates requested club then queries only its date and active matches, with pagination', async () => {
@@ -371,6 +413,7 @@ test('private Matchday TV settings and aliases are saved atomically by authorize
   await db.exec('set role service_role')
 
   const clubPlan = { status: 'active', plan_key: 'pilot', plan_status: 'active', is_plan_comped: true }
+  let showTeamAnnouncements = true
   const storedArtwork = new Map()
   const client = {
     storage: {
@@ -386,7 +429,11 @@ test('private Matchday TV settings and aliases are saved atomically by authorize
     from(table) {
       if (table === 'match_days') {
         const match = fixture({ venue_name: 'Pitch 7, club venue details' })
+        match.teams.tv_public_announcements = showTeamAnnouncements
+        match.home_shootout_score = 7
+        match.shootout_winner = 'home'
         match.match_day_events.push({ id: 'booking', event_type: 'yellow_card', team_side: 'club', minute: 15 })
+        match.match_day_events.push({ id: 'sending-off', event_type: 'red_card', team_side: 'opponent', minute: 29 })
         return clientFor([match]).from(table)
       }
       if (table === 'clubs') {
@@ -475,7 +522,7 @@ test('private Matchday TV settings and aliases are saved atomically by authorize
   assert.equal((await endpoint({ httpMethod: 'GET' })).statusCode, 405)
   const anonymousFeed = () => request(undefined, { slug: 'cedar-fc', date: '2026-10-21' })
   assert.equal((await anonymousFeed()).status, 401)
-  const matchDetails = { showMatchClock: false, showHalfTime: true, showYellowCards: false }
+  const matchDetails = { showMatchClock: false, showHalfTime: true, showYellowCards: false, showRedCards: false }
   assert.equal((await save(cedarfield, null, 2, { ...preferences, accessMode: 'public', ...matchDetails })).status, 200)
   const publicView = await view(undefined, 'cedar-fc')
   assert.equal(publicView.status, 200)
@@ -491,7 +538,17 @@ test('private Matchday TV settings and aliases are saved atomically by authorize
   assert.equal(feed.matches[0].venue, '7')
   assert.deepEqual(feed.matchDetails, matchDetails)
   assert.equal(feed.matches[0].events.some(({ type }) => type === 'yellow_card'), false)
+  assert.equal(feed.matches[0].events.some(({ type }) => type === 'red_card'), false)
   assert.doesNotMatch(JSON.stringify(feed), /club venue details|PRIVATE PLAYER/)
+  showTeamAnnouncements = false
+  const privateTeam = (await anonymousFeed()).matches[0]
+  assert.deepEqual([privateTeam.homeScore, privateTeam.awayScore, privateTeam.homeShootoutScore, privateTeam.awayShootoutScore], [null, null, null, null])
+  assert.equal(privateTeam.shootoutWinner, '')
+  assert.equal(privateTeam.goalCelebrations, false)
+  assert.deepEqual(privateTeam.events, [])
+  assert.equal(privateTeam.opponent, 'Visitors')
+  assert.deepEqual(tvMatchStatus({ ...privateTeam, concluded: true }), { label: 'FULL TIME', kind: 'finished' })
+  showTeamAnnouncements = true
   assert.equal((await request(undefined, { action: 'weather', slug: 'cedar-fc', postcode: 'SW1A 1AA' })).status, 200)
   assert.equal(receivedPostcode, 'CB236FY')
   clubPlan.status = 'suspended'

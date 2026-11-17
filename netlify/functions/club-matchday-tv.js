@@ -6,7 +6,7 @@ import { isClubWorkspace } from '../../src/lib/workspace-scope.js'
 import { activeTvSponsors, clubTvDate, clubTvSlugStatus, isTvSponsorPath, normalizeClubTvSlug, normalizeTvMatchDetails, normalizeTvPreferences, toClubTvMatch, TV_SPONSOR_BUCKET, TV_SPONSOR_EXTENSIONS, TV_SPONSOR_MAX_BYTES, tvPitchNumber, validTvSponsorSchedule, tvDateAfter, tvUpcomingPeriodWindow } from '../../src/lib/club-matchday-tv.js'
 import { getClubTvWeather, normaliseWeatherPostcode } from './lib/_club-tv-weather.js'
 
-export const CLUB_TV_MATCH_SELECT = 'id,club_id,team_id,opponent,match_date,kickoff_time,kickoff_time_tbc,home_away,venue_name,status,home_score,away_score,home_shootout_score,away_shootout_score,shootout_winner,timer_status,timer_elapsed_seconds,timer_started_at,phase_started_at,match_clock_mode,match_duration_minutes,concluded_at,deleted_at,teams:team_id(id,club_id,name),match_day_events(id,event_type,team_side,minute,stoppage_minute,scorer_shirt_number,event_status,match_phase,created_at)'
+export const CLUB_TV_MATCH_SELECT = 'id,club_id,team_id,opponent,match_date,kickoff_time,kickoff_time_tbc,home_away,venue_name,status,home_score,away_score,home_shootout_score,away_shootout_score,shootout_winner,timer_status,timer_elapsed_seconds,timer_started_at,phase_started_at,match_clock_mode,match_duration_minutes,concluded_at,deleted_at,teams:team_id(id,club_id,name,tv_public_announcements,tv_goal_celebrations),match_day_events(id,event_type,team_side,minute,stoppage_minute,scorer_shirt_number,event_status,match_phase,created_at)'
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const reply = (statusCode, payload) => ({ statusCode, headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'private, no-store, max-age=0', 'X-Content-Type-Options': 'nosniff' }, body: JSON.stringify(payload) })
 const settingsActions = new Set(['settings', 'availability', 'save', 'sponsorUpload'])
@@ -38,7 +38,7 @@ async function findLinkedClub(client, value) {
 
 async function readTvAccess(client, clubId) {
   const { data, error } = await client.from('club_matchday_tv_settings')
-    .select('access_mode:preferences->>accessMode,weather_postcode:preferences->>weatherPostcode,showMatchClock:preferences->showMatchClock,showHalfTime:preferences->showHalfTime,showYellowCards:preferences->showYellowCards')
+    .select('access_mode:preferences->>accessMode,weather_postcode:preferences->>weatherPostcode,showMatchClock:preferences->showMatchClock,showHalfTime:preferences->showHalfTime,showYellowCards:preferences->showYellowCards,showRedCards:preferences->showRedCards')
     .eq('club_id', clubId).maybeSingle()
   if (error) throw error
   return data
