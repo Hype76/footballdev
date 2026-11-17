@@ -235,7 +235,7 @@ test('the installed ESLint flat-configuration dependency supports its public ESM
   assert.equal(config.isFileIgnored(path.join(root, 'src', 'index.js')), false)
 })
 
-test('glob 14.0.6 changes only the reviewed package in each lock graph', () => {
+test('glob 14.0.6 and minimatch 11.0.9 change only the reviewed entries in each lock graph', () => {
   const candidate = '10d0e739f0ae06fb4577cde6931e00f9b8a56ef8'
   for (const scope of ['.', 'apps/coach-mobile', 'apps/parent-mobile']) {
     const prefix = scope === '.' ? '' : `${scope}/`
@@ -246,6 +246,14 @@ test('glob 14.0.6 changes only the reviewed package in each lock graph', () => {
     assert.equal(reviewed.integrity, 'sha512-OwXjVP2svY5EyLY75Vek96C8qK43gqrt4xsZ+qSILdnaEiJPXkd62mcfUSNx/TQErQRdu5uM5kF67sfONragKw==')
     assert.equal(before.packages['node_modules/glob'].version, '14.0.5')
     before.packages['node_modules/glob'] = reviewed
-    assert.deepEqual(after, before, `${scope}: only the glob package may change`)
+    const previousMinimatch = before.packages['node_modules/minimatch']
+    assert.equal(previousMinimatch.version, '11.0.8')
+    before.packages['node_modules/minimatch'] = {
+      ...previousMinimatch,
+      version: '11.0.9',
+      resolved: 'https://registry.npmjs.org/minimatch/-/minimatch-11.0.9.tgz',
+      integrity: 'sha512-KCFkfyjqerNlSstjlhIGNXIKZGA/6O4V4RlhZ+Dsr621SPPw0mzlypE9D9ZOoPiVefHID+j7/XuMMlqfD/F60Q==',
+    }
+    assert.deepEqual(after, before, `${scope}: only the exact glob and minimatch changes are permitted`)
   }
 })
