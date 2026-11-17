@@ -2237,7 +2237,6 @@ function createCoachStyles(palette) {
     tabSelected: { borderTopColor: palette.accentText },
     tabText: { color: palette.textMuted, fontSize: 10, fontWeight: '800', textAlign: 'center' },
     tabTextSelected: { color: palette.accentText },
-    testBadge: { backgroundColor: palette.accent, borderRadius: 999, paddingHorizontal: 9, paddingVertical: 5 },
-    testBadgeText: { color: palette.accentForeground, fontSize: 10, fontWeight: '900', letterSpacing: 0.6 },
+    testBadgeText: { color: palette.textPrimary, fontSize: 11, fontWeight: '900', letterSpacing: 0.3 },
   })
 }
