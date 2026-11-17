@@ -68,6 +68,7 @@ await page.getByText('parent@example.test',{exact:true}).waitFor();
 await page.getByText('parent@example.test',{exact:true}).scrollIntoViewIfNeeded();
 await page.screenshot({path:'output/playwright/parent-event-details/profile-redesign.png',fullPage:true});
 await page.evaluate(()=>window.offline(true));
+await page.waitForFunction(() => document.querySelector('[aria-label="Save display name"]')?.getAttribute('aria-disabled') === 'true');
 assert.equal(await saveName.isDisabled(),true);
 await page.evaluate(()=>window.offline(false));
 await page.evaluate(()=>{window.tab('calendar');window.clear()});await page.getByRole('heading',{name:'Calendar',exact:true}).waitFor();assert.equal(await page.getByRole('button',{name:'Open Training schedule',exact:true}).count(),0);assert.deepEqual(errors,[]);console.log('PASS: actual Home and Calendar open training, meetings and events with scoped attendance and reminder responses; UK resource dates/order, attachments, directions, player reset, revocation, offline and 320/390px light/dark verified')

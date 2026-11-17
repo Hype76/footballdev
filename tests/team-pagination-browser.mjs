@@ -66,6 +66,8 @@ try {
   const publicAnnouncements = page.getByRole('checkbox', { name: 'Public Announcements', exact: true })
   const goalCelebrations = page.getByRole('checkbox', { name: 'Show goal celebrations on Matchday TV' })
   const saveTv = page.getByRole('button', { name: 'Save Matchday TV settings' })
+  await Promise.all([publicAnnouncements.waitFor(), goalCelebrations.waitFor(), saveTv.waitFor()])
+  await page.evaluate(() => document.fonts.ready)
   for (const width of [1346, 768, 390]) {
     await page.setViewportSize({ width, height: 840 })
     const rows = await page.getByRole('checkbox').evaluateAll(boxes => boxes.map(box => {

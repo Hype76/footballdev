@@ -559,7 +559,7 @@
   "implementationHashes": {
     "scripts/security-supply-chain-gate.mjs": "dcf722bc6cbf2015da4250ea60cbb81e34d3c5c64ec7bb6059671cbae5ab4207",
     "scripts/security-apply-reviewed-backports.mjs": "7f0e9de0add15a121a0f60f89f71656b503450010b8b9c8d4aaf58bc355fc5ec",
-    "scripts/security-verify-reviewed-backports.mjs": "44b99f5c9ff39fdb6ae2ba68568ee21743b1c541515d309a447e13dbce60442b",
+    "scripts/security-verify-reviewed-backports.mjs": "414087c2171927c208830a53b10e9bb54ed1e052a15258b8d9f94503da9217c8",
     "security/patches/braces-3.0.3.patch": "e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699",
     "security/patches/node-forge-1.4.0.patch": "2de065ac998bf58917a14d0935112d97ec2957ac41b5f06958d500934f188ed4",
     "security/patches/reviewed-source-manifest.json": "52d0b296071182c7354d87fdff4140270c59f6de90112eeda9feb6ded66cc600",
@@ -1877,7 +1877,7 @@
       "tests/parent-development-progression-browser.mjs": "4408c03a9b6af88389b9d5c5ed8169215c517e0082e761311a9865c324379eb6",
       "tests/parent-development-progression.test.mjs": "1450a7325736d5e09cdd3fbf52b73bd8229a6c86738412843c7257a197b243a4",
       "tests/parent-email-change-linkflow.test.mjs": "7ee5082c4645a11f6ad7f2ac47f1f1f5be22cef1528378924e331ff1410ae322",
-      "tests/parent-event-details-browser.mjs": "3657e9cecd95ddddba37a6ff51995a21a3703010b745426d8205d805c4d38a8a",
+      "tests/parent-event-details-browser.mjs": "159be42331a2779e070d42735074020d822189da18906e5e5392de5eda97efa9",
       "tests/parent-fixture-date-layout-browser.mjs": "fa4e29b6e29bf039a0499bd6d583f32de8cbf7d007c75275822cea4821bbc256",
       "tests/parent-gameplay-notifications-followup.test.mjs": "63fa44e11a212854078a46fc84504885b19f17736d0cd81e1ac9690aa85dddbc",
       "tests/parent-home-sections-browser.mjs": "e19a041de0c8c45026b4c06ced0f2a7892521ca3e09c6d4a65f8a8f5310ee1d8",
@@ -2362,7 +2362,7 @@
       "netlify/functions/manage-team.js": "531bafaed1ae82548dd9d8cfade4f8598ee1c42b85a6d6d8760fa4cebccc164f",
       "src/lib/domain/team-normalizers.js": "69e0cfb26370d429e4c8dde17289c95cd30d51805cb426c7de3bae745b6c5f09",
       "tests/club-team-context.test.mjs": "6761f6403d943bd2d8ec8bd6e3f4817dfee544b1c43a6fccb22274df2dd837f6",
-      "tests/team-pagination-browser.mjs": "caad53419482d30b4fa1d77bb3585a828707077f7c1f5d7bf2849e9c54bc25d1",
+      "tests/team-pagination-browser.mjs": "ed07aebbdd4c8cf3558ca7414e2d446bdd16b4332cc36e4514eb067033f2111e",
       "supabase/migrations/20261117093242_v1_team_matchday_tv_announcements.sql": "590a827b7770a05c5c1e444a007364f0e1e10f7fac8966982dd13817910cc130",
       "apps/parent-mobile/src/parentScorerCore.js": "22696ccfdb96ca1db5ec71d4ca2dbfb472fae96438d7f0c116e62c0c677fef33",
       "tests/guest-scorer-parity.test.mjs": "808c061fccc35b326b6a3d23b3501b7c0864383faa6e8d1a0133a9c1f647bee8",
@@ -2372,7 +2372,7 @@
       "apps/mobile-core/src/PinnedEventNotes.js": "434fb905f70f27be972ffc3ab8c0a6f29092d42c1d72588ea1bf437ed9b60b47",
       "apps/mobile-core/src/ClubFeatureWave.js": "b53eb3ccabdff866d88d64827e73ceb64b3f7776780f6e04cc6fe80a5fcb1da2",
       "apps/parent-mobile/src/parentMatchAvailability.js": "52cb36d354325a6bf140b0971c94b0822ed3f0e74756dd4dd829d126daa45004",
-      "tests/coach-chat-communities-browser.mjs": "3a16feb33b711e63fd6fc540e0f1f900a91c77903b94ead7c43b7feab6949f98",
+      "tests/coach-chat-communities-browser.mjs": "0211e7875b2992bdce7442ef3fd3de921594327157c4be837dd9de66360a0563",
       "tests/parent-match-availability.test.mjs": "6459ddee370a505159d77689e952208d8bb6f06c82cc30c8141ad06a67421bde",
       "supabase/migrations/20261117123700_v1_discover_linked_staff_workspaces.sql": "d513b91995530ef9c8acb760358c139234ceeb635d5c35e67457376e3ea409a1",
       "tests/linked-staff-workspaces-pglite.test.mjs": "406e3edaf5a89fdd5d902874c73cebee2a7d0a71724d9f23a0d3556c314f0af8"
@@ -3860,7 +3860,7 @@
     },
     "toolingRequalification20261117": "Qualify official minimatch 11.0.9 JavaScript tooling across all three scopes. Lock changes are limited to minimatch; direct and native dependencies, Expo runtime, reviewed package patches and audit rules are retained."
   },
-  "releasePreparationSha256": "221e3132e19a4a3c01bd40e590560db9676a30b9d396768f5b35d615e29508de",
+  "releasePreparationSha256": "ca00c8ed2818c514740b2f57575984e07c972fda424e351d869da4cb2afc1995",
   "rootOnlyProposalSha256": "45c3b7352c7328c84982e114b7e87e09cf79514d02d102297ae75ec0925812eb",
   "remediationMode": "maintained-source-fixes",
   "officialCompatibilityDependencies": [

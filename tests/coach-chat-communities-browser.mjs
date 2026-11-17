@@ -119,6 +119,7 @@ try {
   await page.getByRole('button', { name: 'Back to conversations' }).click()
   await page.getByText('3 community conversations.', { exact: true }).waitFor()
   await page.evaluate(() => window.setStale(true))
+  await page.waitForFunction(() => document.querySelector('[aria-label="Mark all as read (1)"]')?.getAttribute('aria-disabled') === 'true')
   assert.equal(await markAll.isDisabled(), true)
   assert.deepEqual(errors, [])
   console.log('PASS: Coach communities, club palette switch, phone widths and contrast, mark read, open, send and back with synthetic messages.')
