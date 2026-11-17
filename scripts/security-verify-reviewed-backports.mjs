@@ -53,13 +53,15 @@ export function verifyReleasePreparation(root, preparation) {
   const text = preparation.changedSourceHashes, binary = preparation.binarySourceHashes
   assert.ok(text && binary && typeof text === 'object' && typeof binary === 'object' && !Array.isArray(text) && !Array.isArray(binary), 'Invalid release source inventories')
   for (const [file, expected] of Object.entries(text)) { assert.ok(!Object.hasOwn(binary, file), 'Ambiguous source hash mode'); assert.match(expected, /^[a-f0-9]{64}$/); assert.equal(textHash(fs.readFileSync(safe(root, file))), expected, 'Approved source drift: ' + file) }
-  const liveMatchBadges = new Set([
+  const permittedMobileAssets = new Set([
     'apps/coach-mobile/widgets/Assets.xcassets/FootballPlayerFallback.imageset/football-player-logo.png',
     'apps/parent-mobile/widgets/Assets.xcassets/FootballPlayerFallback.imageset/football-player-logo.png',
     'apps/mobile-core/modules/live-match/android/src/main/res/drawable-nodpi/football_player_fallback.png',
     'apps/mobile-core/assets/football-player-logo-grey.png',
+    'apps/mobile-core/assets/matchday-stadium.jpg',
+    'apps/mobile-core/assets/club-feature-wave.png',
   ])
-  for (const [file, expected] of Object.entries(binary)) { assert.ok(file.startsWith('public/marketing-v70/') || file === 'public/club-tv-goal-alerts.webp' || liveMatchBadges.has(file), 'Binary asset scope changed'); assert.match(expected, /^[a-f0-9]{64}$/); assert.equal(hash(fs.readFileSync(safe(root, file))), expected, 'Approved binary asset drift: ' + file) }
+  for (const [file, expected] of Object.entries(binary)) { assert.ok(file.startsWith('public/marketing-v70/') || file === 'public/club-tv-goal-alerts.webp' || permittedMobileAssets.has(file), 'Binary asset scope changed'); assert.match(expected, /^[a-f0-9]{64}$/); assert.equal(hash(fs.readFileSync(safe(root, file))), expected, 'Approved binary asset drift: ' + file) }
 }
 export function verifyMaintainedAuthority(record) {
   assert.equal(record.schemaVersion, 2, 'Maintained source schema is required')
@@ -73,7 +75,7 @@ export function loadRecord(root) {
   assert.equal(record.baseline, '864a6ad3856a02b65ec33bfe8e952e6f98d13dbd')
   assert.equal(record.adoptionProposalSha256, '68004fda2313a1da01b73d5a506028d42f8db92d8ee0afaaea442dfa6148e7b1', 'Maintained source policy identity changed')
   assert.equal(hash(fs.readFileSync(safe(root, 'security/maintained-source-policy.json'))), record.adoptionProposalSha256, 'Maintained source policy evidence drift')
-  assert.equal(record.releasePreparationSha256, "3f7901c04d34c3d48e981bd4f4cf2ebc941464f4f97414ce09dd4de122814be9", 'Release preparation scope drift')
+  assert.equal(record.releasePreparationSha256, "010695cf03e2232d51d2f0305a4218e763432a5074b85769a51000eeb009db0f", 'Release preparation scope drift')
   assert.equal(hash(Buffer.from(JSON.stringify(record.releasePreparation, null, 2) + '\n')), record.releasePreparationSha256, 'Release preparation pins drift')
   assert.equal(record.releasePreparation.baseline, record.baseline, 'Release preparation baseline mismatch')
   verifyReleasePreparation(root, record.releasePreparation)

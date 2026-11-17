@@ -8,6 +8,19 @@ export function getParentMatchAttendanceInvitation(match, invitations = [], link
     && invitation.childId === link.playerId) || null
 }
 
+export function getParentMatchVolunteerInvitations(match, invitations = [], link = {}, now = Date.now()) {
+  if (!match?.id || !link?.id || link.linkType !== 'parent' || match.isFanView || match.concludedAt
+    || ['cancelled', 'postponed', 'full_time'].includes(match.status)) return []
+  return invitations.filter(invitation => invitation.invitationType === 'match_role'
+    && invitation.eventId === match.id
+    && invitation.parentLinkId === link.id
+    && invitation.childId === link.playerId
+    && Boolean(invitation.sourceRecordId)
+    && ['active', 'offered'].includes(invitation.invitationState)
+    && (invitation.canRespond || invitation.canChangeResponse)
+    && (!invitation.responseDeadline || Date.parse(invitation.responseDeadline) > now))
+}
+
 export function canChangeParentMatchAvailability(match, invitation, link = {}, now = Date.now()) {
   return Boolean(link.linkType === 'parent' && !match?.isFanView
     && invitation?.parentLinkId === link.id && invitation?.childId === link.playerId

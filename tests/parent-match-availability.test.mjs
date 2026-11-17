@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import { readFile } from 'node:fs/promises'
 import { parse } from '@babel/parser'
-import { canChangeParentMatchAvailability, getParentMatchAttendanceInvitation, getParentMatchAvailability, getParentMatchSquadStatus } from '../apps/parent-mobile/src/parentMatchAvailability.js'
+import { canChangeParentMatchAvailability, getParentMatchAttendanceInvitation, getParentMatchAvailability, getParentMatchSquadStatus, getParentMatchVolunteerInvitations } from '../apps/parent-mobile/src/parentMatchAvailability.js'
 const link = { id: 'parent', playerId: 'child', linkType: 'parent' }
 const match = { id: 'match', status: 'scheduled' }
 const invitation = { parentLinkId: 'parent', childId: 'child', eventId: 'match', invitationType: 'match_attendance', sourceRecordId: 'request', invitationState: 'active', canRespond: true }
@@ -24,6 +24,21 @@ test('edit requires exact authorised Parent attendance request and a live respon
     assert.equal(canChangeParentMatchAvailability(match,invitation,{...link,linkType}),false)
   }
   for (const patch of [{status:'cancelled'},{status:'postponed'},{status:'full_time'},{concludedAt:'2026-09-16'},{isFanView:true}]) assert.equal(canChangeParentMatchAvailability({...match,...patch},invitation,link),false)
+})
+
+test('fixture volunteer entry is limited to live requests for the selected parent and player', () => {
+  const now = Date.parse('2026-11-17T11:00:00Z')
+  const role = { ...invitation, invitationType: 'match_role', responseDeadline: '2026-11-17T12:00:00Z' }
+  const unrelated = [
+    invitation, { ...role, eventId: 'different-match' }, { ...role, parentLinkId: 'different-link' },
+    { ...role, childId: 'different-player' }, { ...role, invitationState: 'withdrawn' },
+    { ...role, responseDeadline: '2026-11-17T11:00:00Z' }, { ...role, canRespond: false },
+  ]
+  assert.deepEqual(getParentMatchVolunteerInvitations(match, [...unrelated, role], link, now), [role])
+  assert.deepEqual(getParentMatchVolunteerInvitations(match, [role], { ...link, linkType: 'fan' }, now), [])
+  for (const state of [{ status: 'full_time' }, { status: 'postponed' }, { status: 'cancelled' }, { isFanView: true }]) {
+    assert.deepEqual(getParentMatchVolunteerInvitations({ ...match, ...state }, [role], link, now), [])
+  }
 })
 
 const dataSource = await readFile(new URL('../apps/parent-mobile/src/parentPortalData.js', import.meta.url),'utf8')
