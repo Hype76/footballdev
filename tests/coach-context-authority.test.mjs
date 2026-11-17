@@ -1,0 +1,149 @@
+import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
+import test from 'node:test'
+import { createCoachContextAuthority } from '../apps/coach-mobile/src/coachContextAuthorityCore.js'
+import { createMobileResourceCache, mobileResourceCache, readMobileResource } from '../apps/mobile-core/src/mobileResourceCache.js'
+
+const user = { id: 'simon', clubId: 'cached-club' }
+const context = { id: 'team:jpl', clubId: 'jpl', teamId: 'jpl-team' }
+const deferred = () => { let resolve; const promise = new Promise(done => { resolve = done }); return { promise, resolve } }
+
+test('restored, cached same-club selections and foreground returns always reactivate server authority before reads', async () => {
+ let serverClub = 'other-device-club'
+ const calls = []
+ let release
+ const authority = createCoachContextAuthority(async club => { calls.push(club); await release.promise; serverClub = club; return {} })
+ const scoped = { ...user, clubId: context.clubId, waitForCoachAuthority: () => authority.waitForRead(user.id, context.id) }
+ for (const source of ['startup', 'same-club selection', 'resume']) {
+  serverClub = 'other-device-club'
+  release = deferred()
+  const activation = authority.synchronize({ user: scoped, context })
+  let readStarted = false
+  const read = readMobileResource(scoped, 'coach:players:' + source, () => { readStarted = true; assert.equal(serverClub, context.clubId); return ['player'] }, { force: true })
+  await Promise.resolve(); await Promise.resolve()
+  assert.equal(readStarted, false)
+  release.resolve()
+  await activation
+  assert.deepEqual(await read, ['player'])
+ }
+ assert.deepEqual(calls, ['jpl', 'jpl', 'jpl'])
+})
+
+test('a newer selection serializes activation and rejects older account/context completions', async () => {
+ const first = deferred()
+ const started = deferred()
+ const calls = []
+ const authority = createCoachContextAuthority(async club => { calls.push(club); if (club === 'jpl') { started.resolve(); await first.promise }; return {} })
+ const old = authority.synchronize({ user, context })
+ await started.promise
+ const other = { id: 'team:other', clubId: 'other' }
+ const next = authority.synchronize({ user, context: other })
+ const rejected = assert.rejects(old, { code: 'coach_context_changed' })
+ first.resolve(); await rejected; await next
+ assert.deepEqual(calls, ['jpl', 'other'])
+ await assert.rejects(authority.waitForRead(user.id, context.id), { code: 'coach_context_changed' })
+ let current = true
+ const pending = deferred()
+ const accountAuthority = createCoachContextAuthority(async () => { await pending.promise; return {} })
+ const oldAccount = accountAuthority.synchronize({ user, context, isCurrent: () => current })
+ await Promise.resolve(); current = false; pending.resolve()
+ await assert.rejects(oldAccount, { code: 'coach_context_changed' })
+})
+
+test('only connection errors allow offline cache mode and cannot run network loaders', async () => {
+ for (const error of [new TypeError('Network request failed'), new Error('Failed to fetch')]) {
+  const authority = createCoachContextAuthority(async () => { throw error })
+  assert.equal((await authority.synchronize({ user, context })).offline, true)
+  await assert.rejects(authority.waitForRead(user.id, context.id), /offline/)
+ }
+ for (const error of [Object.assign(new Error('permission denied'), { code: '42501' }), Object.assign(new Error('connection denied'), { status: 403 }), new Error('unexpected response')]) {
+  const authority = createCoachContextAuthority(async () => ({ error }))
+  await assert.rejects(authority.synchronize({ user, context }), error)
+ }
+ let calls = 0
+ const authority = createCoachContextAuthority(async () => { calls++; return {} })
+ assert.equal((await authority.synchronize({ user: { ...user, isOfflineProfile: true }, context })).offline, true)
+ assert.equal(calls, 0)
+})
+
+test('resume uses the real App callback without changing the mounted draft gate', async () => {
+ const source = readFileSync('apps/coach-mobile/App.js', 'utf8')
+ const start = source.indexOf('async (context, { preserveView = false } = {}) => {')
+ const end = source.indexOf('}, [contextAuthority, user])', start)
+ assert.ok(start >= 0 && end > start)
+ const pending = deferred()
+ const readyChanges = []
+ const dependencies = { authorityRequestRef: { current: 0 }, user, authorityUserIdRef: { current: user.id }, contextAuthorityReadyRef: { current: true }, setContextReady: value => readyChanges.push(value), requestIdRef: { current: 0 }, contextAuthority: { synchronize: () => pending.promise }, setContextAuthorityOffline() {} }
+ const synchronize = new Function(...Object.keys(dependencies), 'return (' + source.slice(start, end + 1) + ')')(...Object.values(dependencies))
+ const resume = synchronize(context, { preserveView: true })
+ assert.deepEqual(readyChanges, [])
+ pending.resolve({ offline: false }); await resume
+ assert.deepEqual(readyChanges, [])
+ assert.match(source, /synchronizeContextAuthority\(activeContext, \{ preserveView: true \}\)/)
+ // Startup and explicit selection still hold the existing loading boundary.
+ await synchronize(context)
+ assert.deepEqual(readyChanges, [false])
+})
+
+test('ordinary cache and Parent resources keep their existing loader behavior', async () => {
+ const cache = createMobileResourceCache()
+ let reads = 0
+ assert.equal(await cache.read('key', () => ++reads), 1)
+ assert.equal(await cache.read('key', () => ++reads), 1)
+ assert.equal(await readMobileResource({ id: 'parent', waitForCoachAuthority: () => { throw new Error('must not gate parent') } }, 'parent:links', () => 'links'), 'links')
+ mobileResourceCache.clear()
+})
+
+
+test('a response started before reactivation cannot publish into the current Coach cache', async () => {
+ const authority = createCoachContextAuthority(async () => ({}))
+ const scoped = { ...user, waitForCoachAuthority: () => authority.waitForRead(user.id, context.id), getCoachAuthorityGeneration: () => authority.getGeneration() }
+ await authority.synchronize({ user, context })
+ const pending = deferred(), started = deferred()
+ const old = readMobileResource(scoped, 'coach:delayed-players', async () => { started.resolve(); return pending.promise }, { force: true })
+ await started.promise
+ await authority.synchronize({ user, context })
+ const next = readMobileResource(scoped, 'coach:delayed-players', () => ['current'], { force: true })
+ pending.resolve(['old'])
+ await assert.rejects(old, /workspace changed/)
+ assert.deepEqual(await next, ['current'])
+})
+
+for (const name of ['useCoachDevelopmentSync', 'useCoachMatchDayBackgroundSync']) test(name + ' actual resume runner waits for activation before direct domain work', async () => {
+ const source = readFileSync('apps/coach-mobile/src/' + name + '.js', 'utf8').replace(/^import .+\r?\n/gm, '').replace(/^export /gm, '')
+ const activation = deferred(), completed = deferred()
+ let reads = 0, cleanup
+ const scoped = { ...user, waitForCoachAuthority: () => activation.promise }
+ const dependencies = {
+  useEffect: callback => { cleanup = callback() }, AppState: { currentState: 'active', addEventListener: () => ({ remove() {} }) },
+  setInterval: () => 1, clearInterval() {},
+  subscribeDevelopmentSync: () => () => {}, syncCoachDevelopmentDrafts: async () => { reads++; completed.resolve() },
+  getPendingCoachMatchDays: async () => { reads++; completed.resolve(); return [] },
+ }
+ const hook = new Function(...Object.keys(dependencies), source + '; return ' + name)(...Object.values(dependencies))
+ hook({ user: scoped, contexts: [context], enabled: true })
+ await Promise.resolve(); assert.equal(reads, 0)
+ activation.resolve(); await completed.promise
+ assert.equal(reads, 1); cleanup()
+})
+
+
+test('actual offline preparation waits for activation and fences an older preparation generation', async () => {
+ const source = readFileSync('apps/coach-mobile/src/useCoachOfflinePreparation.js', 'utf8')
+ const start = source.indexOf('async isCurrent => {'), end = source.indexOf('\n      },', start)
+ const activation = deferred(), started = deferred(), work = deferred()
+ let generation = 1, writes = 0
+ const dependencies = {
+  user: { ...user, clubId: context.clubId, waitForCoachAuthority: () => activation.promise, getCoachAuthorityGeneration: () => generation },
+  InteractionManager: { runAfterInteractions: resolve => resolve() }, availableContexts: [context], isMatchdayPlan: () => false,
+  activeContextId: { current: context.id }, refreshHomeRef: { current: null }, activeInvitesRef: { current: false },
+  applyCoachContext: value => value, overviewDependencies: {}, dependencies: {},
+  prepareCoachTeamOverview: async ({ isCurrent }) => { started.resolve(); await work.promise; if (isCurrent()) writes++ }, prepareCoachOfflineData: async () => {},
+ }
+ const run = new Function(...Object.keys(dependencies), 'return (' + source.slice(start, end + 8) + ')')(...Object.values(dependencies))
+ const pending = run(() => true)
+ await Promise.resolve(); assert.equal(writes, 0)
+ activation.resolve(); await started.promise
+ generation++; work.resolve(); await pending
+ assert.equal(writes, 0)
+})

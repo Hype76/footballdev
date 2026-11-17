@@ -4,7 +4,7 @@ import { execFileSync, spawnSync } from 'node:child_process'
 import os from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
-import { hardeningMigrationScope, matchesHardeningMigrationScope, completeV1MigrationScope, matchesCompleteV1MigrationScope, incidentRecoveryMigrationScope, matchesIncidentRecoveryMigrationScope } from '../scripts/v1-hardening-migration-scope.mjs'
+import { hardeningMigrationScope, matchesHardeningMigrationScope, completeV1MigrationScope, matchesCompleteV1MigrationScope, incidentRecoveryMigrationScope, matchesIncidentRecoveryMigrationScope, adultAccessMigrationScope, matchesAdultAccessMigrationScope } from '../scripts/v1-hardening-migration-scope.mjs'
 
 test('no-wait migration preserves both command bodies apart from the contested row lock', () => {
  const candidate = readFileSync('supabase/migrations/20261107193737_coach_match_day_command_no_wait.sql', 'utf8').replaceAll('\r\n', '\n')
@@ -74,4 +74,15 @@ test('actual migration gate rejects valid-named untracked SQL before it can esca
  const result=run();assert.notEqual(result.status,0);assert.match(result.stderr,/Untracked migration is outside the reviewed source inventory/)
  writeFileSync(path.join(root,'.git','info','exclude'),'supabase/migrations/20260102000000_unreviewed.sql\n')
  const ignored=run();assert.notEqual(ignored.status,0);assert.match(ignored.stderr,/Untracked migration is outside the reviewed source inventory/)
+})
+
+test('adult access migration gate accepts only the three exact additions on the verified base', () => {
+ const entries = Object.keys(adultAccessMigrationScope.hashes).sort().map(path => ({ path, status: 'A', source: readFileSync(path, 'utf8') }))
+ assert.equal(matchesAdultAccessMigrationScope(adultAccessMigrationScope.base, entries), true)
+ assert.equal(matchesAdultAccessMigrationScope('wrong-base', entries), false)
+ assert.equal(matchesAdultAccessMigrationScope(adultAccessMigrationScope.base, entries.slice(1)), false)
+ assert.equal(matchesAdultAccessMigrationScope(adultAccessMigrationScope.base, [...entries, entries[0]]), false)
+ for (const change of [{ status: 'M' }, { path: 'supabase/migrations/20990101000000_unreviewed.sql' }, { source: entries[0].source + 'select 1;' }]) {
+  assert.equal(matchesAdultAccessMigrationScope(adultAccessMigrationScope.base, [{ ...entries[0], ...change }, ...entries.slice(1)]), false)
+ }
 })

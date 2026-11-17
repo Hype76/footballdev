@@ -70,6 +70,10 @@ export function AdultPlayerInvitePage() {
       if (sessionError) throw new Error('Your Player access is linked, but sign in could not be completed. Sign in again.')
       if (!stillOnInvite()) return
       rememberLoginAccessIntent('player')
+      window.sessionStorage.setItem('selected-access-mode', 'player')
+      window.sessionStorage.setItem('selected-access-mode-explicit', 'true')
+      window.sessionStorage.removeItem('selected-club-id')
+      window.sessionStorage.removeItem('selected-team-id')
       window.location.replace('/player')
     } catch (failure) {
       if (failure.state === 'account_exists') {

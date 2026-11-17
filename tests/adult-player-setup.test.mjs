@@ -9,6 +9,14 @@ import { getPlayerParentInviteContacts } from '../src/lib/parent-portal-invite-a
 const sql = await readFile(new URL('../supabase/migrations/20261113114647_adult_player_setup_invites.sql', import.meta.url), 'utf8')
 const statusSql = await readFile(new URL('../supabase/migrations/20261116123543_adult_player_link_status.sql', import.meta.url), 'utf8')
 const resendSql = await readFile(new URL('../supabase/migrations/20261117100252_v1_adult_player_invitation_resend.sql', import.meta.url), 'utf8')
+const authorityTransactionSql = await readFile(new URL('../supabase/migrations/20261117173402_adult_player_status_authority_transaction.sql', import.meta.url), 'utf8')
+const sharedAccountSql = await readFile(new URL('../supabase/migrations/20261117180703_adult_player_shared_parent_account.sql', import.meta.url), 'utf8')
+const coexistenceSql = await readFile(new URL('../supabase/migrations/20261117211430_adult_player_parent_access_coexistence.sql', import.meta.url), 'utf8')
+const staffAuthoritySql = await readFile(new URL('../supabase/migrations/20260728170000_staff_role_assignment_control.sql', import.meta.url), 'utf8')
+const authorityHelperSql = staffAuthoritySql.slice(
+  staffAuthoritySql.indexOf('create or replace function app_private.actor_can_manage_team_resource('),
+  staffAuthoritySql.indexOf('create or replace function app_private.record_staff_role_change_audit('),
+)
 const foundation = (await readFile(new URL('../supabase/migrations/20260730110000_adult_player_account_foundation.sql', import.meta.url), 'utf8')).split('create or replace function public.get_own_adult_player_account_state')[0]
 const actor = '00000000-0000-4000-8000-000000000001'
 const player = '00000000-0000-4000-8000-000000000002'
@@ -47,13 +55,14 @@ test('adult invitation is private, scoped, invalidates changed emails and only l
       create table public.teams(id uuid primary key, club_id uuid, status text);
       create table public.players(id uuid primary key, club_id uuid, team_id uuid, status text, archived_at timestamptz,
         contact_type text, date_of_birth date, parent_contacts jsonb);
-      create table public.users(id uuid primary key);
-      create table public.user_club_memberships(auth_user_id uuid);
+      create table public.users(id uuid primary key, club_id uuid, role text, role_rank integer, status text);
+      create table public.user_club_memberships(auth_user_id uuid, club_id uuid, role text, role_rank integer);
+      create table public.team_staff(id uuid primary key, team_id uuid, user_id uuid, role_rank integer);
       create table public.parent_player_links(auth_user_id uuid, player_id uuid, status text);
-      create function app_private.actor_can_manage_team_resource(uuid,uuid,uuid,integer) returns boolean
-        language sql as 'select $1 = ''${actor}'' and $2 = ''${club}'' and $3 in (''${team}'', ''${newTeam}'') and $4 in (20,50)';
-      revoke all on function app_private.actor_can_manage_team_resource(uuid,uuid,uuid,integer) from public;
+      ${authorityHelperSql}
       insert into public.clubs values ('${club}');
+      insert into public.users values ('${actor}', '${club}', 'admin', 90, 'active');
+      insert into public.user_club_memberships values ('${actor}', '${club}', 'admin', 90);
       insert into public.teams values ('${team}','${club}','active'), ('${newTeam}','${club}','active');
       insert into public.players values ('${player}','${club}','${team}','active',null,'self','1996-11-13',
         '[{"type":"self","email":"player@example.test"}]');
@@ -64,6 +73,49 @@ test('adult invitation is private, scoped, invalidates changed emails and only l
     await db.exec(statusSql)
     await db.exec(resendSql)
     await db.exec('set role service_role')
+    const statusFunctions = ['get_adult_player_link_status', 'list_adult_player_setup_resend_targets']
+    const functionMetadata = async () => (await db.query(`
+      select oid, proname, proowner, proacl::text, prosrc, prosecdef, proconfig
+      from pg_proc where pronamespace = 'public'::regnamespace and proname = any($1::text[])
+      order by proname
+    `, [statusFunctions])).rows
+    const beforeMetadata = await functionMetadata()
+    assert.equal(beforeMetadata.length, 2)
+    const postRpc = async (name, target) => {
+      assert.ok(statusFunctions.includes(name))
+      const { rows: [metadata] } = await db.query(
+        'select provolatile from pg_proc where pronamespace = $1::regnamespace and proname = $2', ['public', name],
+      )
+      // Match PostgREST POST access mode, including its read-only STABLE path.
+      await db.exec(metadata.provolatile === 'v' ? 'begin read write' : 'begin read only')
+      try {
+        return (await db.query(`select public.${name}($1,$2) as result`, [actor, target])).rows[0].result
+      } finally {
+        await db.exec('rollback')
+      }
+    }
+    for (const [name, target] of [[statusFunctions[0], player], [statusFunctions[1], team]]) {
+      await assert.rejects(postRpc(name, target), { code: '25006' })
+    }
+    await db.exec('reset role')
+    await db.exec(authorityTransactionSql)
+    await db.exec('set role service_role')
+    assert.deepEqual(await functionMetadata(), beforeMetadata, 'Only function volatility may change')
+    const access = await db.query(`
+      select proname, provolatile,
+        has_function_privilege('anon', oid, 'execute') as anon,
+        has_function_privilege('authenticated', oid, 'execute') as authenticated,
+        has_function_privilege('service_role', oid, 'execute') as service_role
+      from pg_proc where pronamespace = 'public'::regnamespace and proname = any($1::text[])
+    `, [statusFunctions])
+    for (const row of access.rows) {
+      assert.equal(row.provolatile, 'v')
+      assert.equal(row.anon, false)
+      assert.equal(row.authenticated, false)
+      assert.equal(row.service_role, true)
+    }
+    assert.deepEqual(await postRpc(statusFunctions[0], player), { state: 'not_invited' })
+    assert.deepEqual(await postRpc(statusFunctions[1], team), { state: 'ready', player_ids: [player] })
     const reserve = async (id = actor) => (await db.query('select public.reserve_adult_player_setup_invite($1,$2) as result', [id, player])).rows[0].result
     const redeem = async (token, id = null) => (await db.query('select public.redeem_adult_player_setup_invite($1,$2) as result', [token, id])).rows[0].result
     const linkStatus = async (id = actor) => (await db.query('select public.get_adult_player_link_status($1,$2) as result', [id, player])).rows[0].result
@@ -74,6 +126,9 @@ test('adult invitation is private, scoped, invalidates changed emails and only l
       'select public.list_adult_player_setup_resend_targets($1,$2) as result', [id, targetTeam],
     )).rows[0].result
 
+    await db.exec('reset role')
+    await db.exec(sharedAccountSql)
+    await db.exec('set role service_role')
     assert.deepEqual(await reserve(other), { state: 'denied' })
     assert.deepEqual(await linkStatus(other), { state: 'denied' })
     assert.deepEqual(await linkStatus(), { state: 'not_invited' })
@@ -124,9 +179,47 @@ test('adult invitation is private, scoped, invalidates changed emails and only l
     assert.deepEqual(await redeem(current.token, account), { state: 'parent_linked' })
     assert.deepEqual(await linkStatus(), { state: 'parent_linked' })
     await db.exec('reset role')
-    await db.exec('delete from public.parent_player_links')
+    const coexistenceFunctionNames = [
+      'reserve_adult_player_setup_invite', 'redeem_adult_player_setup_invite',
+      'get_adult_player_link_status', 'list_adult_player_setup_resend_targets',
+      'enforce_adult_player_account_link',
+    ]
+    const apiMetadata = async () => (await db.query(`
+      select oid, proname, proowner, proacl::text, provolatile, prosecdef, proconfig
+      from pg_proc where pronamespace = 'public'::regnamespace and proname = any($1::text[])
+      order by proname
+    `, [coexistenceFunctionNames])).rows
+    const originalApiMetadata = await apiMetadata()
+    assert.equal(originalApiMetadata.length, 5)
+    await db.exec(coexistenceSql)
+    assert.deepEqual(await apiMetadata(), originalApiMetadata, 'Coexistence preserves API identity and privileges')
+    // Keep the other Parent account on this adult, this account's child and its legacy self link.
+    await db.query(`insert into public.parent_player_links values ($1,$2,'active'),($1,$3,'active')`, [account, other, player])
+    const parentRows = async () => (await db.query('select * from public.parent_player_links order by auth_user_id, player_id')).rows
+    const originalParentRows = await parentRows()
+    assert.equal(originalParentRows.length, 3)
+    await db.exec('set role service_role')
+    assert.equal((await linkStatus()).state, 'not_invited')
+    assert.deepEqual(await targets(), { state: 'ready', player_ids: [player] })
+    assert.equal((await reserve()).state, 'pending')
+    assert.deepEqual(await redeem(current.token, other), { state: 'wrong_account' })
+    await db.exec('reset role')
+    await db.query('update auth.users set email_confirmed_at = null where id = $1', [account])
+    await db.exec('set role service_role')
+    assert.deepEqual(await redeem(current.token, account), { state: 'wrong_account' })
+    await db.exec('reset role')
+    await db.query('update auth.users set email_confirmed_at = now() where id = $1', [account])
+    await db.query('insert into public.users(id) values ($1)', [account])
+    await db.exec('set role service_role')
+    assert.deepEqual(await redeem(current.token, account), { state: 'account_conflict' })
+    await db.exec('reset role')
+    await db.query('delete from public.users where id = $1', [account])
     await db.exec('set role service_role')
     assert.deepEqual(await redeem(current.token, account), { state: 'accepted' })
+    await db.exec('reset role')
+    assert.deepEqual(await parentRows(), originalParentRows, 'Linking the adult never changes existing Parent links')
+    assert.deepEqual((await db.query('select user_id, player_id from public.adult_player_account_links')).rows, [{ user_id: account, player_id: player }])
+    await db.exec('set role service_role')
     assert.deepEqual(await linkStatus(), { state: 'linked' })
     assert.deepEqual(await redeem(current.token, account), { state: 'accepted' })
     assert.deepEqual(await reserve(), { state: 'linked' })
@@ -143,6 +236,7 @@ test('adult invitation is private, scoped, invalidates changed emails and only l
     assert.equal((await db.query('select status from public.adult_player_account_links where user_id = $1', [account])).rows[0].status, 'revoked')
     await db.exec('set role service_role')
     assert.deepEqual(await redeem(current.token, account), { state: 'invalid' })
+    await db.exec('reset role; delete from public.parent_player_links; set role service_role')
     const replacement = await reserve()
     assert.equal(replacement.email, 'different@example.test')
     assert.deepEqual(await redeem(replacement.token, other), { state: 'accepted' })

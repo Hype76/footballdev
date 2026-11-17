@@ -16,6 +16,8 @@ export function useCoachMatchDayBackgroundSync({ user, contexts, enabled }) {
       if (stopped || running || AppState.currentState !== 'active') return
       running = true
       try {
+        await user.waitForCoachAuthority?.()
+        if (stopped) return
         const pending = await getPendingCoachMatchDays(user.id)
         for (const { contextId, matchId } of pending) {
           if (stopped) return
@@ -26,7 +28,11 @@ export function useCoachMatchDayBackgroundSync({ user, contexts, enabled }) {
           controller = createMatchDayOutbox({ key: `${user.id}:${contextId}:${matchId}`,
             read: () => readCoachMatchDayOutbox(user.id, context, matchId),
             update: change => updateCoachMatchDayOutbox(user.id, context, matchId, change),
-            send: (command, baseMatch) => withMobileAsyncTimeout(() => syncCoachMatchDayCommand(scopedUser, command, baseMatch), { timeoutMs: 35000 }),
+            send: async (command, baseMatch) => {
+              await user.waitForCoachAuthority?.()
+              if (stopped) throw new Error('Coach sync stopped. The saved action remains on this phone.')
+              return withMobileAsyncTimeout(() => syncCoachMatchDayCommand(scopedUser, command, baseMatch), { timeoutMs: 35000 })
+            },
           })
           await controller.sync()
         }

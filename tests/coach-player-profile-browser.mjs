@@ -267,7 +267,7 @@ try {
   await page.evaluate(() => { window.adultStatus='parent_linked';window.setParentLinks([{id:'legacy-link',email:'former@example.test',status:'active'}]) })
   await page.getByRole('button',{name:'Refresh player details',exact:true}).click()
   await page.getByRole('button',{name:'Show parent and player contacts',exact:true}).click()
-  await page.getByText('Parent access is active. Review it before setting up separate Player access.',{exact:true}).waitFor()
+  await page.getByText('Another account has Parent access to this player record. Ask the club to review that link.',{exact:true}).waitFor()
   await page.evaluate(() => { window.adultStatus='not_invited' })
   await page.getByRole('button',{name:'Remove Parent access',exact:true}).click()
   await page.getByRole('button',{name:'Confirm remove access',exact:true}).click()

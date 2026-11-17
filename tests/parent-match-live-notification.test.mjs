@@ -69,7 +69,7 @@ test('parent handover review alert only reaches currently authorised team coache
       then: resolve => resolve({ data: table==='coach_mobile_notification_events' ? logged.filter(row=>row.status===filters.status&&row.data.reviewOperationKey===filters.data.reviewOperationKey) : devices }),
       insert: async rows => { if(pauseLog&&rows[0].installation_id==='coach-second')await new Promise(resolve=>{finishLog=resolve});logged.push(...rows); return {} },
       maybeSingle: async () => ({ data: table === 'users' ? profiles.find(p => p.id === filters.id)
-        : table === 'user_club_memberships' ? { auth_user_id: filters.auth_user_id }
+        : table === 'user_club_memberships' ? profiles.filter(p => p.id === filters.auth_user_id && p.club_id === filters.club_id).map(p => ({ auth_user_id: p.id, role: p.role, role_rank: p.role_rank }))[0]
           : table === 'clubs' ? { id: filters.id, status: 'active' }
             : table === 'teams' ? { id: 'team', club_id: 'club', status: 'active' }
               : table === 'team_staff' && filters.user_id === 'coach' ? { id: 'assignment', role_rank: 20 } : null }) }

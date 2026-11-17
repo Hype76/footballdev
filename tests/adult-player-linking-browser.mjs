@@ -14,7 +14,7 @@ const built = await build({
   plugins: [{ name: 'fake-auth', setup(buildApi) {
     buildApi.onResolve({ filter: /\/lib\/supabase-client\.js$/ }, () => ({ path: 'auth', namespace: 'fixture' }))
     buildApi.onLoad({ filter: /.*/, namespace: 'fixture' }, () => ({
-      contents: `export function createTemporaryPlayerInviteClient(){return {auth:{signInWithPassword:async credentials=>{window.signedIn=credentials;if(window.holdSignIn)await new Promise(resolve=>{window.releaseSignIn=resolve});return {data:{session:{access_token:'fixture-token',refresh_token:'fixture-refresh'}}}}}}};export const supabase={auth:{setSession:async session=>{window.persistedSession=session;return new Promise(()=>{})}}}`,
+      contents: `export function createTemporaryPlayerInviteClient(){return {auth:{signInWithPassword:async credentials=>{window.signedIn=credentials;if(window.holdSignIn)await new Promise(resolve=>{window.releaseSignIn=resolve});return {data:{session:{access_token:'fixture-token',refresh_token:'fixture-refresh'}}}}}}};export const supabase={auth:{setSession:async session=>{window.persistedSession=session;if(window.completeSession)return {error:null};return new Promise(()=>{})}}}`,
       loader: 'js',
     }))
   } }],
@@ -60,6 +60,24 @@ try {
   assert.equal(requests[1].authorization, 'Bearer fixture-token')
   assert.equal(requests[1].body.token, '00000000-0000-4000-8000-000000000006')
   assert.deepEqual(await page.evaluate(() => window.persistedSession), { access_token: 'fixture-token', refresh_token: 'fixture-refresh' })
+  const success = await browser.newPage()
+  await success.route('http://127.0.0.1/**', route => route.fulfill({ contentType: 'text/html', body: '<div id="root"></div>' }))
+  await success.goto('http://127.0.0.1/player-invite#invite=00000000-0000-4000-8000-000000000006')
+  await success.evaluate(() => {
+    window.completeSession = true
+    sessionStorage.setItem('selected-access-mode', 'parent')
+    sessionStorage.setItem('selected-club-id', 'child-club')
+    window.fetch = async () => ({ ok: true, json: async () => ({ success: true }) })
+  })
+  await success.addScriptTag({ content: built.outputFiles[0].text })
+  await success.getByRole('button', { name: 'I already have an account' }).click()
+  await success.getByLabel('Player email').fill('player@example.test')
+  await success.getByLabel('Password', { exact: true }).fill('ExistingPassword1!')
+  await success.getByRole('button', { name: 'Sign in and accept' }).click()
+  await success.waitForURL('http://127.0.0.1/player')
+  assert.equal(await success.evaluate(() => sessionStorage.getItem('selected-access-mode')), 'player')
+  assert.equal(await success.evaluate(() => sessionStorage.getItem('selected-access-mode-explicit')), 'true')
+  assert.equal(await success.evaluate(() => sessionStorage.getItem('selected-club-id')), null)
   const changed = await browser.newPage()
   await changed.route('http://127.0.0.1/player-invite', route => route.fulfill({ contentType: 'text/html', body: '<div id="root"></div>' }))
   await changed.goto('http://127.0.0.1/player-invite#invite=00000000-0000-4000-8000-000000000006')

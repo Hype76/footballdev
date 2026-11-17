@@ -27,7 +27,7 @@ export function adultPlayerLinkStatusLabel(state) {
     expired: 'Invitation expired. Save the player to send a new invitation.',
     previous_invite_used: 'The previous invitation was used, but no Player account is linked. Contact support for help.',
     not_invited: 'Player account not linked. Save the player to send an invitation.',
-    parent_linked: 'Parent access is active. Review it before setting up separate Player access.',
+    parent_linked: 'Another account has Parent access to this player record. Ask the club to review that link.',
     ineligible: 'Add one Player email and a date of birth confirming they are 18 or over.',
     unavailable: 'Player account status could not be checked. Refresh and try again.',
     loading: 'Checking Player account...',

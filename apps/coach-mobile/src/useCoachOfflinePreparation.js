@@ -57,6 +57,10 @@ export function useCoachOfflinePreparation({ user, contexts = null, context = nu
     const runner = createCoachPreparationRunner({
       isActive: () => AppState.currentState === 'active',
       run: async isCurrent => {
+        await user.waitForCoachAuthority?.()
+        const authorityGeneration = user.getCoachAuthorityGeneration?.()
+        const runnerIsCurrent = isCurrent
+        isCurrent = () => runnerIsCurrent() && authorityGeneration === user.getCoachAuthorityGeneration?.()
         await new Promise(resolve => InteractionManager.runAfterInteractions(resolve))
         if (!isCurrent()) return { cancelled: true }
         const policy = availableContexts.some(isMatchdayPlan) ? await loadMatchdayPlanConfig().catch(() => null) : null

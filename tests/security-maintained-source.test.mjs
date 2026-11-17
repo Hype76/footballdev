@@ -23,6 +23,11 @@ function responses() {
     head: { sha: source.headSha }, base: { sha: source.baseSha }, state: source.state, merged: source.merged,
   })
   for (const target of record.targets) map.set('https://registry.npmjs.org/' + target.name + '/latest', { name: target.name, version: target.version, dist: { integrity: target.registryIntegrity } })
+  const picomatch = record.picomatchSourceRepair
+  map.set('https://registry.npmjs.org/picomatch/latest', { name: 'picomatch', version: picomatch.publishedLatest.version, dist: { integrity: picomatch.publishedLatest.registryIntegrity }, gitHead: picomatch.publishedLatest.gitHead })
+  for (const version of Object.values(picomatch.versions)) {
+    map.set('https://registry.npmjs.org/picomatch/' + version.version, { name: 'picomatch', version: version.version, dist: { integrity: version.registryIntegrity }, gitHead: version.gitHead })
+  }
   map.delete('https://registry.npmjs.org/glob/latest')
   const glob = record.targets.find(target => target.name === 'glob')
   map.set('https://registry.npmjs.org/glob/7.2.3', { name: 'glob', version: '7.2.3', dist: { integrity: glob.registryIntegrity }, gitHead: 'c3cd57ae128faa0e9190492acc743bb779ac4054' })

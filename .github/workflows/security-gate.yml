@@ -46,7 +46,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: npm run security:supply-chain
       - name: Reviewed patch behaviour and qualification integrity
-        run: node --test tests/security-reviewed-backports.test.mjs tests/security-reviewed-provisioning.test.mjs tests/security-backport-runtime.test.mjs tests/security-maintained-source.test.mjs tests/security-toml-upstream.test.mjs tests/security-glob-compatibility.test.mjs tests/tooling-glob-minimatch-compatibility.test.mjs
+        run: node --test tests/security-reviewed-backports.test.mjs tests/security-reviewed-provisioning.test.mjs tests/security-backport-runtime.test.mjs tests/security-picomatch-source.test.mjs tests/security-maintained-source.test.mjs tests/security-toml-upstream.test.mjs tests/security-glob-compatibility.test.mjs tests/tooling-glob-minimatch-compatibility.test.mjs
       - name: High-confidence secret scan
         run: npm run security:secret-scan
       - name: Generate production SBOM
@@ -311,9 +311,11 @@ jobs:
       - name: Compile Coach and Parent mobile apps
         run: npm run mobile:export:web
       - name: Adult Player account linking
-        run: node --test tests/adult-player-setup.test.mjs tests/adult-player-status-race.test.mjs tests/adult-player-auth-bootstrap.test.mjs && node tests/adult-player-linking-browser.mjs && node tests/player-contact-layout-browser.mjs
+        run: node --test tests/adult-player-setup.test.mjs tests/adult-player-status-race.test.mjs tests/adult-player-auth-bootstrap.test.mjs tests/adult-player-shared-account.test.mjs && node tests/adult-player-linking-browser.mjs && node tests/adult-player-workspace-bridge-browser.mjs && node tests/player-contact-layout-browser.mjs
       - name: Coach player profile navigation
         run: node tests/coach-player-profile-browser.mjs && node tests/coach-development-selectors-browser.mjs && node tests/coach-sessions-cache-warning-browser.mjs
+      - name: Coach linked-club notification authority
+        run: node --test tests/coach-push-linked-context.test.mjs tests/coach-push-linked-delivery.test.mjs tests/coach-context-authority.test.mjs
       - name: Coach Calendar month markers
         run: node --test tests/mobile-coach-operational-31c.test.mjs && node tests/coach-calendar-markers-browser.mjs
       - name: Coach contacts, invite history and Resources
