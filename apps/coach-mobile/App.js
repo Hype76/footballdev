@@ -2154,7 +2154,7 @@ function createCoachStyles(palette) {
     contextBadge: { width: 34, height: 34 },
     contextPickerIntro: { paddingHorizontal: 16, paddingTop: 18, gap: 4 },
     contextPickerHeader: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingLeft: 16, paddingRight: 8, paddingTop: 6 },
-    contextPickerClose: { minHeight: 44, minWidth: 60, alignItems: 'center', justifyContent: 'center' },
+    contextPickerClose: { minHeight: 48, minWidth: 60, alignItems: 'center', justifyContent: 'center' },
     contextPickerRow: { minHeight: 60, marginHorizontal: 16, paddingHorizontal: 8, paddingVertical: 8, flexDirection: 'row', alignItems: 'center', gap: 10, borderBottomColor: palette.border, borderBottomWidth: StyleSheet.hairlineWidth },
     contextPickerRowSelected: { backgroundColor: palette.surface, borderLeftWidth: 3, borderLeftColor: palette.accentText, paddingLeft: 5 },
     contextPickerCopy: { flex: 1 },
