@@ -1,7 +1,7 @@
 /* eslint-disable react-refresh/only-export-components */
 import { Component, Suspense, lazy, useEffect, useState } from 'react'
 import { Navigate, Outlet, createBrowserRouter, useLocation } from 'react-router-dom'
-import { Layout } from '../components/layout/Layout.jsx'
+import { ClubWorkspaceSelection, Layout } from '../components/layout/Layout.jsx'
 import { canViewClubMatchdayTv } from '../lib/club-matchday-tv.js'
 import { isClubTvLocked } from '../lib/club-tv-lock.js'
 import {
@@ -1042,8 +1042,12 @@ function PageSuspense({ children }) {
 }
 
 function WorkspaceHome() {
-  const { accessModeOptions, accessRouteMismatch, isProfileLoading, user } = useAuth()
+  const { accessModeOptions, accessRouteMismatch, clubOptions, isProfileLoading, user } = useAuth()
   const loginIntent = readLoginAccessIntent()
+
+  if (!user && clubOptions.length > 1) {
+    return <ClubWorkspaceSelection />
+  }
 
   if (!user && isProfileLoading) {
     return <DelayedRouteFallback />
@@ -1150,7 +1154,7 @@ function PublicLandingOrWorkspaceHome() {
 
 function RequireUser() {
   const location = useLocation()
-  const { isLoading, session, user } = useAuth()
+  const { clubOptions, isLoading, session, user } = useAuth()
 
   if (isLoading && !session?.user) {
     return <LoadingScreen />
@@ -1162,6 +1166,10 @@ function RequireUser() {
     }
 
     return isParentHost() ? <ParentSignInRedirect /> : <Navigate to="/sign-in" replace />
+  }
+
+  if (!user && clubOptions.length > 1 && !isParentHost() && !isParentIntentPath(location.pathname)) {
+    return <ClubWorkspaceSelection />
   }
 
   if (user && isClubTvLocked(user) && location.pathname !== '/club-matchday-tv') return <Navigate to="/club-matchday-tv" replace />

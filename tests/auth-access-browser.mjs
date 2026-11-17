@@ -2562,6 +2562,26 @@ try {
     await context.close()
   })
 
+  await runScenario('multi-club coach can sign in and choose a club', async () => {
+    const context = await browser.newContext()
+    const { page } = await preparePage(context)
+    await signIn(page, 'multi-club.fixture@footballplayer.test')
+    const picker = page.getByRole('heading', { name: 'Choose the club workspace to open.' })
+    await picker.waitFor({ state: 'visible' })
+    await page.getByRole('button', { name: /Fixture United/ }).waitFor()
+
+    await page.goto(`${mainBaseUrl}/coach`)
+    await picker.waitFor({ state: 'visible' })
+    await page.getByRole('button', { name: /Fixture Rovers/ }).click()
+    await picker.waitFor({ state: 'hidden' })
+    await assertVisibleText(page, 'Fixture Rovers')
+
+    await page.reload()
+    await assertVisibleText(page, 'Fixture Rovers')
+    assert.equal(await picker.count(), 0)
+    await context.close()
+  })
+
   await runScenario('parent-only account using club login returns to club sign-in only after an explicit choice', async () => {
     const context = await browser.newContext()
     const { page } = await preparePage(context)
