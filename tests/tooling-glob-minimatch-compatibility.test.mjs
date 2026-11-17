@@ -91,7 +91,7 @@ for (const scope of ['.', 'apps/coach-mobile', 'apps/parent-mobile']) {
         }
       }
       const minimatch = require('minimatch')
-      assert.equal(require('minimatch/package.json').version, '11.0.8')
+      assert.equal(require('minimatch/package.json').version, '11.0.9')
       assert.equal(minimatch.minimatch('src/index.js', 'src/**/*.js'), true)
       assert.equal(new minimatch.Minimatch('src/**/*.js').match('src/nested/player.js'), true)
       assert.equal(new minimatch.Minimatch('src/**/*.js').match('src/notes.txt'), false)

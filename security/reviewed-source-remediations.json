@@ -559,7 +559,7 @@
   "implementationHashes": {
     "scripts/security-supply-chain-gate.mjs": "dcf722bc6cbf2015da4250ea60cbb81e34d3c5c64ec7bb6059671cbae5ab4207",
     "scripts/security-apply-reviewed-backports.mjs": "7f0e9de0add15a121a0f60f89f71656b503450010b8b9c8d4aaf58bc355fc5ec",
-    "scripts/security-verify-reviewed-backports.mjs": "4683ce8a402accea47a927ee077a371b376fd12be688c9d81391168bd25f1820",
+    "scripts/security-verify-reviewed-backports.mjs": "298c9dafab2872486e1ad24504a4f28c20433172d2c4303c01b674b1f88a3f0d",
     "security/patches/braces-3.0.3.patch": "e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699",
     "security/patches/node-forge-1.4.0.patch": "2de065ac998bf58917a14d0935112d97ec2957ac41b5f06958d500934f188ed4",
     "security/patches/reviewed-source-manifest.json": "52d0b296071182c7354d87fdff4140270c59f6de90112eeda9feb6ded66cc600",
@@ -568,7 +568,7 @@
     "tests/security-reviewed-provisioning.test.mjs": "5886fc5c046fdc7b401fd7dc77fd7efd8d315e5c945ce177da4830368fdd98fe",
     ".github/workflows/security-gate.yml": "1b628decd8a73bf91d3dd500456fa2ab2e31ba81d84d50c5eece92559d303a3b",
     "apps/scripts/mobile-release-check.mjs": "d92e479e0222a74dd332e63cee5d3108a0fb1bfc0d8f34f77059bade0a5aed48",
-    "package.json": "44e395d7a2f74f641526a7aeadc261bb4d37396420067e9395efaeb18f54567c",
+    "package.json": "ed9b3d7bf628b8d9ef211c3cb21625f45f202c9a2a754136dd77af389a31d355",
     "scripts/security-provision-root-backport.mjs": "ad2b058de5e567b0491b7b7e9c263c8055fd985955db11f4e7fd0c6874924df7",
     "security/root-backport-proposal.json": "45c3b7352c7328c84982e114b7e87e09cf79514d02d102297ae75ec0925812eb",
     "security/supply-chain-policy.json": "d5e3090a995738cc22311275763965c2d278900b5e609a41dba0526ca0843265",
@@ -578,25 +578,25 @@
     "scripts/security-netlify-build.mjs": "addebe95880ca66b90fe784f68cc23a61d67cf9e4482f8af1ed87f98d54243f6",
     "tests/security-maintained-source.test.mjs": "b052ab4434a54908e3a5e69e49c6aca2554e170e5566b84cb3bed0310f48730d",
     "netlify.toml": "7a6f3e35c22d35413e0f1e1b647eadf54b28aefcf45494447ca8f67163a38a51",
-    "security/maintained-source-policy.json": "d43f26f937658eb21395575b674e62a51a421ab93105eb4720df764f424ddc03",
+    "security/maintained-source-policy.json": "f6a5c10b3ac578da357151154fbebb95ab97607812a10c1e668726f5c9339e18",
     "tests/security-m3-governance.test.mjs": "1e1134b46175e6b8a5fcfd853dc85ae0a74393bdb99cfddba6945de4c5114e20",
     "tests/security-toml-upstream.test.mjs": "2766b75496f5fb02ae5ba4c803d29dcbf4df8b41b82a2c50eefa9f2a4a16b836",
     "security/patches/deepmerge-4.3.1.patch": "6241e75cd0ebdeefbe93564d0f9a0da153bc6608add12970bd3c390910e7e4f4",
     "security/patches/glob-7.2.3-minimatch11.patch": "0521132b1174bc849cb0c95ef463c84eead81a5b3ecd54369aba7eb1a86a7273",
-    "tests/security-glob-compatibility.test.mjs": "b9825fa59c8e40ac02293e5797fc60ac7ce0c5bba6d007d262033aa70c618a11"
+    "tests/security-glob-compatibility.test.mjs": "84bfa27e35efe97fe9a4678620f0388609b628def0b1d4f2893ce72b5f781b08"
   },
   "payloadSha256": "52d0b296071182c7354d87fdff4140270c59f6de90112eeda9feb6ded66cc600",
-  "adoptionProposalSha256": "d43f26f937658eb21395575b674e62a51a421ab93105eb4720df764f424ddc03",
+  "adoptionProposalSha256": "f6a5c10b3ac578da357151154fbebb95ab97607812a10c1e668726f5c9339e18",
   "nativeInputs": [
     {
       "path": "package.json",
-      "normalisedUtf8Sha256": "44e395d7a2f74f641526a7aeadc261bb4d37396420067e9395efaeb18f54567c",
+      "normalisedUtf8Sha256": "ed9b3d7bf628b8d9ef211c3cb21625f45f202c9a2a754136dd77af389a31d355",
       "unchanged": false,
       "reason": "Current exact36f7039f prerequisite: sharp0.35.5 server image artifacts or shell-quote1.11.0 tooling only; mobile native package identities/direct dependency sections/runtime remain unchanged with explicit proof; Official Vite 7.3.7 build tooling security patch only; native inputs unchanged. Fixture keyboard release prerequisite: compatible official JavaScript security updates only; all non-Undici mobile lock entries, direct dependencies and runtime configuration remain unchanged against d75ba6438ae28f864f23a11d405eeb76d61bb081. Official glob/minimatch tooling prerequisite on 31 October: only overrides and JavaScript lock graph changed; direct app dependencies, native packages and runtime configuration remain unchanged, with exact graph and compatibility tests required. Official minimatch 11.0.4 tooling metadata update only; exact graph and native identities independently checked. The iOS 1.1.1 maintenance release updates reviewed JavaScript tooling only and retains the previous native inputs."
     },
     {
       "path": "package-lock.json",
-      "normalisedUtf8Sha256": "66aea7f4ca7036a8c21770d61ec583a926ee0afd2e19db493003535e6e756a10",
+      "normalisedUtf8Sha256": "df510c9df3a89193a936f208cbc17441287106f59bd259282f5df50b55759682",
       "unchanged": false,
       "reason": "Previously reviewed source-map-js 1.2.2 prerequisite from current main, native app inputs unchanged; Current exact36f7039f prerequisite: sharp0.35.5 server image artifacts or shell-quote1.11.0 tooling only; mobile native package identities/direct dependency sections/runtime remain unchanged with explicit proof; Official Vite 7.3.7 build tooling security patch only; native inputs unchanged. Fixture keyboard release prerequisite: compatible official JavaScript security updates only; all non-Undici mobile lock entries, direct dependencies and runtime configuration remain unchanged against d75ba6438ae28f864f23a11d405eeb76d61bb081. Official glob/minimatch tooling prerequisite on 31 October: only overrides and JavaScript lock graph changed; direct app dependencies, native packages and runtime configuration remain unchanged, with exact graph and compatibility tests required. Official minimatch 11.0.4 tooling metadata update only; exact graph and native identities independently checked. The iOS 1.1.1 maintenance release updates reviewed JavaScript tooling only and retains the previous native inputs."
     },
@@ -608,13 +608,13 @@
     },
     {
       "path": "apps/parent-mobile/package.json",
-      "normalisedUtf8Sha256": "e26113f18358f09d96825b5c26b59af4b604ffba7b21df0a109aa8e9e2b2b2b2",
+      "normalisedUtf8Sha256": "ed85d657afe3b8469fbff72a0872a70487644ad2c2815f9b9961740c15ed2334",
       "unchanged": false,
       "reason": "User-authorised 27 October native release 1.1.0: calendar subscriptions, Parent background actions, Expo SDK 54 task manager and matching native runtime versions. All five package copies remain verified using the approved source-backport or official-maintained mode; all release checks remain required. Official glob/minimatch tooling prerequisite on 31 October: only overrides and JavaScript lock graph changed; direct app dependencies, native packages and runtime configuration remain unchanged, with exact graph and compatibility tests required. Official minimatch 11.0.4 tooling metadata update only; exact graph and native identities independently checked. The iOS 1.1.1 maintenance release updates reviewed JavaScript tooling only and retains the previous native inputs."
     },
     {
       "path": "apps/parent-mobile/package-lock.json",
-      "normalisedUtf8Sha256": "5132a2a67cc5fac7200af987c550e8e89705aaa66cf9819971b8e473b801f50c",
+      "normalisedUtf8Sha256": "42febc56366cfad21af3de5eb118d10143d7495e55595c2ea9b6a62052c4ff55",
       "unchanged": false,
       "reason": "User-authorised 27 October native release 1.1.0: calendar subscriptions, Parent background actions, Expo SDK 54 task manager and matching native runtime versions. All five package copies remain verified using the approved source-backport or official-maintained mode; all release checks remain required. Official glob/minimatch tooling prerequisite on 31 October: only overrides and JavaScript lock graph changed; direct app dependencies, native packages and runtime configuration remain unchanged, with exact graph and compatibility tests required. Official minimatch 11.0.4 tooling metadata update only; exact graph and native identities independently checked. The iOS 1.1.1 maintenance release updates reviewed JavaScript tooling only and retains the previous native inputs."
     },
@@ -632,13 +632,13 @@
     },
     {
       "path": "apps/coach-mobile/package.json",
-      "normalisedUtf8Sha256": "53cefacd848710f2606cb5b0b16814eb8d99ac1d3c15f4dee80382114c6e3074",
+      "normalisedUtf8Sha256": "3f01b5164f1ab7cffda7dee6ee724d95a92add081101f8c8d75b779f67ad87c3",
       "unchanged": false,
       "reason": "User-authorised 27 October native release 1.1.0: calendar subscriptions, Parent background actions, Expo SDK 54 task manager and matching native runtime versions. All five package copies remain verified using the approved source-backport or official-maintained mode; all release checks remain required. Official glob/minimatch tooling prerequisite on 31 October: only overrides and JavaScript lock graph changed; direct app dependencies, native packages and runtime configuration remain unchanged, with exact graph and compatibility tests required. Official minimatch 11.0.4 tooling metadata update only; exact graph and native identities independently checked. The iOS 1.1.1 maintenance release updates reviewed JavaScript tooling only and retains the previous native inputs."
     },
     {
       "path": "apps/coach-mobile/package-lock.json",
-      "normalisedUtf8Sha256": "8da5bde5909872df5ea8f58cf1f21b4d5f3fc9c392ecd8d6a66d769e938f6832",
+      "normalisedUtf8Sha256": "e019cdf4e61375edc9b3f32abc83445345d9665ea1f519ea628f0d918ccdf4ff",
       "unchanged": false,
       "reason": "User-authorised 27 October native release 1.1.0: calendar subscriptions, Parent background actions, Expo SDK 54 task manager and matching native runtime versions. All five package copies remain verified using the approved source-backport or official-maintained mode; all release checks remain required. Official glob/minimatch tooling prerequisite on 31 October: only overrides and JavaScript lock graph changed; direct app dependencies, native packages and runtime configuration remain unchanged, with exact graph and compatibility tests required. Official minimatch 11.0.4 tooling metadata update only; exact graph and native identities independently checked. The iOS 1.1.1 maintenance release updates reviewed JavaScript tooling only and retains the previous native inputs."
     },
@@ -841,13 +841,13 @@
     ],
     "lockImpactSha256": "d6f3d9e1a0f877643ed90ac381c7838a170159c327ff5903c7dafb895b8516a6",
     "changedSourceHashes": {
-      "apps/coach-mobile/package.json": "53cefacd848710f2606cb5b0b16814eb8d99ac1d3c15f4dee80382114c6e3074",
-      "apps/coach-mobile/package-lock.json": "8da5bde5909872df5ea8f58cf1f21b4d5f3fc9c392ecd8d6a66d769e938f6832",
+      "apps/coach-mobile/package.json": "3f01b5164f1ab7cffda7dee6ee724d95a92add081101f8c8d75b779f67ad87c3",
+      "apps/coach-mobile/package-lock.json": "e019cdf4e61375edc9b3f32abc83445345d9665ea1f519ea628f0d918ccdf4ff",
       "tests/parent-chat-layout-browser.mjs": "baf6f282e3aa374c345219e7cdb6928532cd2a1b66d3616e367f183b98aa8dc8",
-      "apps/parent-mobile/package.json": "e26113f18358f09d96825b5c26b59af4b604ffba7b21df0a109aa8e9e2b2b2b2",
-      "apps/parent-mobile/package-lock.json": "5132a2a67cc5fac7200af987c550e8e89705aaa66cf9819971b8e473b801f50c",
-      "package.json": "44e395d7a2f74f641526a7aeadc261bb4d37396420067e9395efaeb18f54567c",
-      "package-lock.json": "66aea7f4ca7036a8c21770d61ec583a926ee0afd2e19db493003535e6e756a10"
+      "apps/parent-mobile/package.json": "ed85d657afe3b8469fbff72a0872a70487644ad2c2815f9b9961740c15ed2334",
+      "apps/parent-mobile/package-lock.json": "42febc56366cfad21af3de5eb118d10143d7495e55595c2ea9b6a62052c4ff55",
+      "package.json": "ed9b3d7bf628b8d9ef211c3cb21625f45f202c9a2a754136dd77af389a31d355",
+      "package-lock.json": "df510c9df3a89193a936f208cbc17441287106f59bd259282f5df50b55759682"
     },
     "compatibleOfficialJavaScriptPrerequisite": {
       "baseline": "ec2288c01cd22801d96aa26329fab2b6ed0d0b05",
@@ -1331,7 +1331,7 @@
       "publicationRequiresFullChecks": true
     }
   },
-  "dependencyRemediationSha256": "bba15eba966918c885831981817bc0baf24007f5ea5dc3c5bd040c3490c9763c",
+  "dependencyRemediationSha256": "4cfaa2db3ace272890b22be90cf9c4c48c66787dfb73766f99666f19d7b27510",
   "releasePreparation": {
     "previousCandidate": "ef466f2584f5dcf429150aea9ed943473ed094ac",
     "originalApplicationBaseline": "041ae89454ed0b2f032f36089335a34d357ad1a4",
@@ -1340,8 +1340,8 @@
     "changedSourceHashes": {
       ".github/workflows/security-gate.yml": "1b628decd8a73bf91d3dd500456fa2ab2e31ba81d84d50c5eece92559d303a3b",
       "apps/coach-mobile/App.js": "2d90af590b1916da3dbdd0218db83fa4b7da35fe64d26e18f89e1ec23d070336",
-      "apps/coach-mobile/package-lock.json": "8da5bde5909872df5ea8f58cf1f21b4d5f3fc9c392ecd8d6a66d769e938f6832",
-      "apps/coach-mobile/package.json": "53cefacd848710f2606cb5b0b16814eb8d99ac1d3c15f4dee80382114c6e3074",
+      "apps/coach-mobile/package-lock.json": "e019cdf4e61375edc9b3f32abc83445345d9665ea1f519ea628f0d918ccdf4ff",
+      "apps/coach-mobile/package.json": "3f01b5164f1ab7cffda7dee6ee724d95a92add081101f8c8d75b779f67ad87c3",
       "apps/coach-mobile/src/CoachClubPromotionScreen.js": "50ee2f15d0020d34ce1bc6d91cb737d164efc95c8c93c1b5a5d89b46a1bfcd6d",
       "apps/coach-mobile/src/CoachDevelopmentTemplateBuilder.js": "976c1e91e9b86eff4621bac8e58e06022e83c8c50f08b21dc389dec9b79dbdb9",
       "apps/coach-mobile/src/CoachFixtureForm.js": "e420432a18ab03a2b67c3d8b2b23d9f0716e70c135e638c72f1bc911d9525f2c",
@@ -1431,8 +1431,8 @@
       "apps/mobile-core/src/useAttendanceOutbox.js": "bdcbe13d5b79c2e40b5a52ab767490ea017912dffee7ca67313a467fe789b2bd",
       "apps/mobile-core/src/useTeamLeagueLink.js": "78945d958af2ba81bab0247dffb844e67003f3e5697c04d5903617d23c9a1951",
       "apps/parent-mobile/App.js": "f274a6ecd4e6a830d5622f3b5bf0dfd024a09fd2f4efc611fb29eb6f72e06647",
-      "apps/parent-mobile/package-lock.json": "5132a2a67cc5fac7200af987c550e8e89705aaa66cf9819971b8e473b801f50c",
-      "apps/parent-mobile/package.json": "e26113f18358f09d96825b5c26b59af4b604ffba7b21df0a109aa8e9e2b2b2b2",
+      "apps/parent-mobile/package-lock.json": "42febc56366cfad21af3de5eb118d10143d7495e55595c2ea9b6a62052c4ff55",
+      "apps/parent-mobile/package.json": "ed85d657afe3b8469fbff72a0872a70487644ad2c2815f9b9961740c15ed2334",
       "apps/parent-mobile/parentDevelopment.js": "da85be42f4b1eff315bd4cd5bc626b79899617609b0f94d24bad3a032c42f352",
       "apps/parent-mobile/src/FanPlayerCard.js": "18f94e46b49bfd78cb99722dfe3d3ba57aab9be7632cb040af02e1a37bec4b5e",
       "apps/parent-mobile/src/FansScreen.js": "3573308e5e0faadfb89c410ee31b5bb37b7bc6670e11e4695ee4f7d79311140e",
@@ -1508,8 +1508,8 @@
       "netlify/functions/send-staff-invite.js": "c4f7c8841e73e599b3fdcaae4cb0f99a3ec86592652ee93d598d2684a47e12b2",
       "netlify/functions/stripe-webhook.js": "5c471ecdb06f596a3a82b72dfa82de96f0d47cbd93daa083d94df62845ef35c7",
       "netlify/functions/website-help.mts": "57e5a3941d8d674b54fe3fd449a6a46fd63488682323cfc9cb673546be83dfef",
-      "package-lock.json": "66aea7f4ca7036a8c21770d61ec583a926ee0afd2e19db493003535e6e756a10",
-      "package.json": "44e395d7a2f74f641526a7aeadc261bb4d37396420067e9395efaeb18f54567c",
+      "package-lock.json": "df510c9df3a89193a936f208cbc17441287106f59bd259282f5df50b55759682",
+      "package.json": "ed9b3d7bf628b8d9ef211c3cb21625f45f202c9a2a754136dd77af389a31d355",
       "scripts/mobile-confirmation-email-template.mjs": "567a0fe54cbbfaf622c02d3c348254009c7c21cb65a886c759d768ca736a877a",
       "scripts/optimise-website-images.mjs": "46923904baaa9696105da7d60d853e46b8cedac9dc2aa40e0c760ed1d3a3cbb9",
       "scripts/security-migration-gate.mjs": "e789dfa4fccffc12064374ea680cde5d4e7ef67a4b0362348b452a05f5af25b9",
@@ -2021,7 +2021,7 @@
       "apps/parent-mobile/src/parentConnectivityCore.js": "bcb11a0761c67e6e08a04012a4188fa49172a33d6316d16f21905dd932461646",
       "tests/parent-chat-connectivity-20261030.test.mjs": "fcbcf04a1b3856616fde838992fa2da8c62768844ed664ab2cc3f345100bd9b8",
       "tests/v1-parent-reconnect-browser.mjs": "579f37ec8300489b7546b5569cbca108382b1992c6c1bdedfb0e28cf895e4fd8",
-      "tests/tooling-glob-minimatch-compatibility.test.mjs": "6490135808f8ca742978df894ab48d9926230f44aa0ab8e2c2c56e71390c0e91",
+      "tests/tooling-glob-minimatch-compatibility.test.mjs": "a5a41b3bcd664469bdcc953cf4aec40c260454c25c55cfcbb0c475a753901fa1",
       "tests/coach-invites-cache-recovery.test.mjs": "b6b24577c93c548a34ebbdf2334eebb0b3d932ddfd53747c71215add780e7c7f",
       "tests/coach-invites-offline-warning-browser.test.mjs": "940f5c7b3ac82b607ada0cf75c8f559069dcc36f12c0315c7e38c1c2425a0ae8",
       "apps/mobile-core/src/parentCalendarCore.js": "1df93fb1f8437e46fdf238c68cc7295ec63d2b7aa637fb6814c2c7f492dfd0a5",
@@ -2056,14 +2056,14 @@
       "apps/coach-mobile/src/CoachSavedFormationBoards.js": "0bb0ffa3626656d8555e10c0789d857e469faface313c338915551838cb05900",
       "apps/mobile-core/src/FormationBoardVisuals.js": "bb5d1f16a1523a9339439700e6c6a275537d502d659136c260dbb13c968558bf",
       "scripts/security-apply-reviewed-backports.mjs": "7f0e9de0add15a121a0f60f89f71656b503450010b8b9c8d4aaf58bc355fc5ec",
-      "security/maintained-source-policy.json": "d43f26f937658eb21395575b674e62a51a421ab93105eb4720df764f424ddc03",
+      "security/maintained-source-policy.json": "f6a5c10b3ac578da357151154fbebb95ab97607812a10c1e668726f5c9339e18",
       "src/lib/formation-board-shirt.js": "cf2fbe68618a46093ac4151dc8b5c8a67a83753ce94952e213606f7dd2621d43",
       "tests/coach-formation-draft-repair.test.mjs": "37e6fc441f252dd8f00dfcbf8875d12b2bac6bd5476d5d4ecbfe19cefaa25910",
       "tests/coach-formation-metadata-repair.test.mjs": "12742e15ab67c8c638ad92958603b84046e09ffe89064a793e96e468c690516a",
       "tests/mobile-coach-formation-polls-offline-43.test.mjs": "6f2c2bdd7b8af4b509460c5d148ba784c33ecd494f99323b97bbcb989cf8ad43",
       "tests/parent-formation-match-plan-repair.test.mjs": "e53a1aaf730e85194f646a552b7fea08f61ed03203f68a53e9248e97e9379a03",
       "tests/security-backport-runtime.test.mjs": "313a96b759d6efafefc36e17e1e0714c0e9942fc834ae16da8f4678590d3dda4",
-      "tests/security-glob-compatibility.test.mjs": "b9825fa59c8e40ac02293e5797fc60ac7ce0c5bba6d007d262033aa70c618a11",
+      "tests/security-glob-compatibility.test.mjs": "84bfa27e35efe97fe9a4678620f0388609b628def0b1d4f2893ce72b5f781b08",
       "tests/coach-calendar-fixture-edit.test.mjs": "c364c8b1a46f93a8fcb4df980ff2481aac47642ea1d4e096b7b6ecfd087696b6",
       "apps/mobile-core/src/coachParentAutoInvite.js": "82305749b0d43c9857a582cb3773a62e14adab314ec2a4a2af8cd6d6fe03227e",
       "apps/mobile-core/src/coachParentContactsData.js": "7e52aae5fbd82410318e639238ea03f11750eb185d087147dde8d474586b3d65",
@@ -3496,9 +3496,10 @@
       "baseline": "f05d42536d0893912c7c972f8363f304c6ba9384",
       "scope": "Official minimatch 11.0.4 only in three tooling scopes; no additional advisory acceptance, direct app dependency, native or runtime changes. Independent exact-source acceptance and all release checks remain required.",
       "nodeEngine": "20 || >=22"
-    }
+    },
+    "toolingRequalification20261117": "Use official minimatch 11.0.9 JavaScript tooling across all three scopes, with unchanged native dependencies, Expo runtime, maintained patches and audit rules."
   },
-  "releasePreparationSha256": "99a71e02ffb78f6dcfe2a27ed06709cadf58a2ef6571c2c33bedcd88ca991447",
+  "releasePreparationSha256": "39baf9a452292456bbadb29ac6bea4886d0c3e34c7a824c52c817bbaaf59b10f",
   "rootOnlyProposalSha256": "45c3b7352c7328c84982e114b7e87e09cf79514d02d102297ae75ec0925812eb",
   "remediationMode": "maintained-source-fixes",
   "officialCompatibilityDependencies": [
@@ -3506,10 +3507,10 @@
       "scope": ".",
       "packagePath": "node_modules/minimatch",
       "name": "minimatch",
-      "version": "11.0.8",
-      "registryIntegrity": "sha512-nFQuYSTVrGvysVBps5Ih+0BdnYFN/Cj3C816r6+p7yK+FHrVLGE4O4N9AFwykrlNlvM2HYt+Rad1Uiro6h88Ig==",
-      "originalTreeSha256": "5534a29b3997317f77b5c1451540fac95730c0a101e67a1cf941e88f4cb001a4",
-      "patchedTreeSha256": "5534a29b3997317f77b5c1451540fac95730c0a101e67a1cf941e88f4cb001a4",
+      "version": "11.0.9",
+      "registryIntegrity": "sha512-KCFkfyjqerNlSstjlhIGNXIKZGA/6O4V4RlhZ+Dsr621SPPw0mzlypE9D9ZOoPiVefHID+j7/XuMMlqfD/F60Q==",
+      "originalTreeSha256": "e733e5afa6f9b21da6ad7b8d13fcdc3528b06fae6a1a3252dc9d9d218a220fde",
+      "patchedTreeSha256": "e733e5afa6f9b21da6ad7b8d13fcdc3528b06fae6a1a3252dc9d9d218a220fde",
       "files": [],
       "mode": "official-tooling"
     },
@@ -3528,10 +3529,10 @@
       "scope": "apps/parent-mobile",
       "packagePath": "node_modules/minimatch",
       "name": "minimatch",
-      "version": "11.0.8",
-      "registryIntegrity": "sha512-nFQuYSTVrGvysVBps5Ih+0BdnYFN/Cj3C816r6+p7yK+FHrVLGE4O4N9AFwykrlNlvM2HYt+Rad1Uiro6h88Ig==",
-      "originalTreeSha256": "5534a29b3997317f77b5c1451540fac95730c0a101e67a1cf941e88f4cb001a4",
-      "patchedTreeSha256": "5534a29b3997317f77b5c1451540fac95730c0a101e67a1cf941e88f4cb001a4",
+      "version": "11.0.9",
+      "registryIntegrity": "sha512-KCFkfyjqerNlSstjlhIGNXIKZGA/6O4V4RlhZ+Dsr621SPPw0mzlypE9D9ZOoPiVefHID+j7/XuMMlqfD/F60Q==",
+      "originalTreeSha256": "e733e5afa6f9b21da6ad7b8d13fcdc3528b06fae6a1a3252dc9d9d218a220fde",
+      "patchedTreeSha256": "e733e5afa6f9b21da6ad7b8d13fcdc3528b06fae6a1a3252dc9d9d218a220fde",
       "files": [],
       "mode": "official-tooling"
     },
@@ -3550,10 +3551,10 @@
       "scope": "apps/coach-mobile",
       "packagePath": "node_modules/minimatch",
       "name": "minimatch",
-      "version": "11.0.8",
-      "registryIntegrity": "sha512-nFQuYSTVrGvysVBps5Ih+0BdnYFN/Cj3C816r6+p7yK+FHrVLGE4O4N9AFwykrlNlvM2HYt+Rad1Uiro6h88Ig==",
-      "originalTreeSha256": "5534a29b3997317f77b5c1451540fac95730c0a101e67a1cf941e88f4cb001a4",
-      "patchedTreeSha256": "5534a29b3997317f77b5c1451540fac95730c0a101e67a1cf941e88f4cb001a4",
+      "version": "11.0.9",
+      "registryIntegrity": "sha512-KCFkfyjqerNlSstjlhIGNXIKZGA/6O4V4RlhZ+Dsr621SPPw0mzlypE9D9ZOoPiVefHID+j7/XuMMlqfD/F60Q==",
+      "originalTreeSha256": "e733e5afa6f9b21da6ad7b8d13fcdc3528b06fae6a1a3252dc9d9d218a220fde",
+      "patchedTreeSha256": "e733e5afa6f9b21da6ad7b8d13fcdc3528b06fae6a1a3252dc9d9d218a220fde",
       "files": [],
       "mode": "official-tooling"
     },
@@ -3578,9 +3579,9 @@
     },
     "minimatch": {
       "name": "minimatch",
-      "version": "11.0.8",
-      "registryIntegrity": "sha512-nFQuYSTVrGvysVBps5Ih+0BdnYFN/Cj3C816r6+p7yK+FHrVLGE4O4N9AFwykrlNlvM2HYt+Rad1Uiro6h88Ig==",
-      "gitHead": "35c928bb604f2a93fb8ee06bb8db5accefc3facb"
+      "version": "11.0.9",
+      "registryIntegrity": "sha512-KCFkfyjqerNlSstjlhIGNXIKZGA/6O4V4RlhZ+Dsr621SPPw0mzlypE9D9ZOoPiVefHID+j7/XuMMlqfD/F60Q==",
+      "gitHead": "e89926755f3f79cf79f1087bd5730ed4d7eba60e"
     }
   },
   "glob7CompatibilityPublishedVersions": [
