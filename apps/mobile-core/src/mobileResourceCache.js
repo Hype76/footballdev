@@ -53,12 +53,21 @@ export function mobileResourceKey(user, resource) {
     user?.activeCoachAuthorityId ?? context?.authorityId,
     user?.activeCoachAuthoritySource ?? context?.authoritySource,
     link?.clubId, link?.teamId, link?.playerId, link?.linkType, link?.planStatus, link?.planKey,
+    ...(typeof user?.getCoachAuthorityGeneration === 'function' ? [user.getCoachAuthorityGeneration()] : []),
   ])
 }
 
 export function readMobileResource(user, resource, loader, options = {}) {
   if (!user?.id) return Promise.resolve().then(loader)
-  return mobileResourceCache.read(mobileResourceKey(user, resource), loader, { maxAgeMs: resourceMaxAge(resource), ...options })
+  const authorityGeneration = user.getCoachAuthorityGeneration?.()
+  const guardedLoader = resource.startsWith('coach:') && typeof user.waitForCoachAuthority === 'function'
+    ? async () => {
+        await user.waitForCoachAuthority()
+        const value = await loader()
+        if (authorityGeneration !== user.getCoachAuthorityGeneration?.()) throw new Error('The Coach workspace changed while loading. Retry in the current workspace.')
+        return value
+      } : loader
+  return mobileResourceCache.read(mobileResourceKey(user, resource), guardedLoader, { maxAgeMs: resourceMaxAge(resource), ...options })
 }
 
 export function peekMobileResource(user, resource, options = {}) {

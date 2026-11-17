@@ -13,11 +13,14 @@ export function useCoachDevelopmentSync({ user, contexts, enabled }) {
       if (running) { requested = true; return }
       running = true
       try {
+        await user.waitForCoachAuthority?.()
+        if (stopped) return
+        const authorityGeneration = user.getCoachAuthorityGeneration?.()
         do {
           requested = false
           for (const context of contexts) {
             if (stopped || AppState.currentState !== 'active') return
-            if (context.teamId) await syncCoachDevelopmentDrafts(user, context, () => !stopped)
+            if (context.teamId) await syncCoachDevelopmentDrafts(user, context, () => !stopped && authorityGeneration === user.getCoachAuthorityGeneration?.())
           }
         } while (requested && !stopped)
       } catch { /* Keep the encrypted drafts for the next connection. */ }

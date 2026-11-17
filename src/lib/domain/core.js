@@ -303,7 +303,7 @@ async function getAdultPlayerAccountState(authUser) {
   }
 }
 
-function normalizeAdultPlayerProfile(authUser, accountState) {
+function normalizeAdultPlayerProfile(authUser, accountState, parentLinks = []) {
   return {
     id: authUser.id,
     email: String(authUser.email ?? '').trim().toLowerCase(),
@@ -333,7 +333,9 @@ function normalizeAdultPlayerProfile(authUser, accountState) {
     selectedPlayerName: accountState.playerName,
     selectedPlayerDateOfBirth: accountState.dateOfBirth,
     playerContactType: accountState.contactType,
-    accessModeOptions: [],
+    accessModeOptions: parentLinks.length > 0
+      ? [{ id: 'parent', label: 'Parent', meta: 'Open invitations and updates for your children' }]
+      : [],
   }
 }
 
@@ -548,7 +550,15 @@ export async function fetchUserProfile(authUser, options = {}) {
       ? null
       : await getAdultPlayerAccountState(authUser)
 
-    if (adultPlayerAccountState) {
+    const parentMemberships = isDemoAuthUser
+      ? { links: [], lookupFailed: false }
+      : await getParentPortalMemberships(authUser)
+    const parentLinks = parentMemberships.links
+    const parentLinkLookupFailed = Boolean(parentMemberships.lookupFailed)
+    const hasParentAccess = parentLinks.length > 0
+
+    if (adultPlayerAccountState && (!hasParentAccess || selectedAccessMode === 'player'
+      || (!selectedAccessMode && loginAccessIntent === 'player'))) {
       if (!adultPlayerAccountState.accessGranted) {
         return {
           adultPlayerAccessUnavailable: true,
@@ -557,15 +567,16 @@ export async function fetchUserProfile(authUser, options = {}) {
         }
       }
 
-      return normalizeAdultPlayerProfile(authUser, adultPlayerAccountState)
+      return normalizeAdultPlayerProfile(authUser, adultPlayerAccountState, parentLinks)
     }
 
-    const parentMemberships = isDemoAuthUser
-      ? { links: [], lookupFailed: false }
-      : await getParentPortalMemberships(authUser)
-    const parentLinks = parentMemberships.links
-    const parentLinkLookupFailed = Boolean(parentMemberships.lookupFailed)
-    const hasParentAccess = parentLinks.length > 0
+    if (adultPlayerAccountState && hasParentAccess) {
+      return normalizeParentPortalProfile(authUser, parentLinks, {
+        accessModeOptions: adultPlayerAccountState.accessGranted
+          ? [{ id: 'player', label: 'Player', meta: 'Open your own playing account' }]
+          : [],
+      })
+    }
     let loadedMemberships = null
     let loadedAuthoritativeStaffMemberships = null
     const loadMemberships = async () => {

@@ -35,7 +35,7 @@ function harness(initial = { pendingAvailability: 107, unreadChat: 2, errors: ['
     selectedMobileUser: { id: 'coach', clubId: 'club', activeTeamId: 'team' },
     requestIdRef: { current: 1 }, chatRefreshIdRef: { current: 0 }, availabilityRefreshIdRef: { current: 0 },
     developmentRefreshIdRef: { current: 0 }, homeStateRef: { current: state },
-    homeDeniedScopeRef: { current: false },
+    homeDeniedScopeRef: { current: false }, contextAuthorityReadyRef: { current: true },
     readCoachDevelopmentDrafts: async () => ({}), mergeUnfinishedDevelopmentDrafts, preserveCoachDevelopmentSummary,
     setHomeState: update => { state = typeof update === 'function' ? update(state) : update; dependencies.homeStateRef.current = state },
     readMobileResource: async (user, key, loader, options) => { reads.push({ user, key, options }); return loader() },

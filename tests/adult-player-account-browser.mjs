@@ -184,7 +184,6 @@ async function preparePage(page) {
 async function signIn(page) {
   await page.goto(`${baseUrl}/sign-in`, { waitUntil: 'domcontentloaded', timeout: 60000 })
   await page.getByPlaceholder('you@club.com').waitFor({ state: 'visible', timeout: 30000 })
-  await page.getByRole('button', { name: 'Club' }).click()
   await page.getByPlaceholder('you@club.com').fill(fixtureEmail)
   await page.getByPlaceholder('Enter password').fill(fixturePassword)
   await page.locator('form').getByRole('button', { name: /^Log in$/i }).click()

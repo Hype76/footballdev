@@ -136,33 +136,49 @@ async function loadCoachContext(authUser, contextId) {
 
   const [, contextType, resourceId] = match
   const profile = await loadCoachProfile(authUser)
-  const clubId = normalizeText(profile.club_id)
+  let clubId = resourceId
+  let team = null
+  if (contextType.toLowerCase() === 'team') {
+    const { data, error } = await supabaseAdmin
+      .from('teams')
+      .select('id, club_id, status, archived_at')
+      .eq('id', resourceId)
+      .maybeSingle()
+    if (error) throw error
+    team = data
+    if (!team?.id || normalizeText(team.status || 'active') !== 'active' || team.archived_at) {
+      throw Object.assign(new Error('This Team context is not active.'), {
+        code: 'COACH_MOBILE_CONTEXT_FORBIDDEN', statusCode: 403,
+      })
+    }
+    clubId = normalizeText(team.club_id)
+  }
 
+  const [{ data: membership, error: membershipError }, { data: club, error: clubError }] = await Promise.all([
+    supabaseAdmin.from('user_club_memberships').select('auth_user_id, role, role_rank')
+      .eq('auth_user_id', authUser.id).eq('club_id', clubId).maybeSingle(),
+    supabaseAdmin.from('clubs').select('id, status').eq('id', clubId).maybeSingle(),
+  ])
+  if (membershipError || clubError) throw membershipError || clubError
+  const role = normalizeText(membership?.role)
+  const roleRank = Number(membership?.role_rank ?? 0)
+  if (!membership?.auth_user_id || !club?.id || normalizeText(club.status || 'active') !== 'active'
+    || role === 'parent_portal' || role === 'super_admin' || roleRank < 20) {
+    throw Object.assign(new Error('This Coach context is not available to this account.'), {
+      code: 'COACH_MOBILE_CONTEXT_FORBIDDEN', statusCode: 403,
+    })
+  }
+  const contextProfile = { ...profile, club_id: clubId, role, role_rank: roleRank, roleRank }
   if (contextType.toLowerCase() === 'club') {
-    if (resourceId !== clubId || profile.role !== 'admin' || profile.roleRank < 90) {
+    if (role !== 'admin' || roleRank < 90) {
       throw Object.assign(new Error('This Club context is not available to this Coach account.'), {
         code: 'COACH_MOBILE_CONTEXT_FORBIDDEN',
         statusCode: 403,
       })
     }
-    return { clubId, contextId: `club:${clubId}`, profile, teamId: null }
+    return { clubId, contextId: `club:${clubId}`, profile: contextProfile, teamId: null }
   }
-
-  const { data: team, error: teamError } = await supabaseAdmin
-    .from('teams')
-    .select('id, club_id, status, archived_at')
-    .eq('id', resourceId)
-    .eq('club_id', clubId)
-    .maybeSingle()
-  if (teamError) throw teamError
-  if (!team?.id || normalizeText(team.status || 'active') !== 'active' || team.archived_at) {
-    throw Object.assign(new Error('This Team context is not active.'), {
-      code: 'COACH_MOBILE_CONTEXT_FORBIDDEN',
-      statusCode: 403,
-    })
-  }
-
-  if (profile.role !== 'admin') {
+  if (role !== 'admin' || roleRank < 90) {
     const { data: assignment, error: assignmentError } = await supabaseAdmin
       .from('team_staff')
       .select('id, role_key, role_rank')
@@ -178,7 +194,7 @@ async function loadCoachContext(authUser, contextId) {
     }
   }
 
-  return { clubId, contextId: `team:${team.id}`, profile, teamId: team.id }
+  return { clubId, contextId: `team:${team.id}`, profile: contextProfile, teamId: team.id }
 }
 
 async function registerInstallation({ authUser, body, installationId }) {

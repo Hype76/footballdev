@@ -56,3 +56,21 @@ export function matchesIncidentRecoveryMigrationScope(base, entries) {
   return entries.every(({ path, status, source }, index) => path === expected[index] && status === 'A'
     && createHash('sha256').update(source.replaceAll('\r\n', '\n')).digest('hex') === incidentRecoveryMigrationScope.hashes[path])
 }
+
+// Exact adult access release candidate. Source validation does not apply migrations.
+export const adultAccessMigrationScope = {
+  "base": "473fdb04421ed15c131b1dbc93f828fb482b2dc4",
+  "hashes": {
+    "supabase/migrations/20261117173402_adult_player_status_authority_transaction.sql": "5fa2f20cf8b5a6fd5b1426b3a0c4dc3beda742a3f146ec238704c1b9bde9956a",
+    "supabase/migrations/20261117180703_adult_player_shared_parent_account.sql": "9f55fa6e1ef91ac669ed6ca5b84547f5a9d2c9df3bf1c72fdad2561d2dfb3c24",
+    "supabase/migrations/20261117211430_adult_player_parent_access_coexistence.sql": "b624b4df1faeaea469386c5d33ff2e7d7d7f41fc2e708c1e5acaa80f573bc54d"
+  }
+}
+
+export function matchesAdultAccessMigrationScope(base, entries) {
+  if (base !== adultAccessMigrationScope.base) return false
+  const expected = Object.keys(adultAccessMigrationScope.hashes).sort()
+  if (entries.length !== expected.length) return false
+  return entries.every(({ path, status, source }, index) => path === expected[index] && status === 'A'
+    && createHash('sha256').update(source.replaceAll('\r\n', '\n')).digest('hex') === adultAccessMigrationScope.hashes[path])
+}

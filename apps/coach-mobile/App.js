@@ -1,3 +1,4 @@
+import { createCoachContextAuthority } from './src/coachContextAuthorityCore'
 import { MobileSwitch as Switch } from '../mobile-core/src/MobileSwitch.js'
 import { DeviceThemeChoices } from '../mobile-core/src/DeviceThemeChoices'
 import { resolveDeviceThemeMode } from '../mobile-core/src/deviceThemeCore'
@@ -211,6 +212,12 @@ function CoachHome() {
   const quickActionVisibility = useQuickActionVisibility()
   const [chatNotificationTarget, setChatNotificationTarget] = useState(null)
   const [contextReady, setContextReady] = useState(false)
+  const [contextAuthorityOffline, setContextAuthorityOffline] = useState(false)
+  const contextAuthorityReadyRef = useRef(false)
+  const authorityUserIdRef = useRef(user?.id)
+  authorityUserIdRef.current = user?.id
+  const authorityRequestRef = useRef(0)
+  const contextAuthority = useMemo(() => createCoachContextAuthority(clubId => coachSupabase.rpc('activate_own_club_membership', { target_club_id: clubId })), [])
   const [contextOwnerUserId, setContextOwnerUserId] = useState('')
   const [themePreference, setThemePreference] = useState(peekCoachThemeMode)
   const systemTheme = useColorScheme()
@@ -258,7 +265,6 @@ function CoachHome() {
   const contentOriginRef = useRef(0)
   useLayoutEffect(() => { scrollBounds.activate(); return () => scrollBounds.dispose() }, [scrollBounds])
   const appStateRef = useRef(AppState.currentState)
-  const backgroundedAtRef = useRef(0)
   const lastHomeRefreshAtRef = useRef(0)
   const requestIdRef = useRef(0)
   const chatRefreshIdRef = useRef(0)
@@ -274,8 +280,8 @@ function CoachHome() {
   const formationReturnRef = useRef({ activeRoute: 'home', moreRoute: '' })
 
   const selectedMobileUser = useMemo(
-    () => activeContext && user ? { ...applyCoachContext(user, activeContext), matchdayPolicy: matchdayPlanConfig } : null,
-    [activeContext, matchdayPlanConfig, user],
+    () => activeContext && user ? { ...applyCoachContext(user, activeContext), isOfflineProfile: Boolean(user.isOfflineProfile || contextAuthorityOffline), waitForCoachAuthority: () => contextAuthority.waitForRead(user.id, activeContext.id), getCoachAuthorityGeneration: () => contextAuthority.getGeneration(), matchdayPolicy: matchdayPlanConfig } : null,
+    [activeContext, contextAuthority, contextAuthorityOffline, matchdayPlanConfig, user],
   )
   const navigation = useMemo(() => getCoachNavigationModel(activeContext, matchdayPlanConfig), [activeContext, matchdayPlanConfig])
   const quickActions = useMemo(() => getCoachQuickActions(activeContext, matchdayPlanConfig), [activeContext, matchdayPlanConfig])
@@ -314,8 +320,8 @@ function CoachHome() {
       setMoreRoute('')
     }
   }, [activeContext, activeRoute, matchdayPlanConfig, moreRoute])
-  useCoachMatchDayBackgroundSync({ user, contexts: contextResolution.contexts, enabled: contextOwnedByCurrentUser && activeRoute !== 'matchday' })
-  useCoachDevelopmentSync({ user, contexts: contextResolution.contexts, enabled: contextOwnedByCurrentUser })
+  useCoachMatchDayBackgroundSync({ user: selectedMobileUser, contexts: contextResolution.contexts, enabled: contextOwnedByCurrentUser && !selectedMobileUser?.isOfflineProfile && activeRoute !== 'matchday' })
+  useCoachDevelopmentSync({ user: selectedMobileUser, contexts: contextResolution.contexts, enabled: contextOwnedByCurrentUser && !selectedMobileUser?.isOfflineProfile })
   const handleChatNotificationTargetHandled = useCallback(() => setChatNotificationTarget(null), [])
   const handleMatchDayTargetHandled = useCallback(() => setMatchDayTarget(null), [])
 
@@ -387,6 +393,24 @@ function CoachHome() {
     setChatNotificationTarget(null)
     setNotice('')
     setQuickActionRequest(null)
+  }, [])
+
+  const synchronizeContextAuthority = useCallback(async (context, { preserveView = false } = {}) => {
+    const request = ++authorityRequestRef.current
+    const userId = user?.id
+    const isCurrent = () => request === authorityRequestRef.current && authorityUserIdRef.current === userId
+    contextAuthorityReadyRef.current = false
+    if (!preserveView) setContextReady(false)
+    requestIdRef.current += 1
+    const result = await contextAuthority.synchronize({ user, context, isCurrent })
+    if (!isCurrent()) throw Object.assign(new Error('The Coach account or workspace changed.'), { code: 'coach_context_changed' })
+    setContextAuthorityOffline(result.offline)
+    return { ...result, isCurrent }
+  }, [contextAuthority, user])
+
+  const completeContextAuthority = useCallback(() => {
+    contextAuthorityReadyRef.current = true
+    setContextReady(true)
   }, [])
 
   const refreshNotifications = useCallback(async ({ showLoading = false } = {}) => {
@@ -498,7 +522,7 @@ function CoachHome() {
   }, [])
 
   const loadHome = useCallback(async ({ refresh = false, chatOnly = false, availabilityOnly = false, developmentOnly = false, diagnostics = false } = {}) => {
-    if (!selectedMobileUser?.clubId) return
+    if (!contextAuthorityReadyRef.current || !selectedMobileUser?.clubId) return
     if (homeDeniedScopeRef.current && (chatOnly || availabilityOnly || developmentOnly)) return
     if (developmentOnly) {
       if (!selectedMobileUser.activeTeamId || !isMobileRouteAllowed(selectedMobileUser, 'development', selectedMobileUser.matchdayPolicy)) return
@@ -736,7 +760,7 @@ function CoachHome() {
     }
   }, [activeContext, selectedMobileUser, user?.id])
 
-  useCoachOfflinePreparation({ user, contexts: contextResolution.contexts, activeContext,
+  useCoachOfflinePreparation({ user: selectedMobileUser, contexts: contextResolution.contexts, activeContext,
     enabled: Boolean(user?.id && contextReady && contextOwnerUserId === user.id && activeRoute !== 'matchday'),
     activeInvites: isMatchInvitesRoute,
     refreshActiveHome: () => {
@@ -826,22 +850,23 @@ function CoachHome() {
       setNotice('This Coach destination is not available in the current Coach role.')
       return false
     }
-    if (targetContext.id !== activeContext?.id) {
-      try {
-        if (targetContext.clubId !== user.clubId) {
-          if (!user.isOfflineProfile) {
-            const { error } = await coachSupabase.rpc('activate_own_club_membership', { target_club_id: targetContext.clubId })
-            if (error) throw error
-            await refreshUserProfile()
-          }
-        }
-        await writeCoachContextMarker(user.id, targetContext)
-      } catch {
-        setNotice('Could not open the other club. Try again online.')
-        return false
-      }
-      resetContextDomainState(user.id, targetContext)
+    try {
+      const authority = await synchronizeContextAuthority(targetContext)
+      if (!authority.isCurrent()) return false
+      await writeCoachContextMarker(user.id, targetContext)
+      if (!authority.isCurrent()) return false
+      if (targetContext.id !== activeContext?.id) resetContextDomainState(user.id, targetContext)
       setSelectedContextId(targetContext.id)
+      setContextOwnerUserId(user.id)
+      completeContextAuthority()
+    } catch (error) {
+      if (error?.code !== 'coach_context_changed') {
+        setSelectedContextId('')
+        setNotice('Could not open the other club. Try again online.')
+        setContextOwnerUserId(user.id)
+        setContextReady(true)
+      }
+      return false
     }
     const target = getCoachRouteState(resolved)
     setMatchDayTarget(result.route === 'matchday' && result.targetId
@@ -857,7 +882,7 @@ function CoachHome() {
         }
       : null)
     return true
-  }, [activeContext?.id, contextResolution.contexts, matchdayPlanConfig, refreshUserProfile, resetContextDomainState, user])
+  }, [activeContext?.id, contextResolution.contexts, matchdayPlanConfig, completeContextAuthority, synchronizeContextAuthority, resetContextDomainState, user])
 
   useEffect(() => {
     let mounted = true
@@ -877,30 +902,37 @@ function CoachHome() {
     let mounted = true
     const authorityScope = JSON.stringify([user?.id, user?.role, user?.roleRank, user?.clubId, user?.hasActivePlanAccess, user?.coachContexts?.map(context => ['id', 'authorityId', 'authoritySource', 'clubId', 'teamId', 'role', 'roleRank', 'clubStatus', 'teamStatus', 'archivedAt', 'hasActivePlanAccess', 'planKey', 'planStatus'].map(field => String(context[field] ?? '')))])
     if (bootstrappedAuthorityRef.current === authorityScope) return undefined
+    contextAuthorityReadyRef.current = false
     setContextReady(false)
     resetContextDomainState()
     void Promise.all([
       user?.id ? readCoachContextMarker(user.id) : Promise.resolve(null),
-    ]).then(([marker]) => {
+    ]).then(async ([marker]) => {
       if (!mounted) return
       const available = Array.isArray(user?.coachContexts) ? user.coachContexts : []
       const nextContextId = available.some((context) => context.id === marker?.contextId)
         ? marker.contextId
         : available.length === 1 ? available[0].id : ''
       const nextContext = contextResolution.contexts.find(context => context.id === nextContextId)
-      if (nextContext) resetContextDomainState(user.id, nextContext)
+      if (nextContext) {
+        const authority = await synchronizeContextAuthority(nextContext)
+        if (!mounted || !authority.isCurrent()) return
+        resetContextDomainState(user.id, nextContext)
+      }
       setSelectedContextId(nextContextId)
       setContextOwnerUserId(user?.id || '')
       bootstrappedAuthorityRef.current = authorityScope
-      setContextReady(true)
-    }).catch(() => {
-      if (mounted) {
+      completeContextAuthority()
+    }).catch((error) => {
+      if (mounted && error?.code !== 'coach_context_changed') {
+        setSelectedContextId('')
         setContextOwnerUserId(user?.id || '')
+        setNotice('Could not restore the Coach workspace. Select it again when online.')
         setContextReady(true)
       }
     })
     return () => { mounted = false }
-  }, [contextResolution.contexts, resetContextDomainState, user])
+  }, [completeContextAuthority, contextResolution.contexts, resetContextDomainState, synchronizeContextAuthority, user])
 
   useEffect(() => {
     if (!activeContext || !user?.id || !contextOwnedByCurrentUser) return
@@ -915,7 +947,7 @@ function CoachHome() {
   useEffect(() => {
     if (!contextOwnedByCurrentUser || !selectedMobileUser?.id || !activeContext?.id) return undefined
     const warm = ({ force = false } = {}) => {
-      if (AppState.currentState !== 'active') return
+      if (!contextAuthorityReadyRef.current || AppState.currentState !== 'active') return
       void loadCoachNotificationHistory(selectedMobileUser, activeContext, { force }).catch(() => {})
       if (!selectedMobileUser.isOfflineProfile) void loadMobileClubKits(activeContext.clubId).catch(() => {})
     }
@@ -976,22 +1008,27 @@ function CoachHome() {
     return () => { subscription.remove(); resumeSubscription.remove() }
   }, [activeContext?.id, contextOwnedByCurrentUser, enableNotifications, refreshNotificationRegistration])
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const subscription = AppState.addEventListener('change', (nextState) => {
       const previousState = appStateRef.current
-      if (nextState === 'background' && previousState !== 'background') backgroundedAtRef.current = Date.now()
       if (nextState === 'background') lastBackAtRef.current = 0
       appStateRef.current = nextState
-      const returnedFromBackground = previousState === 'background' && nextState === 'active'
-      const wasAwayLongEnough = Date.now() - backgroundedAtRef.current >= 2500
-      const homeRefreshDue = Date.now() - lastHomeRefreshAtRef.current >= HOME_REFRESH_MIN_INTERVAL_MS
-      if (returnedFromBackground && wasAwayLongEnough && homeRefreshDue && activeRoute !== 'matchday' && contextOwnedByCurrentUser && selectedMobileUser?.clubId) {
-        void loadHome({ refresh: true })
-        void refreshNotifications()
-      }
+      if (previousState === 'active' || nextState !== 'active' || !activeContext || contextOwnerUserId !== user?.id) return
+      void synchronizeContextAuthority(activeContext, { preserveView: true }).then(authority => {
+        if (!authority.isCurrent()) return
+        homeDeniedScopeRef.current = false
+        lastHomeRefreshAtRef.current = 0
+        completeContextAuthority()
+        if (activeRoute !== 'matchday') void loadHome({ refresh: true })
+      }).catch(error => {
+        if (error?.code === 'coach_context_changed') return
+        setSelectedContextId('')
+        setNotice('Could not restore the Coach workspace. Select it again when online.')
+        setContextReady(true)
+      })
     })
     return () => subscription.remove()
-  }, [activeRoute, contextOwnedByCurrentUser, loadHome, refreshNotifications, selectedMobileUser?.clubId])
+  }, [activeContext, activeRoute, completeContextAuthority, contextOwnerUserId, loadHome, synchronizeContextAuthority, user?.id])
 
   useEffect(() => {
     if (!contextOwnedByCurrentUser || contextResolution.contexts.length === 0) return
@@ -1064,11 +1101,10 @@ function CoachHome() {
     }
     setIsSwitchingContext(true)
     try {
-      if (nextContext.clubId !== user.clubId && !user.isOfflineProfile) {
-        const { error } = await coachSupabase.rpc('activate_own_club_membership', { target_club_id: nextContext.clubId })
-        if (error) throw error
-        await writeCoachContextMarker(user.id, nextContext)
-      }
+      const authority = await synchronizeContextAuthority(nextContext)
+      if (!authority.isCurrent()) return
+      await writeCoachContextMarker(user.id, nextContext)
+      if (!authority.isCurrent()) return
       const transition = createCoachContextTransition(activeContext, nextContext)
       if (transition.clearDomainState) resetContextDomainState(user.id, nextContext)
       const currentDestination = moreRoute || activeRoute
@@ -1077,13 +1113,19 @@ function CoachHome() {
       setActiveRoute(target.activeRoute)
       setMoreRoute(target.moreRoute)
       setSelectedContextId(nextContext.id)
-      if (nextContext.clubId !== user.clubId && !user.isOfflineProfile) await refreshUserProfile()
+      setContextOwnerUserId(user.id)
+      completeContextAuthority()
+      if (nextContext.clubId !== user.clubId && !authority.offline) await refreshUserProfile()
     } catch (error) {
-      setNotice(error?.message || 'Could not change the Coach workspace. Try again online.')
+      if (error?.code !== 'coach_context_changed') {
+        setSelectedContextId('')
+        setNotice(error?.message || 'Could not change the Coach workspace. Try again online.')
+        setContextReady(true)
+      }
     } finally {
       setIsSwitchingContext(false)
     }
-  }, [activeContext, activeRoute, contextResolution.contexts, isSwitchingContext, matchdayPlanConfig, moreRoute, refreshUserProfile, resetContextDomainState, user])
+  }, [activeContext, activeRoute, completeContextAuthority, contextResolution.contexts, isSwitchingContext, matchdayPlanConfig, moreRoute, refreshUserProfile, resetContextDomainState, synchronizeContextAuthority, user])
 
   const toggleTheme = useCallback(async (next) => {
     setThemePreference(next)

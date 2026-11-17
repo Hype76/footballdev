@@ -491,6 +491,7 @@ export function ParentPortalAccountActions({
     : ''
   const staffReturnMode = declaredStaffReturnMode || verifiedStaffReturnMode
   const canOpenTeamWorkspace = staffReturnMode === 'team'
+  const canOpenPlayerAccount = user?.accessModeOptions?.some((option) => option.id === 'player')
   const buttonClass = [
     'inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-[#f2b8b5] bg-white px-4 py-3 text-sm font-black text-[#101828] shadow-sm shadow-[#047857]/10 transition hover:bg-[#fff4f3] disabled:cursor-not-allowed disabled:opacity-60',
     variant === 'mobile' ? 'px-3 py-2 text-xs' : '',
@@ -576,6 +577,20 @@ export function ParentPortalAccountActions({
           className={switchButtonClass}
         >
           {isOpeningTeam ? 'Opening club workspace...' : PARENT_PORTAL_STAFF_RETURN_LABEL}
+        </button>
+      ) : null}
+      {canOpenPlayerAccount ? (
+        <button type="button" className={switchButtonClass} disabled={isOpeningTeam || isSigningOut || isProfileLoading}
+          onClick={() => {
+            setIsOpeningTeam(true)
+            void selectAccessMode('player', { deferCommit: true })
+              .then(() => switchToMainAppWorkspace({ session, targetPath: '/player', accessMode: 'player' }))
+              .catch((error) => {
+              setSwitchError(error.message)
+              setIsOpeningTeam(false)
+              })
+          }}>
+          {isOpeningTeam ? 'Opening Player account...' : 'Open Player account'}
         </button>
       ) : null}
       <button

@@ -30,7 +30,7 @@ function harness(errors = []) {
     isMobileRouteAllowed, isMatchdayPlan,
     requestIdRef: { current: 0 }, chatRefreshIdRef: { current: 0 }, availabilityRefreshIdRef: { current: 0 },
     developmentRefreshIdRef: { current: 0 }, homeStateRef: { current: state },
-    homeDeniedScopeRef: { current: false },
+    homeDeniedScopeRef: { current: false }, contextAuthorityReadyRef: { current: true },
     readCoachDevelopmentDrafts: async () => ({}), mergeUnfinishedDevelopmentDrafts, preserveCoachDevelopmentSummary,
     setHomeState: update => { state = typeof update === 'function' ? update(state) : update },
     readMobileResource: async (user, key, loader, options) => { reads.push({ key, options }); return loader() },

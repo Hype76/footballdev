@@ -10,6 +10,8 @@ const sql = await readFile(new URL('../supabase/migrations/20261113114647_adult_
 const statusSql = await readFile(new URL('../supabase/migrations/20261116123543_adult_player_link_status.sql', import.meta.url), 'utf8')
 const resendSql = await readFile(new URL('../supabase/migrations/20261117100252_v1_adult_player_invitation_resend.sql', import.meta.url), 'utf8')
 const authorityTransactionSql = await readFile(new URL('../supabase/migrations/20261117173402_adult_player_status_authority_transaction.sql', import.meta.url), 'utf8')
+const sharedAccountSql = await readFile(new URL('../supabase/migrations/20261117180703_adult_player_shared_parent_account.sql', import.meta.url), 'utf8')
+const coexistenceSql = await readFile(new URL('../supabase/migrations/20261117211430_adult_player_parent_access_coexistence.sql', import.meta.url), 'utf8')
 const staffAuthoritySql = await readFile(new URL('../supabase/migrations/20260728170000_staff_role_assignment_control.sql', import.meta.url), 'utf8')
 const authorityHelperSql = staffAuthoritySql.slice(
   staffAuthoritySql.indexOf('create or replace function app_private.actor_can_manage_team_resource('),
@@ -124,6 +126,9 @@ test('adult invitation is private, scoped, invalidates changed emails and only l
       'select public.list_adult_player_setup_resend_targets($1,$2) as result', [id, targetTeam],
     )).rows[0].result
 
+    await db.exec('reset role')
+    await db.exec(sharedAccountSql)
+    await db.exec('set role service_role')
     assert.deepEqual(await reserve(other), { state: 'denied' })
     assert.deepEqual(await linkStatus(other), { state: 'denied' })
     assert.deepEqual(await linkStatus(), { state: 'not_invited' })
@@ -174,9 +179,47 @@ test('adult invitation is private, scoped, invalidates changed emails and only l
     assert.deepEqual(await redeem(current.token, account), { state: 'parent_linked' })
     assert.deepEqual(await linkStatus(), { state: 'parent_linked' })
     await db.exec('reset role')
-    await db.exec('delete from public.parent_player_links')
+    const coexistenceFunctionNames = [
+      'reserve_adult_player_setup_invite', 'redeem_adult_player_setup_invite',
+      'get_adult_player_link_status', 'list_adult_player_setup_resend_targets',
+      'enforce_adult_player_account_link',
+    ]
+    const apiMetadata = async () => (await db.query(`
+      select oid, proname, proowner, proacl::text, provolatile, prosecdef, proconfig
+      from pg_proc where pronamespace = 'public'::regnamespace and proname = any($1::text[])
+      order by proname
+    `, [coexistenceFunctionNames])).rows
+    const originalApiMetadata = await apiMetadata()
+    assert.equal(originalApiMetadata.length, 5)
+    await db.exec(coexistenceSql)
+    assert.deepEqual(await apiMetadata(), originalApiMetadata, 'Coexistence preserves API identity and privileges')
+    // Keep the other Parent account on this adult, this account's child and its legacy self link.
+    await db.query(`insert into public.parent_player_links values ($1,$2,'active'),($1,$3,'active')`, [account, other, player])
+    const parentRows = async () => (await db.query('select * from public.parent_player_links order by auth_user_id, player_id')).rows
+    const originalParentRows = await parentRows()
+    assert.equal(originalParentRows.length, 3)
+    await db.exec('set role service_role')
+    assert.equal((await linkStatus()).state, 'not_invited')
+    assert.deepEqual(await targets(), { state: 'ready', player_ids: [player] })
+    assert.equal((await reserve()).state, 'pending')
+    assert.deepEqual(await redeem(current.token, other), { state: 'wrong_account' })
+    await db.exec('reset role')
+    await db.query('update auth.users set email_confirmed_at = null where id = $1', [account])
+    await db.exec('set role service_role')
+    assert.deepEqual(await redeem(current.token, account), { state: 'wrong_account' })
+    await db.exec('reset role')
+    await db.query('update auth.users set email_confirmed_at = now() where id = $1', [account])
+    await db.query('insert into public.users(id) values ($1)', [account])
+    await db.exec('set role service_role')
+    assert.deepEqual(await redeem(current.token, account), { state: 'account_conflict' })
+    await db.exec('reset role')
+    await db.query('delete from public.users where id = $1', [account])
     await db.exec('set role service_role')
     assert.deepEqual(await redeem(current.token, account), { state: 'accepted' })
+    await db.exec('reset role')
+    assert.deepEqual(await parentRows(), originalParentRows, 'Linking the adult never changes existing Parent links')
+    assert.deepEqual((await db.query('select user_id, player_id from public.adult_player_account_links')).rows, [{ user_id: account, player_id: player }])
+    await db.exec('set role service_role')
     assert.deepEqual(await linkStatus(), { state: 'linked' })
     assert.deepEqual(await redeem(current.token, account), { state: 'accepted' })
     assert.deepEqual(await reserve(), { state: 'linked' })
@@ -193,6 +236,7 @@ test('adult invitation is private, scoped, invalidates changed emails and only l
     assert.equal((await db.query('select status from public.adult_player_account_links where user_id = $1', [account])).rows[0].status, 'revoked')
     await db.exec('set role service_role')
     assert.deepEqual(await redeem(current.token, account), { state: 'invalid' })
+    await db.exec('reset role; delete from public.parent_player_links; set role service_role')
     const replacement = await reserve()
     assert.equal(replacement.email, 'different@example.test')
     assert.deepEqual(await redeem(replacement.token, other), { state: 'accepted' })

@@ -50,13 +50,27 @@ function applyTeamAccessState() {
   window.sessionStorage.removeItem('login-access-intent')
 }
 
-function applyFixtureBridgeState(fixtureState) {
+function applyWorkspaceAccessState(accessMode = 'team') {
+  if (accessMode === 'team') {
+    applyTeamAccessState()
+    return
+  }
+  if (accessMode !== 'player') throw new Error('Workspace access mode is invalid.')
+  window.sessionStorage.setItem('selected-access-mode', 'player')
+  window.sessionStorage.setItem('selected-access-mode-explicit', 'true')
+  window.sessionStorage.removeItem(STAFF_SWITCH_PENDING_STORAGE_KEY)
+  window.sessionStorage.removeItem('selected-club-id')
+  window.sessionStorage.removeItem('selected-team-id')
+  window.sessionStorage.removeItem('login-access-intent')
+}
+
+function applyFixtureBridgeState(fixtureState, accessMode = 'team') {
   if (!isFixtureMode() || !fixtureState?.email) {
     return false
   }
 
   window.sessionStorage.setItem('auth-access-browser-fixture-email', fixtureState.email)
-  applyTeamAccessState()
+  applyWorkspaceAccessState(accessMode)
 
   if (fixtureState.selectedClubId) {
     window.sessionStorage.setItem('selected-club-id', fixtureState.selectedClubId)
@@ -69,7 +83,8 @@ function applyFixtureBridgeState(fixtureState) {
   return true
 }
 
-export async function switchToMainAppWorkspace({ session, targetPath = '/coach' } = {}) {
+export async function switchToMainAppWorkspace({ session, targetPath = '/coach', accessMode = 'team' } = {}) {
+  if (!['team', 'player'].includes(accessMode)) throw new Error('Workspace access mode is invalid.')
   const mainOrigin = getOrigin(getMainAppOrigin())
   const currentOrigin = getOrigin(window.location.origin)
   const normalizedPath = String(targetPath || '/coach').startsWith('/') ? String(targetPath || '/coach') : `/${targetPath}`
@@ -80,7 +95,7 @@ export async function switchToMainAppWorkspace({ session, targetPath = '/coach' 
   }
 
   if (mainOrigin === currentOrigin) {
-    applyTeamAccessState()
+    applyWorkspaceAccessState(accessMode)
     window.location.assign(targetUrl)
     return
   }
@@ -114,6 +129,7 @@ export async function switchToMainAppWorkspace({ session, targetPath = '/coach' 
               }
             : null,
           fixtureState,
+          accessMode,
         }, mainOrigin)
         return
       }
@@ -162,7 +178,9 @@ export function WorkspaceSessionBridge() {
       }
 
       try {
-        if (!applyFixtureBridgeState(event.data.fixtureState)) {
+        const accessMode = event.data.accessMode ?? 'team'
+        if (!['team', 'player'].includes(accessMode)) throw new Error('Workspace access mode is invalid.')
+        if (!applyFixtureBridgeState(event.data.fixtureState, accessMode)) {
           const accessToken = String(event.data.session?.access_token ?? '').trim()
           const refreshToken = String(event.data.session?.refresh_token ?? '').trim()
 
@@ -179,7 +197,7 @@ export function WorkspaceSessionBridge() {
             throw error
           }
 
-          applyTeamAccessState()
+          applyWorkspaceAccessState(accessMode)
         }
 
         isComplete = true

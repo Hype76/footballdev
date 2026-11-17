@@ -29,9 +29,9 @@ function fail(statusCode, message) {
 function inviteFailure(state) {
   if (state === 'denied') return fail(403, 'You need access to this team to invite the player.')
   if (state === 'ineligible') return fail(422, 'Add one Player email and a date of birth confirming the player is 18 or over.')
-  if (state === 'parent_linked') return fail(409, 'This player already has active Parent access. Review it with the club before setting up separate Player access.')
+  if (state === 'parent_linked') return fail(409, 'Another account has Parent access to this adult player record. Ask the club to review that link. Parent access to your children does not prevent Player access.')
   if (state === 'wrong_account' || state === 'account_conflict') {
-    return fail(409, 'Use the invited email address and a separate Player account. Ask your club for help if this email already has another role.')
+    return fail(409, 'Sign in with the invited email address. An existing Parent login can also accept Player access. Ask your club for help if this account has a conflicting staff role.')
   }
   return fail(410, 'This invitation is unavailable or has expired. Ask your club to invite you again.')
 }
