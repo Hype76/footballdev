@@ -275,3 +275,61 @@ test('binary release assets use exact byte hashes and reject drift, omissions an
   fs.unlinkSync(path.join(temporary,file)); assert.throws(()=>verifyReleasePreparation(temporary,preparation))
  } finally { fs.rmSync(temporary,{recursive:true,force:true}) }
 })
+
+
+// Exercise the actual fixed audit loop without live registry calls or review fabrication.
+async function productionAuditLoop({ production, verified = true, malformed = false, exitStatus = 1 }) {
+  const source = fs.readFileSync('scripts/security-supply-chain-gate.mjs', 'utf8')
+  const start = source.indexOf('const auditRuns = ['), end = source.indexOf("\nawait writeFile(artifactPath(root, 'raw-audits.json')", start)
+  assert.ok(start >= 0 && end > start)
+  const clean = { auditReportVersion: 2, vulnerabilities: {}, metadata: { vulnerabilities: { info: 0, low: 0, moderate: 0, high: 0, critical: 0, total: 0 } } }
+  const target = policy.targets.find(item => item.scope === '.' && item.name === 'picomatch')
+  const scopeLock = { packages: { [target.packagePath]: { version: target.version } } }
+  const commands = []
+  const dependencies = {
+    root, npmExecutable: 'pinned-npm-cli.js', process, path, assert, evaluateAudit,
+    remediation: { record: policy }, verified,
+    readFile: async () => JSON.stringify(scopeLock),
+    spawnSync: (_node, args, options) => {
+      commands.push({ args, cwd: options.cwd })
+      const isProduction = args.includes('--omit=dev')
+      return { status: isProduction ? exitStatus : 0, signal: null, stdout: isProduction ? malformed ? 'registry unavailable' : JSON.stringify(production) : JSON.stringify(clean), stderr: isProduction ? 'raw production diagnostics' : '' }
+    },
+  }
+  const result = await new Function(...Object.keys(dependencies), 'return (async () => { const failures = [], rawAudits = [], sourceReports = [], observedAdvisories = new Set(); let validAuditRuns = 0, zeroFindingRuns = 0, audit; ' + source.slice(start, end) + '; return { failures, rawAudits, sourceReports, validAuditRuns, zeroFindingRuns }; })()')(...Object.values(dependencies))
+  return { ...result, commands }
+}
+const picomatchProductionAudit = () => ({ auditReportVersion: 2, vulnerabilities: { picomatch: { name: 'picomatch', severity: 'high', via: [{ name: 'picomatch', severity: 'high', url: 'https://github.com/advisories/GHSA-fc5q-39xc-vjpf' }], nodes: [policy.targets.find(item => item.scope === '.' && item.name === 'picomatch').packagePath] } }, metadata: { vulnerabilities: { info: 0, low: 0, moderate: 0, high: 1, critical: 0, total: 1 } } })
+
+test('fixed fourth production audit preserves raw findings and requires exact source verification', async () => {
+  const production = picomatchProductionAudit(), result = await productionAuditLoop({ production })
+  assert.equal(result.commands.length, 4)
+  assert.deepEqual(result.commands.map(call => call.args), [
+    ['pinned-npm-cli.js', 'audit', '--json'], ['pinned-npm-cli.js', 'audit', '--json'], ['pinned-npm-cli.js', 'audit', '--json'],
+    ['pinned-npm-cli.js', 'audit', '--omit=dev', '--audit-level=low', '--json'],
+  ])
+  assert.equal(result.commands[3].cwd, root)
+  assert.equal(result.validAuditRuns, 4); assert.equal(result.zeroFindingRuns, 3)
+  assert.deepEqual(result.failures, [])
+  const raw = result.rawAudits[3], accepted = result.sourceReports[3]
+  assert.equal(raw.mode, 'production'); assert.equal(raw.exitStatus, 1)
+  assert.equal(raw.stdout, JSON.stringify(production)); assert.equal(raw.stderr, 'raw production diagnostics')
+  assert.equal(accepted.acceptedSourceRemediations.length, 1)
+  const unverified = await productionAuditLoop({ production, verified: false })
+  assert.deepEqual(unverified.sourceReports[3].acceptedSourceRemediations, [])
+  assert.ok(unverified.failures.some(failure => failure.includes('No advisory acceptance')))
+  assert.equal(JSON.parse(fs.readFileSync('package.json')).scripts['security:supply-chain'], 'node scripts/security-supply-chain-gate.mjs')
+})
+
+test('fourth production audit fails closed for unknown advisories, malformed lookup and contradictory exit', async () => {
+  const unknown = picomatchProductionAudit(); unknown.vulnerabilities.picomatch.via[0].url = 'https://github.com/advisories/GHSA-unknown-production'
+  const result = await productionAuditLoop({ production: unknown })
+  assert.ok(result.failures.some(failure => failure.includes('Unaccepted advisory')))
+  assert.deepEqual(result.sourceReports[3].acceptedSourceRemediations, [])
+  for (const options of [{ malformed: true }, { exitStatus: 0 }, { exitStatus: 2 }]) {
+    const invalid = await productionAuditLoop({ production: picomatchProductionAudit(), ...options })
+    assert.equal(invalid.validAuditRuns, 3)
+    assert.ok(invalid.failures.some(failure => failure.includes('Audit invalid for ./production')))
+    assert.equal(invalid.rawAudits.length, 4)
+  }
+})

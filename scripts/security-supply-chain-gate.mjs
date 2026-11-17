@@ -99,8 +99,8 @@ const npmExecutable = process.env.npm_execpath
 assert.ok(npmExecutable, 'Run through the repository-pinned npm script so its CLI is identified.')
 const rawAudits = []
 const sourceReports = []
-let validAuditScopes = 0
-let zeroFindingScopes = 0
+let validAuditRuns = 0
+let zeroFindingRuns = 0
 let remediation
 let verified = false
 try {
@@ -117,12 +117,18 @@ try {
 }
 let audit = { metadata: { vulnerabilities: {} } }
 const observedAdvisories = new Set()
-for (const scope of ['.', 'apps/parent-mobile', 'apps/coach-mobile']) {
-  const auditResult = spawnSync(process.execPath, [npmExecutable, 'audit', '--json'], {
+const auditRuns = [
+  { scope: '.', mode: 'all', args: [] },
+  { scope: 'apps/parent-mobile', mode: 'all', args: [] },
+  { scope: 'apps/coach-mobile', mode: 'all', args: [] },
+  { scope: '.', mode: 'production', args: ['--omit=dev', '--audit-level=low'] },
+]
+for (const { scope, mode, args } of auditRuns) {
+  const auditResult = spawnSync(process.execPath, [npmExecutable, 'audit', ...args, '--json'], {
     cwd: path.resolve(root, scope), encoding: 'utf8', maxBuffer: 25 * 1024 * 1024,
     timeout: 120000,
   })
-  const raw = { scope, exitStatus: auditResult.status, signal: auditResult.signal, error: auditResult.error?.message || null, stdout: String(auditResult.stdout || ''), stderr: String(auditResult.stderr || '') }
+  const raw = { scope, mode, arguments: ['audit', ...args, '--json'], exitStatus: auditResult.status, signal: auditResult.signal, error: auditResult.error?.message || null, stdout: String(auditResult.stdout || ''), stderr: String(auditResult.stderr || '') }
   rawAudits.push(raw)
   try {
     assert.ok(!raw.error && raw.signal === null && [0, 1].includes(raw.exitStatus), 'Audit command did not complete normally')
@@ -130,20 +136,20 @@ for (const scope of ['.', 'apps/parent-mobile', 'apps/coach-mobile']) {
     const scopeLock = JSON.parse(await readFile(path.resolve(root, scope, 'package-lock.json'), 'utf8'))
     const result = evaluateAudit(data, scopeLock, scope, remediation?.record || { eligibleAdvisories: {}, targets: [] })
     assert.equal(raw.exitStatus, Object.keys(data.vulnerabilities).length ? 1 : 0, 'Audit exit status contradicts findings')
-    validAuditScopes += 1
-    if (Object.keys(data.vulnerabilities).length === 0) zeroFindingScopes += 1
-    if (scope === '.') audit = data
+    validAuditRuns += 1
+    if (Object.keys(data.vulnerabilities).length === 0) zeroFindingRuns += 1
+    if (scope === '.' && mode === 'all') audit = data
     for (const id of result.observedAdvisories) observedAdvisories.add(id)
     failures.push(...result.failures)
-    sourceReports.push({ scope, ...result, acceptedSourceRemediations: verified ? result.acceptedSourceRemediations : [], sourceVerificationPassed: verified })
-    if (!verified && Object.keys(data.vulnerabilities).length) failures.push('No advisory acceptance without complete source and independent review verification: ' + scope)
+    sourceReports.push({ scope, mode, ...result, acceptedSourceRemediations: verified ? result.acceptedSourceRemediations : [], sourceVerificationPassed: verified })
+    if (!verified && Object.keys(data.vulnerabilities).length) failures.push('No advisory acceptance without complete source and independent review verification: ' + scope + '/' + mode)
   } catch (error) {
-    failures.push('Full audit invalid for ' + scope + ': ' + error.message)
+    failures.push('Audit invalid for ' + scope + '/' + mode + ': ' + error.message)
   }
 }
 
 await writeFile(artifactPath(root, 'raw-audits.json'), JSON.stringify(rawAudits, null, 2) + '\n')
-await writeFile(artifactPath(root, 'reviewed-source-results.json'), JSON.stringify({ generatedAt: new Date().toISOString(), registryAuditCompletedAndValid: validAuditScopes === 3, registryAuditIsClean: validAuditScopes === 3 && zeroFindingScopes === 3, sourceReports, failures }, null, 2) + '\n')
+await writeFile(artifactPath(root, 'reviewed-source-results.json'), JSON.stringify({ generatedAt: new Date().toISOString(), registryAuditCompletedAndValid: validAuditRuns === 4, registryAuditIsClean: validAuditRuns === 4 && zeroFindingRuns === 4, sourceReports, failures }, null, 2) + '\n')
 await writeFile(artifactPath(root, 'dependency-inventory.json'), `${JSON.stringify({
   generatedAt: new Date().toISOString(),
   direct: {

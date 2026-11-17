@@ -315,7 +315,7 @@ jobs:
       - name: Coach player profile navigation
         run: node tests/coach-player-profile-browser.mjs && node tests/coach-development-selectors-browser.mjs && node tests/coach-sessions-cache-warning-browser.mjs
       - name: Coach linked-club notification authority
-        run: node --test tests/coach-push-linked-context.test.mjs tests/coach-context-authority.test.mjs
+        run: node --test tests/coach-push-linked-context.test.mjs tests/coach-push-linked-delivery.test.mjs tests/coach-context-authority.test.mjs
       - name: Coach Calendar month markers
         run: node --test tests/mobile-coach-operational-31c.test.mjs && node tests/coach-calendar-markers-browser.mjs
       - name: Coach contacts, invite history and Resources

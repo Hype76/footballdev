@@ -255,11 +255,18 @@ async function getCoachDevices(match, client = supabaseAdmin, recipientId = '') 
             select: 'id, club_id, role, role_rank, status',
           },
         )
-        const role = normalizeText(profile.role)
-        const roleRank = Number(profile.role_rank ?? 0)
+        const [{ data: membership, error: membershipError }, { data: club, error: clubError }] = await Promise.all([
+          client.from('user_club_memberships').select('auth_user_id, role, role_rank')
+            .eq('auth_user_id', profile.id).eq('club_id', match.club_id).maybeSingle(),
+          client.from('clubs').select('id, status').eq('id', match.club_id).maybeSingle(),
+        ])
+        if (membershipError || clubError) throw membershipError || clubError
+        const role = normalizeText(membership?.role)
+        const roleRank = Number(membership?.role_rank ?? 0)
         if (
           profile.id !== device.user_profile_id ||
-          profile.club_id !== match.club_id ||
+          !membership?.auth_user_id ||
+          !club?.id || normalizeText(club.status || 'active') !== 'active' ||
           role === 'parent_portal' ||
           role === 'super_admin' ||
           roleRank < 20
