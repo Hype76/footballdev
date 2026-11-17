@@ -57,6 +57,7 @@ import {
   getTeams,
 } from './team-actions.js'
 import {
+  assertNotDemoSession,
   blockDemoMutation,
   blockDemoSignupProvisioning,
   isDemoAccountValue,
@@ -495,7 +496,7 @@ export async function selectUserClub(authUser, clubId) {
     throw new Error('Choose a club to continue.')
   }
 
-  await blockDemoMutation(authUser)
+  await assertNotDemoSession(authUser)
   await claimInvitedUserProfiles(authUser)
   const memberships = await getUserClubMemberships(authUser)
   const selectedMembership = memberships.find((membership) => String(membership.clubId) === String(clubId))
