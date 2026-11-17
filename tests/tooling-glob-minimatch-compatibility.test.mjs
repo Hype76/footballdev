@@ -13,6 +13,14 @@ const baseline = 'a891ce5fea782b6f17052a1cee4c65c271717447'
 const toolingPackages = new Set(['glob', 'minimatch', 'path-scurry', 'test-exclude', '@eslint/config-array', '@eslint/object-schema', '@isaacs/nonrecursive-glob-match', '@isaacs/cliui', 'balanced-match', 'brace-expansion', 'concat-map', 'foreground-child', 'jackspeak', 'package-json-from-dist'])
 const liveMatchPackages = new Set(['expo-task-manager', 'football-player-live-match', 'react-native-widget-extension', 'unimodules-app-loader', '@expo/config-plugins', '@expo/config-types', '@expo/plist', '@expo/require-utils', 'semver', 'xcode', 'argparse', 'sprintf-js'])
 
+// The mandatory production audit is now the fourth verified audit in this exact command.
+// Its fixed configuration and failure cases are exercised by security-reviewed-backports.test.mjs.
+function applyApprovedSupplyChainAuditDelta(previous, current) {
+  assert.equal(previous.scripts['security:supply-chain'], 'node scripts/security-supply-chain-gate.mjs && npm audit --omit=dev --audit-level=low')
+  assert.equal(current.scripts['security:supply-chain'], 'node scripts/security-supply-chain-gate.mjs')
+  previous.scripts['security:supply-chain'] = current.scripts['security:supply-chain']
+}
+
 function applyApprovedXmlParserDelta(pkg, lock) {
   pkg.dependencies['fast-xml-parser'] = '5.12.0'
   lock.packages[''].dependencies['fast-xml-parser'] = '5.12.0'
@@ -109,6 +117,7 @@ test('official tooling updates preserve unrelated dependencies and the exact app
     }
     if (scope !== '.') applyLiveMatchDelta(before)
     const current = JSON.parse(fs.readFileSync(`${prefix}package.json`))
+    if (scope === '.') applyApprovedSupplyChainAuditDelta(before, current)
     const { overrides: oldOverrides, ...oldPackage } = before
     const { overrides, ...newPackage } = current
     assert.deepEqual(newPackage, oldPackage, `${scope} direct dependencies and scripts match the exact mobile feature additions`)
@@ -141,6 +150,7 @@ test('the current glob and minimatch update changes only reviewed tooling packag
     const prefix = scope === '.' ? '' : `${scope}/`
     const oldPackage = JSON.parse(execFileSync('git', ['show', `${candidate}:${prefix}package.json`], { encoding: 'utf8' }))
     const newPackage = JSON.parse(fs.readFileSync(`${prefix}package.json`))
+    if (scope === '.') applyApprovedSupplyChainAuditDelta(oldPackage, newPackage)
     const oldLock = JSON.parse(execFileSync('git', ['show', `${candidate}:${prefix}package-lock.json`], { encoding: 'utf8', maxBuffer: 8 * 1024 * 1024 }))
     if (scope === '.') applyApprovedXmlParserDelta(oldPackage, oldLock)
     if (scope === 'apps/coach-mobile') applyApprovedCoachFileTools(oldPackage, oldLock)
