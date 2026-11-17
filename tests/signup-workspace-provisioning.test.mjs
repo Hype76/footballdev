@@ -4,7 +4,7 @@ import test from 'node:test'
 process.env.VITE_SUPABASE_URL = 'https://signup.example.test'
 process.env.VITE_SUPABASE_PUBLISHABLE_KEY = 'test-publishable-key'
 
-const { createClubAndManagerProfile, supabase } = await import('../src/lib/domain/core.js')
+const { createClubAndManagerProfile, selectUserClub, supabase } = await import('../src/lib/domain/core.js')
 const { blockDemoMutation } = await import('../src/lib/domain/demo-guards.js')
 
 const authUser = {
@@ -13,6 +13,51 @@ const authUser = {
   email_confirmed_at: '2026-09-30T05:00:00Z',
   user_metadata: { club_name: 'FP TEST Signup', signup_plan_key: 'matchday', account_type: 'coach' },
 }
+
+test('linked staff can select a club before workspace billing is loaded', async (t) => {
+  const club = {
+    id: 'billing-workspace-club',
+    name: 'FP TEST Linked Club',
+    plan_key: 'small_club',
+    plan_status: 'past_due',
+    billing_arrangement: 'immediate',
+  }
+  const staff = { id: authUser.id, email: authUser.email, club_id: club.id, role: 'coach', status: 'active' }
+  const calls = []
+  t.mock.method(supabase, 'rpc', async (name, args) => {
+    calls.push(name)
+    if (name === 'accept_own_club_user_invites') return { data: [] }
+    assert.equal(name, 'activate_own_club_membership')
+    assert.deepEqual(args, { target_club_id: club.id })
+    return { data: staff }
+  })
+  t.mock.method(supabase, 'from', (table) => ({
+    select: () => ({
+      eq: (column, value) => {
+        if (table === 'user_club_memberships') {
+          assert.equal(column, 'auth_user_id')
+          assert.equal(value, authUser.id)
+          return { order: async () => ({ data: [{ ...staff, auth_user_id: authUser.id, clubs: club }] }) }
+        }
+        assert.equal(table, 'clubs')
+        assert.equal(column, 'id')
+        assert.equal(value, club.id)
+        return { maybeSingle: async () => ({ data: club }) }
+      },
+    }),
+  }))
+
+  await assert.rejects(selectUserClub({ ...authUser, isDemoAccount: true }, club.id), /demo/i)
+  assert.deepEqual(calls, [])
+  await assert.rejects(selectUserClub(authUser, 'unlinked-club'), /not linked/)
+  assert.deepEqual(calls, ['accept_own_club_user_invites'])
+
+  const profile = await selectUserClub(authUser, club.id)
+  assert.equal(profile.clubId, club.id)
+  assert.equal(profile.planStatus, 'past_due')
+  assert.deepEqual(calls.slice(1), ['accept_own_club_user_invites', 'activate_own_club_membership'])
+  await assert.rejects(blockDemoMutation(profile), { code: 'payment_required' })
+})
 
 test('a confirmed new account can reach server-authorised signup before it has a staff role', async () => {
   const originalFetch = globalThis.fetch

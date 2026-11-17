@@ -21,12 +21,16 @@ export async function isCurrentSessionDemoUser() {
   return isDemoEmail(data?.user?.email)
 }
 
-export async function blockDemoMutation(account) {
+export async function assertNotDemoSession(account) {
   const hasDemoIdentity = Boolean(account?.isDemoAccount || account?.email)
 
   if (isDemoAccountValue(account) || (!hasDemoIdentity && await isCurrentSessionDemoUser())) {
     throw new Error(DEMO_MUTATION_ERROR_MESSAGE)
   }
+}
+
+export async function blockDemoMutation(account) {
+  await assertNotDemoSession(account)
 
   if (account) {
     assertBillingActionAllowed(account, BILLING_ACTION_CATEGORIES.staffMutation)
