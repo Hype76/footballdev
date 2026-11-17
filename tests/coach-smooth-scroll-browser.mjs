@@ -47,8 +47,8 @@ let shellSource = source.slice(shell.start, shell.end)
 for (const node of elements.filter(n => ['CoachRoute', 'CoachQuickActions'].includes(n.openingElement.name.name)).sort((a, b) => b.start - a.start)) {
   shellSource = shellSource.slice(0, node.start - shell.start) + (node.openingElement.name.name === 'CoachRoute' ? '<CoachRoute onRequestScrollTop={scrollContentToTop} onNotificationSettingsFocus={focusNotificationSettings}/>' : '<View/>') + shellSource.slice(node.end - shell.start)
 }
-const names = ['CoachHeader', 'ContextSwitcher', 'PrimaryNavigation', 'ScreenIntro', 'SecondaryAction', 'MoreScreen', 'createCoachStyles']
-const selected = names.map(name => { const n = nodes.find(n => n.type === 'FunctionDeclaration' && n.id.name === name); return source.slice(n.start, n.end) }).join('\n').replace("require('./assets/football-player-logo.png')", "require('./apps/coach-mobile/assets/football-player-logo.png')")
+const names = ['CoachHeader', 'ContextOptionBadge', 'ContextSwitcher', 'PrimaryNavigation', 'ScreenIntro', 'SecondaryAction', 'MoreScreen', 'createCoachStyles']
+const selected = names.map(name => { const n = nodes.find(n => n.type === 'FunctionDeclaration' && n.id.name === name); return source.slice(n.start, n.end) }).join('\n').replaceAll("require('./assets/football-player-logo.png')", "require('./apps/coach-mobile/assets/football-player-logo.png')")
 const callbacks = ['scrollContentToTop', 'restoreContentScrollPosition', 'focusNotificationSettings'].map(name => {
   const declaration = home.body.body.find(n => n.type === 'VariableDeclaration' && n.declarations[0].id.name === name)
   return source.slice(declaration.start, declaration.end)
@@ -80,9 +80,11 @@ import {MobileHeaderActivity} from './apps/mobile-core/src/MobileHeaderActivity.
 const refreshUserProfile=async()=>{};
 
 import React,{useRef,useMemo,useCallback,useEffect,useLayoutEffect,useState} from 'react';import {createRoot} from 'react-dom/client';
-import {View,Text,Image,Pressable,ScrollView,TextInput,Keyboard,KeyboardAvoidingView,RefreshControl,StyleSheet,Platform,AppState,Modal,SafeAreaView} from 'react-native';
+import {View,Text,Image,Pressable,ScrollView,TextInput,Keyboard,KeyboardAvoidingView,RefreshControl,StyleSheet,Platform,AppState,Modal} from 'react-native';
+const SafeAreaProvider=({children})=><View style={{flex:1}}>{children}</View>;
+const SafeAreaView=({style,...props})=><View {...props} style={[style,{paddingTop:47}]}/>;
 const keyboardListeners=new Map();Platform.OS='ios';Keyboard.isVisible=()=>Boolean(window.keyboardY);Keyboard.metrics=()=>window.keyboardY?{screenY:window.keyboardY}:undefined;Keyboard.addListener=(name,fn)=>{const listeners=keyboardListeners.get(name)||new Set();listeners.add(fn);keyboardListeners.set(name,listeners);return{remove:()=>listeners.delete(fn)}};window.keyboardEvent=(name,y)=>{window.keyboardY=y;window.setHeight(y||850);keyboardListeners.get(name)?.forEach(fn=>fn({endCoordinates:{screenY:y}}))};
-import {createCoachTheme} from './apps/coach-mobile/src/coachThemeCore.js';
+import {createCoachTheme,resolveCoachBranding} from './apps/coach-mobile/src/coachThemeCore.js';
 import {getCoachBottomNavigationPadding} from './apps/coach-mobile/src/coachNavigationCore.js';
 import {getCoachRouteIconKey} from './apps/mobile-core/src/mobileIconSystem.js';
 import {createCoachScrollBounds} from './apps/coach-mobile/src/coachScrollBounds.js';
@@ -106,7 +108,7 @@ const user={id:'coach-one',isOfflineProfile:false};
 const quickActionVisibility={ready:true,enabled:true};
 theme={...createCoachTheme({mode,context:{clubAccent:'#51bac4'}})};theme.palette=theme.tokens;theme.styles=createCoachStyles(theme.palette);theme.branding={logoUrl:'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="44" height="44"><rect width="44" height="44" fill="teal"/></svg>'};
 const styles=theme.styles,palette=theme.palette;
-const contexts=[{id:'a',clubName:'FP TEST',teamName:'U17 Green',roleLabel:'Team Admin',paymentAccess:{state:'allowed'}},{id:'b',clubName:'FP TEST',teamName:'Spain',roleLabel:'Team Admin',paymentAccess:{state:'allowed'}}].slice(0,window.contextCount||2);
+const contexts=[{id:'a',clubId:'club',clubName:'FP TEST',clubLogoUrl:'https://badge.fixture.test/crest.svg',teamName:'U17 Green',roleLabel:'Team Admin',paymentAccess:{state:'allowed'}},{id:'b',clubId:'club',clubName:'FP TEST',teamName:'Spain',roleLabel:'Team Admin',paymentAccess:{state:'allowed'}}].slice(0,window.contextCount||2);
 const contextResolution={contexts},activeContext=contexts.find(c=>c.id===selected)||contexts[0],selectedMobileUser={roleLabel:'Team Admin'};
 const isSwitchingContext=false;
 const notificationState={},notificationStateStatus='ready',notice='',setNotice=()=>{},setNotificationSettingsFocusRequest=()=>{},navigation={primary:[{key:'home',label:'Home'},{key:'calendar',label:'Calendar'},{key:'matchday',label:'Match Day'},{key:'more',label:'More'}]};
@@ -136,6 +138,7 @@ try {
     for (const contextCount of [1, 2]) {
       const context = await browser.newContext({ viewport: { width, height: 850 }, isMobile: true, hasTouch: true })
       const page = await context.newPage()
+      await page.route('https://badge.fixture.test/crest.svg', route => route.fulfill({ path: 'apps/coach-mobile/assets/football-player-logo.png', contentType: 'image/png' }))
       const errors = []
       page.on('pageerror', e => { errors.push(e.message); console.error(e.message) })
       await page.setContent('<meta name="viewport" content="width=device-width,initial-scale=1"><style>body{margin:0}input{max-width:100%;box-sizing:border-box}</style><div id="root"></div>')
@@ -187,7 +190,23 @@ try {
       assert.equal(await scroll.evaluate(el=>el===window.previousScrollNode),false,'A tab change starts a fresh native scroll view rather than retaining the prior page geometry')
       assert.equal(await page.evaluate(()=>window.bounds===window.previousBounds),false,'The bounds controller belongs to the current page, not an earlier tab')
       assert.equal(await scroll.evaluate(el=>el.scrollTop),0,'Route changes return to the header')
-      if(contextCount===2){await page.getByRole('button',{name:'Change team or club',exact:true}).click();await page.getByRole('button',{name:'Spain, FP TEST, Team Admin',exact:true}).click();assert.equal(await scroll.evaluate(el=>el.scrollTop),0)}
+      if(contextCount===2){
+        const switcher=page.getByRole('button',{name:'Change team or club',exact:true});
+        await switcher.click();
+        const close=page.getByRole('button',{name:'Close',exact:true});
+        await close.waitFor();
+        assert.ok((await close.boundingBox()).y>=47,'Close sits below the simulated status bar');
+        const current=page.getByRole('button',{name:'U17 Green, FP TEST, Team Admin',exact:true});
+        assert.equal(await current.getByText('Selected',{exact:true}).count(),1);
+        assert.equal(await current.locator('img').getAttribute('src'),'https://badge.fixture.test/crest.svg');
+        await page.screenshot({path:`${out}/team-picker-${width}.png`});
+        await close.click();
+        await switcher.click();
+        const next=page.getByRole('button',{name:'Spain, FP TEST, Team Admin',exact:true});
+        assert.ok(await next.locator('img').count(),'Workspace rows render a badge');
+        await next.click();
+        assert.equal(await scroll.evaluate(el=>el.scrollTop),0)
+      }
       await page.evaluate(()=>window.focusSettings())
       await page.waitForTimeout(500)
       const anchor=await page.getByTestId('content-anchor').boundingBox()

@@ -144,7 +144,7 @@ async function loadSource(sourceType, sourceId, clubId, { required = true } = {}
   if (sourceType === 'match-day') {
     const source = await maybeSingle(
       supabaseAdmin.from('match_days')
-        .select('id, club_id, team_id, notification_team_name, opponent, match_date, kickoff_time, kickoff_time_tbc, venue_name, notes, parent_visible, parent_audience, request_scorer, request_linesman, request_referee, status, deleted_at, cancellation_reason, updated_at')
+        .select('id, club_id, team_id, notification_team_name, opponent, match_date, kickoff_time, kickoff_time_tbc, arrival_time, home_away, fixture_type, shirt_choice, pitch_type, match_duration_minutes, match_conclusion_rule, extra_time_half_minutes, extra_time_period_count, venue_name, venue_address, carpool_enabled, notes, parent_visible, parent_audience, request_scorer, request_linesman, request_referee, status, deleted_at, cancellation_reason, updated_at')
         .eq('id', sourceId).eq('club_id', clubId),
       required ? 'Match Day fixture could not be found.' : '',
     )
@@ -276,9 +276,14 @@ async function verifyChange(preparation) {
     if (error) throw error
     return { changed: Boolean(data?.[0]), current: data?.[0] || current }
   }
+  const before = preparation.source_snapshot || {}
+  // In-flight fixture preparations from earlier releases have fewer fields.
+  const comparable = sourceType === 'match-day' && current
+    ? Object.fromEntries(Object.entries(current).filter(([key]) => Object.hasOwn(before, key)))
+    : current
   return {
-    changed: Boolean(current) && (sourceScheduleKey(sourceType, current) !== sourceScheduleKey(sourceType, preparation.source_snapshot)
-      || hasCalendarSourceChanged(preparation.source_snapshot, current)),
+    changed: Boolean(current) && (sourceScheduleKey(sourceType, current) !== sourceScheduleKey(sourceType, before)
+      || hasCalendarSourceChanged(before, comparable)),
     current,
   }
 }

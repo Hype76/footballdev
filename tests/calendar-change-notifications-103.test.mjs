@@ -183,19 +183,27 @@ test('ordinary edits say updated; date or kick-off changes say rescheduled', asy
 })
 
 
-test('confirmed notes and venue edits can notify without a schedule change', async () => {
+test('confirmed fixture field changes can notify without a change to kick-off', async () => {
   const sender=await source('netlify/functions/calendar-change-notifications.js')
   const slice=(name,next)=>sender.slice(sender.indexOf('function '+name+'('),sender.indexOf(next,sender.indexOf('function '+name+'(')))
   const presentation=slice('getSourcePresentation','function getChangeCopy')
   const schedule=slice('sourceScheduleKey','async function verifyChange')
   const verify=sender.slice(sender.indexOf('async function verifyChange('),sender.indexOf('function getSourcePresentation('))
-  let current={match_date:'2026-10-03',kickoff_time_tbc:true,notes:'new notes',venue_name:'old pitch'}
+  const fixtureFields = sender.match(/from\('match_days'\)\s*\.select\('([^']+)'\)/)[1].split(',').map(field => field.trim())
+  let current={match_date:'2026-10-03',kickoff_time_tbc:true,notes:'new notes',venue_name:'old pitch',venue_address:'Old street',arrival_time:null,pitch_type:'grass',carpool_enabled:false,match_duration_minutes:90,match_conclusion_rule:'standard',extra_time_half_minutes:15,extra_time_period_count:2}
   const {hasCalendarSourceChanged} = await import('../src/lib/calendar-change-classification.js')
   const check=new Function('loadSource','normalizeText','buildCalendarNotificationLocalDateTime','hasCalendarSourceChanged',schedule+presentation+verify+';return verifyChange;')(async()=>current,value=>String(value||''),(date,time)=>date+'T'+time,hasCalendarSourceChanged)
   const preparation={source_type:'match-day',source_id:'fixture',change_action:'rescheduled',source_snapshot:{...current,notes:'old notes'}}
   assert.equal((await check(preparation)).changed,true)
   current={...preparation.source_snapshot};assert.equal((await check(preparation)).changed,false)
   current={...current,venue_name:'new pitch'};assert.equal((await check(preparation)).changed,true)
-  for(const change of [{arrival_time:'10:00'},{kit_id:'new-kit'}]) {current={...preparation.source_snapshot,...change};assert.equal((await check(preparation)).changed,true)}
+  for (const change of [{arrival_time:'10:00'}, {venue_address:'New street'}, {pitch_type:'3g'}, {carpool_enabled:true}, {match_duration_minutes:80}, {match_conclusion_rule:'extra_time'}, {extra_time_half_minutes:10}, {extra_time_period_count:1}]) {
+    assert.ok(Object.keys(change).every(key => fixtureFields.includes(key)))
+    current={...preparation.source_snapshot,...change}
+    assert.equal((await check(preparation)).changed,true)
+  }
   current={...preparation.source_snapshot,updated_at:'2026-09-17T12:00:00Z'};assert.equal((await check(preparation)).changed,false)
+  const legacy = { ...preparation.source_snapshot }
+  for (const key of ['arrival_time', 'venue_address', 'pitch_type', 'carpool_enabled']) delete legacy[key]
+  assert.equal((await check({...preparation, source_snapshot:legacy})).changed,false)
 })
