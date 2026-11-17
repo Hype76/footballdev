@@ -64,8 +64,31 @@ function getStoredCoachModePreference() {
   return window.localStorage.getItem(COACH_MODE_STORAGE_KEY) === 'coach'
 }
 
+export function ClubWorkspaceSelection() {
+  const { authError, clubOptions, isProfileLoading, selectClub } = useAuth()
+
+  return (
+    <main className="px-4 py-8 sm:px-6">
+      <WorkspaceSelection
+        eyebrow="Club access"
+        title="Choose the club workspace to open."
+        description="Choose which club to work in for this session."
+        error={authError}
+        isLoading={isProfileLoading}
+        options={clubOptions.map((option) => ({
+          id: option.clubId,
+          label: option.clubName || 'Unnamed club',
+          meta: option.roleLabel || option.role || 'Club user',
+          action: 'Open club',
+        }))}
+        onSelect={(clubId) => void selectClub(clubId).catch(() => {})}
+      />
+    </main>
+  )
+}
+
 export function Layout() {
-  const { accessModeOptions, authError, clubOptions, isProfileLoading, selectAccessMode, selectClub, selectTeam, teamOptions, user } = useAuth()
+  const { accessModeOptions, authError, isProfileLoading, selectAccessMode, selectTeam, teamOptions, user } = useAuth()
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [clubSelectionError, setClubSelectionError] = useState('')
   const [themeMode, setThemeMode] = useState(getStoredThemeMode)
@@ -271,17 +294,6 @@ export function Layout() {
     }
   }, [location.pathname, shouldBypassMainShell, user])
 
-  const handleClubSelect = async (clubId) => {
-    setClubSelectionError('')
-
-    try {
-      await selectClub(clubId)
-    } catch (error) {
-      console.error(error)
-      setClubSelectionError(error.message || 'Could not open this club.')
-    }
-  }
-
   const handleAccessModeSelect = async (accessMode) => {
     setClubSelectionError('')
 
@@ -305,8 +317,7 @@ export function Layout() {
   }
 
   const needsAccessModeSelection = !user && accessModeOptions.length > 0
-  const needsClubSelection = !needsAccessModeSelection && !isSuperAdmin(user) && clubOptions.length > 1
-  const needsTeamSelection = !needsAccessModeSelection && clubOptions.length === 0 && teamOptions.length > 1 && !user?.activeTeamId && !isClubAdmin(user)
+  const needsTeamSelection = !needsAccessModeSelection && teamOptions.length > 1 && !user?.activeTeamId && !isClubAdmin(user)
   const shouldSuppressOnboardingSetup = location.pathname !== '/user-settings'
 
   if (isAdultPlayerUser(user) && !isAdultPlayerRoute) {
@@ -367,21 +378,6 @@ export function Layout() {
                       action: 'Open access',
                     }))}
                     onSelect={handleAccessModeSelect}
-                  />
-                ) : needsClubSelection ? (
-                  <WorkspaceSelection
-                    eyebrow="Club access"
-                    title="Choose the club workspace to open."
-                    description="This email is linked to more than one club. Pick the club before changing players, teams, Coaches, parents, or billing details."
-                    error={clubSelectionError || authError}
-                    isLoading={isProfileLoading}
-                    options={clubOptions.map((option) => ({
-                      id: option.clubId,
-                      label: option.clubName || 'Unnamed club',
-                      meta: option.roleLabel || option.role || 'Club user',
-                      action: 'Open club',
-                    }))}
-                    onSelect={handleClubSelect}
                   />
                 ) : needsTeamSelection ? (
                   <WorkspaceSelection
