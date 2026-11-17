@@ -1,3 +1,4 @@
+import { canSendPendingParentInviteRetry } from '../../src/lib/parent-portal-invite-actions.js'
 import process from 'node:process'
 import { randomUUID } from 'node:crypto'
 import { createFromAddress, getPublicEmailErrorMessage, sendEmail } from './lib/_email-provider.js'
@@ -127,7 +128,7 @@ async function getInviteLink(linkId) {
 
   const { data, error } = await supabaseAdmin
     .from('parent_player_links')
-    .select('id, club_id, team_id, player_id, email, status, link_type, auth_user_id, invite_token, invite_sent_at, players:player_id (player_name, section, status, archived_at, contact_type, parent_contacts), teams:team_id (name), clubs:club_id (name, contact_email, logo_url)')
+    .select('id, club_id, team_id, player_id, email, status, link_type, auth_user_id, invite_token, invite_sent_at, expires_at, players:player_id (player_name, section, status, archived_at, contact_type, parent_contacts), teams:team_id (name), clubs:club_id (name, contact_email, logo_url)')
     .eq('id', normalizedLinkId)
     .maybeSingle()
 
@@ -272,6 +273,14 @@ export async function handler(event) {
       return failureResponse(400, 'Parent email must be a valid email address.')
     }
 
+    const retryPending = Object.hasOwn(body, 'retryPendingExpiresAt') || Object.hasOwn(body, 'retryPendingEmail')
+    const retryExpires = Date.parse(body.retryPendingExpiresAt)
+    if (retryPending && (body.automatic !== true || !canSendPendingParentInviteRetry({
+      link: inviteLink, email: body.retryPendingEmail, expiresAt: body.retryPendingExpiresAt,
+    }))) {
+      return failureResponse(409, 'This Parent invitation changed or expired. Reopen the current invitation before sending.')
+    }
+
     if (body.automatic === true) {
       if (inviteLink.status !== 'pending' || inviteLink.invite_sent_at) return successResponse({ skipped: true })
       const { data: history, error } = await supabaseAdmin.from('parent_player_links')
@@ -345,6 +354,10 @@ export async function handler(event) {
       return successResponse({ duplicate: true })
     }
 
+    if (retryPending && retryExpires <= Date.now()) {
+      throw Object.assign(new Error('This Parent invitation expired before it could be sent.'), { statusCode: 409 })
+    }
+
     const response = await sendEmail(emailPayload, {
       ...(body.automatic === true ? { idempotencyKey: finalIdempotencyKey } : {}),
       context: {
@@ -360,12 +373,12 @@ export async function handler(event) {
       publicMessage: 'Family portal invite could not be sent. Please try again in a moment.',
     })
     await markEmailLogSent(emailLogRecord, response, { recipientDedupeKeys })
-    const { error: inviteSentUpdateError } = await supabaseAdmin
-      .from('parent_player_links')
-      .update({
-        invite_sent_at: new Date().toISOString(),
-      })
+    const sentAt = new Date().toISOString()
+    let sentUpdate = supabaseAdmin.from('parent_player_links')
+      .update({ invite_sent_at: sentAt })
       .eq('id', inviteLink.id)
+    if (retryPending) sentUpdate = sentUpdate.eq('invite_token', inviteLink.invite_token)
+    const { error: inviteSentUpdateError } = await sentUpdate
 
     if (inviteSentUpdateError) {
       console.error('Family portal invite sent timestamp update failed', inviteSentUpdateError)
@@ -391,6 +404,7 @@ export async function handler(event) {
     return successResponse({
       id: response?.data?.id || response?.id || '',
       htmlSize: emailHtml.length,
+      ...(retryPending ? { sentAt } : {}),
       logoSource: authoritativeEmail.logoSource,
     })
   } catch (error) {

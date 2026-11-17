@@ -260,7 +260,7 @@ export function PlayerProfile() {
   const [isMergeConfirmOpen, setIsMergeConfirmOpen] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
   const userScopeKey = user ? `${user.id}:${user.clubId || 'platform'}:${user.role}:${user.roleRank}` : ''
-  const parentInviteScope = JSON.stringify([userScopeKey, routePlayerId, routePlayerName, scopedRouteTeamId])
+  const parentInviteScope = JSON.stringify([userScopeKey, activeTeamScope, routePlayerId, routePlayerName, scopedRouteTeamId])
   if (parentInviteScopeRef.current?.key !== parentInviteScope) parentInviteScopeRef.current = { key: parentInviteScope }
   useEffect(() => {
     const scope = parentInviteScopeRef.current || { key: parentInviteScope }
@@ -1690,13 +1690,18 @@ export function PlayerProfile() {
       if (invites.length !== 1 || invites[0].id !== target.linkId) {
         throw new Error('This invitation changed. Refresh the player details and check its current status.')
       }
-      const result = await sendParentPortalInvite({ inviteLinkId: target.linkId, senderEmail: user.email, automatic: true })
+      const result = await sendParentPortalInvite({
+        inviteLinkId: target.linkId, senderEmail: user.email, automatic: true, retryActorId: user.id,
+        retryPendingEmail: contact.email, retryPendingExpiresAt: invites[0].expiresAt,
+      })
       if (parentInviteScopeRef.current !== target.scope) return
-      if (result.skipped) throw new Error('This invitation was already sent or is no longer available.')
+      if (!result.success || result.duplicate || result.skipped || !result.sentAt) {
+        throw new Error('A new send was not confirmed. Check this invitation’s current status before retrying.')
+      }
       setParentPortalLinksByPlayerId(current => ({
         ...current,
         [player.id]: (current[player.id] || []).map(link => link.id === target.linkId
-          ? { ...invites[0], inviteSentAt: new Date().toISOString() }
+          ? { ...invites[0], inviteSentAt: result.sentAt }
           : link),
       }))
       setParentInviteRetryTarget(null)
@@ -1704,7 +1709,7 @@ export function PlayerProfile() {
     } catch (error) {
       if (parentInviteScopeRef.current === target.scope) {
         await refreshParentPortalLinksForPlayer(player.id).catch(() => {})
-        throw error
+        if (parentInviteScopeRef.current === target.scope) throw error
       }
     } finally {
       parentInviteRetryLock.current = false

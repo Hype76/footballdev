@@ -35,6 +35,17 @@ export function canAutoSendParentInvite(link, now = Date.now()) {
       || Date.parse(link.expires_at || link.expiresAt) <= now))
 }
 
+export function canSendPendingParentInviteRetry({ link, email, expiresAt, now = Date.now() }) {
+  const expiry = typeof expiresAt === 'string' ? Date.parse(expiresAt) : NaN
+  return link?.link_type === 'parent'
+    && link.status === 'pending'
+    && !link.invite_sent_at
+    && typeof email === 'string'
+    && normalizeParentPortalInviteEmail(link.email) === normalizeParentPortalInviteEmail(email)
+    && expiry === Date.parse(link.expires_at)
+    && expiry > now
+}
+
 export function getParentPortalInviteActionForContact({
   contact,
   isSending = false,

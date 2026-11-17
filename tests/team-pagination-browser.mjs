@@ -62,7 +62,7 @@ try {
   assert.equal(await page.getByRole('button', { name: 'Previous', exact: true }).isDisabled(), true)
   await page.getByRole('button', { name: 'Next', exact: true }).click()
   await page.getByText('Showing 9 to 14 of 14').waitFor()
-  await page.evaluate(() => window.showTeamTvSettings())
+  await page.evaluate(() => { document.getElementById('root').style.fontFamily = ''; window.showTeamTvSettings() })
   const publicAnnouncements = page.getByRole('checkbox', { name: 'Public Announcements', exact: true })
   const goalCelebrations = page.getByRole('checkbox', { name: 'Show goal celebrations on Matchday TV' })
   const saveTv = page.getByRole('button', { name: 'Save Matchday TV settings' })
@@ -80,7 +80,7 @@ try {
       const fields = await Promise.all(['Team name', 'Notification Team name'].map(name => page.getByRole('textbox', { name, exact: true }).boundingBox()))
       const actions = await Promise.all(['Save name', 'Save notification name'].map(name => page.getByRole('button', { name, exact: true }).boundingBox()))
       assert.ok(Math.abs(fields[0].x + fields[0].width - fields[1].x - fields[1].width) < 1, 'name inputs have the same right edge')
-      assert.ok(fields.every((field, index) => Math.abs(field.y + field.height - actions[index].y - actions[index].height) < 1), 'each save aligns with its input')
+      assert.ok(fields.every((field, index) => Math.abs(field.y - actions[index].y) < 1 && Math.abs(field.height - actions[index].height) < 1), 'each save aligns with its input')
     }
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth))
     await page.getByRole('group', { name: 'Matchday TV' }).screenshot({ path: `${output}/matchday-tv-${width}.png` })

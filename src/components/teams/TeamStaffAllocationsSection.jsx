@@ -27,7 +27,8 @@ const fieldClass = 'min-h-12 w-full rounded-lg border border-[#d7e5dc] bg-[#f7fa
 const secondaryButtonClass = 'inline-flex min-h-12 w-full items-center justify-center rounded-lg border border-[#d7e5dc] bg-white px-4 py-3 text-sm font-black text-[#101828] shadow-sm shadow-[#047857]/10 transition hover:border-[#047857] hover:bg-[#ecfdf5] disabled:cursor-not-allowed disabled:opacity-60'
 const panelClass = 'rounded-lg border border-[#d7e5dc] bg-[#f7faf8] shadow-sm shadow-[#047857]/10'
 
-const teamNameRowClass = 'grid gap-3 md:grid-cols-[minmax(0,1fr)_12rem] md:items-end'
+const teamNameRowClass = 'grid gap-3 md:grid-cols-[minmax(0,1fr)_13rem] md:items-end'
+const teamNameSaveClass = `${secondaryButtonClass} whitespace-nowrap`
 const tvCheckboxClass = 'm-0 size-4 shrink-0 accent-[var(--accent)]'
 const tvCheckboxLabelClass = 'flex min-h-10 w-fit max-w-full items-center gap-2'
 const announcementsHelp = 'Turning this off hides scores, results and goal celebrations on Matchday TV. Live fixtures show In progress. Normal notifications still go out.'
@@ -297,7 +298,7 @@ function SelectedTeamPanel({
                     : undefined
               }
               onClick={() => void onSaveTeamName(selectedTeam.id)}
-              className={secondaryButtonClass}
+              className={teamNameSaveClass}
             >
               Save name
             </button>
@@ -332,7 +333,7 @@ function SelectedTeamPanel({
                   || String(teamNotificationNameDrafts[selectedTeam.id] ?? '').trim() === selectedTeam.notificationDisplayName
                 }
                 onClick={() => void onSaveTeamNotificationName(selectedTeam.id)}
-                className={secondaryButtonClass}
+                className={teamNameSaveClass}
               >
                 Save notification name
               </button>

@@ -4,6 +4,7 @@ import { test } from 'node:test'
 
 import {
   canAutoSendParentInvite,
+  canSendPendingParentInviteRetry,
   getParentPortalInviteActionForContact,
   isParentPortalInviteEligiblePlayer,
 } from '../src/lib/parent-portal-invite-actions.js'
@@ -143,4 +144,19 @@ test('retry renews only the chosen expired pending link and reuses an unsent ren
   assert.equal(mutations.length, 1)
   records[0].status = 'active'
   assert.deepEqual(await create(args), [])
+})
+
+test('explicit send accepts only the confirmed unexpired, unsent Parent link version', () => {
+  const link = { link_type: 'parent', status: 'pending', email: 'parent@example.com', expires_at: '2026-11-17T13:00:00Z' }
+  const request = { link, email: link.email.toUpperCase(), expiresAt: link.expires_at, now: Date.parse('2026-11-17T12:00:00Z') }
+  assert.equal(canSendPendingParentInviteRetry(request), true)
+  for (const change of [
+    { email: 'other@example.com' },
+    { expiresAt: '2026-11-17T15:00:00Z' },
+    { expiresAt: '' },
+    { now: Date.parse(link.expires_at) },
+    { link: { ...link, status: 'revoked' } },
+    { link: { ...link, link_type: 'fan' } },
+    { link: { ...link, invite_sent_at: '2026-11-17T12:00:01Z' } },
+  ]) assert.equal(canSendPendingParentInviteRetry({ ...request, ...change }), false)
 })
