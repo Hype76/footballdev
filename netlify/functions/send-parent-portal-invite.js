@@ -325,6 +325,7 @@ export async function handler(event) {
       idempotencySeed: `parent-portal:${inviteLink.id}:${body.automatic === true ? inviteLink.invite_token : randomUUID()}`,
     })
     const pendingLogResult = await createPendingEmailLog({
+      retryEnabled: !retryPending,
       recipients: [recipient],
       subject: emailSubject,
       payload: {
