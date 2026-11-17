@@ -224,6 +224,7 @@ function DisplaySettings({ clubId, settings, storageKey }) {
             ['showMatchClock', 'Show match clocks'],
             ['showHalfTime', 'Show half-time (HT)'],
             ['showYellowCards', 'Show yellow cards'],
+            ['showRedCards', 'Show red cards'],
           ].map(([key, label]) => (
             <label className="club-tv-check" key={key}>
               <input type="checkbox" checked={draft[key]} onChange={(event) => setDraft({ ...draft, [key]: event.target.checked })} />

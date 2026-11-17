@@ -20,6 +20,8 @@ function normalizeTeamRow(row) {
     id: row?.id ?? '',
     clubId: row?.club_id ?? '',
     name: normalizeText(row?.name),
+    tvPublicAnnouncements: row?.tv_public_announcements !== false,
+    tvGoalCelebrations: row?.tv_goal_celebrations !== false,
     requireApproval: Boolean(row?.require_approval ?? true),
     approvalPrompt: normalizeText(row?.approval_prompt),
     approvalPrimaryLabel: normalizeText(row?.approval_primary_label),
@@ -161,7 +163,22 @@ async function getTeamForClub(teamId, clubId) {
   return data
 }
 
-async function createTeam({ name, profile }) {
+function teamTvColumns(body, required = false) {
+  const { tvPublicAnnouncements, tvGoalCelebrations } = body
+  if (!required && tvPublicAnnouncements === undefined && tvGoalCelebrations === undefined) return {}
+  if (typeof tvPublicAnnouncements !== 'boolean' || typeof tvGoalCelebrations !== 'boolean') {
+    throw Object.assign(new Error('Choose both Matchday TV settings.'), { statusCode: 400 })
+  }
+  return { tv_public_announcements: tvPublicAnnouncements, tv_goal_celebrations: tvGoalCelebrations }
+}
+
+function allowedTeamTvColumns(body, profile, required = false) {
+  const columns = teamTvColumns(body, required)
+  if (Object.keys(columns).length) assertPlanFeature(profile, 'clubAdministration')
+  return columns
+}
+
+async function createTeam({ name, profile, tvSettings }) {
   const teamName = normalizeText(name)
 
   if (!teamName) {
@@ -175,6 +192,7 @@ async function createTeam({ name, profile }) {
     .insert({
       club_id: profile.clubId,
       name: teamName,
+      ...tvSettings,
       created_by: profile.id,
       created_by_email: profile.email,
       created_by_name: profile.name || profile.email,
@@ -196,18 +214,13 @@ async function createTeam({ name, profile }) {
   return normalizeTeamRow(data)
 }
 
-async function updateTeam({ name, profile, teamId }) {
+async function updateTeam({ settings, profile, teamId }) {
   const currentTeam = await getTeamForClub(teamId, profile.clubId)
-  const teamName = normalizeText(name)
-
-  if (!teamName) {
-    throw Object.assign(new Error('Team name is required.'), { statusCode: 400 })
-  }
 
   const { data, error } = await supabaseAdmin
     .from('teams')
     .update({
-      name: teamName,
+      ...settings,
       updated_by: profile.id,
       updated_by_email: profile.email,
       updated_by_name: profile.name || profile.email,
@@ -253,7 +266,7 @@ function normalizeInviteAssignment(invite) {
   }
 }
 
-async function replaceStaffAssignments({ profile, teamId, userIds, inviteIds = [] }) {
+async function replaceStaffAssignments({ profile, teamId, userIds, inviteIds = [], removeUserId }) {
   const currentTeam = await getTeamForClub(teamId, profile.clubId)
   const workspaceScope = getWorkspaceScope(profile)
   assertPlanFeature({ ...profile, teamId: currentTeam.id, activeTeamId: currentTeam.id }, 'teamStaffRoles')
@@ -268,25 +281,51 @@ async function replaceStaffAssignments({ profile, teamId, userIds, inviteIds = [
     throw Object.assign(new Error(`${workspaceScope.ownerRole.label} access cannot be removed from its owned Team.`), { statusCode: 403 })
   }
 
-  if (normalizedUserIds.length > 0) {
+  const { data: currentRows, error: currentError } = await supabaseAdmin
+    .from('team_staff').select('user_id').eq('team_id', currentTeam.id)
+  if (currentError) throw currentError
+
+  const currentIds = new Set((currentRows ?? []).map(row => row.user_id))
+  const requestedIds = new Set(normalizedUserIds)
+  const additions = normalizedUserIds.filter(id => !currentIds.has(id))
+  const omitted = [...currentIds].filter(id => !requestedIds.has(id))
+  const removals = []
+  if (additions.length || omitted.length) {
     const { data: userRows, error: usersError } = await supabaseAdmin
       .from('users')
       .select('id, club_id, role')
-      .in('id', normalizedUserIds)
+      .in('id', [...additions, ...omitted])
 
     if (usersError) {
       throw usersError
     }
 
-    const allowedUserIds = new Set(
-      (userRows ?? [])
-        .filter((row) => String(row.club_id ?? '') === String(profile.clubId) && !['admin', 'super_admin'].includes(String(row.role ?? '')))
-        .map((row) => String(row.id ?? '')),
-    )
-    const invalidUserIds = normalizedUserIds.filter((userId) => !allowedUserIds.has(userId))
-
-    if (invalidUserIds.length > 0) {
+    const users = new Map((userRows ?? []).map(row => [row.id, row]))
+    const isTeamStaff = (row) => row && !['admin', 'super_admin'].includes(row.role)
+    if (additions.some(id => !isTeamStaff(users.get(id)) || users.get(id).club_id !== profile.clubId)) {
       throw Object.assign(new Error('One or more selected Coaches cannot be assigned to a team.'), { statusCode: 403 })
+    }
+    if (omitted.length) {
+      const { data: memberships, error } = await supabaseAdmin.from('user_club_memberships')
+        .select('auth_user_id,club_id,role').in('auth_user_id', omitted)
+      if (error) throw error
+      const membershipByUser = new Map()
+      for (const membership of memberships ?? []) {
+        const clubs = membershipByUser.get(membership.auth_user_id) ?? new Map()
+        clubs.set(membership.club_id, membership)
+        membershipByUser.set(membership.auth_user_id, clubs)
+      }
+      for (const id of omitted) {
+        const user = users.get(id)
+        const clubs = membershipByUser.get(id)
+        const localMembership = clubs?.get(profile.clubId)
+        const localProfile = user?.club_id === profile.clubId ? user : null
+        if (!isTeamStaff(localMembership ?? localProfile)) continue
+        // A selected workspace can change the profile's club and role.
+        const sharedAccount = (clubs?.size ?? 0) > 1 || !localProfile
+        const explicitClubAdminRemoval = id === removeUserId && ['admin', 'super_admin'].includes(profile.role)
+        if (!sharedAccount || explicitClubAdminRemoval) removals.push(id)
+      }
     }
   }
 
@@ -310,13 +349,17 @@ async function replaceStaffAssignments({ profile, teamId, userIds, inviteIds = [
     }
   }
 
-  const { error: deleteError } = await supabaseAdmin
-    .from('team_staff')
-    .delete()
-    .eq('team_id', currentTeam.id)
-
-  if (deleteError) {
-    throw deleteError
+  if (additions.length) {
+    const { error } = await supabaseAdmin.from('team_staff')
+      .upsert(additions.map(userId => ({ team_id: currentTeam.id, user_id: userId })), {
+        onConflict: 'team_id,user_id', ignoreDuplicates: true,
+      })
+    if (error) throw error
+  }
+  if (removals.length) {
+    const { error } = await supabaseAdmin.from('team_staff').delete()
+      .eq('team_id', currentTeam.id).in('user_id', removals)
+    if (error) throw error
   }
 
   const { error: clearPendingError } = await supabaseAdmin
@@ -348,14 +391,10 @@ async function replaceStaffAssignments({ profile, teamId, userIds, inviteIds = [
     pendingAssignments = (updatedInvites ?? []).map(normalizeInviteAssignment)
   }
 
-  if (normalizedUserIds.length === 0) {
-    return pendingAssignments
-  }
-
   const { data, error } = await supabaseAdmin
     .from('team_staff')
-    .insert(normalizedUserIds.map((userId) => ({ team_id: currentTeam.id, user_id: userId })))
     .select('*')
+    .eq('team_id', currentTeam.id)
 
   if (error) {
     throw error
@@ -384,13 +423,19 @@ export async function handler(event) {
     let team = null
 
     if (action === 'create') {
-      team = await createTeam({ name: body.name, profile })
+      team = await createTeam({ name: body.name, profile, tvSettings: allowedTeamTvColumns(body, profile) })
     } else if (action === 'update') {
-      team = await updateTeam({ name: body.name, profile, teamId: body.teamId })
+      const name = normalizeText(body.name)
+      if (!name) throw Object.assign(new Error('Team name is required.'), { statusCode: 400 })
+      team = await updateTeam({ settings: { name }, profile, teamId: body.teamId })
+    } else if (action === 'update-tv') {
+      team = await updateTeam({ settings: allowedTeamTvColumns(body, profile, true), profile, teamId: body.teamId })
     } else if (action === 'delete') {
       team = await deleteTeam({ profile, teamId: body.teamId })
     } else if (action === 'replace-staff') {
-      const assignments = await replaceStaffAssignments({ profile, teamId: body.teamId, userIds: body.userIds, inviteIds: body.inviteIds })
+      const assignments = await replaceStaffAssignments({
+        profile, teamId: body.teamId, userIds: body.userIds, inviteIds: body.inviteIds, removeUserId: normalizeText(body.removeUserId),
+      })
       return jsonResponse(200, { success: true, assignments })
     } else {
       return jsonResponse(400, { success: false, message: 'Team action is required.' })

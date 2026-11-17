@@ -1832,9 +1832,13 @@ function ContextSwitcher({ contexts, initial = false, onSelect, selectedContextI
   </ScrollView>
   if (initial) return options
   return <View style={styles.contextShell}>
-    <Pressable accessibilityLabel="Change team or club" accessibilityRole="button" onPress={() => setOpen(true)} style={{ minHeight: 48, paddingHorizontal: 16, paddingVertical: 8, justifyContent: 'center' }}>
-      <Text style={styles.contextOptionTitle}>{selected?.teamName || selected?.clubName || 'Choose team'}  <Text style={styles.contextOptionMeta}>Change team or club</Text></Text>
-    </Pressable>
+    <View style={styles.contextSwitchRow}>
+      <Text numberOfLines={2} style={[styles.contextOptionTitle, styles.contextPickerCopy]}>{selected?.teamName || selected?.clubName || 'Choose team'}</Text>
+      <Pressable accessibilityLabel="Change team or club" accessibilityRole="button" onPress={() => setOpen(true)} style={({ pressed }) => [styles.contextSwitchButton, pressed && styles.pressed]}>
+        <Text style={styles.contextSwitchButtonText}>Change team or club</Text>
+        <CoachIcon name="chevron-right" color={palette.accentForeground} size={16} />
+      </Pressable>
+    </View>
     <Modal animationType="slide" navigationBarTranslucent={false} onRequestClose={() => setOpen(false)} presentationStyle="fullScreen" statusBarTranslucent={false} visible={open}>
       <SafeAreaProvider>
       <SafeAreaView accessibilityViewIsModal edges={['top', 'bottom', 'right', 'left']} style={styles.appShell}>
@@ -2161,6 +2165,9 @@ function createCoachStyles(palette) {
     contextPickerIndicator: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', flexShrink: 1, gap: 4 },
     contextPickerSelectedText: { color: palette.accentText, fontSize: 13, fontWeight: '800' },
     contextShell: { backgroundColor: palette.background, borderBottomColor: palette.border, borderBottomWidth: 1, paddingTop: 6 },
+    contextSwitchRow: { alignItems: 'center', flexDirection: 'row', gap: 10, paddingHorizontal: 16, paddingBottom: 6 },
+    contextSwitchButton: { alignItems: 'center', backgroundColor: palette.accent, borderColor: palette.accentText, borderRadius: 8, borderWidth: 1, flexDirection: 'row', gap: 4, maxWidth: '68%', minHeight: 44, paddingHorizontal: 9, paddingVertical: 6 },
+    contextSwitchButtonText: { color: palette.accentForeground, flexShrink: 1, fontSize: 12, fontWeight: '900' },
     diagnostic: { color: palette.textMuted, fontFamily: 'monospace', fontSize: 12 },
     disabled: { opacity: 0.48 },
     eyebrow: { color: palette.accentText, fontSize: 12, fontWeight: '900', letterSpacing: 0.9, textTransform: 'uppercase' },

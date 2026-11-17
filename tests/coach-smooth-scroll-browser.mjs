@@ -217,6 +217,8 @@ try {
       assert.equal(await scroll.evaluate(el=>el.scrollTop),0,'Route changes return to the header')
       if(contextCount===2){
         const switcher=page.getByRole('button',{name:'Change team or club',exact:true});
+        assert.ok(Math.round((await switcher.boundingBox()).height)>=44,'The team switch button has a usable touch target');
+        assert.notEqual(await switcher.evaluate(element=>getComputedStyle(element).backgroundColor),'rgba(0, 0, 0, 0)','The switch action has a visible button surface');
         await switcher.click();
         const close=page.getByRole('button',{name:'Close',exact:true});
         await close.waitFor();

@@ -4,6 +4,8 @@ export function normalizeTeamRow(row) {
     clubId: row.club_id ?? row.clubId ?? '',
     name: String(row.name ?? '').trim(),
     notificationDisplayName: String(row.notification_display_name ?? row.notificationDisplayName ?? '').trim(),
+    tvPublicAnnouncements: (row.tv_public_announcements ?? row.tvPublicAnnouncements) !== false,
+    tvGoalCelebrations: (row.tv_goal_celebrations ?? row.tvGoalCelebrations) !== false,
     ageGroup: String(row.age_group ?? row.ageGroup ?? '').trim(),
     requireApproval: Boolean(row.require_approval ?? row.requireApproval ?? true),
     createdBy: row.created_by ?? row.createdBy ?? '',
