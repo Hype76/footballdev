@@ -22,7 +22,9 @@ const handlers = appSource.slice(appSource.indexOf('  async function handleInvit
 const childChange = appSource.slice(appSource.indexOf('  function handleChildChange('), appSource.indexOf('  async function handleRemoveOwnPlayerAccess('))
 const app = await extract('apps/parent-mobile/App.js', ['SyncStatus', 'Notice', 'createParentAppPalette', 'createParentAppStyles'])
 const kit = await extract('apps/mobile-core/src/ClubKitDisplay.js', ['ClubKitDisplay']).then(source => source.replaceAll('../assets/', './apps/mobile-core/assets/'))
-const entry = `import {getParentBadgeColours,getParentStatusColours,PARENT_FAN_SIGN_IN_COLOURS,PARENT_POLL_SEPARATOR_COLOUR} from './apps/mobile-core/src/parentStatusColours.js';
+const entry = `
+import {ScorerGuidePulse} from './apps/parent-mobile/src/ParentScorerGuide.js';
+import {getParentBadgeColours,getParentStatusColours,PARENT_FAN_SIGN_IN_COLOURS,PARENT_POLL_SEPARATOR_COLOUR} from './apps/mobile-core/src/parentStatusColours.js';
 import {useAttendanceUiGuard} from './apps/mobile-core/src/useAttendanceOutbox.js';
 import {useMobileActivity} from './apps/mobile-core/src/MobileActivityContext.js';
 import {MobileFailureNotice} from './apps/mobile-core/src/MobileFailureNotice.js';
@@ -41,7 +43,7 @@ import {HomeAwayIcon} from './apps/parent-mobile/src/HomeAwayIcon.js';
 import {PitchTypeIcon} from './apps/parent-mobile/src/PitchTypeIcon.js';
 import {createParentMobileTheme,DEFAULT_PARENT_MOBILE_THEME,resolveParentMobileBranding} from './apps/mobile-core/src/parentThemeCore.js';
 import {getParentMatchGroups,getParentMatchStatusLabel,getParentScorerInterestInvitation,getParentMatchDirectionsUrl} from './apps/parent-mobile/src/parentExperience.js';
-import {getParentMatchTimeline,getParentScorerMatches,getParentScorerActionLabel} from './apps/parent-mobile/src/parentScorerCore.js';
+import {getParentMatchTimeline,getParentScorerMatches,getParentScorerActionLabel,isParentScorerGuideMatch} from './apps/parent-mobile/src/parentScorerCore.js';
 import {canChangeParentMatchAvailability,getParentMatchAttendanceInvitation,getParentMatchAvailability,getParentMatchSquadStatus} from './apps/parent-mobile/src/parentMatchAvailability.js';
 import {getParentInvitationCounts,getParentInvitationEventKey,getParentInvitationSections,groupParentInvitationsByEvent,getParentInvitationLockReason,isParentInvitationOptionSelected} from './apps/parent-mobile/src/parentPresentationCore.js';
 import {getParentEventPresentation} from './apps/parent-mobile/src/parentEventPresentation.js';
