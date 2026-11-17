@@ -8,6 +8,7 @@ import { getPlayerParentInviteContacts } from '../src/lib/parent-portal-invite-a
 
 const sql = await readFile(new URL('../supabase/migrations/20261113114647_adult_player_setup_invites.sql', import.meta.url), 'utf8')
 const statusSql = await readFile(new URL('../supabase/migrations/20261116123543_adult_player_link_status.sql', import.meta.url), 'utf8')
+const resendSql = await readFile(new URL('../supabase/migrations/20261117100252_v1_adult_player_invitation_resend.sql', import.meta.url), 'utf8')
 const foundation = (await readFile(new URL('../supabase/migrations/20260730110000_adult_player_account_foundation.sql', import.meta.url), 'utf8')).split('create or replace function public.get_own_adult_player_account_state')[0]
 const actor = '00000000-0000-4000-8000-000000000001'
 const player = '00000000-0000-4000-8000-000000000002'
@@ -50,7 +51,7 @@ test('adult invitation is private, scoped, invalidates changed emails and only l
       create table public.user_club_memberships(auth_user_id uuid);
       create table public.parent_player_links(auth_user_id uuid, player_id uuid, status text);
       create function app_private.actor_can_manage_team_resource(uuid,uuid,uuid,integer) returns boolean
-        language sql as 'select $1 = ''${actor}'' and $2 = ''${club}'' and $3 in (''${team}'', ''${newTeam}'') and $4 = 20';
+        language sql as 'select $1 = ''${actor}'' and $2 = ''${club}'' and $3 in (''${team}'', ''${newTeam}'') and $4 in (20,50)';
       revoke all on function app_private.actor_can_manage_team_resource(uuid,uuid,uuid,integer) from public;
       insert into public.clubs values ('${club}');
       insert into public.teams values ('${team}','${club}','active'), ('${newTeam}','${club}','active');
@@ -61,19 +62,35 @@ test('adult invitation is private, scoped, invalidates changed emails and only l
     await db.exec(foundation)
     await db.exec(sql)
     await db.exec(statusSql)
+    await db.exec(resendSql)
     await db.exec('set role service_role')
     const reserve = async (id = actor) => (await db.query('select public.reserve_adult_player_setup_invite($1,$2) as result', [id, player])).rows[0].result
     const redeem = async (token, id = null) => (await db.query('select public.redeem_adult_player_setup_invite($1,$2) as result', [token, id])).rows[0].result
     const linkStatus = async (id = actor) => (await db.query('select public.get_adult_player_link_status($1,$2) as result', [id, player])).rows[0].result
+    const resend = async (expectedTeam = team, id = actor) => (await db.query(
+      'select public.reserve_adult_player_setup_resend($1,$2,$3) as result', [id, player, expectedTeam],
+    )).rows[0].result
+    const targets = async (id = actor, targetTeam = team) => (await db.query(
+      'select public.list_adult_player_setup_resend_targets($1,$2) as result', [id, targetTeam],
+    )).rows[0].result
 
     assert.deepEqual(await reserve(other), { state: 'denied' })
     assert.deepEqual(await linkStatus(other), { state: 'denied' })
     assert.deepEqual(await linkStatus(), { state: 'not_invited' })
+    assert.deepEqual(await targets(other), { state: 'denied' })
+    assert.deepEqual(await targets(actor, newTeam), { state: 'ready', player_ids: [] })
+    assert.deepEqual(await targets(), { state: 'ready', player_ids: [player] })
+    assert.deepEqual(await resend(newTeam), { state: 'denied' })
     const first = await reserve()
     assert.equal(first.state, 'pending')
     assert.deepEqual(await reserve(), first)
     await db.query('select public.confirm_adult_player_setup_email($1)', [first.token])
-    assert.deepEqual(await linkStatus(), { state: 'awaiting_acceptance', invite_digest: createHash('sha256').update(first.token).digest('hex') })
+    const firstStatus = await linkStatus()
+    assert.equal(firstStatus.state, 'awaiting_acceptance')
+    assert.equal(firstStatus.invite_digest, createHash('sha256').update(first.token).digest('hex'))
+    assert.ok(Number.isFinite(Date.parse(firstStatus.sent_at)))
+    assert.deepEqual(await resend(), { state: 'recently_sent' })
+    assert.deepEqual(await targets(), { state: 'ready', player_ids: [] })
     await db.exec('reset role')
     await db.query('update app_private.adult_player_setup_invites set expires_at = now() - interval \'1 second\' where player_id = $1', [player])
     await db.exec('set role service_role')
@@ -83,6 +100,14 @@ test('adult invitation is private, scoped, invalidates changed emails and only l
     await db.exec('set role service_role')
     assert.equal((await reserve()).state, 'sent')
     assert.deepEqual(await redeem(first.token, other), { state: 'wrong_account' })
+    await db.exec('reset role')
+    await db.query("update app_private.adult_player_setup_invites set sent_at = now() - interval '6 minutes' where player_id = $1", [player])
+    await db.exec('set role service_role')
+    const resent = await resend()
+    assert.equal(resent.state, 'pending')
+    assert.notEqual(resent.token, first.token)
+    assert.deepEqual(await resend(), resent)
+    assert.deepEqual(await redeem(first.token), { state: 'invalid' })
 
     await db.exec('reset role')
     await db.query(`update public.players set parent_contacts = '[{"type":"self","email":"new@example.test"}]' where id = $1`, [player])
@@ -105,6 +130,8 @@ test('adult invitation is private, scoped, invalidates changed emails and only l
     assert.deepEqual(await linkStatus(), { state: 'linked' })
     assert.deepEqual(await redeem(current.token, account), { state: 'accepted' })
     assert.deepEqual(await reserve(), { state: 'linked' })
+    assert.deepEqual(await resend(), { state: 'linked' })
+    assert.deepEqual(await targets(), { state: 'ready', player_ids: [] })
     await db.exec('reset role')
     await db.exec('begin')
     await db.query('delete from public.adult_player_account_links where player_id = $1', [player])
@@ -135,6 +162,8 @@ test('adult invitation is private, scoped, invalidates changed emails and only l
     await db.exec('reset role; set role authenticated')
     await assert.rejects(reserve(), /permission denied/)
     await assert.rejects(linkStatus(), /permission denied/)
+    await assert.rejects(resend(), /permission denied/)
+    await assert.rejects(targets(), /permission denied/)
     await assert.rejects(redeem(current.token, account), /permission denied/)
     await assert.rejects(db.query('select * from app_private.adult_player_setup_invites'), /permission denied/)
   } finally {
@@ -195,6 +224,46 @@ test('an existing invited account gets a recoverable sign-in response', async ()
   assert.equal(JSON.parse(result.body).state, 'account_exists')
 })
 
+test('legacy Player delivery is scoped and must match the current invitation time', async () => {
+  const { createAdultPlayerSetupHandler } = await import('../netlify/functions/adult-player-setup.js')
+  const sentAt = '2026-11-14T21:24:27.291Z'
+  let acceptedAt = '2026-11-14T21:24:27.000Z'
+  let providerStatus = 'delivered'
+  const handler = createAdultPlayerSetupHandler({
+    client: {
+      from(table) {
+        const filters = new Map()
+        const query = {
+          select() { return query },
+          eq(column, value) { filters.set(column, value); return query },
+          async maybeSingle() {
+            if (table === 'players') return { data: { id: player, club_id: club, team_id: team } }
+            if (filters.get('logical_key') !== `adult_player_setup_invite:player:${player}`) return { data: null }
+            assert.equal(filters.get('club_id'), club)
+            assert.equal(filters.get('team_id'), team)
+            return { data: { provider_status: providerStatus, provider_message_id: 'fixture-id', provider_accepted_at: acceptedAt } }
+          },
+        }
+        return query
+      },
+      rpc: async () => ({ data: { state: 'awaiting_acceptance', invite_digest: 'b'.repeat(64), sent_at: sentAt } }),
+    },
+    getActor: async () => ({ id: actor, email: 'coach@example.test' }),
+    getProfile: async () => ({ clubId: club, roleRank: 30, role: 'coach' }),
+    assertFeature: () => {},
+    deliver: () => assert.fail('Reading delivery must never send'),
+  })
+  const check = async (reportDelivered = true) => JSON.parse((await handler({
+    httpMethod: 'POST', body: JSON.stringify({ action: 'status', playerId: player, reportDelivered }),
+  })).body)
+  assert.deepEqual(await check(), { success: true, state: 'delivered' })
+  assert.deepEqual(await check(false), { success: true, state: 'awaiting_acceptance' })
+  providerStatus = 'bounced'
+  assert.deepEqual(await check(), { success: true, state: 'delivery_failed' })
+  acceptedAt = '2026-11-14T20:24:27Z'
+  assert.deepEqual(await check(), { success: true, state: 'delivery_unknown' })
+})
+
 test('staff delivery uses the reserved recipient and repeats the same provider idempotency key after a failure', async () => {
   process.env.VITE_SUPABASE_URL ||= 'https://fixture.supabase.test'
   process.env.SUPABASE_SERVICE_ROLE_KEY ||= 'fixture-only-service-key'
@@ -249,4 +318,46 @@ test('staff delivery uses the reserved recipient and repeats the same provider i
   state = 'denied'
   assert.equal((await send()).statusCode, 403)
   assert.equal(deliveries.length, 2)
+})
+
+test('team resend preview sends nothing, and resends recheck team scope and linked status', async () => {
+  const { createAdultPlayerSetupHandler } = await import('../netlify/functions/adult-player-setup.js')
+  let rank = 70
+  let state = 'pending'
+  const calls = []
+  const deliveries = []
+  const handler = createAdultPlayerSetupHandler({
+    client: {
+      from: table => ({ select: () => ({ eq: () => ({
+        maybeSingle: async () => ({ data: table === 'teams'
+          ? { id: team, club_id: club } : { id: player, club_id: club, team_id: team } }),
+      }) }) }),
+      rpc: async (name, args) => {
+        calls.push({ name, args })
+        if (name === 'list_adult_player_setup_resend_targets') return { data: { state: 'ready', player_ids: [player] } }
+        if (name === 'reserve_adult_player_setup_resend') return { data: { state, email: 'player@example.test', token: other } }
+        return {}
+      },
+    },
+    getActor: async () => ({ id: actor, email: 'coach@example.test' }),
+    getProfile: async () => ({ clubId: club, roleRank: rank, role: 'head_manager' }),
+    assertFeature: () => {},
+    deliver: async (payload) => { deliveries.push(payload.to) },
+  })
+  const request = async (body) => handler({ httpMethod: 'POST', body: JSON.stringify(body) })
+  const preview = () => request({ action: 'team-resend-preview', teamId: team })
+  const resend = teamId => request({ action: 'resend', playerId: player, teamId, email: 'wrong@example.test' })
+  rank = 30
+  assert.equal((await preview()).statusCode, 403)
+  rank = 70
+  assert.deepEqual(JSON.parse((await preview()).body), { success: true, playerIds: [player] })
+  assert.equal((await resend(newTeam)).statusCode, 403)
+  assert.equal(calls.length, 1)
+  assert.deepEqual(deliveries, [])
+  assert.equal((await resend(team)).statusCode, 200)
+  assert.equal(calls[1].args.expected_team_id, team)
+  assert.deepEqual(deliveries, [['player@example.test']])
+  state = 'linked'
+  assert.deepEqual(JSON.parse((await resend(team)).body), { success: true, state: 'linked' })
+  assert.equal(deliveries.length, 1)
 })

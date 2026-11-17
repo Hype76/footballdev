@@ -11,6 +11,12 @@ export function getParentScorerActionLabel(match = {}) {
   return ['scheduled', 'scorer_request'].includes(match.status) ? 'Open scoring' : match.status === 'full_time' ? 'Review scoring' : 'Resume scoring'
 }
 
+export function isParentScorerGuideMatch(match, matchdayDate) {
+  return Boolean(matchdayDate && match?.matchDate === matchdayDate && match.isScorer === true
+    && !match.isFanView && !match.pendingReview && !match.scorerReviewRequestedAt && !match.concludedAt
+    && ['scheduled', 'scorer_request', 'live', 'half_time', 'second_half', 'extra_time', 'penalties'].includes(match.status))
+}
+
 export function captureParentScorerAction(match, kind, now = Date.now()) {
   const time = captureMatchEventTime(match, now)
   return { kind, capturedClock: formatMatchAddedTimeClock(match, now), capturedMinute: time.minute, capturedStoppageMinute: time.stoppageMinute }

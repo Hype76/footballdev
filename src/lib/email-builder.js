@@ -615,22 +615,34 @@ export function buildParentPortalInviteHtml({
 }
 
 export async function sendAdultPlayerSetupInvite(playerId) {
-  return adultPlayerSetupRequest(playerId, 'send')
+  return adultPlayerSetupRequest({ action: 'send', playerId })
 }
 
 export async function getAdultPlayerLinkStatus(playerId) {
-  return adultPlayerSetupRequest(playerId, 'status')
+  return adultPlayerSetupRequest({ action: 'status', playerId, reportDelivered: true })
 }
 
-async function adultPlayerSetupRequest(playerId, action) {
+export async function resendAdultPlayerSetupInvite(playerId, teamId, authority) {
+  return adultPlayerSetupRequest({ action: 'resend', playerId, teamId }, authority)
+}
+
+export async function getTeamAdultPlayerSetupResendTargets(teamId, authority) {
+  return adultPlayerSetupRequest({ action: 'team-resend-preview', teamId }, authority)
+}
+
+async function adultPlayerSetupRequest(payload, { actorId, signal } = {}) {
   const { data } = await supabase.auth.getSession()
+  if (actorId && data?.session?.user?.id !== actorId) {
+    throw new Error('Your account changed. Review the invitations again before sending.')
+  }
   const response = await fetch('/.netlify/functions/adult-player-setup', {
     method: 'POST',
+    signal,
     headers: {
       Authorization: `Bearer ${data?.session?.access_token || ''}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ action, playerId }),
+    body: JSON.stringify(payload),
   })
   const result = await response.json().catch(() => ({}))
   if (!response.ok || !result.success) throw new Error(result.message || 'Player invitation could not be sent.')

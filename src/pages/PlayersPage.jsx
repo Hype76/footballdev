@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Navigate, useSearchParams } from 'react-router-dom'
 import { NoticeBanner } from '../components/ui/NoticeBanner.jsx'
+import { ConfirmModal } from '../components/ui/ConfirmModal.jsx'
 import { getPaginatedItems } from '../components/ui/pagination-utils.js'
 import { useToast } from '../components/ui/toast-context.js'
 import { TeamRemovalModal } from '../components/players/TeamRemovalModal.jsx'
@@ -9,6 +10,7 @@ import { useClubPlayerTypes } from '../hooks/players/useClubPlayerTypes.js'
 import { PlayerStatsCards } from '../components/players/PlayerStatsCards.jsx'
 import { canCreateEvaluation, canManageTeamSettings, useAuth } from '../lib/auth.js'
 import { CAPABILITIES } from '../lib/paywall-access.js'
+import { getTeamAdultPlayerSetupResendTargets, resendAdultPlayerSetupInvite } from '../lib/email-builder.js'
 import { canUseUiFeature, createUiFeatureUnavailableMessage } from '../lib/paywall-ui.js'
 import {
   PLAYER_PAGE_SIZE,
@@ -80,8 +82,23 @@ export function PlayersPage({
   const [message, setMessage] = useState('')
   const [isLoading, setIsLoading] = useState(() => players.length === 0 && evaluations.length === 0)
   const [errorMessage, setErrorMessage] = useState('')
+  const [inviteBatch, setInviteBatch] = useState(null)
+  const [inviteProgress, setInviteProgress] = useState(null)
+  const [invitePreviewScope, setInvitePreviewScope] = useState(null)
+  const inviteOperation = useRef(null)
   const userScopeKey = user ? `${user.id}:${user.clubId || ''}:${user.role}:${user.roleRank}:${activeTeamScope}` : ''
   const canMovePlayersToTrial = canUseUiFeature(user, CAPABILITIES.trialPlayers)
+  const canResendTeamInvites = Boolean(user?.activeTeamId && canManageTeamSettings(user) && canUseUiFeature(user, CAPABILITIES.players)
+    && players.some(player => player.teamId === user.activeTeamId && player.contactType === 'self'))
+  const inviteScope = useMemo(() => ({ key: userScopeKey }), [userScopeKey])
+  const activeBatch = inviteBatch?.scope === inviteScope ? inviteBatch : null
+  const activeInviteProgress = inviteProgress?.scope === inviteScope ? inviteProgress : null
+  const invitePreviewLoading = invitePreviewScope === inviteScope
+
+  useLayoutEffect(() => () => {
+    inviteOperation.current?.abort()
+    inviteOperation.current = null
+  }, [inviteScope])
 
   useEffect(() => {
     let isMounted = true
@@ -421,6 +438,63 @@ export function PlayersPage({
     }
   }
 
+  const previewAdultInvites = async () => {
+    if (!canResendTeamInvites || inviteOperation.current) return
+    const teamId = user.activeTeamId
+    const controller = new AbortController()
+    const authority = { actorId: user.id, signal: controller.signal }
+    inviteOperation.current = controller
+    setInvitePreviewScope(inviteScope)
+    try {
+      const { playerIds } = await getTeamAdultPlayerSetupResendTargets(teamId, authority)
+      if (controller.signal.aborted) return
+      if (!playerIds.length) {
+        showToast({ title: 'No Player invitations ready to send', message: 'Linked accounts and recently sent invitations are skipped.' })
+        return
+      }
+      setInviteBatch({ scope: inviteScope, actorId: user.id, teamId, teamName: user.activeTeamName, playerIds })
+    } catch (error) {
+      if (!controller.signal.aborted) showToast({ title: 'Could not check Player invitations', message: error.message, tone: 'error' })
+    } finally {
+      if (inviteOperation.current === controller) {
+        inviteOperation.current = null
+        setInvitePreviewScope(null)
+      }
+    }
+  }
+
+  const sendAdultInvites = async () => {
+    if (!activeBatch || !canResendTeamInvites || inviteOperation.current) return
+    const { teamId, playerIds, actorId, scope } = activeBatch
+    const controller = new AbortController()
+    const authority = { actorId, signal: controller.signal }
+    inviteOperation.current = controller
+    let sent = 0
+    let skipped = 0
+    let failed = 0
+    setInviteProgress({ scope, completed: 0, total: playerIds.length })
+    for (const [index, playerId] of playerIds.entries()) {
+      if (controller.signal.aborted) return
+      try {
+        const outcome = await resendAdultPlayerSetupInvite(playerId, teamId, authority)
+        if (outcome.state === 'sent') sent += 1
+        else skipped += 1
+      } catch {
+        failed += 1
+      }
+      if (controller.signal.aborted) return
+      setInviteProgress({ scope, completed: index + 1, total: playerIds.length })
+    }
+    inviteOperation.current = null
+    setInviteProgress(null)
+    setInviteBatch(null)
+    showToast({
+      title: failed ? 'Some Player invitations could not be sent' : 'Player invitation resend complete',
+      message: `${sent} sent, ${skipped} skipped, ${failed} failed.`,
+      tone: failed ? 'error' : undefined,
+    })
+  }
+
   return (
     <div className="space-y-5">
       <section className="overflow-hidden rounded-lg border border-[#d7e5dc] bg-white shadow-sm shadow-[#101828]/5">
@@ -430,6 +504,11 @@ export function PlayersPage({
               <p className="text-xs font-black uppercase tracking-[0.18em] text-[#047857]">{headerEyebrow}</p>
               <h1 className="mt-3 max-w-5xl text-3xl font-black leading-[1.02] tracking-tight text-[#101828] sm:text-4xl">{headerTitle}</h1>
               <p className="mt-4 max-w-3xl text-base font-semibold leading-7 text-[#4b5f55]">{headerDescription}</p>
+              {canResendTeamInvites ? <button type="button" disabled={invitePreviewLoading || Boolean(activeInviteProgress)}
+                onClick={() => void previewAdultInvites()}
+                className="mt-4 inline-flex min-h-11 items-center justify-center rounded-lg border border-[#d7e5dc] bg-white px-4 py-2 text-sm font-black text-[#101828] hover:bg-[#ecfdf5] disabled:opacity-60">
+                {invitePreviewLoading ? 'Checking Player invitations...' : 'Resend all Player invitations'}
+              </button> : null}
               {compactMode ? null : <div className="mt-5 grid gap-3 md:grid-cols-3">
                 {playerRegisterRules.map((item) => (
                   <article key={item.label} className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4 shadow-sm shadow-[#101828]/5">
@@ -521,6 +600,18 @@ export function PlayersPage({
         urlSection={urlSection}
         viewFilter={viewFilter}
       />
+
+      <ConfirmModal
+        isOpen={Boolean(activeBatch)}
+        isBusy={Boolean(activeInviteProgress)}
+        title="Resend all Player invitations"
+        message={`Send setup emails to ${activeBatch?.playerIds.length ?? 0} eligible adult players in ${activeBatch?.teamName || 'the selected team'}? A new setup link replaces the old one. Keep this page open until sending finishes.`}
+        confirmLabel="Send invitations"
+        onCancel={() => setInviteBatch(null)}
+        onConfirm={sendAdultInvites}
+      >
+        {activeInviteProgress ? <p role="status" className="text-sm font-semibold">Checked {activeInviteProgress.completed} of {activeInviteProgress.total} invitations.</p> : null}
+      </ConfirmModal>
 
       <TeamRemovalModal
         errorMessage={teamRemovalError}

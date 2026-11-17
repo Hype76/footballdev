@@ -1042,7 +1042,7 @@ function ChatDomain({ chatNotificationTarget, context, data, load, notice, onCha
             ListEmptyComponent={<Text style={styles.body}>No messages in this conversation yet.</Text>}
             onContentSizeChange={() => messageListRef.current?.scrollToEnd({ animated: false })}
             ref={messageListRef}
-            renderItem={({ item: message }) => <View style={[styles.messageBubble, message.senderId === user.id && styles.messageBubbleOwn]}><View style={styles.messageHeader}><Text style={styles.label}>{message.senderName}</Text><Text style={styles.messageTime}>{formatCoachChatDateTime(message.createdAt)}</Text></View><Text style={styles.body}>{message.deletedAt ? 'Message deleted.' : message.body}</Text></View>}
+            renderItem={({ item: message }) => <View style={[styles.messageBubble, message.senderId === user.id && styles.messageBubbleOwn]}><View style={styles.messageHeader}><Text style={styles.label}>{message.senderName}</Text><Text style={styles.messageTime}>{formatCoachChatDateTime(message.createdAt)}</Text></View><Text selectable={!message.deletedAt} style={styles.body}>{message.deletedAt ? 'Message deleted.' : message.body}</Text></View>}
             style={styles.chatMessageList}
           />
           <View style={styles.chatComposer}>

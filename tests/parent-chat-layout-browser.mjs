@@ -56,9 +56,13 @@ try {
   const errors = []
   page.on('pageerror', error => { errors.push(error.message); console.error(error.message) })
   await page.route('**/*', route => route.abort())
-  await page.setContent('<main id="root"></main>')
+  const fixtureOrigin = 'http://127.0.0.1'
+  await page.context().grantPermissions(['clipboard-read', 'clipboard-write'], { origin: fixtureOrigin })
+  await page.route(`${fixtureOrigin}/parent-chat-fixture`, route => route.fulfill({ contentType: 'text/html', body: '<main id="root"></main>' }))
+  await page.goto(`${fixtureOrigin}/parent-chat-fixture`)
   await page.addScriptTag({ content: result.outputFiles[0].text })
   await page.getByText(shortBody, { exact: true }).waitFor()
+  if (!baseline) assert.equal(await page.getByText(shortBody, { exact: true }).evaluate(node => getComputedStyle(node).userSelect), 'text')
   let checks = 0
   for (const width of [320, 390]) for (const mode of ['light', 'dark']) for (const height of [844, 500]) {
     await page.setViewportSize({ width, height })
@@ -98,7 +102,9 @@ try {
   await list.evaluate(element => { element.scrollTop = 0 })
   assert.ok((await longMessage.boundingBox()).y >= 0, 'Beginning of long message reachable')
   await page.screenshot({ path: `${output}/long-message-head.png`, fullPage: true })
-  await page.getByLabel('Parent Chat message').fill('Synthetic multiline\nmessage')
+  await page.evaluate(() => navigator.clipboard.writeText('Synthetic multiline\nmessage'))
+  await page.getByLabel('Parent Chat message').press('Control+V')
+  assert.equal(await page.getByLabel('Parent Chat message').inputValue(), 'Synthetic multiline\nmessage')
   await page.getByRole('button', { name: 'Send', exact: true }).click()
   assert.deepEqual(await page.evaluate(() => window.calls), [['send', 'Synthetic multiline\nmessage']])
   assert.equal(await page.getByLabel('Parent Chat message').inputValue(), '')
