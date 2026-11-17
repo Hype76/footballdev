@@ -13,7 +13,7 @@ const updateConfirmed = String(process.env.MOBILE_OTA_UPDATE_CONFIRMED || '').tr
 const updateMessage = String(process.env.MOBILE_OTA_UPDATE_MESSAGE || '').trim()
 const productionProfile = 'store-live'
 const legacyIosRelease = runtimeVersion === '1.1.1' && updatePlatform === 'ios'
-const legacyAndroidRelease = runtimeVersion === '1.1.0' && updatePlatform === 'android' && appRole === 'coach'
+const legacyAndroidRelease = runtimeVersion === '1.1.0' && updatePlatform === 'android'
 const releaseSource = legacyAndroidRelease ? 'origin/codex/android-1.1.0-maintenance' : legacyIosRelease ? 'origin/codex/ios-1.1.1-maintenance' : 'origin/main'
 const legacyAndroidBaseline = 'a9de799a2fef0b5ac4915a3c1c3417f877354421'
 
@@ -28,7 +28,7 @@ if (!supportedUpdatePlatforms.has(updatePlatform)) {
 }
 
 if (runtimeVersion && !legacyAndroidRelease && (runtimeVersion !== '1.1.1' || updatePlatform !== 'ios')) {
-  console.error('Explicit OTA runtime selection is restricted to iOS 1.1.1 and Android Coach 1.1.0.')
+  console.error('Explicit OTA runtime selection is restricted to iOS 1.1.1 and Android 1.1.0.')
   process.exit(1)
 }
 
@@ -97,7 +97,7 @@ if (legacyAndroidRelease) {
     encoding: 'utf8',
   }).trim()
   if (resolvedRuntime !== runtimeVersion) {
-    console.error('Production mobile update is blocked because the Android Coach runtime did not resolve to 1.1.0.')
+    console.error('Production mobile update is blocked because the Android runtime did not resolve to 1.1.0.')
     process.exit(1)
   }
 }

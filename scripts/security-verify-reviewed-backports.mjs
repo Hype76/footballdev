@@ -65,9 +65,9 @@ export function loadRecord(root) {
   const record = JSON.parse(fs.readFileSync(safe(root, 'security/reviewed-source-remediations.json')))
   verifyMaintainedAuthority(record)
   assert.equal(record.baseline, '864a6ad3856a02b65ec33bfe8e952e6f98d13dbd')
-  assert.equal(record.adoptionProposalSha256, 'd43f26f937658eb21395575b674e62a51a421ab93105eb4720df764f424ddc03', 'Maintained source policy identity changed')
+  assert.equal(record.adoptionProposalSha256, 'f6a5c10b3ac578da357151154fbebb95ab97607812a10c1e668726f5c9339e18', 'Maintained source policy identity changed')
   assert.equal(hash(fs.readFileSync(safe(root, 'security/maintained-source-policy.json'))), record.adoptionProposalSha256, 'Maintained source policy evidence drift')
-  assert.equal(record.releasePreparationSha256, "86c441294dd219c2e85c1a9f1eb4da2fdf0e6feaebe1f05253744a6243b1df3c", 'Release preparation scope drift')
+  assert.equal(record.releasePreparationSha256, "b90362072443b1dd7f8a7871a7023efa9fb214d202656ba71f441739ffbdf8fd", 'Release preparation scope drift')
   assert.equal(hash(Buffer.from(JSON.stringify(record.releasePreparation, null, 2) + '\n')), record.releasePreparationSha256, 'Release preparation pins drift')
   assert.equal(record.releasePreparation.baseline, record.baseline, 'Release preparation baseline mismatch')
   verifyReleasePreparation(root, record.releasePreparation)
@@ -134,14 +134,14 @@ export function loadRecord(root) {
   assert.deepEqual(record.compatibilityUpstream, JSON.parse(fs.readFileSync(safe(root, 'security/maintained-source-policy.json'))).glob7Compatibility.upstreamLatest, 'Compatibility upstream differs from the pinned maintenance policy')
   assert.deepEqual(record.glob7CompatibilityPublishedVersions, JSON.parse(fs.readFileSync(safe(root, 'security/maintained-source-policy.json'))).glob7Compatibility.publishedCompatibilityVersions, 'Compatibility publication inventory differs from the pinned maintenance policy')
   assert.deepEqual(record.officialCompatibilityDependencies.map(t => [t.scope, t.packagePath, t.name, t.version]), ['.', 'apps/parent-mobile', 'apps/coach-mobile'].flatMap(scope => [
-    [scope, 'node_modules/minimatch', 'minimatch', '11.0.8'], [scope, 'node_modules/glob', 'glob', '14.0.6'],
+    [scope, 'node_modules/minimatch', 'minimatch', '11.0.9'], [scope, 'node_modules/glob', 'glob', '14.0.6'],
   ]), 'Fixed official compatibility dependency scope changed')
   for (const t of record.officialCompatibilityDependencies) {
     assert.equal(t.mode, 'official-tooling')
     assert.deepEqual(t.files, [], 'Fixed official tooling must not receive source patches')
     assert.equal(t.originalTreeSha256, t.patchedTreeSha256, 'Fixed official tooling must remain unchanged')
     assert.equal(t.registryIntegrity, record.compatibilityUpstream[t.name].registryIntegrity, 'Fixed official tooling registry identity differs')
-    assert.equal(t.originalTreeSha256, t.name === 'minimatch' ? '5534a29b3997317f77b5c1451540fac95730c0a101e67a1cf941e88f4cb001a4' : '34c8195a1363ceb60999544b75acfc7a48c766e6f2db30d48a3400b04f10b2c3', 'Fixed official tooling tree identity changed')
+    assert.equal(t.originalTreeSha256, t.name === 'minimatch' ? 'e733e5afa6f9b21da6ad7b8d13fcdc3528b06fae6a1a3252dc9d9d218a220fde' : '34c8195a1363ceb60999544b75acfc7a48c766e6f2db30d48a3400b04f10b2c3', 'Fixed official tooling tree identity changed')
   }
   assert.equal(payload.qualificationManifestSha256, 'c6b590786dac4bf3ffeeec900f9d3e47e9550f649aa6c5820da83b3a64afc47d')
   for (const [file, expected] of Object.entries(record.implementationHashes)) assert.equal(textHash(fs.readFileSync(safe(root, file))), expected, `Implementation drift: ${file}`)
@@ -251,8 +251,19 @@ export function verifyInstallation(root, record, source, copies, review) {
   return receipt
 }
 export async function verifyUpstream(record, payload, request = fetch) {
+  let githubToken = ''
+  if (request === fetch) {
+    try {
+      githubToken = execFileSync('gh', ['auth', 'token'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim()
+    } catch {
+      // The official public API remains available when GitHub CLI is not signed in.
+    }
+  }
   const get = async url => {
-    const response = await request(url, { headers: { 'User-Agent': 'Football-local-security-verification', Accept: url.startsWith('https://api.github.com/') ? 'application/vnd.github+json' : 'application/json' }, signal: AbortSignal.timeout(20000) })
+    const github = url.startsWith('https://api.github.com/')
+    const headers = { 'User-Agent': 'Football-local-security-verification', Accept: github ? 'application/vnd.github+json' : 'application/json' }
+    if (github && githubToken) headers.Authorization = `Bearer ${githubToken}`
+    const response = await request(url, { headers, signal: AbortSignal.timeout(20000) })
     assert.ok(response.ok, `Official upstream lookup failed: ${response.status}`)
     return response.json()
   }

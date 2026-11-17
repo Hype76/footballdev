@@ -12,6 +12,7 @@ const expectedFiles = ['src/index.js', 'src/nested/player.js']
 const normalize = files => files.map(file => file.replaceAll('\\', '/')).sort()
 const previousIosRelease = 'a9de799a2fef0b5ac4915a3c1c3417f877354421'
 const approvedSecuritySource = '5546191650cd90ac71b7db28bb8ad38d1be1ef3f'
+const approvedMinimatchSource = 'c539a3c9797195969f566064215243d05fc6d286'
 
 function readGitJson(revision, file) {
   return JSON.parse(execFileSync('git', ['show', revision + ':' + file], {
@@ -27,12 +28,14 @@ test('iOS 1.1.1 keeps its native dependencies and adopts only the reviewed JavaS
     const lockPath = prefix + 'package-lock.json'
     const expectedPackage = readGitJson(previousIosRelease, packagePath)
     const approvedPackage = readGitJson(approvedSecuritySource, packagePath)
-    const overrideNames = ['minimatch', 'glob@>=9.0.0 <=14.0.1']
+    const overrideNames = ['glob@>=9.0.0 <=14.0.1']
     if (scope !== '.') overrideNames.push('node-forge')
     for (const name of overrideNames) expectedPackage.overrides[name] = approvedPackage.overrides[name]
+    expectedPackage.overrides.minimatch = readGitJson(approvedMinimatchSource, packagePath).overrides.minimatch
 
     const expectedLock = readGitJson(previousIosRelease, lockPath)
     const approvedLock = readGitJson(approvedSecuritySource, lockPath)
+    approvedLock.packages['node_modules/minimatch'] = readGitJson(approvedMinimatchSource, lockPath).packages['node_modules/minimatch']
     const changedPackages = ['@isaacs/nonrecursive-glob-match', 'glob', 'minimatch']
     if (scope === '.') {
       expectedPackage.dependencies['fast-xml-parser'] = approvedPackage.dependencies['fast-xml-parser']
@@ -91,7 +94,7 @@ for (const scope of ['.', 'apps/coach-mobile', 'apps/parent-mobile']) {
         }
       }
       const minimatch = require('minimatch')
-      assert.equal(require('minimatch/package.json').version, '11.0.8')
+      assert.equal(require('minimatch/package.json').version, '11.0.9')
       assert.equal(minimatch.minimatch('src/index.js', 'src/**/*.js'), true)
       assert.equal(new minimatch.Minimatch('src/**/*.js').match('src/nested/player.js'), true)
       assert.equal(new minimatch.Minimatch('src/**/*.js').match('src/notes.txt'), false)

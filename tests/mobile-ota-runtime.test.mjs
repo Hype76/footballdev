@@ -29,18 +29,29 @@ test('native build defaults remain identical and OTA runtime requires explicit p
 })
 
 test('OTA guard rejects unsupported runtime and platform combinations before any external action', () => {
-  for (const args of [['coach', 'android', '1.1.1'], ['parent', 'ios', '9.9.9'], ['parent', 'android', '1.1.0'], ['coach', 'ios', '1.1.0'], ['coach', 'all', '1.1.0']]) {
+  for (const args of [['coach', 'android', '1.1.1'], ['parent', 'ios', '9.9.9'], ['parent', 'android', '1.1.2'], ['coach', 'ios', '1.1.0'], ['coach', 'all', '1.1.0']]) {
     const result = spawnSync(process.execPath, ['apps/scripts/mobile-update-guard.mjs', ...args], { encoding: 'utf8' })
     assert.equal(result.status, 1)
-    assert.match(result.stderr, /restricted to iOS 1\.1\.1 and Android Coach 1\.1\.0/)
+    assert.match(result.stderr, /restricted to iOS 1\.1\.1 and Android 1\.1\.0/)
   }
 })
 
-test('legacy Coach Android OTA still requires explicit publication confirmation', () => {
-  const result = spawnSync(process.execPath, ['apps/scripts/mobile-update-guard.mjs', 'coach', 'android', '1.1.0'], {
-    encoding: 'utf8',
-    env: { ...process.env, MOBILE_OTA_UPDATE_CONFIRMED: '' },
-  })
-  assert.equal(result.status, 1)
-  assert.match(result.stderr, /MOBILE_OTA_UPDATE_CONFIRMED=true/)
+test('legacy Android OTA for Coach and Parent requires explicit publication confirmation', () => {
+  for (const role of ['coach', 'parent']) {
+    const result = spawnSync(process.execPath, ['apps/scripts/mobile-update-guard.mjs', role, 'android', '1.1.0'], {
+      encoding: 'utf8',
+      env: { ...process.env, MOBILE_OTA_UPDATE_CONFIRMED: '' },
+    })
+    assert.equal(result.status, 1)
+    assert.match(result.stderr, /MOBILE_OTA_UPDATE_CONFIRMED=true/)
+  }
+})
+
+test('Parent Android maintenance keeps the production 1.1.0 app identity and direct dependencies', () => {
+  const installedBuild = 'b39561152286c6c25f1cfc43ab5b02986b38704a'
+  const appConfigPath = 'apps/parent-mobile/app.config.js'
+  const packagePath = 'apps/parent-mobile/package.json'
+  const readInstalledSource = (path) => execFileSync('git', ['show', `${installedBuild}:${path}`], { encoding: 'utf8' })
+  assert.equal(readFileSync(appConfigPath, 'utf8').replaceAll('\r\n', '\n'), readInstalledSource(appConfigPath))
+  assert.deepEqual(JSON.parse(readFileSync(packagePath, 'utf8')).dependencies, JSON.parse(readInstalledSource(packagePath)).dependencies)
 })
