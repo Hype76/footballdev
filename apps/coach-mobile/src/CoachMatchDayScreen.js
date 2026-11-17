@@ -1347,7 +1347,11 @@ function CoachMatchDayScoped({ context, matchDayTarget, onMatchDayTargetHandled,
     await cache(matches.map((item) => item.id === summary.id ? summary : item), summary, players).catch(() => {})
     invalidateMobileResource(user, 'coach:calendar')
     invalidateMobileResource(user, 'coach:match-list')
-    if (fixtureReturnTarget) onNavigate('calendar', { ...fixtureReturnTarget, occurrenceDate: summary.matchDate, saveNotice })
+    if (fixtureReturnTarget) onNavigate('calendar', {
+      ...fixtureReturnTarget,
+      occurrenceDate: summary.matchDate,
+      ...(updatedMatch.notificationNotice ? { saveNotice } : {}),
+    })
     setFixtureReturnTarget(null)
     if (summary.concludedAt && !fixtureReturnTarget) {
       try {
