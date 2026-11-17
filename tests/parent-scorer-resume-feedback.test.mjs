@@ -62,3 +62,11 @@ test('Home opens the scoring route, club heading replaces app heading and correc
   assert.match(data, /notes_value: normalizeText\(reason\) \|\| 'Score corrected by parent scorer'/)
   assert.match(screens, /const activeEvents = getParentMatchTimeline\(match\)/)
 })
+
+test('Parent scorer notices use a live region supported by Android', async () => {
+  const screen = await readFile(new URL('../apps/parent-mobile/src/ParentPortalScreens.js', import.meta.url), 'utf8')
+  assert.doesNotMatch(screen, /accessibilityRole="status"/)
+  assert.match(screen, /accessibilityLiveRegion="polite"[^>]*>\{scorerSync\.pending\.length\} saved action/)
+  assert.match(screen, /accessibilityLiveRegion="polite"[^>]*>Coach handover saved on this phone/)
+  assert.match(screen, /accessibilityLiveRegion="polite"[^>]*>Sent to Coach to conclude/)
+})
