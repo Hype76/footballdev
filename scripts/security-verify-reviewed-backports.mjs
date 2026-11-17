@@ -119,8 +119,8 @@ export function loadRecord(root) {
   for (const t of record.targets) {
     const trees = t.name === 'picomatch'
       ? t.version === '2.3.2'
-        ? ['a6dbe19a0f88505d86e7d142b0d55030ffdf9556a8b1cb7af6bfd6d424dcc55d', '7e5a35dd6091fbdce7062ab716d4aa668d072bb1704866a17997909273708515']
-        : ['a18d8dfe5f0fad86e51467433dd48c357af1504aa417cd37b64a95e1fde82e13', '83c7adca3b3f9c76af03b5f01c400bb60dbd1f69b3bd6a93596339017c069920']
+        ? ['a6dbe19a0f88505d86e7d142b0d55030ffdf9556a8b1cb7af6bfd6d424dcc55d', '1109dfe474c488ddcf1814da07bb0f16cd6c6ca825f1434069fa9ce00393a006']
+        : ['a18d8dfe5f0fad86e51467433dd48c357af1504aa417cd37b64a95e1fde82e13', '46546600ee0e23dabc97afc1df3042ddf8af6371a4647297da95ba76de329281']
       : t.name === 'braces'
       ? ['ac0f50ef3e9a557dccb4805fc6bb0c8bf9b9502783b7d5baed4c9c8c55cd91a4', 'b024f34af0a56743116dec3c1da981519a0744e9dffe0dd1d31fecc1c0a50c77']
       : t.name === 'deepmerge'
