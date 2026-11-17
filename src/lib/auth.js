@@ -736,6 +736,7 @@ function RuntimeAuthProvider({ children }) {
 
         if (!(options.background && isSameUser)) {
           setUser(null)
+          setClubOptions([])
         }
         setAccessRouteMismatch(null)
         setIsProfileLoading(false)
@@ -1451,7 +1452,7 @@ function RuntimeAuthProvider({ children }) {
     session,
     authUser,
     user: user ? { ...user, matchdayPolicy } : user,
-    clubOptions,
+    clubOptions: user ? clubOptions : clubOptions.filter((option) => option.authUserId === session?.user?.id),
     accessModeOptions,
     accessRouteMismatch,
     teamOptions,
