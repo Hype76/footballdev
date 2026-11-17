@@ -8,6 +8,7 @@ import { pathToFileURL } from 'node:url'
 export const hash = (bytes) => createHash('sha256').update(bytes).digest('hex')
 export const textHash = (bytes) => hash(Buffer.from(bytes.toString('utf8').replaceAll('\r\n', '\n')))
 const implementationFiles = [
+  'tests/security-picomatch-source.test.mjs',
   'scripts/security-supply-chain-gate.mjs', 'scripts/security-apply-reviewed-backports.mjs',
   'scripts/security-verify-reviewed-backports.mjs', 'security/patches/braces-3.0.3.patch',
   'security/patches/node-forge-1.4.0.patch', 'security/patches/deepmerge-4.3.1.patch', 'security/patches/reviewed-source-manifest.json',
@@ -73,9 +74,9 @@ export function loadRecord(root) {
   const record = JSON.parse(fs.readFileSync(safe(root, 'security/reviewed-source-remediations.json')))
   verifyMaintainedAuthority(record)
   assert.equal(record.baseline, '864a6ad3856a02b65ec33bfe8e952e6f98d13dbd')
-  assert.equal(record.adoptionProposalSha256, '68004fda2313a1da01b73d5a506028d42f8db92d8ee0afaaea442dfa6148e7b1', 'Maintained source policy identity changed')
+  assert.equal(record.adoptionProposalSha256, '446ea8209347bba915ff7510e7539bcad974ce43e2c3cf5741143638bb370be8', 'Maintained source policy identity changed')
   assert.equal(hash(fs.readFileSync(safe(root, 'security/maintained-source-policy.json'))), record.adoptionProposalSha256, 'Maintained source policy evidence drift')
-  assert.equal(record.releasePreparationSha256, "7440f4fcbf3ee847573e632064a6a5d1bd4efd72720a98a7fe62b86a38b28f00", 'Release preparation scope drift')
+  assert.equal(record.releasePreparationSha256, "6c417884181ab4b8f3bd2095c69d3032b4564863895f150d11c7bc80cafd381e", 'Release preparation scope drift')
   assert.equal(hash(Buffer.from(JSON.stringify(record.releasePreparation, null, 2) + '\n')), record.releasePreparationSha256, 'Release preparation pins drift')
   assert.equal(record.releasePreparation.baseline, record.baseline, 'Release preparation baseline mismatch')
   verifyReleasePreparation(root, record.releasePreparation)
@@ -83,7 +84,7 @@ export function loadRecord(root) {
   assert.equal(hash(fs.readFileSync(safe(root, 'security/root-backport-proposal.json'))), record.rootOnlyProposalSha256, 'Retained root proposal drift')
   assert.equal(hash(Buffer.from(JSON.stringify(record.dependencyRemediation, null, 2) + '\n')), record.dependencyRemediationSha256, 'Dependency remediation pins drift')
   for (const [file, expected] of Object.entries(record.dependencyRemediation.changedSourceHashes)) assert.equal(textHash(fs.readFileSync(safe(root, file))), expected, 'Approved dependency/test source drift: ' + file)
-  assert.equal(record.targets.length, 16)
+  assert.equal(record.targets.length, 27)
   assert.deepEqual(Object.keys(record.implementationHashes).sort(), [...implementationFiles].sort(), 'Implementation allowlist changed')
   assert.deepEqual(record.targets.map(t => [t.scope, t.packagePath, t.name, t.version]), [
     ['.', 'node_modules/braces', 'braces', '3.0.3'],
@@ -102,10 +103,25 @@ export function loadRecord(root) {
     ['apps/coach-mobile', 'node_modules/@react-native/codegen/node_modules/glob', 'glob', '7.2.3'],
     ['apps/coach-mobile', 'node_modules/react-native/node_modules/glob', 'glob', '7.2.3'],
     ['apps/coach-mobile', 'node_modules/rimraf/node_modules/glob', 'glob', '7.2.3'],
+    ['.','node_modules/@rollup/pluginutils/node_modules/picomatch','picomatch','2.3.2'],
+    ['.','node_modules/micromatch/node_modules/picomatch','picomatch','2.3.2'],
+    ['.','node_modules/picomatch','picomatch','4.0.4'],
+    ['apps/parent-mobile','node_modules/anymatch/node_modules/picomatch','picomatch','2.3.2'],
+    ['apps/parent-mobile','node_modules/jest-util/node_modules/picomatch','picomatch','2.3.2'],
+    ['apps/parent-mobile','node_modules/micromatch/node_modules/picomatch','picomatch','2.3.2'],
+    ['apps/parent-mobile','node_modules/picomatch','picomatch','4.0.4'],
+    ['apps/coach-mobile','node_modules/anymatch/node_modules/picomatch','picomatch','2.3.2'],
+    ['apps/coach-mobile','node_modules/jest-util/node_modules/picomatch','picomatch','2.3.2'],
+    ['apps/coach-mobile','node_modules/micromatch/node_modules/picomatch','picomatch','2.3.2'],
+    ['apps/coach-mobile','node_modules/picomatch','picomatch','4.0.4'],
   ], 'Exact reviewed copy/version scope changed')
-  assert.deepEqual(record.eligibleAdvisories, { braces: ['GHSA-vfj7-8cjw-p6xm'], 'node-forge': [], deepmerge: ['GHSA-gcqx-w48m-w2h4'] })
+  assert.deepEqual(record.eligibleAdvisories, { braces: ['GHSA-vfj7-8cjw-p6xm'], 'node-forge': [], deepmerge: ['GHSA-gcqx-w48m-w2h4'], picomatch: ['GHSA-fc5q-39xc-vjpf'] })
   for (const t of record.targets) {
-    const trees = t.name === 'braces'
+    const trees = t.name === 'picomatch'
+      ? t.version === '2.3.2'
+        ? ['a6dbe19a0f88505d86e7d142b0d55030ffdf9556a8b1cb7af6bfd6d424dcc55d', '749c02d4f4bde402944433f8133e4ab77d569759295d07b185c82a9a320b0e9b']
+        : ['a18d8dfe5f0fad86e51467433dd48c357af1504aa417cd37b64a95e1fde82e13', '2a8951dbb4b7706532b0969812dc8d170fd3c336bc82128bd2323bcd04d14621']
+      : t.name === 'braces'
       ? ['ac0f50ef3e9a557dccb4805fc6bb0c8bf9b9502783b7d5baed4c9c8c55cd91a4', 'b024f34af0a56743116dec3c1da981519a0744e9dffe0dd1d31fecc1c0a50c77']
       : t.name === 'deepmerge'
         ? ['7ebc2bd97fe2ba61dbece477cdffea35fe840069176cd501ef26f95104d0b8a7', '286d2a30d121c50de539f45ff69196a5c0aa949f262302c3cb511c370376a432']
@@ -193,7 +209,7 @@ function discover(root, scope) {
     const metadata = path.join(dir, 'package.json')
     if (fs.existsSync(metadata)) {
       const pkg = JSON.parse(fs.readFileSync(metadata))
-      if (['braces', 'node-forge', 'deepmerge', 'glob', 'minimatch'].includes(pkg.name)) copies.push({ scope, packagePath: path.relative(path.resolve(root, scope), dir).replaceAll('\\', '/'), name: pkg.name, version: pkg.version })
+      if (['braces', 'node-forge', 'deepmerge', 'glob', 'minimatch', 'picomatch'].includes(pkg.name)) copies.push({ scope, packagePath: path.relative(path.resolve(root, scope), dir).replaceAll('\\', '/'), name: pkg.name, version: pkg.version })
     }
     if (fs.existsSync(path.join(dir, 'node_modules'))) walk(relative + '/node_modules')
   }
@@ -317,6 +333,23 @@ export async function verifyUpstream(record, payload, request = fetch) {
       receipts.push({ type: 'published-compatibility-branches', name: 'glob', versionsSha256: hash(Buffer.from(JSON.stringify(versions))) })
       continue
     }
+    if (target.name === 'picomatch') {
+      const repair = record.picomatchSourceRepair
+      const current = await get('https://registry.npmjs.org/picomatch/latest')
+      assert.equal(current.version, repair.publishedLatest.version, 'Picomatch official publication changed; replacement review required')
+      assert.equal(current.dist?.integrity, repair.publishedLatest.registryIntegrity, 'Picomatch latest integrity changed')
+      assert.equal(current.gitHead, repair.publishedLatest.gitHead, 'Picomatch latest revision changed')
+      for (const version of Object.values(repair.versions)) {
+        const metadata = await get('https://registry.npmjs.org/picomatch/' + version.version)
+        assert.equal(metadata.name, 'picomatch', 'Picomatch registry package identity changed')
+        assert.equal(metadata.version, version.version, 'Picomatch exact registry version changed')
+        assert.equal(metadata.dist?.integrity, version.registryIntegrity, 'Picomatch registry integrity changed')
+        assert.equal(metadata.gitHead, version.gitHead, 'Picomatch exact registry revision changed')
+        receipts.push({ type: 'picomatch-registry-target', version: metadata.version, integrity: metadata.dist.integrity })
+      }
+      receipts.push({ type: 'picomatch-registry', latest: current.version, versions: Object.keys(repair.versions) })
+      continue
+    }
     const current = await get('https://registry.npmjs.org/' + target.name + '/latest')
     assert.equal(current.name, target.name, 'Official package identity changed')
     assert.equal(current.version, target.version, 'Official published version changed; replacement review required')
@@ -374,7 +407,7 @@ export function evaluateAudit(audit, lock, scope, record) {
       const leafFinding = audit.vulnerabilities[leaf.owner]
       const paths = leafFinding?.nodes || []
       const covered = paths.length > 0 && paths.every(node => record.targets.some(t => t.scope === scope && t.name === leaf.owner && t.packagePath === node && lock.packages[node]?.version === t.version))
-      const requiredSeverity = { 'GHSA-vfj7-8cjw-p6xm': 'high', 'GHSA-gcqx-w48m-w2h4': 'low' }[id]
+      const requiredSeverity = { 'GHSA-vfj7-8cjw-p6xm': 'high', 'GHSA-gcqx-w48m-w2h4': 'low', 'GHSA-fc5q-39xc-vjpf': 'high' }[id]
       if (!id || !eligible.includes(id) || !requiredSeverity || leaf.severity !== requiredSeverity || finding.severity !== requiredSeverity || (leaf.name && leaf.name !== leaf.owner) || !covered) failures.push(`Unaccepted advisory: ${scope}/${name}/${id || 'unknown'}`)
       else accepted.push({ scope, package: name, advisory: id, patchedPackage: leaf.owner, affectedPaths: paths })
     }

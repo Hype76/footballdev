@@ -17,7 +17,7 @@ for (const copy of copies) {
     continue
   }
   assert.equal(copy.target.mode, copy.target.name === 'glob' ? 'reviewed-compatibility' : 'reviewed-source', 'Unapproved source remediation mode')
-  const library = payload.libraries.find(item => item.name === copy.target.name)
+  const library = payload.libraries.find(item => item.name === copy.target.name && (!item.version || item.version === copy.target.version))
   assert.ok(library, 'Missing reviewed library payload')
   assert.deepEqual(library.files.map(x => x.path).sort(), copy.target.files.map(x => x.path).sort(), 'Incomplete payload file set')
   const prospective = inventory(copy.dir)
@@ -59,5 +59,5 @@ try {
   throw error
 }
 fs.writeFileSync(receiptPath, JSON.stringify({ head: source.head, installerSha256: record.implementationHashes['scripts/security-apply-reviewed-backports.mjs'], installedAt: new Date().toISOString(), filesWritten: writes.length, recordSha256: hash(fs.readFileSync(path.join(root, 'security/reviewed-source-remediations.json'))), patches: record.patches, copies: verifyCopies(root, record).map(({ relative, treeSha256 }) => ({ relative, treeSha256 })), publicationApproved: false }, null, 2) + '\n')
-console.log(`Verified sixteen owned copies and six unchanged official tooling trees; wrote ${writes.length} exact reviewed source and glob7 compatibility files. No release action.`)
+console.log(`Verified twenty-seven owned copies and six unchanged official tooling trees; wrote ${writes.length} exact reviewed source and glob7 compatibility files. No release action.`)
 }

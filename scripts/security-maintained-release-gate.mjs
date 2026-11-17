@@ -6,6 +6,7 @@ import { pathToFileURL } from 'node:url'
 import { artifactPath, hash, loadRecord, verifySource, verifyCopies, verifyReview, verifyInstallation, verifyUpstream } from './security-verify-reviewed-backports.mjs'
 
 export const maintainedTestFiles = [
+  'tests/security-picomatch-source.test.mjs',
   'tests/security-reviewed-backports.test.mjs', 'tests/security-reviewed-provisioning.test.mjs',
   'tests/security-backport-runtime.test.mjs', 'tests/security-maintained-source.test.mjs',
   'tests/security-tooling-updates.test.mjs',

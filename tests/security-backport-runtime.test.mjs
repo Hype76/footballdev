@@ -32,7 +32,7 @@ try {
       // and acceptance still require the independent receipt and normal gate.
       const patchedDirectory = directory + '-patched'
       fs.cpSync(source, patchedDirectory, { recursive: true })
-      for (const file of payload.libraries.find(item => item.name === target.name).files) {
+      for (const file of payload.libraries.find(item => item.name === target.name && (!item.version || item.version === target.version)).files) {
         const content = Buffer.from(file.contentBase64, 'base64')
         assert.equal(hash(content), file.patchedSha256)
         assert.equal(hash(fs.readFileSync(path.join(patchedDirectory, file.path))), file.originalSha256)

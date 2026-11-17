@@ -89,7 +89,7 @@ test('the real Metro cross-package cycle remains fully traceable to reviewed roo
 test('all owned physical copies, complete package contents and lock identities are verified', () => {
   // This is an integration check against freshly installed, actually patched dependencies.
   const record = loadRecord(root).record
-  assert.equal(verifyCopies(root, record).length, 16)
+  assert.equal(verifyCopies(root, record).length, 27)
 })
 test('an additional nested vulnerable package and an unpatched copy stop verification', () => {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'football-backport-check-'))
@@ -102,7 +102,7 @@ test('an additional nested vulnerable package and an unpatched copy stop verific
       const relative = (item.scope === 'root' ? '' : item.scope + '/') + 'package-lock.json'
       fs.copyFileSync(path.join(root, relative), path.join(directory, relative))
     }
-    assert.equal(verifyCopies(directory, policy).length, 16)
+    assert.equal(verifyCopies(directory, policy).length, 27)
     for (const file of ['node_modules/minimatch/dist/commonjs/index.js', 'node_modules/glob/dist/commonjs/index.min.js', 'node_modules/exceljs/node_modules/glob/glob.js']) {
       const source = path.join(directory, file), bytes = fs.readFileSync(source)
       fs.appendFileSync(source, '\n// unreviewed tooling drift\n')
