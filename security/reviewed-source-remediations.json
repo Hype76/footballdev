@@ -559,7 +559,7 @@
   "implementationHashes": {
     "scripts/security-supply-chain-gate.mjs": "dcf722bc6cbf2015da4250ea60cbb81e34d3c5c64ec7bb6059671cbae5ab4207",
     "scripts/security-apply-reviewed-backports.mjs": "7f0e9de0add15a121a0f60f89f71656b503450010b8b9c8d4aaf58bc355fc5ec",
-    "scripts/security-verify-reviewed-backports.mjs": "389d2ea4c8925549f97d2d4a2a1a0be22562c7a02b7896c231b59fa52cfb18a4",
+    "scripts/security-verify-reviewed-backports.mjs": "44b99f5c9ff39fdb6ae2ba68568ee21743b1c541515d309a447e13dbce60442b",
     "security/patches/braces-3.0.3.patch": "e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699",
     "security/patches/node-forge-1.4.0.patch": "2de065ac998bf58917a14d0935112d97ec2957ac41b5f06958d500934f188ed4",
     "security/patches/reviewed-source-manifest.json": "52d0b296071182c7354d87fdff4140270c59f6de90112eeda9feb6ded66cc600",
@@ -1569,7 +1569,7 @@
       "netlify/functions/send-match-day-availability-requests.js": "e459879b19edf41d6b78b95f0d49241d8ac568431093bb24e3bc9c2c36c5d160",
       "netlify/functions/send-match-day-push.js": "be405578b3431bf5e8509cac8da1c2ce29e76c7aae693ba9b7b4c5caeae0a96c",
       "netlify/functions/send-parent-email.js": "7b487d798cfff41e2a77446ed497ab8cb1da528b7b43d67eaadf444ef4107450",
-      "netlify/functions/send-parent-portal-invite.js": "0a12c9ba376dfd850913ab15ace361e9ccbdff0a46cc3357963e5b8b5cff6c48",
+      "netlify/functions/send-parent-portal-invite.js": "0f452a4cbd23f6d038d8b9560fec88745834bc92f007466ebbb4ac5416e4d04f",
       "netlify/functions/send-password-reset.js": "fd2ca758ffd2fd2d719b1a0445009d2fef6eb3cfe223306a79dcae227523e75c",
       "netlify/functions/send-poll-result-notifications.js": "9de969c6abb8977b78857ae0fceac9c782392eec5601c0465c7b1d137bfe3b45",
       "netlify/functions/send-staff-invite.js": "c4f7c8841e73e599b3fdcaae4cb0f99a3ec86592652ee93d598d2684a47e12b2",
@@ -2250,7 +2250,7 @@
       "supabase/migrations/20261109155100_player_participation_and_chat_communities.sql": "115f89429fa9eb03f2bcbaea735915b0f0664172d9981639cdd79a0d26344423",
       "tests/mobile-matchday-player-pickers-97.test.mjs": "1b1a979a58f4e72646c18773f9475345b9d9e8d65e08e97d708e8fea8ccff72c",
       "tests/parent-linking-squad-player-status-120.test.mjs": "e33a703257ce8a381bce3c57fb808b66935aeea96d0b636a22f52fd9d05d54dd",
-      "tests/parent-portal-invite-resurface.test.mjs": "a367e02f4f5d30b2d006e942bfc4d4dcba03e37279f9f5fb20326e5efa122e36",
+      "tests/parent-portal-invite-resurface.test.mjs": "eecde94ba5e19eb1dcee48c79062e6a9106eb291e079e57a88aaaaead27de483",
       "tests/player-types-112-pglite.test.mjs": "fd695eeb3152a9506a8f10a0b2f778c88c5cd7d3eaca52aa22fc9d93b552afcd",
       "tests/player-types-112.test.mjs": "f623694755d3394dcc17307d383269c46518e39e44ff1d5e43976afe0ff88e89",
       "tests/matchday-fixture-workflow.test.mjs": "2fb06b1d8c2038f8b6663788157dedba69fd61c9ba25ed850467acd2cb262e2a",
@@ -3860,7 +3860,7 @@
     },
     "toolingRequalification20261117": "Qualify official minimatch 11.0.9 JavaScript tooling across all three scopes. Lock changes are limited to minimatch; direct and native dependencies, Expo runtime, reviewed package patches and audit rules are retained."
   },
-  "releasePreparationSha256": "d3ac440a9635c8cc6a1d3fdd69dbf6c78246ca663f19704395ee16763c3e02c4",
+  "releasePreparationSha256": "221e3132e19a4a3c01bd40e590560db9676a30b9d396768f5b35d615e29508de",
   "rootOnlyProposalSha256": "45c3b7352c7328c84982e114b7e87e09cf79514d02d102297ae75ec0925812eb",
   "remediationMode": "maintained-source-fixes",
   "officialCompatibilityDependencies": [

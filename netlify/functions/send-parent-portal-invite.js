@@ -1,6 +1,6 @@
 import { canSendPendingParentInviteRetry } from '../../src/lib/parent-portal-invite-actions.js'
 import process from 'node:process'
-import { randomUUID } from 'node:crypto'
+import { createHash, randomUUID } from 'node:crypto'
 import { createFromAddress, getPublicEmailErrorMessage, sendEmail } from './lib/_email-provider.js'
 import {
   createEmailDedupeKey,
@@ -274,7 +274,6 @@ export async function handler(event) {
     }
 
     const retryPending = Object.hasOwn(body, 'retryPendingExpiresAt') || Object.hasOwn(body, 'retryPendingEmail')
-    const retryExpires = Date.parse(body.retryPendingExpiresAt)
     if (retryPending && (body.automatic !== true || !canSendPendingParentInviteRetry({
       link: inviteLink, email: body.retryPendingEmail, expiresAt: body.retryPendingExpiresAt,
     }))) {
@@ -320,10 +319,12 @@ export async function handler(event) {
       payload: emailPayload,
       recipients: [recipient],
     })
-    const finalIdempotencyKey = createEmailIdempotencyKey({
-      payload: emailPayload,
-      idempotencySeed: `parent-portal:${inviteLink.id}:${body.automatic === true ? inviteLink.invite_token : randomUUID()}`,
-    })
+    const finalIdempotencyKey = retryPending
+      ? createHash('sha256').update(`parent-portal-retry:${inviteLink.id}:${inviteLink.invite_token}`).digest('hex')
+      : createEmailIdempotencyKey({
+        payload: emailPayload,
+        idempotencySeed: `parent-portal:${inviteLink.id}:${body.automatic === true ? inviteLink.invite_token : randomUUID()}`,
+      })
     const pendingLogResult = await createPendingEmailLog({
       retryEnabled: !retryPending,
       recipients: [recipient],
@@ -355,8 +356,16 @@ export async function handler(event) {
       return successResponse({ duplicate: true })
     }
 
-    if (retryPending && retryExpires <= Date.now()) {
-      throw Object.assign(new Error('This Parent invitation expired before it could be sent.'), { statusCode: 409 })
+    if (retryPending) {
+      if (emailLogRecord?.status !== 'pending') {
+        throw Object.assign(new Error('The Parent invitation send could not be reserved. Try again.'), { statusCode: 503 })
+      }
+      const currentLink = await getInviteLink(inviteLink.id)
+      if (currentLink.invite_token !== inviteLink.invite_token || currentLink.club_id !== inviteLink.club_id
+        || currentLink.team_id !== inviteLink.team_id || currentLink.player_id !== inviteLink.player_id
+        || !canSendPendingParentInviteRetry({ link: currentLink, email: body.retryPendingEmail, expiresAt: body.retryPendingExpiresAt })) {
+        throw Object.assign(new Error('This Parent invitation changed or expired before it could be sent.'), { statusCode: 409 })
+      }
     }
 
     const response = await sendEmail(emailPayload, {

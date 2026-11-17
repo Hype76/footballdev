@@ -90,6 +90,7 @@ test('save sends outstanding parent invites and preserves the active-player guar
   assert.doesNotMatch(profileSource, /includeSentPending: true/)
   assert.match(functionSource, /Family portal invites require an active player\./)
   assert.match(functionSource, /retryEnabled: !retryPending/)
+  assert.match(functionSource, /const currentLink = await getInviteLink\(inviteLink.id\)[\s\S]+?currentLink.invite_token !== inviteLink.invite_token[\s\S]+?link: currentLink[\s\S]+?await sendEmail\(/)
 })
 
 test('retry renews only the chosen expired pending link and reuses an unsent renewal', async () => {
