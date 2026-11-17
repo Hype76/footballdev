@@ -58,7 +58,7 @@ export function verifyReleasePreparation(root, preparation) {
     'apps/parent-mobile/widgets/Assets.xcassets/FootballPlayerFallback.imageset/football-player-logo.png',
     'apps/mobile-core/modules/live-match/android/src/main/res/drawable-nodpi/football_player_fallback.png',
     'apps/mobile-core/assets/football-player-logo-grey.png',
-    'apps/mobile-core/assets/matchday-stadium.jpg',
+    'apps/mobile-core/assets/matchday-stadium.png',
     'apps/mobile-core/assets/club-feature-wave.png',
   ])
   for (const [file, expected] of Object.entries(binary)) { assert.ok(file.startsWith('public/marketing-v70/') || file === 'public/club-tv-goal-alerts.webp' || permittedMobileAssets.has(file), 'Binary asset scope changed'); assert.match(expected, /^[a-f0-9]{64}$/); assert.equal(hash(fs.readFileSync(safe(root, file))), expected, 'Approved binary asset drift: ' + file) }
@@ -75,7 +75,7 @@ export function loadRecord(root) {
   assert.equal(record.baseline, '864a6ad3856a02b65ec33bfe8e952e6f98d13dbd')
   assert.equal(record.adoptionProposalSha256, '68004fda2313a1da01b73d5a506028d42f8db92d8ee0afaaea442dfa6148e7b1', 'Maintained source policy identity changed')
   assert.equal(hash(fs.readFileSync(safe(root, 'security/maintained-source-policy.json'))), record.adoptionProposalSha256, 'Maintained source policy evidence drift')
-  assert.equal(record.releasePreparationSha256, "556f32df67171fff0962e5888a39f03ea3cda980a936c7897ef0ee833324f43e", 'Release preparation scope drift')
+  assert.equal(record.releasePreparationSha256, "ff27752cf5489ed7b12b47c32dd40cd295226175b5297319abb3a1d1f4e13788", 'Release preparation scope drift')
   assert.equal(hash(Buffer.from(JSON.stringify(record.releasePreparation, null, 2) + '\n')), record.releasePreparationSha256, 'Release preparation pins drift')
   assert.equal(record.releasePreparation.baseline, record.baseline, 'Release preparation baseline mismatch')
   verifyReleasePreparation(root, record.releasePreparation)

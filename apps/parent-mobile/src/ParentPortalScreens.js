@@ -67,7 +67,7 @@ import {
 const PARENT_CALENDAR_VIEW_KEY = 'football-player-parent-calendar-view-v1'
 const VOLUNTEER_ROLE_STATUS_LABEL = 'Volunteer role status'
 const EMPTY_RESOURCE_ITEMS = Object.freeze([])
-const MATCHDAY_STADIUM = require('../../mobile-core/assets/matchday-stadium.jpg')
+const MATCHDAY_STADIUM = require('../../mobile-core/assets/matchday-stadium.png')
 
 function normalizeText(value) {
   return String(value ?? '').trim()
