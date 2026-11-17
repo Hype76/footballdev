@@ -9,7 +9,7 @@ import { getPlayerParentInviteContacts } from '../src/lib/parent-portal-invite-a
 const sql = await readFile(new URL('../supabase/migrations/20261113114647_adult_player_setup_invites.sql', import.meta.url), 'utf8')
 const statusSql = await readFile(new URL('../supabase/migrations/20261116123543_adult_player_link_status.sql', import.meta.url), 'utf8')
 const resendSql = await readFile(new URL('../supabase/migrations/20261117100252_v1_adult_player_invitation_resend.sql', import.meta.url), 'utf8')
-const authorityTransactionSql = await readFile(new URL('../supabase/migrations/20261117172645_adult_player_status_authority_transaction.sql', import.meta.url), 'utf8')
+const authorityTransactionSql = await readFile(new URL('../supabase/migrations/20261117173402_adult_player_status_authority_transaction.sql', import.meta.url), 'utf8')
 const staffAuthoritySql = await readFile(new URL('../supabase/migrations/20260728170000_staff_role_assignment_control.sql', import.meta.url), 'utf8')
 const authorityHelperSql = staffAuthoritySql.slice(
   staffAuthoritySql.indexOf('create or replace function app_private.actor_can_manage_team_resource('),
