@@ -9,7 +9,7 @@ import { PinnedEventNotes } from '../../mobile-core/src/PinnedEventNotes'
 import { BrandLoader } from '../../mobile-core/src/BrandLoader'
 import { getCoachFormationAuthorityScope } from './coachFormationEntryCore'
 import MaterialIcons from '@expo/vector-icons/MaterialIcons'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { invalidateMobileResource, peekMobileResource, readMobileResource } from '../../mobile-core/src/mobileResourceCache'
 import { Alert, AppState, Keyboard, Linking, Pressable, StyleSheet, Text, TextInput, View } from 'react-native'
 import {
@@ -318,6 +318,11 @@ function CoachCalendarScoped({ calendarTarget, context, contexts, onNavigate, on
   const [focusedEventId, setFocusedEventId] = useState('')
   const handledTarget = useRef(null)
   const calendarEditBaseline = useRef(null)
+  const calendarSaveScope = useRef(null)
+  useLayoutEffect(() => {
+    calendarSaveScope.current = { pending: false }
+    return () => { calendarSaveScope.current = null }
+  }, [context.id, user.id])
   const [saveConfirmation, setSaveConfirmation] = useState('')
   const removalScope = `${user.id}:${context.id}:${context.authorityId}:${context.role}:${context.teamId}`
   useEffect(() => { setTrainingWeeks(4) }, [removalScope])
@@ -326,6 +331,9 @@ function CoachCalendarScoped({ calendarTarget, context, contexts, onNavigate, on
   const removing = useRef(false)
   useEffect(() => () => { removalScopeRef.current = '' }, [])
   const [stale, setStale] = useState(false)
+  useLayoutEffect(() => {
+    if (calendarSaveScope.current) calendarSaveScope.current.writable = !stale && !user.isOfflineProfile
+  }, [context.id, stale, user.id, user.isOfflineProfile])
   const [teamNotificationName, setTeamNotificationName] = useState(
     () => deriveTeamNotificationDisplayName(user.activeTeamName || context?.teamName || ''),
   )
@@ -458,6 +466,7 @@ function CoachCalendarScoped({ calendarTarget, context, contexts, onNavigate, on
       && (!calendarTarget.occurrenceDate || (item.occurrenceDate || item.calendarDate) === calendarTarget.occurrenceDate))
     if (!event) return
     handledTarget.current = calendarTarget
+    if (calendarTarget.saveNotice) setSaveConfirmation(calendarTarget.saveNotice)
     setSelected(event)
     setFocusedEventId(event.id)
     setSelectedDate(event.calendarDate)
@@ -520,24 +529,29 @@ function CoachCalendarScoped({ calendarTarget, context, contexts, onNavigate, on
       { cancelable: true, onDismiss: () => resolve(null) },
     )
   })
-  const chooseSaveReview = (review, audience, recipientCount, scheduledNotice = '') => new Promise((resolve) => {
-    if (!review.changes.length) {
-      Alert.alert('No changes to save', 'The event has no changes.', [{ text: 'Close', onPress: () => resolve(null) }])
-      return
-    }
+  const confirmSaveNotification = (review, audience, recipientCount) => new Promise((resolve) => {
     const changed = review.changes.map((change) => `${change.category}: ${change.detail}`).join('\n')
     Alert.alert(
       'Review calendar changes',
-      `${changed}\n\nRecipients: ${audience}. ${recipientCount === null ? 'Could not check contacts. Save only is still available.' : `${recipientCount} parent contacts in scope.`}\n\nNotification preview\n${review.notificationTitle}: ${review.notificationBody}\nOpens the affected calendar event.${scheduledNotice ? `\n\n${scheduledNotice}` : ''}`,
+      `${changed}\n\nRecipients: ${audience}. ${recipientCount} parent contacts in scope.\n\nNotification preview\n${review.notificationTitle}: ${review.notificationBody}\nOpens the affected calendar event.`,
       [
-        { text: 'Close', style: 'cancel', onPress: () => resolve(null) },
-        { text: 'Save only', onPress: () => resolve(false) },
-        ...(recipientCount === null ? [] : [{ text: 'Send notification & save', onPress: () => resolve(true) }]),
+        { text: 'Go back', style: 'cancel', onPress: () => resolve(false) },
+        { text: 'Send notification & save', onPress: () => resolve(true) },
       ],
-      { cancelable: true, onDismiss: () => resolve(null) },
+      { cancelable: true, onDismiss: () => resolve(false) },
     )
   })
-  const save = async () => {
+  const save = async (notifyEveryone = false) => {
+    const scope = calendarSaveScope.current
+    if (!form || !scope?.writable || scope.pending) return
+    const isCurrentSave = () => calendarSaveScope.current === scope
+    const canContinue = () => {
+      if (!isCurrentSave()) return false
+      if (scope.writable) return true
+      setFormError('The connection changed. Reconnect and try saving again.')
+      return false
+    }
+    scope.pending = true
     Keyboard.dismiss()
     setSaving(true)
     setError('')
@@ -558,19 +572,29 @@ function CoachCalendarScoped({ calendarTarget, context, contexts, onNavigate, on
         playerNames: Object.fromEntries(players.map((player) => [String(player.id), player.playerName])),
         resourceNames: Object.fromEntries(resources.map((resource) => [String(resource.id), resource.title])),
       }) : null
-      let notifyEveryone = false
-      if (review) {
-        const preview = review.changes.length
-          ? await previewCoachCalendarChangeNotification(selected, form).catch(() => ({ recipientCount: null }))
-          : { recipientCount: 0 }
-        notifyEveryone = await chooseSaveReview(review, getCalendarReviewAudience(form, players), preview.recipientCount ?? null,
-          form.requestTrainingAvailability ? 'Availability requests and reminders follow the saved schedule, including when you choose Save only.' : '')
-        if (notifyEveryone === null) return
+      if (review && !review.changes.length) {
+        setFormError('No changes to save.')
+        return
       }
-      const preparation = notifyEveryone ? await prepareCoachCalendarChangeNotification(selected, 'rescheduled', form) : null
+      if (notifyEveryone && review) {
+        const preview = await previewCoachCalendarChangeNotification(selected, form).catch(() => null)
+        if (!canContinue()) return
+        if (!preview?.recipientCount) {
+          setFormError(preview ? 'There are no eligible parent contacts for this update. You can still choose Save only.' : 'Could not check who can receive this update. Try again or choose Save only.')
+          return
+        }
+        if (!await confirmSaveNotification(review, getCalendarReviewAudience(form, players), preview.recipientCount) || !canContinue()) return
+      }
+      const preparation = notifyEveryone && review ? await prepareCoachCalendarChangeNotification(selected, 'rescheduled', form) : null
+      if (!canContinue()) return
+      if (notifyEveryone && (!preparation?.preparationId || !preparation.recipientCount)) {
+        setFormError('Notification recipients could not be confirmed. Try again or choose Save only.')
+        return
+      }
       const attachmentOccurrenceDate = selected?.occurrenceDate || selected?.calendarDate || form?.date
       const savedEvent = await saveCoachCalendarEvent(user, form, selected)
       invalidateMobileResource(user, 'coach:calendar')
+      if (!isCurrentSave()) return
       let attachmentMessage = ''
       if (savedEvent.teamId && Number(user.roleRank || 0) >= 50) {
         try {
@@ -579,22 +603,31 @@ function CoachCalendarScoped({ calendarTarget, context, contexts, onNavigate, on
           attachmentMessage = ` The event was saved, but its Resources could not be updated: ${message(attachmentError, 'edit the event and try again.')}`
         }
       }
+      if (!isCurrentSave()) return
       let notificationMessage = ''
-      if (preparation?.preparationId) {
+      if (preparation?.preparationId && !scope.writable) {
+        notificationMessage = ' The connection changed before a notification could be sent.'
+      } else if (preparation?.preparationId) {
         try {
           const delivery = await commitCoachCalendarChangeNotification(preparation.preparationId)
-          notificationMessage = ` ${delivery.recipientCount || 0} involved contact${delivery.recipientCount === 1 ? '' : 's'} notified.`
+          notificationMessage = delivery.recipientCount
+            ? ` Notification requested for ${delivery.recipientCount} parent contact${delivery.recipientCount === 1 ? '' : 's'}.`
+            : ' No parent contacts were eligible for this update.'
         } catch (notificationError) {
           notificationMessage = ` The change was saved, but notifications could not be completed: ${message(notificationError, 'try again from the web Calendar.')}`
         }
       }
+      if (!isCurrentSave()) return
       setSaveConfirmation(`${form?.eventType === 'match' ? 'Match saved.' : 'Event saved.'}${attachmentMessage}${notificationMessage}`)
       setForm(null)
       setSelected(null)
       await load()
     } catch (saveError) {
-      setFormError(message(saveError, 'Calendar event could not be saved.'))
-    } finally { setSaving(false) }
+      if (isCurrentSave()) setFormError(message(saveError, 'Calendar event could not be saved.'))
+    } finally {
+      scope.pending = false
+      if (isCurrentSave()) setSaving(false)
+    }
   }
   const openEventResource = async (resource) => {
     try {
@@ -861,8 +894,12 @@ function CoachCalendarScoped({ calendarTarget, context, contexts, onNavigate, on
             </View>
           ) : null}
           {formError ? <View accessibilityRole="alert" style={styles.warning}><Text style={styles.danger}>{formError}</Text></View> : null}
-          <Button disabled={saving || stale} label={saving ? 'Saving...' : 'Save event'} onPress={save} styles={styles} />
-          <Button label="Cancel" onPress={() => { setForm(null); setFormError(''); setSelected(null); setAttachmentPickerOpen(false) }} secondary styles={styles} />
+          {selected ? <>
+            <Button disabled={saving || stale || user.isOfflineProfile} label={saving ? 'Saving...' : 'Notify everyone and save'} onPress={() => void save(true)} styles={styles} />
+            <Button disabled={saving || stale || user.isOfflineProfile} label="Save only" onPress={() => void save()} secondary styles={styles} />
+            {form.requestTrainingAvailability ? <Text style={styles.meta}>Scheduled availability requests and reminders follow the saved schedule with either option.</Text> : null}
+          </> : <Button disabled={saving || stale || user.isOfflineProfile} label={saving ? 'Saving...' : 'Save event'} onPress={() => void save()} styles={styles} />}
+          <Button disabled={saving} label="Cancel" onPress={() => { setForm(null); setFormError(''); setSelected(null); setAttachmentPickerOpen(false) }} secondary styles={styles} />
         </View>
       ) : null}
       {!loading && !stale && groups.length === 0 ? <Text style={styles.body}>No Calendar items match this filter.</Text> : null}

@@ -423,9 +423,13 @@ export async function commitCoachCalendarChangeNotification(preparationId) {
 }
 
 export async function prepareCoachMatchCancellationNotification(match) {
+  return prepareCoachMatchChangeNotification(match, 'cancelled')
+}
+
+export async function prepareCoachMatchChangeNotification(match, changeAction) {
   if (!match?.id) throw new Error('Open a saved fixture before notifying families.')
   return callCoachCalendarChangeNotifications({
-    changeAction: 'cancelled',
+    changeAction,
     operation: 'prepare',
     requestToken: Crypto.randomUUID(),
     sourceId: match.id,

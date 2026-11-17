@@ -103,7 +103,7 @@ const mocks = [
   [/\/config$/, 'export const getMobileRuntimeConfig=()=>({isProduction:true,isUsable:true});'],
   [/BrandLoader$/, 'export const BrandLoader=()=>null;'],
   [/CoachFormationBoard$/, 'export const CoachFormationBoard=()=>null;'],
-  [/CoachFixtureForm$/, `export const CoachFixtureForm=({match,onCancel,onUpdated})=><div><p>Editing fixture {match.id}</p><button onClick={onCancel}>Cancel fixture edit</button><button onClick={()=>onUpdated({...match,matchDate:'2099-09-20'})}>Save fixture edit</button></div>;`],
+  [/CoachFixtureForm$/, `export const CoachFixtureForm=({match,onCancel,onUpdated})=><div><p>Editing fixture {match.id}</p><button onClick={onCancel}>Cancel fixture edit</button><button onClick={()=>onUpdated({...match,matchDate:'2099-09-20'})}>Save fixture edit</button><button onClick={()=>onUpdated({...match,matchDate:'2099-09-20',notificationNotice:'Notification requested for 2 parent contacts.'})}>Notify and save fixture edit</button></div>;`],
   [/CoachGuestScorer$/, 'export const CoachGuestScorer=()=>null;'],
   [/LiveMatchFollowAction(?:\.js)?$/, 'export const LiveMatchFollowAction=()=>null;'],
   [/^expo-keep-awake$/, 'export const isAvailableAsync=async()=>false;export const activateKeepAwakeAsync=async()=>{};export const deactivateKeepAwake=async()=>{};'],
@@ -391,7 +391,7 @@ try {
   await page.getByRole('button',{name:'Review and conclude',exact:true}).click()
   await page.getByText('Final result',{exact:true}).waitFor()
   assert.equal(await page.getByRole('button',{name:'Conclude match',exact:true}).isEnabled(),true)
-  for (const action of ['Cancel', 'Save']) {
+  for (const action of ['Cancel', 'Save', 'Notify and save']) {
     await page.evaluate(() => {
       localStorage.clear();
       const fixture={id:'fixture',clubId:'club',teamId:'team',status:'scheduled',timerStatus:'not_started',matchDate:'2099-09-19',opponent:'Visitors',events:[],squadDecisions:[]};
@@ -402,7 +402,12 @@ try {
     await page.getByText('Editing fixture fixture',{exact:true}).waitFor()
     await page.getByRole('button',{name:action+' fixture edit',exact:true}).click()
     await page.getByText('Home',{exact:true}).waitFor()
-    assert.deepEqual(await page.evaluate(()=>window.navigations[0]), {route:'calendar',target:{sourceId:'fixture',sourceType:'match_day',...(action==='Save'?{occurrenceDate:'2099-09-20'}:{})}})
+    assert.deepEqual(await page.evaluate(()=>window.navigations[0]), {route:'calendar',target:{
+      sourceId:'fixture',
+      sourceType:'match_day',
+      ...(action==='Cancel'?{}:{occurrenceDate:'2099-09-20'}),
+      ...(action==='Notify and save'?{saveNotice:'Fixture details updated. Notification requested for 2 parent contacts.'}:{}),
+    }})
   }
   await page.evaluate(() => {
     const fixture=JSON.parse(localStorage.getItem('server'));

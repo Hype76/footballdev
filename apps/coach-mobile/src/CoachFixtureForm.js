@@ -1,6 +1,6 @@
 import { MobileSwitch as Switch } from '../../mobile-core/src/MobileSwitch.js'
 import * as Notifications from 'expo-notifications'
-import { useContext, useEffect, useMemo, useRef, useState } from 'react'
+import { useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Alert, Keyboard, Pressable, StyleSheet, Text, TextInput, View } from 'react-native'
 import {
   calculateCoachArrivalTime,
@@ -20,7 +20,7 @@ import {
   updateCoachFixtureKickoff,
 } from '../../mobile-core/src/coachFixtureCore.js'
 import { addCoachFixtureParents, archiveCoachMatchLocation, cancelCoachMatchDayFixture, createCoachMatchDayFixture, getCoachFixtureInvitedPlayerIds, getCoachMatchLocations, updateCoachMatchDayFixture } from '../../mobile-core/src/coachMatchDayData.js'
-import { commitCoachCalendarChangeNotification, prepareCoachMatchCancellationNotification } from '../../mobile-core/src/coachCalendarData.js'
+import { commitCoachCalendarChangeNotification, prepareCoachMatchCancellationNotification, prepareCoachMatchChangeNotification } from '../../mobile-core/src/coachCalendarData.js'
 import { CoachDateTimeField } from './CoachDateTimeField'
 import { readCoachFixturePreferences, writeCoachFixturePreferences } from './coachFixturePreferences'
 import { getCoachFriendlyError } from './coachFriendlyErrors'
@@ -51,7 +51,7 @@ function Toggle({ label, onValueChange, styles, value }) {
   return <View style={styles.row}><Text style={styles.fieldLabel}>{label}</Text><Switch accessibilityLabel={label} onValueChange={onValueChange} value={value === true} /></View>
 }
 
-export function CoachFixtureForm({ defaultMatchDate = '', match = null, matches, onCancel, onCancelled, onCreated, onRequestScrollTo, onUpdated, players, styles, user }) {
+export function CoachFixtureForm({ changesBlocked = false, defaultMatchDate = '', match = null, matches, onCancel, onCancelled, onCreated, onRequestScrollTo, onUpdated, players, styles, user }) {
   const [locations, setLocations] = useState([])
   const [form, setForm] = useState(null)
   const [busy, setBusy] = useState(false)
@@ -66,6 +66,15 @@ export function CoachFixtureForm({ defaultMatchDate = '', match = null, matches,
   const [newParentPlayerIds, setNewParentPlayerIds] = useState([])
   const [parentInviteReady, setParentInviteReady] = useState(false)
   const selectionTouched = useRef(false)
+  const saveScope = useRef(null)
+  useLayoutEffect(() => {
+    saveScope.current = { pending: false }
+    return () => { saveScope.current = null }
+  }, [match?.id, user.id, user.clubId, user.activeTeamId])
+  const readOnly = changesBlocked || user.isOfflineProfile
+  useLayoutEffect(() => {
+    if (saveScope.current) saveScope.current.writable = !readOnly
+  }, [match?.id, readOnly, user.id, user.clubId, user.activeTeamId])
   const locationSectionY = useRef(0)
   const isEditing = Boolean(match?.id)
   const isConcluded = Boolean(match?.concludedAt)
@@ -192,8 +201,16 @@ export function CoachFixtureForm({ defaultMatchDate = '', match = null, matches,
 
   if (!form) return <View style={styles.card}><Text style={styles.body}>Preparing fixture setup...</Text></View>
 
-  const save = async ({ calendarTarget = '' } = {}) => {
-    if (busy || carpoolSaving) return
+  const save = async ({ calendarTarget = '', notifyEveryone = false } = {}) => {
+    const scope = saveScope.current
+    if (busy || carpoolSaving || !scope?.writable || scope.pending) return
+    const isCurrentSave = () => saveScope.current === scope
+    const canContinue = () => {
+      if (!isCurrentSave()) return false
+      if (scope.writable) return true
+      setError('The connection changed. Reconnect and try saving again.')
+      return false
+    }
     Keyboard.dismiss()
     setError('')
     if (!isEditing && !String(form.venueName || '').trim()) {
@@ -201,6 +218,7 @@ export function CoachFixtureForm({ defaultMatchDate = '', match = null, matches,
       onRequestScrollTo?.(locationSectionY.current)
       return
     }
+    scope.pending = true
     setBusy(true)
     const startedAt = Date.now()
     let creationPending = !isEditing
@@ -222,8 +240,16 @@ export function CoachFixtureForm({ defaultMatchDate = '', match = null, matches,
         : form.selectedPlayerIds.filter((id) => eligiblePlayers.some((player) => player.id === id)),
     }
     try {
+      const preparation = isEditing && !isConcluded && notifyEveryone
+        ? await prepareCoachMatchChangeNotification(match, 'rescheduled') : null
+      if (!canContinue()) return
+      if (notifyEveryone && (!preparation?.preparationId || !preparation.recipientCount)) {
+        setError('No eligible parent contacts could be confirmed. You can still save fixture changes without notifying.')
+        return
+      }
       if (submittedForm.saveArrivalAsDefault || submittedForm.saveDurationAsDefault) {
         await saveCoachOwnTeamFixturePreferences(user, user.activeTeamId, submittedForm)
+        if (!canContinue()) return
       }
       const result = isEditing
         ? await updateCoachMatchDayFixture(user, match, submittedForm)
@@ -234,9 +260,25 @@ export function CoachFixtureForm({ defaultMatchDate = '', match = null, matches,
         const id = await slowNotification
         if (id) await Notifications.dismissNotificationAsync(id).catch(() => {})
       }
+      if (!isCurrentSave()) return
+      let notificationNotice = ''
+      if (preparation?.preparationId && !scope.writable) {
+        notificationNotice = 'The connection changed before a notification could be sent.'
+      } else if (preparation?.preparationId) {
+        try {
+          const delivery = await commitCoachCalendarChangeNotification(preparation.preparationId)
+          notificationNotice = delivery.recipientCount
+            ? `Notification requested for ${delivery.recipientCount} parent contact${delivery.recipientCount === 1 ? '' : 's'}.`
+            : 'No parent contacts were eligible for this update.'
+        } catch (notificationError) {
+          notificationNotice = getCoachFriendlyError(notificationError, 'The notification could not be confirmed.')
+        }
+      }
+      if (!isCurrentSave()) return
       let preferencesWarning = ''
       try {
         const currentPreferences = await readCoachFixturePreferences(user.id, user.activeTeamId)
+        if (!isCurrentSave()) return
         await writeCoachFixturePreferences(user.id, user.activeTeamId, {
           arrivalPreset: submittedForm.saveArrivalAsDefault ? submittedForm.arrivalPreset : currentPreferences.arrivalPreset,
           arrivalTime: submittedForm.saveArrivalAsDefault && submittedForm.arrivalPreset === 'custom' ? submittedForm.arrivalTime : currentPreferences.arrivalTime,
@@ -249,7 +291,8 @@ export function CoachFixtureForm({ defaultMatchDate = '', match = null, matches,
       } catch {
         preferencesWarning = 'Fixture saved, but this device could not remember its setup defaults.'
       }
-      if (isEditing) onUpdated?.(result)
+      if (!isCurrentSave()) return
+      if (isEditing) onUpdated?.(notificationNotice ? { ...result, notificationNotice } : result)
       else onCreated({ ...result, preferencesWarning })
     } catch (saveError) {
       creationPending = false
@@ -258,16 +301,19 @@ export function CoachFixtureForm({ defaultMatchDate = '', match = null, matches,
         const id = await slowNotification
         if (id) await Notifications.dismissNotificationAsync(id).catch(() => {})
       }
-      const friendly = getCoachFriendlyError(saveError, 'The fixture could not be created.')
+      const friendly = getCoachFriendlyError(saveError, isEditing ? 'The fixture could not be saved.' : 'The fixture could not be created.')
       const message = !isEditing && friendly.startsWith('We could not connect')
         ? 'Could not confirm fixture creation. Check Match Day before trying again.' : friendly
       const remaining = !isEditing ? Math.max(0, 10000 - (Date.now() - startedAt)) : 0
       if (remaining) await new Promise(resolve => setTimeout(resolve, remaining))
-      if (!isEditing) void notify('Match setup needs attention', message)
-      setError(message)
+      if (isCurrentSave()) {
+        if (!isEditing) void notify('Match setup needs attention', message)
+        setError(message)
+      }
     } finally {
       if (slowNotice) clearTimeout(slowNotice)
-      setBusy(false)
+      scope.pending = false
+      if (isCurrentSave()) setBusy(false)
     }
   }
 
@@ -422,7 +468,8 @@ export function CoachFixtureForm({ defaultMatchDate = '', match = null, matches,
       </View> : <View style={styles.card}><Field label="Match notes" multiline onChangeText={(value) => setForm({ ...form, notes: value })} styles={styles} value={form.notes} /><Text style={styles.meta}>Editing fixture details does not send a new availability request.</Text></View>}
       {isEditing && !isConcluded ? <View style={styles.card}><View style={styles.row}><Text style={styles.fieldLabel}>Car pool</Text><Switch accessibilityLabel="Car pool" disabled={!carpoolReady || carpoolSaving} value={carpoolEnabled} onValueChange={changeCarpool} /></View><Text style={styles.meta}>{carpoolLoadError || 'Saved as the team default for future matches. Save fixture changes to apply it to this match.'}</Text></View> : null}
       {error ? <View accessibilityRole="alert" style={styles.warning}><Text style={styles.dangerText}>{error}</Text></View> : null}
-      <Button disabled={busy || carpoolSaving} label={busy ? (isEditing ? 'Saving fixture...' : 'Creating fixture...') : (isEditing ? 'Save fixture changes' : 'Create fixture and request availability')} onPress={save} styles={styles} />
+      <Button disabled={busy || carpoolSaving || readOnly} label={busy ? (isEditing ? 'Saving fixture...' : 'Creating fixture...') : (isEditing ? 'Save fixture changes' : 'Create fixture and request availability')} onPress={() => void save()} styles={styles} />
+      {isEditing && !isConcluded ? <Button disabled={busy || carpoolSaving || readOnly} label="Notify everyone and save" onPress={() => void save({ notifyEveryone: true })} secondary styles={styles} /> : null}
       {!isEditing ? <Button disabled={busy || carpoolSaving} label="Add to Coach calendars" onPress={() => save({ calendarTarget: 'coach' })} secondary styles={styles} /> : null}
       {!isEditing ? <Button disabled={busy || carpoolSaving || !hasEligiblePlayers} label="Add to player calendars" onPress={() => save({ calendarTarget: 'squad' })} secondary styles={styles} /> : null}
       <Button disabled={busy} label={isEditing ? 'Back without saving' : 'Cancel'} onPress={onCancel} secondary styles={styles} />

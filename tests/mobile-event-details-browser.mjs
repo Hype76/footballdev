@@ -19,6 +19,7 @@ const hero=parent.slice(parent.indexOf('        <View style={[styles.gameDayHero
 const entry=`
 import {CoachCalendarSync} from './apps/coach-mobile/src/CoachCalendarSync.js';import {getParentBadgeColours,getParentStatusColours,PARENT_FAN_SIGN_IN_COLOURS,PARENT_POLL_SEPARATOR_COLOUR} from './apps/mobile-core/src/parentStatusColours.js';
 import {formatFixtureDateTime} from './src/lib/calendar-datetime-integrity.js';
+import {buildCalendarEditReview,getCalendarReviewAudience} from './src/lib/calendar-edit-review.js';
 import {resolveCoachRoute} from './apps/coach-mobile/src/coachNavigationCore.js';
 import {getCoachFormationAuthorityScope} from './apps/coach-mobile/src/coachFormationEntryCore.js';
 import {TeamLeagueLinkRow} from './apps/mobile-core/src/TeamLeagueLink.js';
@@ -33,7 +34,7 @@ import {VenueMapPreview} from './apps/mobile-core/src/VenueMapPreview.js';
 import {MatchTeamsLine} from './apps/mobile-core/src/MatchTeamsLine.js';
 import {PinnedEventNotes} from './apps/mobile-core/src/PinnedEventNotes.js';
 import {canRemoveCoachCancelledFixture,canEditCoachFixture} from './apps/mobile-core/src/coachFixtureEditCore.js';
-import React,{useState,useMemo,useEffect,useCallback,useRef} from 'react';import{createRoot}from'react-dom/client';import{AppState,View,Text,StyleSheet,Pressable,TextInput,Switch,Platform}from'react-native';import MaterialIcons from'@expo/vector-icons/MaterialIcons';
+import React,{useState,useMemo,useEffect,useLayoutEffect,useCallback,useRef} from 'react';import{createRoot}from'react-dom/client';import{AppState,Keyboard,View,Text,StyleSheet,Pressable,TextInput,Switch,Platform}from'react-native';import MaterialIcons from'@expo/vector-icons/MaterialIcons';
 import{createCoachTheme}from'./apps/coach-mobile/src/coachThemeCore.js';import{createParentMobileTheme,DEFAULT_PARENT_MOBILE_THEME,resolveParentMobileBranding}from'./apps/mobile-core/src/parentThemeCore.js';
 import{getPitchTypeLabel,normalizePitchType}from'./src/lib/pitch-type.js';import{getMatchDayShirtChoiceLabel,normalizeMatchDayShirtChoice}from'./src/lib/matchday-model.js';import{normalizePersonName}from'./src/lib/person-name.js';import{getMatchDayDisplayName}from'./src/lib/matchday-display.js';import{getParentMatchStatusLabel}from'./apps/parent-mobile/src/parentExperience.js';import{formatParentProductDateTime,formatParentProductTime}from'./apps/mobile-core/src/parentDateTimeCore.js';import{formatMatchAddedTimeClock}from'./src/lib/matchday-event-time.js';${calendarImport}
 import{getParentMatchAvailability,getParentMatchSquadStatus}from'./apps/parent-mobile/src/parentMatchAvailability.js';
@@ -44,6 +45,12 @@ const BrandLoader=()=>null, useConfirmedConnectionIssue=v=>v,useConfirmedConnect
 const deriveTeamNotificationDisplayName=v=>v,getCoachTeamNotificationDisplayName=async()=> 'FP TEST',message=e=>e.message;
 const readCoachOfflineResources=async()=>null,saveCoachOfflineResources=async()=>{},peekMobileResource=()=>undefined,readMobileResource=async(u,k,fn)=>fn(),getCoachPlayerList=async()=>[],getCoachResources=async()=>{if(window.failResourceLoad)throw Error('Resource load failed');return window.resources};
 const invalidateMobileResource=()=>{},syncCoachCalendarEventResources=async(u,event,ids,date)=>{if(window.failResourceSave)throw Error('Resource save failed');window.resourceSaves.push({eventId:event.sourceId,ids,date})};
+const Alert={alert:(title,copy,actions)=>{window.review={title,copy,labels:actions.map(action=>action.text)};window.chooseReview=label=>actions.find(action=>action.text===label)?.onPress()}};
+window.changeCalls=[];
+const previewCoachCalendarChangeNotification=async()=>{window.changeCalls.push('preview');if(window.failPreview)throw Error('Preview unavailable');return {recipientCount:2}};
+const prepareCoachCalendarChangeNotification=async()=>{window.changeCalls.push('prepare');return {preparationId:'test-preparation',recipientCount:2}};
+const saveCoachCalendarEvent=async(_,form,event)=>{window.changeCalls.push('save');return {...event,teamId:null,notes:form.notes}};
+const commitCoachCalendarChangeNotification=async()=>{window.changeCalls.push('commit');return {recipientCount:2}};
 const CoachDateTimeField=()=>null;const getCoachCalendarResources=async()=>{await new Promise(r=>setTimeout(r,window.calendarDelay||30));return window.events};
 ${calendar}
 const useCoachTheme=()=>({palette:createCoachTheme({mode:'light'}).tokens,styles:{}}),formatDateTime=v=>v,HomeNextRow=({label,onPress,value})=><Pressable accessibilityRole="button" onPress={onPress}><Text>{label}</Text><Text>{value}</Text></Pressable>,IconSection=({children})=><View>{children}</View>,IconAction=()=>null,IconStat=()=>null,EmptyPanel=()=>null,LoadingPanel=()=>null,StatePanel=()=>null;
@@ -105,6 +112,25 @@ try {
  assert.equal(await page.evaluate(()=>window.resourceSaves.length),1)
  await page.getByRole('button',{name:'Back to Calendar'}).click();await page.getByText('Calendar scope',{exact:true}).waitFor()
  await page.evaluate(()=>window.target({sourceId:'repeat',sourceType:'calendar_event',occurrenceDate:'2099-09-10'}));await page.getByText('First notes',{exact:true}).waitFor();assert.equal(await page.getByText('Chosen occurrence',{exact:true}).count(),0)
+ await page.getByRole('button',{name:'Edit event',exact:true}).click()
+ await page.getByRole('textbox',{name:'Notes',exact:true}).fill('Updated training notes')
+ await page.evaluate(()=>window.failPreview=true)
+ await page.getByRole('button',{name:'Notify everyone and save',exact:true}).click()
+ await page.getByText('Could not check who can receive this update. Try again or choose Save only.',{exact:true}).waitFor()
+ assert.deepEqual(await page.evaluate(()=>window.changeCalls),['preview'])
+ await page.getByRole('button',{name:'Save only',exact:true}).click()
+ await page.getByText('Event saved.',{exact:true}).waitFor()
+ assert.deepEqual(await page.evaluate(()=>window.changeCalls),['preview','save'])
+ await page.evaluate(()=>{window.failPreview=false;window.target({sourceId:'repeat',sourceType:'calendar_event',occurrenceDate:'2099-09-10'})})
+ await page.getByRole('button',{name:'Edit event',exact:true}).click()
+ await page.getByRole('textbox',{name:'Notes',exact:true}).fill('Confirmation test')
+ await page.getByRole('button',{name:'Notify everyone and save',exact:true}).click()
+ await page.waitForFunction(()=>window.review?.title==='Review calendar changes')
+ assert.deepEqual(await page.evaluate(()=>window.review.labels),['Go back','Send notification & save'])
+ assert.deepEqual(await page.evaluate(()=>window.changeCalls.slice(2)),['preview'])
+ await page.evaluate(()=>window.chooseReview('Send notification & save'))
+ await page.getByText('Event saved. Notification requested for 2 parent contacts.',{exact:true}).waitFor()
+ assert.deepEqual(await page.evaluate(()=>window.changeCalls.slice(2)),['preview','prepare','save','commit'])
  for(const change of [{roleRank:30},{payment:false},{offline:true}]){
    await page.evaluate(change=>{
      window.calendarContext.roleRank=change.roleRank??90;window.calendarUser.roleRank=change.roleRank??90

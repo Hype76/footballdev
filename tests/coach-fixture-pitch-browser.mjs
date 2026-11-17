@@ -12,6 +12,7 @@ const entry = `
   const styles=new Proxy({input:{color:'#123',borderWidth:1,padding:8},tabs:{flexDirection:'row',flexWrap:'wrap'},chip:{padding:10},card:{padding:16},action:{padding:12},compactAction:{minHeight:44,paddingHorizontal:4,paddingVertical:8,alignSelf:'flex-start'},dangerText:{color:'#b42318'}}, {get:(target,key)=>target[key]||{}});
   const user={id:'staff',activeTeamId:'team'};
   window.saved=null;
+  window.notificationCalls=[];
   window.focusRequests=0;
   function App(){const [version,setVersion]=React.useState(0);const [match,setMatch]=React.useState(null);const [players,setPlayers]=React.useState([]);
     window.loadPlayers=()=>setPlayers([{id:'player-1',playerName:'Sample Player',section:'squad'}]);
@@ -26,7 +27,13 @@ const entry = `
 const mocks = [
   [/^expo-notifications$/, `export const scheduleNotificationAsync=async()=>null;export const dismissNotificationAsync=async()=>null;`],
   [/coachCarpoolData$/, `let enabled=true; export const getCoachCarpoolDefault=async()=>enabled; export const setCoachCarpoolDefault=async(user,value)=>{enabled=value;return value};`],
-  [/coachCalendarData(?:\.js)?$/, `export const prepareCoachMatchCancellationNotification=async()=>({preparationId:'prepared'});export const commitCoachCalendarChangeNotification=async()=>({recipientCount:0});`],
+  [/coachCalendarData(?:\.js)?$/, `export const prepareCoachMatchCancellationNotification=async()=>({preparationId:'prepared'});
+    export const prepareCoachMatchChangeNotification=async(match,action)=>{
+      window.notificationCalls.push(['prepare',match.id,action]);
+      if(window.holdPreparation) await new Promise(resolve=>{ window.releasePreparation=resolve });
+      return {preparationId:'edit-prepared',recipientCount:2}
+    };
+    export const commitCoachCalendarChangeNotification=async(id)=>{window.notificationCalls.push(['commit',id]);return {recipientCount:2}};`],
   [/coachMatchDayData(?:\.js)?$/, `
     import {validateCoachFixtureForm} from './apps/mobile-core/src/coachFixtureCore.js';
     export const getCoachMatchLocations=async()=>[];
@@ -34,7 +41,11 @@ const mocks = [
     export const getCoachFixtureInvitedPlayerIds=async(user,match)=>match.selectedPlayerIds||[];
     export const addCoachFixtureParents=async(user,match,playerIds)=>({match:{...match,parentVisible:true,selectedPlayerIds:[...(match.selectedPlayerIds||[]),...playerIds]},warning:''});
     export const createCoachMatchDayFixture=async(user,form)=>({id:'fixture',...validateCoachFixtureForm(form)});
-    export const updateCoachMatchDayFixture=async(user,match,form)=>({id:match.id,...validateCoachFixtureForm({...form,parentVisible:false,selectedPlayerIds:[]})});
+    export const updateCoachMatchDayFixture=async(user,match,form)=>{
+      const saved={id:match.id,...validateCoachFixtureForm({...form,parentVisible:false,selectedPlayerIds:[]})};
+      window.notificationCalls.push(['save', match.id]);
+      return saved
+    };
     export const cancelCoachMatchDayFixture=async(user,match)=>({...match,status:'cancelled'});
   `],
   [/coachFixturePreferences$/, `export const readCoachFixturePreferences=async()=>({duration:90});export const writeCoachFixturePreferences=async()=>{};`],
@@ -114,9 +125,22 @@ try {
   await page.waitForFunction(()=>window.saved?.pitchType==='3g').catch(async error=>{throw new Error(`${error.message}; page errors: ${errors.join(' | ')}; screen: ${(await page.locator('body').innerText()).slice(-1500)}`)})
   assert.equal(await page.evaluate(()=>window.saved.notificationTeamName), 'Tiger squad')
   assert.equal(await page.evaluate(()=>window.saved.opponent),'FP TEST Edited Visitors')
+  assert.deepEqual(await page.evaluate(()=>window.notificationCalls), [['save','fixture']])
   await page.getByRole('button',{name:'4G',exact:true}).click()
-  await page.getByRole('button',{name:'Save fixture changes',exact:true}).click()
-  await page.waitForFunction(()=>window.saved?.pitchType==='4g')
+  await page.getByRole('button',{name:'Notify everyone and save',exact:true}).click()
+  await page.waitForFunction(()=>window.saved?.pitchType==='4g' && window.saved.notificationNotice)
+  assert.deepEqual(await page.evaluate(()=>window.notificationCalls.slice(1)), [['prepare','fixture','rescheduled'],['save','fixture'],['commit','edit-prepared']])
+  assert.equal(await page.evaluate(()=>window.saved.notificationNotice),'Notification requested for 2 parent contacts.')
+  await page.evaluate(()=>{window.holdPreparation=true;window.reopen()})
+  await page.getByRole('button',{name:'Notify everyone and save',exact:true}).click()
+  await page.waitForFunction(()=>Boolean(window.releasePreparation))
+  await page.evaluate(()=>window.newFixture())
+  await page.getByText('Create match',{exact:true}).waitFor()
+  assert.deepEqual(await page.evaluate(async()=>{
+    window.releasePreparation();
+    await new Promise(resolve=>setTimeout(resolve,0));
+    return window.notificationCalls.slice(4);
+  }),[['prepare','fixture','rescheduled']])
   await page.evaluate(()=>window.reopen())
   await page.getByRole('button',{name:'Not specified',exact:true}).click()
   await page.getByRole('button',{name:'Save fixture changes',exact:true}).click()

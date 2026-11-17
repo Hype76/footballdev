@@ -30,7 +30,7 @@ test('Coach fixture edits preserve Car pool when its optional saved default is u
   assert.match(coachData, /export function buildCoachFixtureUpdatePayload/)
   assert.match(coachData, /if \(typeof form\.carpoolEnabled === 'boolean'\) fixtureUpdate\.carpoolEnabled = fixture\.carpoolEnabled/)
   assert.match(coachForm, /\.\.\.\(carpoolReady \? \{ carpoolEnabled \} : \{\}\)/)
-  assert.match(coachForm, /if \(busy \|\| carpoolSaving\) return/)
+  assert.match(coachForm, /if \(busy \|\| carpoolSaving \|\| !scope\?\.writable \|\| scope\.pending\) return/)
   assert.doesNotMatch(coachForm, /if \(!carpoolReady \|\| carpoolSaving\) return/)
   assert.match(coachForm, /disabled=\{busy \|\| carpoolSaving\}/)
 })

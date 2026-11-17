@@ -97,7 +97,7 @@ import { loadMatchdayPlanConfig } from '../mobile-core/src/matchdayPlanData'
 import {
   quoteSubscription,
 } from '../../src/lib/subscription-pricing'
-import { createMatchInvitesTheme, createCoachTheme, DEFAULT_COACH_THEME } from './src/coachThemeCore'
+import { createMatchInvitesTheme, createCoachTheme, DEFAULT_COACH_THEME, resolveCoachBranding } from './src/coachThemeCore'
 import {
   clearCoachAllLocalState,
   readCoachContextMarker,
@@ -1120,7 +1120,7 @@ function CoachHome() {
   }
   if (!activeContext) {
     return <CoachThemeContext.Provider value={themeContext}><SafeAreaView edges={['top', 'right', 'left']} style={styles.appShell}>
-      <View style={{ paddingHorizontal: 16, paddingTop: 28 }}><Text style={styles.contextOptionTitle}>Choose your team or club</Text><Text style={styles.contextOptionMeta}>Select a workspace to open. Your choice will be remembered on this phone.</Text></View>
+      <View style={styles.contextPickerIntro}><Text accessibilityRole="header" style={styles.screenTitle}>Choose your team or club</Text><Text style={styles.contextOptionMeta}>Select a workspace to open. Your choice will be remembered on this phone.</Text></View>
       <ContextSwitcher contexts={contextResolution.contexts} initial onSelect={selectContext} selectedContextId="" switching={isSwitchingContext} />
       {notice ? <Notice message={notice} onDismiss={() => setNotice('')} /> : null}
     </SafeAreaView></CoachThemeContext.Provider>
@@ -1787,6 +1787,13 @@ function NotificationStatusButton({ notificationState, notificationStateStatus, 
   )
 }
 
+function ContextOptionBadge({ logoUrl, styles }) {
+  const [failed, setFailed] = useState(false)
+  const showLogo = logoUrl && !failed
+  return <Image accessible={false} resizeMode="contain" onError={showLogo ? () => setFailed(true) : undefined}
+    source={showLogo ? { uri: logoUrl } : require('./assets/football-player-logo.png')} style={styles.contextBadge} />
+}
+
 function ContextSwitcher({ contexts, initial = false, onSelect, selectedContextId, switching = false }) {
   const { palette, styles } = useCoachTheme()
   const [open, setOpen] = useState(false)
@@ -1800,18 +1807,27 @@ function ContextSwitcher({ contexts, initial = false, onSelect, selectedContextI
   const options = <ScrollView style={{ flexGrow: 0 }} contentContainerStyle={{ paddingBottom: 24 }}>
     {Object.entries(groups).map(([clubId, clubContexts]) => <View key={clubId}>
       <Text style={[styles.contextLabel, { paddingTop: 18, paddingBottom: 6 }]}>{clubContexts[0]?.clubName || 'Club'}</Text>
-      {clubContexts.map(context => <Pressable
-        accessibilityLabel={`${context.teamName || 'Club admin'}, ${context.clubName}, ${context.roleLabel}`}
-        accessibilityRole="button"
-        accessibilityState={{ disabled: switching, selected: context.id === selectedContextId }}
-        disabled={switching}
-        key={context.id}
-        onPress={() => { setOpen(false); void onSelect(context.id) }}
-        style={({ pressed }) => [{ minHeight: 54, marginHorizontal: 16, paddingVertical: 10, borderBottomColor: palette.border, borderBottomWidth: 1, opacity: pressed ? 0.7 : 1 }]}
-      >
-        <Text style={styles.contextOptionTitle}>{context.teamName || 'Club admin'}</Text>
-        <Text style={styles.contextOptionMeta}>{context.roleLabel}{context.id === selectedContextId ? '  Selected' : ''}</Text>
-      </Pressable>)}
+      {clubContexts.map(context => {
+        const isSelected = context.id === selectedContextId
+        const { logoUrl } = resolveCoachBranding(context)
+        return <Pressable
+          accessibilityLabel={`${context.teamName || 'Club admin'}, ${context.clubName}, ${context.roleLabel}`}
+          accessibilityRole="button"
+          accessibilityState={{ disabled: switching, selected: isSelected }}
+          disabled={switching}
+          key={context.id}
+          onPress={() => { setOpen(false); void onSelect(context.id) }}
+          style={({ pressed }) => [styles.contextPickerRow, isSelected && styles.contextPickerRowSelected, pressed && styles.pressed]}
+        >
+          <ContextOptionBadge key={logoUrl} logoUrl={logoUrl} styles={styles} />
+          <View style={styles.contextPickerCopy}>
+            <Text style={styles.contextOptionTitle}>{context.teamName || 'Club admin'}</Text>
+            <Text style={styles.contextOptionMeta}>{context.roleLabel}</Text>
+          </View>
+          {isSelected ? <View style={styles.contextPickerIndicator}><CoachIcon color={palette.accentText} name="check-circle" size={20} /><Text style={styles.contextPickerSelectedText}>Selected</Text></View>
+            : <CoachIcon color={palette.textMuted} name="chevron-right" size={20} />}
+        </Pressable>
+      })}
     </View>)}
   </ScrollView>
   if (initial) return options
@@ -1819,12 +1835,16 @@ function ContextSwitcher({ contexts, initial = false, onSelect, selectedContextI
     <Pressable accessibilityLabel="Change team or club" accessibilityRole="button" onPress={() => setOpen(true)} style={{ minHeight: 48, paddingHorizontal: 16, paddingVertical: 8, justifyContent: 'center' }}>
       <Text style={styles.contextOptionTitle}>{selected?.teamName || selected?.clubName || 'Choose team'}  <Text style={styles.contextOptionMeta}>Change team or club</Text></Text>
     </Pressable>
-    <Modal animationType="slide" onRequestClose={() => setOpen(false)} visible={open}>
-      <SafeAreaView edges={['top', 'bottom']} style={[styles.appShell, { flex: 1 }]}>
-        <Pressable accessibilityRole="button" onPress={() => setOpen(false)} style={{ minHeight: 48, paddingHorizontal: 16, justifyContent: 'center' }}><Text style={styles.contextOptionTitle}>Close</Text></Pressable>
-        <Text style={[styles.contextOptionTitle, { paddingHorizontal: 16, paddingTop: 8 }]}>Change team or club</Text>
+    <Modal animationType="slide" navigationBarTranslucent={false} onRequestClose={() => setOpen(false)} presentationStyle="fullScreen" statusBarTranslucent={false} visible={open}>
+      <SafeAreaProvider>
+      <SafeAreaView accessibilityViewIsModal edges={['top', 'bottom', 'right', 'left']} style={styles.appShell}>
+        <View style={styles.contextPickerHeader}>
+          <Text accessibilityRole="header" style={[styles.screenTitle, styles.contextPickerCopy]}>Change team or club</Text>
+          <Pressable accessibilityRole="button" onPress={() => setOpen(false)} style={styles.contextPickerClose}><Text style={styles.contextPickerSelectedText}>Close</Text></Pressable>
+        </View>
         {options}
       </SafeAreaView>
+      </SafeAreaProvider>
     </Modal>
   </View>
 }
@@ -2131,6 +2151,15 @@ function createCoachStyles(palette) {
     contextOptionSelected: { backgroundColor: palette.selected, borderColor: palette.accentText },
     contextOptionTitle: { color: palette.textPrimary, fontSize: 14, fontWeight: '900' },
     contextOptionTitleSelected: { color: palette.selectedForeground },
+    contextBadge: { width: 34, height: 34 },
+    contextPickerIntro: { paddingHorizontal: 16, paddingTop: 18, gap: 4 },
+    contextPickerHeader: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingLeft: 16, paddingRight: 8, paddingTop: 6 },
+    contextPickerClose: { minHeight: 48, minWidth: 60, alignItems: 'center', justifyContent: 'center' },
+    contextPickerRow: { minHeight: 60, marginHorizontal: 16, paddingHorizontal: 8, paddingVertical: 8, flexDirection: 'row', alignItems: 'center', gap: 10, borderBottomColor: palette.border, borderBottomWidth: StyleSheet.hairlineWidth },
+    contextPickerRowSelected: { backgroundColor: palette.surface, borderLeftWidth: 3, borderLeftColor: palette.accentText, paddingLeft: 5 },
+    contextPickerCopy: { flex: 1 },
+    contextPickerIndicator: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', flexShrink: 1, gap: 4 },
+    contextPickerSelectedText: { color: palette.accentText, fontSize: 13, fontWeight: '800' },
     contextShell: { backgroundColor: palette.background, borderBottomColor: palette.border, borderBottomWidth: 1, paddingTop: 6 },
     diagnostic: { color: palette.textMuted, fontFamily: 'monospace', fontSize: 12 },
     disabled: { opacity: 0.48 },

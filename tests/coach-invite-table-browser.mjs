@@ -45,6 +45,8 @@ try{
  await page.getByText('Showing last saved fixture details. Connect and refresh to check for changes.').waitFor()
  assert.match(await fixtureCard.innerText(),/St Neots v FP TEST Club/)
  await fixtureCard.click()
+ const expandedHeader=page.getByRole('button',{name:'Hide availability for St Neots'})
+ assert.ok((await expandedHeader.boundingBox()).height>=44,'Expanded fixture retains a 44-pixel touch target')
  await page.getByText('Showing last saved fixture details. Connect and refresh to check for changes.').waitFor({state:'hidden'})
  await page.evaluate(()=>window.stale(false))
  const boxes=()=>page.getByRole('checkbox')
@@ -92,7 +94,7 @@ try{
   await page.evaluate(mode=>window.mode(mode),mode);await page.locator(`[data-mode="${mode}"]`).waitFor();await page.setViewportSize({width,height:844})
   await assertRenderedTextContrast(page,`Compact invites ${mode} ${width}`)
   assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth))
-  const height=await boxes().first().boundingBox();assert.ok(height.height<70,'Rows remain compact'); if(width===390) {const last=await boxes().last().boundingBox();assert.ok(last.y+last.height<720,'All 17 players fit above the bottom navigation area')}
+  const height=await boxes().first().boundingBox();assert.ok(height.height<70,'Rows remain compact'); if(width===390) {const last=await boxes().last().boundingBox();const bottom=last.y+last.height;assert.ok(bottom<720,`All 17 players fit above the bottom navigation area (bottom: ${bottom})`)}
   await page.screenshot({path:`${out}/${mode}-${width}.png`,fullPage:true})
  }
  await page.getByRole('button',{name:'Kyle De Dominicis invitation details'}).click();await page.getByText('Sent: 10:09:2026 18:46',{exact:true}).waitFor();await page.getByText('Reminder 1: 15:09:2026 13:38 (requested)',{exact:true}).waitFor();await page.getByText('Reminder 2: 17:09:2026 08:09 (requested)',{exact:true}).waitFor();await page.waitForTimeout(400);await page.screenshot({path:'output/playwright/coach-invite-history-simple.png',fullPage:true});await page.getByRole('button',{name:'Close invitation details'}).click()

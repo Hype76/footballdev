@@ -15,7 +15,7 @@ const calendarImport = source.match(/import \{\s+buildCoachCalendarMonth,[\s\S]*
 const screen = source.slice(source.indexOf('function useDomainStyles('), source.indexOf('export function CoachPlayersScreen('))
 const entry = `
 import {CoachCalendarSync} from './apps/coach-mobile/src/CoachCalendarSync.js';
-import React,{useCallback,useEffect,useMemo,useRef,useState} from 'react'
+import React,{useCallback,useEffect,useLayoutEffect,useMemo,useRef,useState} from 'react'
 import {getCoachFormationAuthorityScope} from './apps/coach-mobile/src/coachFormationEntryCore.js'
 import {createRoot} from 'react-dom/client'
 import {AppState,Pressable,StyleSheet,Switch,Text,TextInput,View} from 'react-native'

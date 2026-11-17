@@ -1340,13 +1340,18 @@ function CoachMatchDayScoped({ context, matchDayTarget, onMatchDayTargetHandled,
     setMatch(summary)
     setFixtureStale(false)
     setPanel('overview')
-    setNotice(updatedMatch.parentInvitationsAddedCount
+    const saveNotice = updatedMatch.parentInvitationsAddedCount
       ? `${updatedMatch.parentInvitationsAddedCount} players added to the fixture. Parent invitations were requested.`
-      : 'Fixture details updated. No new availability request was sent.')
+      : updatedMatch.notificationNotice ? `Fixture details updated. ${updatedMatch.notificationNotice}` : 'Fixture details updated. No new availability request was sent.'
+    setNotice(saveNotice)
     await cache(matches.map((item) => item.id === summary.id ? summary : item), summary, players).catch(() => {})
     invalidateMobileResource(user, 'coach:calendar')
     invalidateMobileResource(user, 'coach:match-list')
-    if (fixtureReturnTarget) onNavigate('calendar', { ...fixtureReturnTarget, occurrenceDate: summary.matchDate })
+    if (fixtureReturnTarget) onNavigate('calendar', {
+      ...fixtureReturnTarget,
+      occurrenceDate: summary.matchDate,
+      ...(updatedMatch.notificationNotice ? { saveNotice } : {}),
+    })
     setFixtureReturnTarget(null)
     if (summary.concludedAt && !fixtureReturnTarget) {
       try {
@@ -1462,7 +1467,7 @@ function CoachMatchDayScoped({ context, matchDayTarget, onMatchDayTargetHandled,
   return <View style={styles.stack}>
     {!match && !fixtureFormOpen ? <><Text accessibilityRole="header" style={styles.title}>Game Day</Text><Text style={styles.body}>Manage fixtures, squads and live match updates.</Text></> : null}
     {!match && !fixtureFormOpen && Number(context.roleRank || 0) >= 20 ? <Button compact disabled={stale || loading || busy || reconciling} iconKey="match.create" label="Create match" onPress={() => { setFixtureFormMatch(null); setFixtureFormDate(''); setFixtureFormOpen(true); setError(''); setNotice(''); onRequestScrollTop?.() }} styles={styles} /> : null}
-    {fixtureFormOpen ? <CoachFixtureForm key={fixtureFormMatch?.id || fixtureFormDate || 'new'} defaultMatchDate={fixtureFormDate} match={fixtureFormMatch} matches={matches} onCancel={cancelFixtureEdit} onCancelled={handleFixtureCancelled} onCreated={handleFixtureCreated} onRequestScrollTo={onRequestScrollTo} onUpdated={handleFixtureUpdated} players={players} styles={styles} user={user} /> : null}
+    {fixtureFormOpen ? <CoachFixtureForm key={fixtureFormMatch?.id || fixtureFormDate || 'new'} changesBlocked={fixtureChangesBlocked} defaultMatchDate={fixtureFormDate} match={fixtureFormMatch} matches={matches} onCancel={cancelFixtureEdit} onCancelled={handleFixtureCancelled} onCreated={handleFixtureCreated} onRequestScrollTo={onRequestScrollTo} onUpdated={handleFixtureUpdated} players={players} styles={styles} user={user} /> : null}
     {loading ? <MobileLoadingStatus message="Loading Match Day" /> : null}
     {reconciling && !activity ? <View accessibilityLiveRegion="assertive" style={styles.warning}><BrandLoader /><Text style={styles.cardTitle}>Reconciling the last action</Text><Text style={styles.body}>The current fixture remains visible, but changes are blocked until the server result is known.</Text></View> : null}
     {notice && !activity ? <View accessibilityLiveRegion="polite" style={styles.card}><Text style={styles.body}>{notice}</Text></View> : null}
