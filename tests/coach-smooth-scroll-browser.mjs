@@ -195,7 +195,12 @@ try {
         await switcher.click();
         const close=page.getByRole('button',{name:'Close',exact:true});
         await close.waitFor();
-        assert.ok((await close.boundingBox()).y>=47,'Close sits below the simulated status bar');
+        await page.waitForFunction(()=>{
+          const control=[...document.querySelectorAll('[role="button"]')].find(button=>button.textContent==='Close');
+          const top=control?.getBoundingClientRect().top;
+          return top >= 47 && top < 90;
+        });
+        assert.ok((await close.boundingBox()).height>=44,'Close has a usable touch target below the simulated status bar');
         const current=page.getByRole('button',{name:'U17 Green, FP TEST, Team Admin',exact:true});
         assert.equal(await current.getByText('Selected',{exact:true}).count(),1);
         assert.equal(await current.locator('img').getAttribute('src'),'https://badge.fixture.test/crest.svg');
