@@ -207,6 +207,7 @@ test('actual Parent refresh displays live messages and Chat while disk and calen
   await tick()
   assert.deepEqual(f.resourcesRef.current.messages.items, ['live message'])
   assert.deepEqual(f.resourcesRef.current.chatRooms.items, ['live chat'])
+  assert.deepEqual(f.resourcesRef.current.chatHistory.items, [{ roomId: 'restricted' }])
   f.notifications.resolve([])
   f.details.resolve([])
   assert.equal((await pending).failed, 0)
