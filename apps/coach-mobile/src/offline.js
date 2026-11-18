@@ -23,6 +23,9 @@ import { developmentDraftKey, editLocalDevelopmentDraft } from '../../mobile-cor
 import { formationDraftKey, updateFormationLocalDraft } from '../../mobile-core/src/coachFormationDraftCore'
 import { getScopedTeamBranding } from '../../../src/lib/team-branding-display.js'
 import { createCoachRecoveryNotice } from './coachRecoveryNotice'
+import { withCoachOfflineStorageLock } from './coachOfflineStorageBudget'
+import { validateCoachAccountOfflineStatus } from './coachAccountOfflinePreparation'
+import { activateCoachOfflineAccount, captureCoachOfflineAccount, invalidateCoachOfflineAccount } from './coachOfflineAccountSession'
 
 const config = getMobileRuntimeConfig('coach')
 const projectRef = config.isUsable ? new URL(config.supabaseUrl).hostname.split('.')[0] : ''
@@ -57,6 +60,9 @@ function unavailableStore() {
 }
 
 const coachStorage = createCoachFileStorage({ fileSystem: requireOptionalNativeModule('ExponentFileSystem'), legacyStorage: AsyncStorage })
+let mediaHooks = { measureBytes: async () => 0, clearAccount: async () => {}, verifyInventory: async () => false }
+export function registerCoachOfflineMediaHooks(hooks) { mediaHooks = hooks }
+export function measureCoachOfflineDocumentBytes() { return coachStorage.measureBytes() }
 
 function createLegacyStore(environment, ref) {
   return createEncryptedOfflineStore({
@@ -96,6 +102,21 @@ for (const method of ['clear', 'inspect', 'read', 'readSnapshot', 'update', 'wri
     return result
   })
 }
+const updateRecords = store.update
+store.update = (userId, change) => withCoachOfflineStorageLock(async () => {
+  return updateRecords(userId, async document => {
+    const next = await change(document)
+    if (next && next !== document) {
+      const documentBytes = await coachStorage.measureBytes()
+      const mediaBytes = await mediaHooks.measureBytes()
+      // The new encrypted generation is staged before the old one is removed.
+      // Base64 envelope overhead and a small header reserve count as disk use.
+      const stagedBytes = Math.ceil(getCoachCacheByteLength(next) * 4 / 3) + 8192
+      if (documentBytes + mediaBytes + stagedBytes > COACH_PHASE_31F_MAX_CACHE_BYTES) throw new Error('There is not enough offline storage to finish downloading. Your saved changes remain on this phone.')
+    }
+    return next
+  })
+})
 const incompatibleTestStore = config.isProduction
   ? createLegacyStore('test', APPROVED_MOBILE_TEST.supabaseRef)
   : null
@@ -187,18 +208,24 @@ function sanitizeCoachProfile(profile) {
 
 export const coachOfflineProfileStore = {
   async clear() {
-    await reportRecoveryFailure(() => store.clear())
+    await clearCoachOfflineState()
   },
   async read(userScope) {
+    activateCoachOfflineAccount(userScope)
     store.activate(userScope)
     return reportRecoveryFailure(async () => getCoachOfflineProfile((await store.read(userScope)).document, userScope))
   },
   async write(profile) {
     const sanitized = sanitizeCoachProfile(profile)
     if (!sanitized.id) throw new Error('offline_profile_scope_mismatch')
-    const next = await reportRecoveryFailure(() => store.update(sanitized.id, (current) => setCoachOfflineProfile(
-      current || createCoachOfflineDocument({ userScope: sanitized.id }), sanitized,
-    )))
+    const accountGuard = captureCoachOfflineAccount(sanitized.id)
+    accountGuard()
+    const next = await reportRecoveryFailure(() => store.update(sanitized.id, current => {
+      const updated = setCoachOfflineProfile(current || createCoachOfflineDocument({ userScope: sanitized.id }), sanitized)
+      return { ...updated, accountPreparation: Object.fromEntries(Object.entries(updated.accountPreparation || {}).filter(([id, entry]) =>
+        sanitized.coachContexts.some(context => context.id === id && entry.authority === outboxAuthority(context)))) }
+    }))
+    accountGuard()
     return getCoachOfflineProfile(next, sanitized.id)
   },
 }
@@ -210,7 +237,48 @@ export async function quarantineIncompatibleCoachOfflineState() {
 }
 
 export async function clearCoachOfflineState() {
-  await reportRecoveryFailure(() => store.clear())
+  const previousUserId = invalidateCoachOfflineAccount()
+  const results = await Promise.allSettled([reportRecoveryFailure(() => store.clear()), mediaHooks.clearAccount(previousUserId)])
+  const failed = results.find(result => result.status === 'rejected')
+  if (failed) throw failed.reason
+}
+
+export async function saveCoachAccountPreparation(userId, context, status, isCurrent = () => true) {
+  const guard = store.captureScopeGuard(userId)
+  await store.update(userId, document => {
+    guard()
+    if (!isCurrent()) return document
+    assertOutboxContext(document, userId, context)
+    return { ...document, accountPreparation: { ...(document.accountPreparation || {}),
+      [context.id]: { authority: outboxAuthority(context), status: JSON.parse(JSON.stringify(status)) } } }
+  })
+}
+
+export async function readCoachAccountPreparation(userId, contexts) {
+  const { document } = await (store.readSnapshot ? store.readSnapshot(userId) : store.read(userId))
+  const guard = store.captureScopeGuard(userId)
+  const results = []
+  for (const context of contexts) {
+    guard()
+    const entry = document?.accountPreparation?.[context.id]
+    if (!matchesOfflineContext(document, userId, context) || entry?.authority !== outboxAuthority(context)) { results.push([context.id, null]); continue }
+    const cache = getCoachOfflineResources(document, context)
+    let status = validateCoachAccountOfflineStatus(entry.status, cache)
+    if (status?.savedAt && (status.matchIds || []).some(id => {
+      const journal = document.matchDayOutboxes?.[context.id]?.[id]
+      return journal?.authority !== outboxAuthority(context) || journal?.baseMatch?.id !== id
+        || journal.baseMatch.clubId !== context.clubId || journal.baseMatch.teamId !== context.teamId
+    })) status = { ...status, state: 'partial', error: 'Some saved fixtures need downloading again.' }
+    const inventory = cache?.resources?.offlineMediaInventory || []
+    if (status?.savedAt && !status.filesFailed && ['ready', 'partial'].includes(status.state) && inventory.length) {
+      let verified = false
+      try { verified = status.filesSaved === inventory.length && await mediaHooks.verifyInventory(userId, context, inventory, document.profile.value) } catch { /* Missing or unverifiable copies are incomplete. */ }
+      guard()
+      if (!verified) status = { ...status, state: 'partial', error: 'Some saved files need downloading again.' }
+    }
+    results.push([context.id, status])
+  }
+  return Object.fromEntries(results)
 }
 
 export async function inspectCoachOfflineState(userId) {
@@ -409,15 +477,30 @@ export async function updateCoachMatchDayOutbox(userId, context, matchId, change
     if (changed === previous) { journal = previous; return document }
     journal = { ...changed, authority: outboxAuthority(context) }
     if (journal?.baseMatch?.id !== matchId || journal.baseMatch.clubId !== context.clubId || journal.baseMatch.teamId !== context.teamId) throw new Error('The saved fixture does not match this workspace.')
-    const entries = Object.entries(outboxes[context.id] || {})
-    const recentIds = new Set(entries.filter(([, value]) => !value.pending?.length)
-      .sort((a, b) => Date.parse(b[1].verifiedAt) - Date.parse(a[1].verifiedAt)).slice(0, 7).map(([id]) => id))
-    const contextJournals = entries.filter(([id, value]) => id === matchId || value.pending?.length || recentIds.has(id))
-    const next = { ...document, matchDayOutboxes: { ...outboxes, [context.id]: { ...Object.fromEntries(contextJournals), [matchId]: journal } } }
+    const next = { ...document, matchDayOutboxes: { ...outboxes, [context.id]: { ...(outboxes[context.id] || {}), [matchId]: journal } } }
     if (getCoachCacheByteLength(next) > COACH_PHASE_31F_MAX_CACHE_BYTES) throw new Error('There is not enough offline storage. This action was not saved. Reconnect and sync first.')
     return next
   })
   return journal
+}
+
+export async function saveCoachPreparedMatchDays(userId, context, matches, isCurrent = () => true) {
+  const guard = store.captureScopeGuard(userId)
+  await store.update(userId, document => {
+    guard()
+    if (!isCurrent()) return document
+    assertOutboxContext(document, userId, context)
+    const authority = outboxAuthority(context)
+    const entries = { ...(document.matchDayOutboxes?.[context.id] || {}) }
+    const verifiedAt = new Date().toISOString()
+    for (const detail of matches) {
+      if (!detail?.id || detail.clubId !== context.clubId || detail.teamId !== context.teamId) throw new Error('The saved fixture does not match this workspace.')
+      const previous = entries[detail.id]
+      if (previous && previous.authority !== authority) throw new Error('Your access to this saved fixture changed. The saved actions need review.')
+      if (!previous?.pending?.length) entries[detail.id] = { authority, baseMatch: detail, pending: [], verifiedAt, error: '' }
+    }
+    return { ...document, matchDayOutboxes: { ...(document.matchDayOutboxes || {}), [context.id]: entries } }
+  })
 }
 
 export async function readCoachDevelopmentDrafts(userId, context) {

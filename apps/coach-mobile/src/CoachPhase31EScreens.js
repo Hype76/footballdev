@@ -1,4 +1,6 @@
 import { ClubFeatureWave } from '../../mobile-core/src/ClubFeatureWave.js'
+import { openCoachResource } from '../../mobile-core/src/coachResourceOpenCore.js'
+import { openCoachSavedResource } from './coachAccountOfflineService'
 import { MobileSwitch as Switch } from '../../mobile-core/src/MobileSwitch.js'
 import { formatFixtureDateTime } from '../../../src/lib/calendar-datetime-integrity.js'
 import { getResourceDisplayTitle } from '../../../src/lib/resource-date-presentation.js'
@@ -75,7 +77,6 @@ import {
   isCoachMatchAvailabilityRequestCreationApplied,
   isCoachInviteParticipationRemoved,
   isSyntheticCoachTarget,
-  sanitizeCoachChatOfflineValue,
   summarizeCoachInvites,
   summarizeCoachPoll,
   toggleCoachInvitePlayerSelection,
@@ -323,9 +324,10 @@ export function CoachPhase31EScreen({ chatNotificationTarget, domain, context, o
     const restoreSaved = (deniedAtStart ? Promise.resolve(null) : readCoachOfflineResources(user.id, context)).catch(() => null).then(cached => {
       if (!current()) return
       const savedValue = cached?.resources?.[`phase31e:${domain}`]
-      const cachedValue = domain === 'chat' ? sanitizeCoachChatOfflineValue(savedValue)
-        : domain === 'invites' ? restoreCoachAvailabilitySnapshot(savedValue) : savedValue
-      hasCachedValue = offlinePolicy.cache && hasUsableCoachPhase31ECache(domain, savedValue, cachedValue)
+      const cachedValue = domain === 'invites' ? restoreCoachAvailabilitySnapshot(savedValue) : savedValue
+      hasCachedValue = offlinePolicy.cache && (domain === 'chat'
+        ? Boolean(savedValue && Array.isArray(savedValue.staff) && Array.isArray(savedValue.parent))
+        : hasUsableCoachPhase31ECache(domain, savedValue, cachedValue))
       if (hasCachedValue && !onlinePublished && !hadVisibleData) {
         // Restore Training even if the independent Match read finished first.
         setData(previous => previous ? { ...cachedValue, ...previous } : cachedValue)
@@ -394,7 +396,7 @@ export function CoachPhase31EScreen({ chatNotificationTarget, domain, context, o
       setStale(false)
       setError('')
       try {
-        const offlineValue = domain === 'chat' ? sanitizeCoachChatOfflineValue(next) : next
+        const offlineValue = next
         if (domain === 'invites') saveInviteSnapshot({ [`phase31e:${domain}`]: offlineValue })
         else void saveCoachOfflineResources(user.id, context, { [`phase31e:${domain}`]: offlineValue }).then(() => {
           if (current()) setNotice(value => value === cacheWarning ? '' : value)
@@ -686,7 +688,7 @@ function DevelopmentDomain({ context, data, load, setData, setNotice, stale, sty
   )
 }
 
-function ResourcesDomain({ data, load, setNotice, stale, styles, user }) {
+function ResourcesDomain({ context, data, load, setNotice, stale, styles, user }) {
   const [search, setSearch] = useState('')
   const [expandedCategories, setExpandedCategories] = useState({})
   const [playerSearch, setPlayerSearch] = useState('')
@@ -754,13 +756,9 @@ function ResourcesDomain({ data, load, setNotice, stale, styles, user }) {
     const generation = openGeneration.current
     const current = () => mounted.current && openGeneration.current === generation && scopeRef.current === scope
     try {
-      const accessUrl = await getCoachResourceAccessUrl(user, resource)
-      if (!current()) return
-      const supported = await Linking.canOpenURL(accessUrl)
-      if (!current()) return
-      if (!supported) throw new Error('This Resource link is not supported on this device.')
-      await Linking.openURL(accessUrl)
-      if (current()) report('Resource opened.')
+      const opened = await openCoachResource({ user, context, resource, openSaved: openCoachSavedResource,
+        getAccessUrl: getCoachResourceAccessUrl, linking: Linking, isCurrent: current })
+      if (opened && current()) report('Resource opened.')
     } catch (error) { if (current()) report(getCoachResourceErrorMessage(error)) }
     finally { if (current()) { openingResource.current = false; mutationInFlight.current = false; setBusy('') } }
   }
@@ -797,6 +795,7 @@ function ResourcesDomain({ data, load, setNotice, stale, styles, user }) {
           {expanded ? group.resources.map(resource => <View key={resource.id} style={{ borderTopWidth: 1, borderTopColor: styles.divider.backgroundColor, paddingVertical: 10, gap: 6 }}>
             <Text style={styles.heading}>{getResourceDisplayTitle(resource)}</Text>
             {resource.description ? <Text numberOfLines={2} style={styles.body}>{resource.description}</Text> : null}
+            {resource.type === 'external_link' ? <Text style={styles.helper}>Online link. Internet connection required.</Text> : null}
             <View style={styles.row}>
               <Button label={busy === `open:${resource.id}` ? 'Opening resource...' : 'Open Resource'} disabled={Boolean(busy)} onPress={() => void open(resource)} secondary styles={styles} />
               <Button label="Manage access" disabled={Boolean(busy)} onPress={() => { setSelectedId(resource.id); setPlayerSearch(''); setResourceNotice('') }} secondary styles={styles} />
@@ -856,6 +855,7 @@ function ChatDomain({ chatNotificationTarget, context, data, load, notice, onCha
   const rooms = useMemo(() => roomSections.flatMap((section) => [...section.activeRooms, ...section.emptyRooms]), [roomSections])
   const [roomId, setRoomId] = useState('')
   const [messages, setMessages] = useState([])
+  const [roomHistoryStale, setRoomHistoryStale] = useState(false)
   const [body, setBody] = useState('')
   const [sending, setSending] = useState(false)
   const [markingAllRead, setMarkingAllRead] = useState(false)
@@ -870,7 +870,7 @@ function ChatDomain({ chatNotificationTarget, context, data, load, notice, onCha
     setDeniedRoomIds(ids => ids.includes(deniedRoom.id) ? ids : [...ids, deniedRoom.id])
     invalidateMobileResource(user, `coach:chat-room:${deniedRoom.kind}:${deniedRoom.id}`)
     invalidateMobileResource(user, 'coach:phase31e:chat')
-    void saveCoachOfflineResources(user.id, context, { 'phase31e:chat': null }).catch(() => {})
+    void saveCoachOfflineResources(user.id, context, { 'phase31e:chat': null, [`chatMessages:${deniedRoom.kind}:${deniedRoom.id}`]: null }).catch(() => {})
     setMessages([])
     setRoomId('')
     activeRoomIdRef.current = ''
@@ -883,30 +883,52 @@ function ChatDomain({ chatNotificationTarget, context, data, load, notice, onCha
   const unreadRooms = rooms.filter((item) => Number(item.unreadCount || 0) > 0)
   const open = useCallback(async (nextRoom) => {
     const request = ++openRequest.current
-    const isCurrent = () => request === openRequest.current && activeRoomIdRef.current === nextRoom.id
+    const generation = user.getCoachAuthorityGeneration?.()
+    const isCurrent = () => request === openRequest.current && activeRoomIdRef.current === nextRoom.id && generation === user.getCoachAuthorityGeneration?.()
     const memoryKey = `coach:chat-room:${nextRoom.kind}:${nextRoom.id}`
+    const offlineKey = `chatMessages:${nextRoom.kind}:${nextRoom.id}`
     setMessages(peekMobileResource(user, memoryKey, { allowStale: true }) || [])
+    setRoomHistoryStale(true)
     setBody('')
     setRoomId(nextRoom.id)
     activeRoomIdRef.current = nextRoom.id
     setNotice('Loading current room history...')
+    let livePublished = false, denied = false
+    const restoreSaved = readCoachOfflineResources(user.id, context).then(cached => {
+      if (!isCurrent() || livePublished || denied) return false
+      const saved = cached?.resources?.[offlineKey]
+      if (!Array.isArray(saved)) return false
+      setMessages(saved); setRoomHistoryStale(true); setNotice('Showing saved Chat history. Connect to refresh or send messages.')
+      return true
+    }).catch(() => false)
+    if (user.isOfflineProfile) {
+      if (!await restoreSaved && isCurrent()) setNotice('No saved Chat history is available for this conversation.')
+      return
+    }
     try {
       const next = await readMobileResource(user, memoryKey, () => getCoachChatMessages(user, nextRoom), { force: true })
       if (!isCurrent()) return
+      livePublished = true
       setMessages(next)
+      setRoomHistoryStale(false)
       setNotice('')
+      const save = createCoachOfflineResourceSaver(user, context, { isCurrent })
+      void save({ [offlineKey]: next }).catch(() => {})
       await markCoachChatRead(user, nextRoom)
       if (!isCurrent()) return
       await Promise.all([load({ silent: true }), reloadHome({ refresh: true, chatOnly: true })])
     } catch (error) {
       if (isCurrent()) {
-        if (error?.code === '42501' || error?.status === 403 || error?.statusCode === 403) {
+        if (error?.code === '42501' || [401, 403].includes(error?.status) || [401, 403].includes(error?.statusCode) || /permission denied|row.level security|not authori[sz]ed/i.test(String(error?.message || ''))) {
+          denied = true
           denyRoom(nextRoom)
+          setNotice(getCoachFriendlyError(error))
+          return
         }
-        setNotice(getCoachFriendlyError(error))
+        if (!await restoreSaved && isCurrent()) setNotice(getCoachFriendlyError(error))
       }
     }
-  }, [denyRoom, load, reloadHome, setNotice, user])
+  }, [context, denyRoom, load, reloadHome, setNotice, user])
   useEffect(() => {
     const targetId = String(chatNotificationTarget?.id || '').trim()
     if (!targetId || chatNotificationTarget?.contextId !== user.activeCoachContextId) return
@@ -926,20 +948,24 @@ function ChatDomain({ chatNotificationTarget, context, data, load, notice, onCha
     return () => { cancelled = true }
   }, [chatNotificationTarget, onChatNotificationTargetHandled, open, rooms, setNotice, user.activeCoachContextId])
   useEffect(() => {
-    if (!room?.id) return undefined
+    if (!room?.id || user.isOfflineProfile) return undefined
     let disposed = false
     const refreshOpenRoom = async () => {
       if (disposed || roomRefreshRef.current || AppState.currentState !== 'active') return
       roomRefreshRef.current = true
       const request = ++openRequest.current
-      const isCurrent = () => !disposed && activeRoomIdRef.current === room.id && request === openRequest.current
+      const generation = user.getCoachAuthorityGeneration?.()
+      const isCurrent = () => !disposed && activeRoomIdRef.current === room.id && request === openRequest.current && generation === user.getCoachAuthorityGeneration?.()
       try {
         const next = await getCoachChatMessages(user, room)
         if (!isCurrent()) return
-        setNotice(current => current === 'Loading current room history...' ? '' : current)
+        setRoomHistoryStale(false)
+        setNotice(current => current === 'Loading current room history...' || current.startsWith('Showing saved Chat history.') ? '' : current)
         if (getMobileChatMessagesFingerprint(next) === getMobileChatMessagesFingerprint(messagesRef.current)) return
         setMessages(next)
         messagesRef.current = next
+        const save = createCoachOfflineResourceSaver(user, context, { isCurrent })
+        void save({ [`chatMessages:${room.kind}:${room.id}`]: next }).catch(() => {})
         await markCoachChatRead(user, room)
         if (!isCurrent()) return
         await Promise.all([load({ silent: true }), reloadHome({ refresh: true, chatOnly: true })])
@@ -964,9 +990,9 @@ function ChatDomain({ chatNotificationTarget, context, data, load, notice, onCha
       appStateSubscription.remove()
       unsubscribe()
     }
-  }, [denyRoom, load, reloadHome, room, setNotice, user])
+  }, [context, denyRoom, load, reloadHome, room, setNotice, user])
   const send = async () => {
-    if (sendInFlight.current || !room || !body.trim() || stale) return
+    if (sendInFlight.current || !room || !body.trim() || stale || roomHistoryStale || user.isOfflineProfile) return
     sendInFlight.current = true
     const request = openRequest.current
     const targetRoomId = room.id
@@ -979,7 +1005,7 @@ function ChatDomain({ chatNotificationTarget, context, data, load, notice, onCha
     } finally { sendInFlight.current = false; setSending(false) }
   }
   const markAllRead = async () => {
-    if (!unreadRooms.length || markingAllRead) return
+    if (!unreadRooms.length || markingAllRead || stale || user.isOfflineProfile) return
     setMarkingAllRead(true)
     setNotice('Marking all Chat conversations as read...')
     const results = await Promise.allSettled(unreadRooms.map((item) => markCoachChatRead(user, item)))
@@ -1005,7 +1031,7 @@ function ChatDomain({ chatNotificationTarget, context, data, load, notice, onCha
             <Text style={styles.body}>{rooms.length} community conversation{rooms.length === 1 ? '' : 's'}.</Text>
           </View>
         </View>
-        {unreadRooms.length ? <Button disabled={markingAllRead || stale} label={markingAllRead ? 'Marking all as read...' : `Mark all as read (${unreadRooms.length})`} icon="mark-email-read" onPress={() => void markAllRead()} styles={styles} variantStyle={{ borderRadius: 24 }} /> : null}
+        {unreadRooms.length ? <Button disabled={markingAllRead || stale || user.isOfflineProfile} label={markingAllRead ? 'Marking all as read...' : `Mark all as read (${unreadRooms.length})`} icon="mark-email-read" onPress={() => void markAllRead()} styles={styles} variantStyle={{ borderRadius: 24 }} /> : null}
         {roomSections.map((section) => {
           const sectionIcon = section.key === 'staff' ? 'sports' : 'groups'
           const expanded = expandedEmptySections[section.key] === true
@@ -1079,8 +1105,8 @@ function ChatDomain({ chatNotificationTarget, context, data, load, notice, onCha
             style={styles.chatMessageList}
           />
           <View style={styles.chatComposer}>
-            <TextInput accessibilityLabel="Chat message" editable={!sending && !stale && room.canPost} multiline onChangeText={setBody} placeholder="Message" placeholderTextColor={placeholderColor} style={[styles.input, styles.chatComposerInput]} value={body} />
-            <Button icon="send" disabled={sending || stale || !room.canPost || !body.trim() || (!config.isProduction && !isSyntheticCoachTarget(room.title))} label={sending ? 'Sending...' : config.isProduction ? 'Send' : 'Send to FP TEST channel'} onPress={send} styles={styles} />
+            <TextInput accessibilityLabel="Chat message" editable={!sending && !stale && !roomHistoryStale && !user.isOfflineProfile && room.canPost} multiline onChangeText={setBody} placeholder="Message" placeholderTextColor={placeholderColor} style={[styles.input, styles.chatComposerInput]} value={body} />
+            <Button icon="send" disabled={sending || stale || roomHistoryStale || user.isOfflineProfile || !room.canPost || !body.trim() || (!config.isProduction && !isSyntheticCoachTarget(room.title))} label={sending ? 'Sending...' : config.isProduction ? 'Send' : 'Send to FP TEST channel'} onPress={send} styles={styles} />
           </View>
         </KeyboardAvoidingView>
       </SafeAreaView>

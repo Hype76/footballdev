@@ -5,12 +5,14 @@ import {
   buildCoachFormationBoardSavePayload,
   normalize,
   normalizeCoachFormationBoard,
+  normalizeCoachFormationPreset,
 } from './coachFormationBoardPayload.js'
 
 export {
   buildCoachFormationBoardCreatePayload,
   buildCoachFormationBoardSavePayload,
   normalizeCoachFormationBoard,
+  normalizeCoachFormationPreset,
 } from './coachFormationBoardPayload.js'
 
 function assertFormationRead(user) {
@@ -26,17 +28,6 @@ async function rpc(name, params) {
   const { data, error } = await supabase.rpc(name, params)
   if (error) throw error
   return data
-}
-
-export function normalizeCoachFormationPreset(row) {
-  return {
-    displayName: normalize(row.display_name ?? row.displayName),
-    gameFormat: normalize(row.game_format ?? row.gameFormat),
-    key: normalize(row.preset_key ?? row.key),
-    playerCount: Number(row.player_count ?? row.playerCount ?? 0),
-    registryVersion: Number(row.registry_version ?? row.registryVersion ?? 1),
-    slots: array(row.slots),
-  }
 }
 
 export async function getCoachFormationPresets(user) {

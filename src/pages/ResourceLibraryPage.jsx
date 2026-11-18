@@ -28,7 +28,7 @@ const fieldClass = 'min-h-11 w-full rounded-lg border border-[#d7e5dc] bg-[#f7fa
 const primaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg bg-[#047857] px-4 py-3 text-sm font-black text-white transition hover:bg-[#065f46] disabled:cursor-not-allowed disabled:opacity-60'
 const secondaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg border border-[#d7e5dc] bg-white px-4 py-3 text-sm font-black text-[#101828] shadow-sm shadow-[#047857]/10 transition hover:border-[#047857] hover:bg-[#ecfdf5] disabled:cursor-not-allowed disabled:opacity-60'
 const dangerButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg border border-red-500/40 bg-red-600 px-4 py-3 text-sm font-black text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60'
-const resourceLibraryFileAccept = '.pdf,.docx,.xlsx,.pptx,.csv,.txt,.png,.jpg,.jpeg,.gif,.webp,image/gif'
+const resourceLibraryFileAccept = '.pdf,.docx,.xlsx,.pptx,.csv,.txt,.png,.jpg,.jpeg,.gif,.webp,.mp4,.mov,image/gif,video/mp4,video/quicktime'
 
 function getQueuedFileId(file) {
   return [file.name, file.size, file.type, file.lastModified].join(':')
@@ -828,7 +828,7 @@ export function ResourceLibraryPage({ scopedUser } = {}) {
                     data-testid="resource-file-drop-zone"
                   >
                     <p className="text-base font-black text-[#101828]">Drop files and images here</p>
-                    <p className="mt-2 text-sm font-semibold text-[#4b5f55]">Select several at once. PDF, Office files, text, PNG, JPG, GIF, and WebP are supported up to 20 MB each.</p>
+                    <p className="mt-2 text-sm font-semibold text-[#4b5f55]">Select several at once. PDF, Office files, text, images, MP4 and MOV are supported up to 20 MB each.</p>
                     <button type="button" onClick={() => fileInputRef.current?.click()} className={`${secondaryButtonClass} mt-4`}>
                       Choose files
                     </button>

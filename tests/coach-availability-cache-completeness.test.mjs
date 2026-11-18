@@ -51,13 +51,13 @@ test('Training preserves separate occurrences and filters inactive duplicates be
   assert.deepEqual(saved.training.map(row => [row.occurrenceDate, row.status]), [['2099-11-02', 'awaiting'], ['2099-11-09', 'available']])
 })
 
-test('complete main and focused rosters retain the existing nested metadata bounds', () => {
+test('complete main and focused rosters retain every nested history and metadata entry', () => {
   const row = { id: 'request', eventId: 'fixture', playerId: 'player', status: 'available', history: Array(500).fill('event'), extra: { choices: Array(500).fill('choice') } }
   const main = boundCoachOfflineResource('phase31e:invites', { match: [row], training: [{ ...row, occurrenceDate: '2099-11-02' }], trainingCoaches: [row] })
   const focused = boundCoachOfflineResource('phase31e:invites:fixture', { fixtureId: 'fixture', rows: [row] })
   for (const actual of [main.match[0], main.training[0], main.trainingCoaches[0], focused.rows[0]]) {
-    assert.equal(actual.history.length, 100)
-    assert.equal(actual.extra.choices.length, 180)
+    assert.equal(actual.history.length, row.history.length)
+    assert.equal(actual.extra.choices.length, row.extra.choices.length)
   }
   assert.equal(focused.availabilityCacheVersion, 1)
 })

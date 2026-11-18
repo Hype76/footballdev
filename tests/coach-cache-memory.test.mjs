@@ -287,11 +287,12 @@ test('a newer Coach room refresh cannot be replaced by an older room-open reques
   const refresh = effect.body.body.find(node => node.type === 'VariableDeclaration' && node.declarations[0].id.name === 'refreshOpenRoom').declarations[0].init
   let finishOpen, messages = [], notice = ''
   const room = { id: 'room', kind: 'staff' }, old = [{ id: 'old' }], next = [{ id: 'new' }]
-  const env = { user: { id: 'coach' }, room, disposed: false, openRequest: { current: 0 }, activeRoomIdRef: { current: '' },
+  const env = { user: { id: 'coach' }, context: { id: 'team' }, room, disposed: false, openRequest: { current: 0 }, activeRoomIdRef: { current: '' },
     roomRefreshRef: { current: false }, messagesRef: { current: messages }, AppState: { currentState: 'active' },
-    setMessages(value) { messages = value; env.messagesRef.current = value }, setBody() {}, setRoomId() {},
+    setMessages(value) { messages = value; env.messagesRef.current = value }, setBody() {}, setRoomId() {}, setRoomHistoryStale() {},
     setNotice(value) { notice = typeof value === 'function' ? value(notice) : value },
     peekMobileResource: () => old, readMobileResource: () => new Promise(resolve => { finishOpen = resolve }),
+    readCoachOfflineResources: async () => null, createCoachOfflineResourceSaver: () => async () => {},
     getCoachChatMessages: async () => next, getMobileChatMessagesFingerprint: JSON.stringify,
     markCoachChatRead: async () => {}, load: async () => {}, reloadHome: async () => {}, denyRoom() {}, getCoachFriendlyError: error => error.message,
   }

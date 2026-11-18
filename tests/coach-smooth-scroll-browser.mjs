@@ -91,6 +91,9 @@ import {createCoachScrollBounds} from './apps/coach-mobile/src/coachScrollBounds
 import {IconMenu} from './apps/mobile-core/src/IconSettings.js';
 const config={isProduction:true};let theme;
 const useCoachTheme=()=>theme;
+const useCoachSavedBadge=(_user,_context,remoteUrl)=>remoteUrl;
+const useCoachAccountPreparationStatus=()=>({});
+const coachAccountOfflineLabel=()=>'';
 const CoachIcon=()=> <Text>+</Text>;
 const NotificationStatusButton=({onPress})=><Pressable accessibilityRole="button" accessibilityLabel="Notification settings" onPress={onPress}><Text>Alerts</Text></Pressable>;
 const StatePanel=()=>null,Notice=()=>null,BrandLoader=()=> <View style={{height:28}}/>;

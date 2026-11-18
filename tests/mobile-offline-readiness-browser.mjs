@@ -2,43 +2,46 @@ import assert from 'node:assert/strict'
 import { build } from 'esbuild'
 import { chromium } from 'playwright'
 import path from 'node:path'
+
 const modules = path.resolve('apps/coach-mobile/node_modules')
 const entry = `import React from 'react';import{createRoot}from'react-dom/client';import{useCoachOfflinePreparation}from'./apps/coach-mobile/src/useCoachOfflinePreparation.js';import{CoachOfflineReadiness}from'./apps/coach-mobile/src/CoachOfflineReadiness.js';
-window.saved={resources:{},journals:[],pending:2};window.fetches=[];window.fail=false;
-const context={id:'team',type:'team',role:'coach',teamId:'team',clubId:'club',clubStatus:'active',teamStatus:'active'},user={id:'coach',clubId:'club',activeTeamId:'team'};
-function App(){const[offline,setOffline]=React.useState(false);window.offline=setOffline;const activeUser=React.useMemo(()=>({...user,isOfflineProfile:offline}),[offline]);useCoachOfflinePreparation({user:activeUser,context,enabled:true});return <CoachOfflineReadiness user={{...user,isOfflineProfile:offline}} context={context} styles={{card:{padding:16,gap:12},bodyText:{fontSize:14},cardTitle:{fontSize:18},helperText:{fontSize:12}}}/>};createRoot(document.getElementById('root')).render(<App/>);`
+window.saved={};window.statuses={};window.fetches=[];window.pending=2;
+const contexts=[{id:'team:a',type:'team',role:'coach',teamId:'team-a',clubId:'club-a',clubName:'Club A',teamName:'Team A'},{id:'team:b',type:'team',role:'coach',teamId:'team-b',clubId:'club-b',clubName:'Club B',teamName:'Team B'}];
+function App(){const[offline,setOffline]=React.useState(false);window.offline=setOffline;const user=React.useMemo(()=>({id:'coach',clubId:'club-a',activeTeamId:'team-a',coachContexts:contexts,isOfflineProfile:offline}),[offline]);useCoachOfflinePreparation({user,contexts,activeContext:contexts[0],enabled:true});return <CoachOfflineReadiness user={user} context={contexts[0]} styles={{bodyText:{fontSize:14},helperText:{fontSize:12}}}/>};createRoot(document.getElementById('root')).render(<App/>);`
 const mocks = [
-  [/BrandLoader$/, 'export const BrandLoader=()=>null;'],
-  [/coachCalendarData$/, 'export const getCoachCalendarResources=async()=>[{id:"event"}];'],
-  [/coachPlayersData$/, 'export const getCoachPlayerList=async()=>[{id:"player"}];'],
-  [/coachPhase31EData$/, 'export const getCoachDevelopmentWorkspace=async()=>({forms:[{id:"form"}]});export const getCoachInvitesAndAvailability=async()=>({matches:[],match:[]});'],
-  [/coachPhase31GData$/, 'export const getCoachPhase31GPrimaryHomeSnapshot=async()=>({matches:[]});export const getCoachPhase31GAttentionSnapshot=async()=>({errors:[]});export const mergeCoachPhase31GHomeSnapshots=(primary,attention)=>({...primary,...attention});'],
-  [/mobileResourceCache$/, 'export const readMobileResource=async(user,key,loader)=>loader();'],
-  [/matchdayPlanData$/, 'export const loadMatchdayPlanConfig=async()=>null;'],
-  [/coachMatchDayData$/, `export const syncCoachMatchDayCommand=async()=>({}); export const getCoachMatchDayList=async()=>Array.from({length:10},(_,i)=>({id:'match'+i,matchDate:'2099-10-'+String(i+1).padStart(2,'0'),status:'scheduled'}));
-    export const getCoachMatchDayDetail=async(u,id)=>{if(window.fail)throw Error('Connection interrupted');window.fetches.push(id);return{id,clubId:'club',teamId:'team'}};`],
-  [/\/offline$/, `export const getPendingCoachMatchDays=async()=>[]; export const readCoachOfflineReadiness=async()=>window.saved; export const readCoachOfflineResources=async()=>window.saved;export const readCoachMatchDayOutbox=async(u,c,id)=>window.saved.journals.find(j=>j.baseMatch.id===id);
-    export const saveCoachOfflineResources=async(u,c,r)=>{window.saved.resources={...window.saved.resources,...r}};
-    export const readCoachOverviewResources=readCoachOfflineResources;
-    export const createCoachOfflineResourceSaver=(u,c)=>r=>saveCoachOfflineResources(u,c,r);
-    export const updateCoachMatchDayOutbox=async(u,c,id,change)=>{const next=change(null);window.saved.journals=window.saved.journals.filter(j=>j.baseMatch.id!==id).concat(next);return next;};`],
+  [/coachAccountOfflineService$/, `import{prepareCoachAccountOffline}from'./apps/coach-mobile/src/coachAccountOfflinePreparation.js';
+    export const prepareCoachAccount=(user,contexts,selected,isCurrent=()=>true)=>prepareCoachAccountOffline({user,contexts,selectedContextId:selected,isCurrent,
+      createSaver:(_u,c)=>async values=>{const saved=window.saved[c.id]||={resources:{},resourceMetadata:{},journals:[]};Object.assign(saved.resources,values);for(const key of Object.keys(values))saved.resourceMetadata[key]={fingerprint:'saved:'+key};return saved},
+      saveStatus:async(_id,c,status)=>{window.statuses[c.id]=structuredClone(status)},
+      saveMatch:async(_u,c,detail)=>{window.fetches.push(c.id+':'+detail.id);(window.saved[c.id]||={resources:{},resourceMetadata:{},journals:[]}).journals.push({baseMatch:detail})},
+      prepareMedia:async(_u,c)=>{if(c.id==='team:b')throw Error('One file could not be saved.');return{bytes:1024}},
+      loadContext:async(_u,c,{onResource,onMatch,onMedia})=>{await onResource({cacheKey:'players',value:[{id:'player'}],complete:true});for(let i=0;i<(c.id==='team:a'?10:4);i++)await onMatch({id:'match-'+i});await onMedia({id:'file',kind:'file'});return{complete:true,onlineOnly:c.id==='team:b'?[{id:'link',title:'Training video'}]:[]}}})`],
+  [/\/offline$/, `export const getPendingCoachMatchDays=async()=>[];export const readCoachMatchDayOutbox=async()=>null;export const updateCoachMatchDayOutbox=async()=>{};
+    export const readCoachOfflineReadiness=async(_id,c)=>({...window.saved[c.id],resources:window.saved[c.id]?.resources||{},journals:window.saved[c.id]?.journals||[],pending:window.pending});
+    export const readCoachAccountPreparation=async()=>window.statuses;`],
+  [/coachMatchDayData$/, 'export const syncCoachMatchDayCommand=async()=>({});'],
 ]
-const result=await build({stdin:{contents:entry,resolveDir:process.cwd(),loader:'jsx'},bundle:true,write:false,jsx:'automatic',loader:{'.js':'jsx'},alias:{react:path.join(modules,'react'),'react-dom':path.join(modules,'react-dom'),'react-native':path.join(modules,'react-native-web')},define:{'process.env.NODE_ENV':'"production"',__DEV__:'false',global:'globalThis'},plugins:[{name:'synthetic-downloads',setup(b){mocks.forEach(([filter],i)=>b.onResolve({filter},()=>({path:String(i),namespace:'mock'})));b.onLoad({filter:/.*/,namespace:'mock'},args=>({contents:mocks[Number(args.path)][1],loader:'js',resolveDir:process.cwd()}));}}]})
+const result=await build({stdin:{contents:entry,resolveDir:process.cwd(),loader:'jsx'},bundle:true,write:false,jsx:'automatic',loader:{'.js':'jsx'},alias:{react:path.join(modules,'react'),'react-dom':path.join(modules,'react-dom'),'react-native':path.join(modules,'react-native-web')},define:{'process.env.NODE_ENV':'"production"',__DEV__:'false',global:'globalThis'},plugins:[{name:'synthetic-offline',setup(b){mocks.forEach(([filter],i)=>b.onResolve({filter},()=>({path:String(i),namespace:'mock'})));b.onLoad({filter:/.*/,namespace:'mock'},args=>({contents:mocks[Number(args.path)][1],loader:'js',resolveDir:process.cwd()}))}}]})
 const browser=await chromium.launch({headless:true})
 try {
-  const page=await browser.newPage({viewport:{width:320,height:800}}),errors=[]
-  page.on('pageerror',error=>errors.push(error.message))
-  await page.setContent('<meta name="viewport" content="width=device-width, initial-scale=1"><div id="root"></div>')
-  await page.addScriptTag({content:result.outputFiles[0].text})
-  assert.equal(await page.getByRole('button',{name:'Sync now'}).count(),1)
-  await page.waitForFunction(()=>window.fetches.length===8)
-  assert.equal(await page.evaluate(()=>window.saved.journals.length),8)
-  assert.deepEqual(await page.evaluate(()=>Object.keys(window.saved.resources).slice(0,2).sort()), ['home','phase31e:invites'])
-  await page.getByText(/1 Players and 8 fixtures/).waitFor()
-  await page.getByText(/2 saved changes will sync/).waitFor()
-  await page.evaluate(()=>window.offline(true))
-  assert.equal(await page.getByRole('button',{name:'Sync now'}).count(),1)
-  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true)
-  assert.deepEqual(errors,[])
-  console.log('PASS actual automatic-saving hook and status: manual sync available, eight fixtures saved without user action, retained pending changes, phone width and offline state.')
-} finally { await browser.close() }
+ const page=await browser.newPage({viewport:{width:320,height:800}}),errors=[]
+ page.on('pageerror',error=>errors.push(error.message))
+ await page.setContent('<meta name="viewport" content="width=device-width, initial-scale=1"><div id="root"></div>')
+ await page.addScriptTag({content:result.outputFiles[0].text})
+ await page.waitForFunction(()=>window.statuses['team:a']?.state==='ready'&&window.statuses['team:b']?.state==='partial',{timeout:15000})
+ assert.equal(await page.evaluate(()=>window.fetches.filter(id=>id.startsWith('team:a:')).length),10)
+ assert.equal(await page.evaluate(()=>window.fetches.filter(id=>id.startsWith('team:b:')).length),4)
+ assert.equal(await page.evaluate(()=>window.statuses['team:a'].filesSaved),1)
+ assert.equal(await page.evaluate(()=>window.statuses['team:a'].fileBytesSaved),1024)
+ assert.equal(await page.evaluate(()=>window.statuses['team:b'].filesFailed),1)
+ await page.evaluate(()=>window.offline(true))
+ await page.getByText(/1 Players and 10 fixtures saved/).waitFor()
+ await page.getByText(/2 saved changes will sync/).waitFor()
+ await page.getByText('Club A | Team A').waitFor();await page.getByText('Club B | Team B').waitFor()
+ await page.getByText('1 file still need downloading').waitFor()
+ await page.getByText('Training video: internet required').waitFor()
+ assert.equal(await page.getByRole('button',{name:'Sync and download all teams'}).count(),1)
+ assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true)
+ assert.deepEqual(errors,[])
+ console.log('PASS: actual automatic hook prepares both clubs and all fixtures; status tracks saved bytes, failed files, online-only links, pending changes and narrow layout.')
+} finally {await browser.close()}

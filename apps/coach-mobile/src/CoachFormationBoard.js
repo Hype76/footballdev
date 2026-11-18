@@ -1,3 +1,4 @@
+import { resolveCoachSavedKit } from './coachAccountOfflineService'
 import { getFormationBoardShirtKit, sortFormationBench } from '../../../src/lib/formation-board-shirt.js'
 import { loadMobileClubKits, peekMobileClubKits } from '../../mobile-core/src/mobileKitCache'
 import { FormationPitchLines, FormationPlayerArtwork, FormationSubArtwork, formationVisualStyles } from '../../mobile-core/src/FormationBoardVisuals'
@@ -46,6 +47,7 @@ import { getCoachFriendlyError } from './coachFriendlyErrors'
 import { isRetryableFormationSaveError } from './coachFormationSaveQueueCore'
 import { canEditCoachFormationBoard, getCoachFormationMarkerVisualPosition, getCoachFormationRouteScope, reconcileCoachFormationDraftAuthority } from './coachFormationEntryCore'
 import { createFormationMarkerTapRecognizer } from './formationMarkerTapCore'
+import { getCoachOfflineFormationView } from './coachOfflineFormationView'
 import { getMobileIconName } from '../../mobile-core/src/mobileIconSystem'
 
 import { CoachFormationWorkspaceContext } from './coachFormationWorkspaceContext'
@@ -284,7 +286,7 @@ class FormationPlayerMarker extends Component {
         accessibilityState={{ disabled: !canEdit, selected: Boolean(selected || removal) }}
         style={[styles.marker, this.state.dragging && styles.markerDragging, { left: `${visualPosition.x * 100}%`, top: `${visualPosition.y * 100}%` }]}
       >
-        <FormationPlayerArtwork name={player.displayName} number={player.shirtNumber} goalkeeper={goalkeeper} shirtKit={this.props.shirtKit} styles={styles}>
+        <FormationPlayerArtwork name={player.displayName} number={player.shirtNumber} goalkeeper={goalkeeper} shirtKit={this.props.shirtKit} imageUri={this.props.shirtImageUri} styles={styles}>
           {selected || removal || this.state.dragging ? <View pointerEvents="none" style={styles.markerSelection} /> : null}
         </FormationPlayerArtwork>
       </View>
@@ -338,6 +340,7 @@ export function CoachFormationBoard({ context, initialBoardId = '', match = null
   const [matchPublications, setMatchPublications] = useState([])
   const [pitchLayout, setPitchLayout] = useState({ height: 475, width: 320 })
   const [serverBoardUnavailable, setServerBoardUnavailable] = useState(false)
+  const [offlineViewing, setOfflineViewing] = useState(false)
   const [removalMode, setRemovalMode] = useState(false)
   const [removalIds, setRemovalIds] = useState([])
   const [shared, setShared] = useState(false)
@@ -410,7 +413,10 @@ export function CoachFormationBoard({ context, initialBoardId = '', match = null
     const local = nextBoard?.isLocked ? null : localEntry?.[1]
     const nextDraft = local?.draft || createMobileFormationDraft({ board: nextBoard })
     const baseBoard = reconcileCoachFormationDraftAuthority(local?.board || nextBoard, nextBoard)
-    const nextPublications = await resolvePublications(nextBoard, currentUser)
+    const offlineView = offlineViewing ? getCoachOfflineFormationView(saved?.resources, currentContext) : null
+    const nextPublications = offlineView
+      ? { matchItems: offlineView.publications.filter(item => item.board_id === nextBoard.id) }
+      : await resolvePublications(nextBoard, currentUser)
     if (request !== loadSequence.current) return
     setBoard(baseBoard)
     setDraft(nextDraft)
@@ -428,7 +434,7 @@ export function CoachFormationBoard({ context, initialBoardId = '', match = null
     setRefreshPending(false)
     setServerBoardUnavailable(false)
     setNotice(local ? 'Your unsent changes are restored. Review them before saving to the match.' : '')
-  }, [presets, resolvePublications, setDraft, setTitle])
+  }, [offlineViewing, presets, resolvePublications, setDraft, setTitle])
 
   const load = useCallback(async () => {
     const { context: currentContext, match: currentMatch, user: currentUser } = propsRef.current
@@ -447,6 +453,7 @@ export function CoachFormationBoard({ context, initialBoardId = '', match = null
     setNotice('')
     setRefreshPending(false)
     setServerBoardUnavailable(false)
+    setOfflineViewing(false)
     setBoard(null)
     setDraft(createMobileFormationDraft())
     setSavedContentKey('')
@@ -497,6 +504,7 @@ export function CoachFormationBoard({ context, initialBoardId = '', match = null
       setLoading(false)
     }
     try {
+      if (currentUser.isOfflineProfile) throw new Error('offline')
       const [nextPresets, nextBoards] = await Promise.all([
         getCoachFormationPresets(currentUser),
         getCoachFormationBoards(currentUser),
@@ -577,6 +585,25 @@ export function CoachFormationBoard({ context, initialBoardId = '', match = null
       }
     } catch (loadError) {
       if (!isCurrent()) return
+      const offlineView = isRetryableFormationSaveError(loadError)
+        ? getCoachOfflineFormationView(savedOffline?.resources, currentContext, { matchId: currentMatch?.id || '', boardId: initialBoardId }) : null
+      if (offlineView && !restored?.draft && !(cacheMatchesRoute && savedFormation?.draft)) {
+        const nextBoard = offlineView.board
+        const nextDraft = createMobileFormationDraft({ board: nextBoard })
+        setBoards(offlineView.boards)
+        setPresets(offlineView.presets)
+        setBoard(nextBoard)
+        setDraft(nextDraft)
+        setTitle(nextBoard?.title || 'Saved Formation Boards')
+        setMatchPublications(offlineView.publications.filter(item => item.board_id === nextBoard?.id))
+        setSavedContentKey(nextBoard ? formationContentKey(nextDraft, nextBoard.title) : '')
+        setOfflineViewing(true)
+        setRefreshPending(false)
+        setServerBoardUnavailable(false)
+        setNotice('Viewing saved Formation Boards. Connect to refresh or make changes.')
+        setError('')
+        return
+      }
       if (restored?.draft || (cacheMatchesRoute && savedFormation?.draft)) {
         if (loadError?.code === '42501' || loadError?.status === 403 || loadError?.statusCode === 403 || /permission denied|row.level security|not authori[sz]ed/i.test(String(loadError?.message || ''))) setServerBoardUnavailable(true)
         if (pendingSave) setNotice('Your unsent Formation Board is saved on this device. Connect when you are ready to finish saving it.')
@@ -613,9 +640,22 @@ export function CoachFormationBoard({ context, initialBoardId = '', match = null
   const linkedMatch = (match?.id === linkedMatchId ? match : null) || matches.find((candidate) => candidate.id === linkedMatchId) || null
   const availabilityMatch = linkedMatch || match || null
   const displayedShirtKit = getFormationBoardShirtKit(draft.shirtKit, clubKits, availabilityMatch?.shirtChoice)
+  const savedKitVersionId = board?.currentVersion?.id || board?.currentVersionId || ''
+  const savedKitPath = board?.currentVersion?.shirtKit?.imagePath || ''
+  const kitPath = displayedShirtKit?.imagePath === savedKitPath ? savedKitPath : ''
+  const kitScope = JSON.stringify([user?.id, context?.id, context?.authorityId, context?.authoritySource, context?.role, savedKitVersionId, kitPath])
+  const [savedKitImage, setSavedKitImage] = useState({ scope: '', uri: '' })
+  useEffect(() => {
+    let active = true
+    if (savedKitVersionId && kitPath) void resolveCoachSavedKit(user, context, savedKitVersionId, kitPath)
+      .then(uri => { if (active) setSavedKitImage({ scope: kitScope, uri }) }).catch(() => {})
+    return () => { active = false }
+  }, [user, context, savedKitVersionId, kitPath, kitScope])
+  const savedKitImageUri = savedKitImage.scope === kitScope ? savedKitImage.uri : ''
+
   const availabilityRows = availabilityMatch?.playerAvailability || []
   const activePublication = getActiveFormationPublication(matchPublications, linkedMatchId)
-  const hasEditAuthority = !stale && canEditCoachFormationBoard(user)
+  const hasEditAuthority = !offlineViewing && !stale && canEditCoachFormationBoard(user)
   const canEdit = hasEditAuthority && !refreshPending && !serverBoardUnavailable && !board?.isLocked && board?.canEdit !== false
   const capacity = getMobileFormationCapacity(draft.gameFormat)
   const availablePlayers = getMobileAvailableFormationPlayers(players, availabilityRows)
@@ -1088,6 +1128,7 @@ export function CoachFormationBoard({ context, initialBoardId = '', match = null
             canMove={canEdit && !removalMode}
             key={player.playerId}
             shirtKit={displayedShirtKit}
+            shirtImageUri={savedKitImageUri}
             layout={pitchLayout}
             onGestureEnd={onMarkerGestureEnd}
             onGestureStart={onMarkerGestureStart}
@@ -1127,7 +1168,7 @@ export function CoachFormationBoard({ context, initialBoardId = '', match = null
           <Text style={[styles.heading, fullScreen && { color: 'white', fontSize: 16, paddingHorizontal: 12 }]}>Subs ({draft.bench.length})</Text>
           <MaterialIcons color={fullScreen ? 'white' : palette.textPrimary} name={benchExpanded ? 'expand-less' : 'expand-more'} size={28} />
         </Pressable>
-        {benchExpanded ? draft.bench.length ? <ScrollView contentContainerStyle={styles.benchContent} horizontal showsHorizontalScrollIndicator={false}>{displayedBench.map((player) => { const selected = selectedPlayerId === player.playerId; return <ScrollSafePressable accessibilityHint={canEdit ? draft.placements.length >= capacity ? 'Select this substitute for a swap from the pitch.' : 'Moves this substitute into the next empty pitch position.' : 'This substitute is read-only.'} accessibilityLabel={`${player.displayName}${player.shirtNumber ? `, shirt ${player.shirtNumber}` : ''}, substitute`} accessibilityRole="button" accessibilityState={{ disabled: !canEdit, selected }} disabled={!canEdit} key={player.playerId} onPress={() => draft.placements.length < capacity ? moveBenchPlayerToPitch(player.playerId) : selectPlayer(player.playerId, 'bench')} style={[styles.benchPlayerButton, selected && styles.benchPlayerButtonSelected]}><FormationSubArtwork name={player.displayName} number={player.shirtNumber} shirtKit={displayedShirtKit} styles={styles} /></ScrollSafePressable> })}</ScrollView> : <Text style={[styles.body, fullScreen && styles.canvasText]}>No substitutes selected.</Text> : null}
+        {benchExpanded ? draft.bench.length ? <ScrollView contentContainerStyle={styles.benchContent} horizontal showsHorizontalScrollIndicator={false}>{displayedBench.map((player) => { const selected = selectedPlayerId === player.playerId; return <ScrollSafePressable accessibilityHint={canEdit ? draft.placements.length >= capacity ? 'Select this substitute for a swap from the pitch.' : 'Moves this substitute into the next empty pitch position.' : 'This substitute is read-only.'} accessibilityLabel={`${player.displayName}${player.shirtNumber ? `, shirt ${player.shirtNumber}` : ''}, substitute`} accessibilityRole="button" accessibilityState={{ disabled: !canEdit, selected }} disabled={!canEdit} key={player.playerId} onPress={() => draft.placements.length < capacity ? moveBenchPlayerToPitch(player.playerId) : selectPlayer(player.playerId, 'bench')} style={[styles.benchPlayerButton, selected && styles.benchPlayerButtonSelected]}><FormationSubArtwork name={player.displayName} number={player.shirtNumber} shirtKit={displayedShirtKit} imageUri={savedKitImageUri} styles={styles} /></ScrollSafePressable> })}</ScrollView> : <Text style={[styles.body, fullScreen && styles.canvasText]}>No substitutes selected.</Text> : null}
         {benchExpanded && selectedBenchPlayer ? <Text accessibilityLiveRegion="polite" style={[styles.body, fullScreen && styles.canvasText]}>{selectedBenchPlayer.displayName} selected. Tap a starter to swap.</Text> : null}
       </View>
 
@@ -1144,7 +1185,7 @@ export function CoachFormationBoard({ context, initialBoardId = '', match = null
 
       <ScrollView style={fullScreen ? styles.canvasAlert : null}>
       {refreshPending || (stale && refreshingTeam) ? <View accessibilityLiveRegion="polite" style={styles.warning}><Text style={styles.label}>Refreshing Formation Board</Text><Text style={styles.body}>Your saved board is shown while the latest information loads. Editing and saving are temporarily unavailable.</Text></View> : null}
-      {!hasEditAuthority && !(stale && refreshingTeam) ? <View style={styles.warning}><Text style={styles.label}>Viewing only</Text><Text style={styles.body}>{stale ? 'Refresh the Team data before editing, saving or sharing this Formation Board.' : 'Coach or manager plan access is required to edit, save or share this Formation Board.'}</Text></View> : null}
+      {!hasEditAuthority && !(stale && refreshingTeam) ? <View style={styles.warning}><Text style={styles.label}>Viewing only</Text><Text style={styles.body}>{offlineViewing ? 'Viewing saved Formation Boards. Connect to refresh or make changes.' : stale ? 'Refresh the Team data before editing, saving or sharing this Formation Board.' : 'Coach or manager plan access is required to edit, save or share this Formation Board.'}</Text></View> : null}
       {hasEditAuthority && !refreshPending && board?.isLocked ? <View style={styles.warning}><Text style={styles.label}>Saved lineup</Text><Text style={styles.body}>This saved board is a snapshot. Open Options and choose New board to create another lineup.</Text></View> : null}
       {localState === 'failed' ? <Text accessibilityRole="alert" style={styles.body}>Changes could not be protected on this device. Keep this screen open and save to the match when connected.</Text> : null}
       {serverBoardUnavailable ? <View style={styles.warning}><Text style={styles.heading}>Board unavailable</Text><Text style={styles.body}>The saved board is no longer available to this account. Cached content cannot be edited or sent.</Text></View> : null}

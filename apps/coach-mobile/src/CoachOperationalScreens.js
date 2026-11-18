@@ -1,4 +1,6 @@
 import { MobileSwitch as Switch } from '../../mobile-core/src/MobileSwitch.js'
+import { openCoachResource } from '../../mobile-core/src/coachResourceOpenCore.js'
+import { openCoachSavedResource } from './coachAccountOfflineService'
 import { CoachCalendarSync } from './CoachCalendarSync'
 import { openVenueDirections } from '../../mobile-core/src/venueDirections'
 import { canEditCoachFixture, canRemoveCoachCancelledFixture } from '../../mobile-core/src/coachFixtureEditCore'
@@ -283,6 +285,39 @@ function operationalAccessDenied(error) {
   return error?.code === '42501' || error?.status === 403 || error?.statusCode === 403 || /permission denied|row.level security|not authori[sz]ed/i.test(String(error?.message || ''))
 }
 
+async function loadCoachOfflineDetail({ user, context, resourceKey, load, validate, isCurrent, allowOffline = true, onCurrent, onOffline, onDenied, onSaveError }) {
+  const generation = user.getCoachAuthorityGeneration?.()
+  const current = () => isCurrent() && generation === user.getCoachAuthorityGeneration?.()
+  const saveSnapshot = createCoachOfflineResourceSaver(user, context, { isCurrent: current })
+  const cached = allowOffline ? readCoachOfflineResources(user.id, context).catch(() => null) : Promise.resolve(null)
+  const network = user.isOfflineProfile
+    ? Promise.resolve({ error: new Error('Network request failed. Showing saved details where available.') })
+    : Promise.resolve().then(load).then(value => ({ value }), error => ({ error }))
+  let usedOffline = false
+  const applyOffline = cache => {
+    const value = cache?.resources?.[resourceKey]
+    if (!current() || !allowOffline || !validate(value)) return
+    usedOffline = true
+    onOffline(value)
+  }
+  const first = await Promise.race([network.then(result => ({ result })), cached.then(cache => ({ cache }))])
+  if ('cache' in first) applyOffline(first.cache)
+  const result = first.result || await network
+  if (!current()) return
+  if (result.error) {
+    if (operationalAccessDenied(result.error) || Number(result.error.status || result.error.statusCode) === 401) {
+      onDenied()
+      invalidateMobileResource(user, resourceKey.startsWith('playerDetail:') ? 'coach:player-detail:' + resourceKey.slice('playerDetail:'.length) : 'coach:session-detail:' + resourceKey.slice('sessionDetail:'.length))
+      await saveSnapshot({ [resourceKey]: null }).catch(error => { if (current()) onSaveError(error, true) })
+    } else if (!usedOffline) applyOffline(await cached)
+    if (current()) throw result.error
+    return
+  }
+  if (!validate(result.value)) throw new Error('The selected details could not be verified. Refresh and try again.')
+  onCurrent(result.value)
+  await saveSnapshot({ [resourceKey]: result.value }).catch(error => { if (current()) onSaveError(error, false) })
+}
+
 function formatResourceCategory(value) {
   return String(value || 'general').trim().replaceAll('_', ' ').replaceAll('-', ' ').replace(/\b\w/g, (letter) => letter.toUpperCase())
 }
@@ -298,6 +333,8 @@ function CoachCalendarScoped({ calendarTarget, context, contexts, onNavigate, on
   const [resourceCategory, setResourceCategory] = useState('all')
   const [resourceError, setResourceError] = useState('')
   const resourceRequest = useRef(0)
+  const resourceOpenScope = useRef(true)
+  useLayoutEffect(() => { resourceOpenScope.current = true; return () => { resourceOpenScope.current = false } }, [])
   const [attachmentCategory, setAttachmentCategory] = useState('all')
   const [attachmentPickerOpen, setAttachmentPickerOpen] = useState(false)
   const [events, setEvents] = useState([])
@@ -630,12 +667,13 @@ function CoachCalendarScoped({ calendarTarget, context, contexts, onNavigate, on
     }
   }
   const openEventResource = async (resource) => {
+    const generation = user.getCoachAuthorityGeneration?.()
+    const isCurrent = () => resourceOpenScope.current && generation === user.getCoachAuthorityGeneration?.()
     try {
-      const accessUrl = await getCoachResourceAccessUrl(user, resource)
-      if (!await Linking.canOpenURL(accessUrl)) throw new Error('This Resource link is not supported on this device.')
-      await Linking.openURL(accessUrl)
+      await openCoachResource({ user, context, resource, openSaved: openCoachSavedResource,
+        getAccessUrl: getCoachResourceAccessUrl, linking: Linking, isCurrent })
     } catch (resourceError) {
-      setError(message(resourceError, 'This Resource could not be opened.'))
+      if (isCurrent()) setError(message(resourceError, 'This Resource could not be opened.'))
     }
   }
   const canAddEventResource = (event) => !stale && !user.isOfflineProfile
@@ -951,6 +989,8 @@ function CoachPlayersScoped({ context, onNavigate, onQuickActionHandled, onReque
   const playerRequest = useRef(0)
   useEffect(() => () => { playerRequest.current += 1 }, [user])
   const [detail, setDetail] = useState(null)
+  const [detailStale, setDetailStale] = useState(false)
+  const deniedDetails = useRef(new Set())
   const [developmentOpen, setDevelopmentOpen] = useState(false)
   const [openedEvaluation, setOpenedEvaluation] = useState(null)
   const [evaluationDetailScope, setEvaluationDetailScope] = useState(null)
@@ -975,7 +1015,7 @@ function CoachPlayersScoped({ context, onNavigate, onQuickActionHandled, onReque
   const [adultStatusRefresh, setAdultStatusRefresh] = useState(0)
   const [revokeTarget, setRevokeTarget] = useState(null)
   const playerPolicy = getCoachPlayerMutationPolicy({ context, player: detail?.player })
-  const policy = stale ? { ...playerPolicy, canCreate: false, canEdit: false } : playerPolicy
+  const policy = stale || detailStale ? { ...playerPolicy, canCreate: false, canEdit: false } : playerPolicy
   const adultPlayerId = detail?.player?.id
   const adultContactType = detail?.player?.contactType
   useEffect(() => {
@@ -1054,6 +1094,7 @@ function CoachPlayersScoped({ context, onNavigate, onQuickActionHandled, onReque
     onRequestScrollTop?.()
     setError('')
     setDetail(null)
+    setDetailStale(false)
     setDevelopmentOpen(false)
     setOpenedEvaluation(null)
     setEvaluationDetailScope(null)
@@ -1062,12 +1103,17 @@ function CoachPlayersScoped({ context, onNavigate, onQuickActionHandled, onReque
     setInviteResults({})
     setRevokeTarget(null)
     try {
-      const next = await readMobileResource(user, `coach:player-detail:${player.id}`, () => getCoachPlayerDetail(user, player.id), { force })
-      if (request === playerRequest.current) {
-        if (next?.player?.id !== player.id) throw new Error('The selected player could not be loaded. Please try again.')
-        setDetail(next)
-        setEvaluationDetailScope(requestScope)
-      }
+      const resourceKey = `playerDetail:${player.id}`
+      await loadCoachOfflineDetail({ user, context, resourceKey,
+        load: () => readMobileResource(user, `coach:player-detail:${player.id}`, () => withMobileAsyncTimeout(() => getCoachPlayerDetail(user, player.id)), { force }),
+        validate: value => value?.player?.id === player.id && value.player.clubId === user.clubId && value.player.teamId === user.activeTeamId,
+        isCurrent: () => request === playerRequest.current,
+        allowOffline: !deniedDetails.current.has(resourceKey),
+        onCurrent: value => { deniedDetails.current.delete(resourceKey); setDetail(value); setDetailStale(false); setEvaluationDetailScope(requestScope) },
+        onOffline: value => { setDetail(value); setDetailStale(true); setEvaluationDetailScope(requestScope) },
+        onDenied: () => { deniedDetails.current.add(resourceKey); setDetail(null); setDetailStale(true); setEvaluationDetailScope(null) },
+        onSaveError: (_error, clearing) => setCacheWarning(clearing ? 'Access changed, but saved Player details could not be cleared on this phone.' : 'Player details are up to date, but this phone could not save an offline copy.'),
+      })
     } catch (detailError) {
       if (request === playerRequest.current) setError(message(detailError, 'Player details could not be loaded.'))
     } finally {
@@ -1090,7 +1136,7 @@ function CoachPlayersScoped({ context, onNavigate, onQuickActionHandled, onReque
     onRequestScrollTop?.()
   }
   const save = async () => {
-    if (saveRequest.current || !form || stale) return
+    if (saveRequest.current || !form || stale || detailStale) return
     saveRequest.current = true
     const request = playerRequest.current
     setSaving(true); setError('')
@@ -1172,7 +1218,7 @@ function CoachPlayersScoped({ context, onNavigate, onQuickActionHandled, onReque
       {focusedPlayer && !form ? <Pressable accessibilityLabel="Back to Players" accessibilityRole="button" onPress={closePlayer} style={[styles.profileAction, { alignSelf: 'flex-start' }]}><MaterialIcons color={palette.accentText} name="arrow-back" size={20} /><Text style={styles.profileActionText}>Players</Text></Pressable> : null}
       {form ? <Button disabled={saving} label={detail ? 'Back to player profile' : 'Back to Players'} onPress={cancelForm} secondary styles={styles} /> : null}
       <DomainHeader copy={focusedPlayer ? "Player information, contacts and development history." : "Your squad and trial players."} styles={styles} title={focusedPlayer ? "Player profile" : "Players"} />
-      <DomainState error={error} loading={!focusedPlayer && loading} onRetry={focusedPlayer ? () => openPlayer(focusedPlayer) : load} stale={stale} styles={styles} />
+      <DomainState error={error} loading={!focusedPlayer && loading} onRetry={focusedPlayer ? () => openPlayer(focusedPlayer) : load} stale={stale || detailStale} styles={styles} />
       {cacheWarning ? <Text style={styles.warningText}>{cacheWarning}</Text> : null}
       {!focusedPlayer && !form ? <>
       <Field label="Search Players" onChangeText={setQuery} styles={styles} value={query} />
@@ -1360,6 +1406,8 @@ function CoachSessionsScoped({ context, onNavigate, onQuickActionHandled, palett
   const [sessions, setSessions] = useState([])
   const [players, setPlayers] = useState([])
   const [detail, setDetail] = useState(null)
+  const [detailStale, setDetailStale] = useState(false)
+  const deniedDetails = useRef(new Set())
   const [error, setError] = useState('')
   const [cacheWarning, setCacheWarning] = useState('')
   const [filter, setFilter] = useState('upcoming')
@@ -1378,7 +1426,7 @@ function CoachSessionsScoped({ context, onNavigate, onQuickActionHandled, palett
   const sessionDataRef = useRef({ players, trainingEvents, trainingLocations })
   sessionDataRef.current = { players, trainingEvents, trainingLocations }
   const sessionPolicy = getCoachSessionMutationPolicy({ context, session: detail?.session })
-  const policy = stale ? { ...sessionPolicy, canCreate: false, canEdit: false, canComplete: false, canAddPlayers: false, canUpdatePlayerNotes: false } : sessionPolicy
+  const policy = stale || detailStale ? { ...sessionPolicy, canCreate: false, canEdit: false, canComplete: false, canAddPlayers: false, canUpdatePlayerNotes: false } : sessionPolicy
   const createTrainingForm = useCallback(() => ({
     ...coachCalendarFormFromEvent(null, context),
     eventType: 'training',
@@ -1466,19 +1514,31 @@ function CoachSessionsScoped({ context, onNavigate, onQuickActionHandled, palett
   const visible = filterCoachSessions(sessions, filter)
   const openSession = async (session) => {
     const request = ++sessionDetailSequence.current
-    setError('')
-    try { const result = await getCoachSessionDetail(user, session.id); if (request === sessionDetailSequence.current) setDetail(result) }
-    catch (detailError) { if (request === sessionDetailSequence.current) setError(message(detailError, 'Session details could not be loaded.')) }
+    const resourceKey = `sessionDetail:${session.id}`
+    setError(''); setDetail(null); setDetailStale(false)
+    try {
+      await loadCoachOfflineDetail({ user, context, resourceKey,
+        load: () => readMobileResource(user, `coach:session-detail:${session.id}`, () => withMobileAsyncTimeout(() => getCoachSessionDetail(user, session.id)), { force: true }),
+        validate: value => value?.session?.id === session.id && value.session.teamId === user.activeTeamId,
+        isCurrent: () => request === sessionDetailSequence.current,
+        allowOffline: !deniedDetails.current.has(resourceKey),
+        onCurrent: value => { deniedDetails.current.delete(resourceKey); setDetail(value); setDetailStale(false) },
+        onOffline: value => { setDetail(value); setDetailStale(true) },
+        onDenied: () => { deniedDetails.current.add(resourceKey); setDetail(null); setDetailStale(true) },
+        onSaveError: (_error, clearing) => setCacheWarning(clearing ? 'Access changed, but saved Session details could not be cleared on this phone.' : 'Session details are up to date, but this phone could not save an offline copy.'),
+      })
+    } catch (detailError) { if (request === sessionDetailSequence.current) setError(message(detailError, 'Session details could not be loaded.')) }
   }
+
   const save = async () => {
-    if (stale) return
+    if (stale || detailStale) return
     setSaving(true); setError('')
     try { await saveCoachSession(user, form, detail?.session || null); setForm(null); setDetail(null); await load() }
     catch (saveError) { setError(message(saveError, 'Session could not be saved.')) }
     finally { setSaving(false) }
   }
   const saveTraining = async () => {
-    if (stale) return
+    if (stale || detailStale) return
     Keyboard.dismiss()
     setSaving(true); setError(''); setTrainingNotice('')
     try {
@@ -1492,30 +1552,42 @@ function CoachSessionsScoped({ context, onNavigate, onQuickActionHandled, palett
     finally { setSaving(false) }
   }
   const complete = async () => {
-    if (stale) return
+    if (stale || detailStale) return
     setSaving(true); setError('')
     try { await completeCoachSession(user, detail.session); setDetail(null); await load() }
     catch (completeError) { setError(message(completeError, 'Session could not be completed.')) }
     finally { setSaving(false) }
   }
   const addPlayer = async (player) => {
-    if (stale) return
+    if (stale || detailStale) return
     setSaving(true); setError('')
-    try { await addCoachSessionPlayers(user, detail.session, [player]); setDetail(await getCoachSessionDetail(user, detail.session.id)) }
+    const request = sessionDetailSequence.current
+    const generation = user.getCoachAuthorityGeneration?.()
+    try {
+      await addCoachSessionPlayers(user, detail.session, [player])
+      if (request !== sessionDetailSequence.current || generation !== user.getCoachAuthorityGeneration?.()) return
+      await openSession(detail.session)
+    }
     catch (addError) { setError(message(addError, 'Player could not be added to this Session.')) }
     finally { setSaving(false) }
   }
   const saveNotes = async (sessionPlayer, notes) => {
-    if (stale) return
+    if (stale || detailStale) return
     setSaving(true); setError('')
-    try { await updateCoachSessionPlayerNotes(user, detail.session, sessionPlayer.id, notes); setDetail(await getCoachSessionDetail(user, detail.session.id)) }
+    const request = sessionDetailSequence.current
+    const generation = user.getCoachAuthorityGeneration?.()
+    try {
+      await updateCoachSessionPlayerNotes(user, detail.session, sessionPlayer.id, notes)
+      if (request !== sessionDetailSequence.current || generation !== user.getCoachAuthorityGeneration?.()) return
+      await openSession(detail.session)
+    }
     catch (notesError) { setError(message(notesError, 'Player notes could not be saved.')) }
     finally { setSaving(false) }
   }
   return (
     <View style={styles.stack}>
       <DomainHeader copy="Training, attendance and player assessments." styles={styles} title="Sessions" />
-      <DomainState error={error} loading={loading} onRetry={load} stale={stale} styles={styles} />
+      <DomainState error={error} loading={loading} onRetry={load} stale={stale || detailStale} styles={styles} />
       {cacheWarning && !error ? <View accessibilityLiveRegion="polite" style={styles.profileSection}><View style={styles.row}><MaterialIcons name="cloud-off" size={20} color={palette.warning} /><Text style={[styles.body, { flex: 1 }]}>{cacheWarning}</Text></View><Pressable accessibilityRole="button" accessibilityState={{ disabled: loading }} disabled={loading} onPress={() => load()} style={styles.profileAction}><MaterialIcons name="refresh" size={20} color={palette.accentText} /><Text style={styles.profileActionText}>Try saving offline again</Text></Pressable></View> : null}
       {trainingNotice ? <View style={styles.profileSection}><Text style={styles.cardTitle}>{trainingNotice}</Text></View> : null}
       {policy.canCreate && !trainingForm && !form ? <Pressable accessibilityRole="button" accessibilityLabel="Create training session" onPress={() => { setDetail(null); setTrainingForm(createTrainingForm()) }} style={[styles.profileAction, { alignSelf: 'flex-start' }]}><MaterialIcons name="add" size={23} color={palette.accentText} /><Text style={styles.profileActionText}>Create training session</Text></Pressable> : null}
@@ -1572,7 +1644,7 @@ function CoachSessionsScoped({ context, onNavigate, onQuickActionHandled, palett
           {policy.canEdit ? <Button label="Edit Session" onPress={() => setForm(coachSessionFormFromSession(detail.session))} styles={styles} /> : null}
           {policy.canComplete ? <Button disabled={saving} label="Complete Session" onPress={complete} styles={styles} /> : null}
           <View style={styles.filterRow}><Button label="Open Players" onPress={() => onNavigate('players')} secondary styles={styles} /><Button label="Open Development" onPress={() => onNavigate('development')} secondary styles={styles} /></View>
-          <Button label="Close" onPress={() => setDetail(null)} secondary styles={styles} />
+          <Button label="Close" onPress={() => { sessionDetailSequence.current += 1; setDetail(null); setDetailStale(false) }} secondary styles={styles} />
           <Text style={styles.meta}>The authoritative model records inclusion and notes. It does not define separate present, absent, or late attendance states.</Text>
         </View>
       ) : null}

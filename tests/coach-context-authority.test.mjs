@@ -130,20 +130,34 @@ for (const name of ['useCoachDevelopmentSync', 'useCoachMatchDayBackgroundSync']
 
 test('actual offline preparation waits for activation and fences an older preparation generation', async () => {
  const source = readFileSync('apps/coach-mobile/src/useCoachOfflinePreparation.js', 'utf8')
- const start = source.indexOf('async isCurrent => {'), end = source.indexOf('\n      },', start)
+ const start = source.indexOf('async runnerIsCurrent => {'), end = source.indexOf('\n      },', start)
+ assert.ok(start>=0 && end>start,'The actual account preparation runner is present')
  const activation = deferred(), started = deferred(), work = deferred()
- let generation = 1, writes = 0
+ let generation = 1, writes = 0, preparations = 0
+ const linkedContexts=[context,{...context,id:'linked-team',clubId:'linked-club',teamId:'linked-team'}]
  const dependencies = {
   user: { ...user, clubId: context.clubId, waitForCoachAuthority: () => activation.promise, getCoachAuthorityGeneration: () => generation },
-  InteractionManager: { runAfterInteractions: resolve => resolve() }, availableContexts: [context], isMatchdayPlan: () => false,
-  activeContextId: { current: context.id }, refreshHomeRef: { current: null }, activeInvitesRef: { current: false },
-  applyCoachContext: value => value, overviewDependencies: {}, dependencies: {},
-  prepareCoachTeamOverview: async ({ isCurrent }) => { started.resolve(); await work.promise; if (isCurrent()) writes++ }, prepareCoachOfflineData: async () => {},
+  InteractionManager: { runAfterInteractions: resolve => resolve() }, availableContexts: linkedContexts,
+  selectedId: { current: context.id }, refreshHomeRef: { current: null },
+  prepareCoachAccount: async (profile,contexts,selectedId,isCurrent) => {
+   preparations++
+   assert.equal(profile,dependencies.user)
+   assert.equal(profile.clubId,context.clubId,'Server-selected club remains unchanged')
+   assert.deepEqual(contexts,linkedContexts,'Every own linked context reaches the account preparer')
+   assert.equal(selectedId,context.id)
+   started.resolve(); await work.promise
+   if (isCurrent()) writes++
+   return {cancelled:!isCurrent(),retryNeeded:false}
+  },
  }
  const run = new Function(...Object.keys(dependencies), 'return (' + source.slice(start, end + 8) + ')')(...Object.values(dependencies))
  const pending = run(() => true)
- await Promise.resolve(); assert.equal(writes, 0)
+ await Promise.resolve(); assert.equal(writes, 0); assert.equal(preparations,0)
  activation.resolve(); await started.promise
  generation++; work.resolve(); await pending
  assert.equal(writes, 0)
+ assert.equal(dependencies.user.clubId,context.clubId)
+ await run(()=>true)
+ assert.equal(preparations,2)
+ assert.equal(writes,1,'The current generation may save after the activation barrier')
 })

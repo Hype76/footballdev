@@ -2,6 +2,17 @@ import { normalizeFormationBoardShirtKit } from '../../../src/lib/formation-boar
 export const normalize = (value) => String(value ?? '').trim()
 export const array = (value) => Array.isArray(value) ? value : []
 
+export function normalizeCoachFormationPreset(row) {
+  return {
+    displayName: normalize(row.display_name ?? row.displayName),
+    gameFormat: normalize(row.game_format ?? row.gameFormat),
+    key: normalize(row.preset_key ?? row.key),
+    playerCount: Number(row.player_count ?? row.playerCount ?? 0),
+    registryVersion: Number(row.registry_version ?? row.registryVersion ?? 1),
+    slots: array(row.slots),
+  }
+}
+
 function normalizeVersion(row) {
   if (!row) return null
   const roster = array(row.bench)

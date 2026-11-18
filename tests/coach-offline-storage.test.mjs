@@ -7,7 +7,7 @@ import { pathToFileURL } from 'node:url'
 import { resolveCoachStaffContext } from '../apps/mobile-core/src/coachContextCore.js'
 import { resolveCoachBranding } from '../apps/coach-mobile/src/coachThemeCore.js'
 const mocks = {
-  'expo': `const key=p=>'file:'+p.split('/').pop().replace(/\.json(?=\.pending$|$)/,'');export const requireOptionalNativeModule=()=>({documentDirectory:'file:///documents/',getInfoAsync:async p=>({exists:globalThis.offlineCiphertext.has(key(p))}),makeDirectoryAsync:async()=>{},readAsStringAsync:async p=>globalThis.offlineCiphertext.get(key(p)),writeAsStringAsync:async(p,v)=>{if(globalThis.offlineNativeFailure==='data-write')throw Error('Device storage unavailable');globalThis.offlineCiphertext.set(key(p),v)},deleteAsync:async p=>{globalThis.offlineCiphertext.delete(key(p))},moveAsync:async({from,to})=>{const v=globalThis.offlineCiphertext.get(key(from));globalThis.offlineCiphertext.delete(key(from));globalThis.offlineCiphertext.set(key(to),v)}})`,
+  'expo': "const key=p=>'file:'+p.split('/').pop().replace(/\\.json(?=\\.pending$|$)/,'');\nconst nativePaths=new Map(),directories=new Set();const directoryKey=p=>p.replace(/\\/+$/,'');\nexport const requireOptionalNativeModule=()=>({documentDirectory:'file:///documents/',\n getInfoAsync:async p=>directories.has(directoryKey(p))?{exists:true,isDirectory:true,size:0}:{exists:globalThis.offlineCiphertext.has(key(p)),isDirectory:false,size:globalThis.offlineCiphertext.has(key(p))?new TextEncoder().encode(globalThis.offlineCiphertext.get(key(p))).byteLength:undefined},\n readDirectoryAsync:async p=>[...nativePaths.keys()].filter(path=>path.startsWith(directoryKey(p)+'/')&&globalThis.offlineCiphertext.has(key(path))).map(path=>path.slice(directoryKey(p).length+1)),\n makeDirectoryAsync:async p=>{directories.add(directoryKey(p))},readAsStringAsync:async p=>globalThis.offlineCiphertext.get(key(p)),\n writeAsStringAsync:async(p,v)=>{if(globalThis.offlineNativeFailure==='data-write')throw Error('Device storage unavailable');nativePaths.set(p,key(p));globalThis.offlineCiphertext.set(key(p),v)},\n deleteAsync:async p=>{nativePaths.delete(p);globalThis.offlineCiphertext.delete(key(p))},\n moveAsync:async({from,to})=>{const v=globalThis.offlineCiphertext.get(key(from));if(v===undefined)throw Error('Missing native file');nativePaths.delete(from);nativePaths.set(to,key(to));globalThis.offlineCiphertext.delete(key(from));globalThis.offlineCiphertext.set(key(to),v)}\n})",
   '@react-native-async-storage/async-storage': `globalThis.offlineCiphertext=new Map();export default {getAllKeys:async()=>[...globalThis.offlineCiphertext.keys()],getItem:async k=>globalThis.offlineCiphertext.get(k)||null,setItem:async(k,v)=>{if(globalThis.offlineNativeFailure==='data-write')throw new Error('Device storage unavailable');globalThis.offlineCiphertext.set(k,v)},removeItem:async k=>{globalThis.offlineCiphertext.delete(k)}}`,
   'expo-secure-store': `globalThis.offlineKeys=new Map();const keys=globalThis.offlineKeys;export const AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY='device';export const getItemAsync=async k=>keys.get(k)||null;export const setItemAsync=async(k,v)=>{if(globalThis.offlineNativeFailure==='key-write')throw new Error('SecureStore unavailable');keys.set(k,v)};export const deleteItemAsync=async k=>{keys.delete(k)};`,
   'expo-crypto': `import {randomBytes as random,randomUUID as uuid,createHash} from 'node:crypto';export const CryptoDigestAlgorithm={SHA256:'SHA-256'};export const digestStringAsync=async(_,v)=>createHash('sha256').update(v).digest('hex');export const getRandomBytesAsync=async n=>new Uint8Array(random(n));export const randomUUID=uuid;`,
@@ -57,14 +57,16 @@ test('saved Coach profiles retain authorised team branding for the header across
   await storage.clearCoachOfflineState()
 })
 
-test('actual encrypted adapter retains eight fixtures and Development work with account and authority isolation',async()=>{
+test('actual encrypted adapter retains every fixture and Development work with account and authority isolation',async()=>{
   const context={id:'context',authorityId:'authority',authoritySource:'team_staff',clubId:'club',teamId:'team',role:'coach'}
   await storage.coachOfflineProfileStore.read('coach')
   await storage.coachOfflineProfileStore.write({id:'coach',coachContexts:[context]})
   await storage.saveCoachOfflineResources('coach',context,{players:[{id:'player',playerName:'Private Player'}],'phase31e:development':{players:[{id:'player'}],forms:[{id:'form'}]}})
-  for(let i=0;i<8;i++) await storage.updateCoachMatchDayOutbox('coach',context,'match'+i,()=>({baseMatch:{id:'match'+i,clubId:'club',teamId:'team',updatedAt:new Date().toISOString()},pending:[],verifiedAt:new Date(Date.now()+i).toISOString()}))
+  for(let i=0;i<17;i++) await storage.updateCoachMatchDayOutbox('coach',context,'match'+i,()=>({baseMatch:{id:'match'+i,clubId:'club',teamId:'team',updatedAt:new Date().toISOString()},pending:[],verifiedAt:new Date(Date.now()+i).toISOString()}))
   const ready=await storage.readCoachOfflineReadiness('coach',context)
-  assert.equal(ready.journals.length,8)
+  assert.equal(ready.journals.length,17)
+  assert.equal((await storage.readCoachMatchDayOutbox('coach',context,'match0')).baseMatch.id,'match0')
+  assert.equal((await storage.readCoachMatchDayOutbox('coach',context,'match16')).baseMatch.id,'match16')
   assert.equal(ready.resources.players[0].playerName,'Private Player')
   await storage.saveLocalCoachDevelopmentDraft('coach',context,{playerId:'player',formId:'form',values:{score:4},notes:'Private assessment'})
   const reopened=await storage.readCoachDevelopmentDrafts('coach',context)
@@ -99,6 +101,28 @@ test('unchanged assessment save preserves synced status and avoids any encrypted
 })
 
 const liveProfile = { id: 'recovery-coach', coachContexts: [recoveryContext] }
+
+test('bulk prepared fixtures save every older base in one account update while preserving pending edits',async()=>{
+ await freshRecoveryAccount()
+ await storage.coachOfflineProfileStore.write(liveProfile)
+ const matches=Array.from({length:21},(_,index)=>({id:'prepared-'+index,clubId:recoveryContext.clubId,teamId:recoveryContext.teamId,homeScore:2}))
+ await storage.updateCoachMatchDayOutbox(liveProfile.id,recoveryContext,matches[0].id,()=>({baseMatch:{...matches[0],homeScore:0},pending:[{id:'unsent-goal',operation:'goal'}]}))
+ const pending=await storage.readCoachMatchDayOutbox(liveProfile.id,recoveryContext,matches[0].id)
+ const update=storage.testEncryptedStore.update
+ let updates=0
+ storage.testEncryptedStore.update=(...args)=>{updates++;return update(...args)}
+ try { await storage.saveCoachPreparedMatchDays(liveProfile.id,recoveryContext,matches) }
+ finally { storage.testEncryptedStore.update=update }
+ assert.equal(updates,1)
+ assert.equal((await storage.readCoachOfflineReadiness(liveProfile.id,recoveryContext)).journals.length,21)
+ assert.deepEqual(await storage.readCoachMatchDayOutbox(liveProfile.id,recoveryContext,matches[0].id),pending)
+ for(const index of [1,9,20]) assert.deepEqual((await storage.readCoachMatchDayOutbox(liveProfile.id,recoveryContext,matches[index].id)).baseMatch,matches[index])
+ const before=[...globalThis.offlineCiphertext.entries()]
+ await storage.saveCoachPreparedMatchDays(liveProfile.id,recoveryContext,[{...matches[1],homeScore:99}],()=>false)
+ assert.deepEqual([...globalThis.offlineCiphertext.entries()],before)
+ await assert.rejects(storage.saveCoachPreparedMatchDays(liveProfile.id,recoveryContext,[{...matches[1],homeScore:99},{...matches[2],clubId:'foreign'}]),/does not match this workspace/)
+ assert.deepEqual([...globalThis.offlineCiphertext.entries()],before)
+})
 const sessionResources = {
   sessions: Array.from({ length: 3 }, (_, id) => ({ id: `session-${id}`, title: 'Passing practice', notes: 'Caf\u00e9 \ud83c\udfc6' })),
   sessionPlayers: Array.from({ length: 23 }, (_, id) => ({ id: `player-${id}`, notes: 'Synthetic detail '.repeat(50) })),
@@ -275,4 +299,22 @@ test('encrypted Sessions cache retains older reads below 500 MB without losing u
   assert.deepEqual(await storage.readCoachDevelopmentDrafts(liveProfile.id, recoveryContext), drafts)
   assert.ok(![...globalThis.offlineCiphertext.values()].join('').includes('Unsynced recovery work'))
   assert.equal((await storage.inspectCoachOfflineState(liveProfile.id)).status, 'ready')
+})
+
+test('real encrypted record writes reject a combined media budget overflow without changing pending work', async () => {
+  await freshRecoveryAccount()
+  await storage.coachOfflineProfileStore.write(liveProfile)
+  await storage.updateCoachMatchDayOutbox(liveProfile.id, recoveryContext, 'protected-match', () => ({ baseMatch:{id:'protected-match',clubId:recoveryContext.clubId,teamId:recoveryContext.teamId}, pending:[{id:'unsent-goal'}] }))
+  await storage.saveLocalCoachDevelopmentDraft(liveProfile.id,recoveryContext,{playerId:'protected-player',formId:'form',values:{score:7},notes:'Keep this draft'})
+  const outbox=await storage.readCoachMatchDayOutbox(liveProfile.id,recoveryContext,'protected-match')
+  const drafts=await storage.readCoachDevelopmentDrafts(liveProfile.id,recoveryContext)
+  const before=[...globalThis.offlineCiphertext.entries()]
+  storage.registerCoachOfflineMediaHooks({measureBytes:async()=>500_000_000,clearAccount:async()=>{},verifyInventory:async()=>false})
+  try {
+    await assert.rejects(storage.saveCoachOfflineResources(liveProfile.id,recoveryContext,{players:[{id:'fresh-player'}]}),/not enough offline storage/)
+    await assert.rejects(storage.updateCoachMatchDayOutbox(liveProfile.id,recoveryContext,'protected-match', previous=>({...previous,pending:[...previous.pending,{id:'not-saved'}]})),/not enough offline storage/)
+    assert.deepEqual([...globalThis.offlineCiphertext.entries()],before)
+    assert.deepEqual(await storage.readCoachMatchDayOutbox(liveProfile.id,recoveryContext,'protected-match'),outbox)
+    assert.deepEqual(await storage.readCoachDevelopmentDrafts(liveProfile.id,recoveryContext),drafts)
+  } finally { storage.registerCoachOfflineMediaHooks({measureBytes:async()=>0,clearAccount:async()=>{},verifyInventory:async()=>false}) }
 })
