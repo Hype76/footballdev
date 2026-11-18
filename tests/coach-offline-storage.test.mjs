@@ -57,14 +57,16 @@ test('saved Coach profiles retain authorised team branding for the header across
   await storage.clearCoachOfflineState()
 })
 
-test('actual encrypted adapter retains eight fixtures and Development work with account and authority isolation',async()=>{
+test('actual encrypted adapter retains every fixture and Development work with account and authority isolation',async()=>{
   const context={id:'context',authorityId:'authority',authoritySource:'team_staff',clubId:'club',teamId:'team',role:'coach'}
   await storage.coachOfflineProfileStore.read('coach')
   await storage.coachOfflineProfileStore.write({id:'coach',coachContexts:[context]})
   await storage.saveCoachOfflineResources('coach',context,{players:[{id:'player',playerName:'Private Player'}],'phase31e:development':{players:[{id:'player'}],forms:[{id:'form'}]}})
-  for(let i=0;i<8;i++) await storage.updateCoachMatchDayOutbox('coach',context,'match'+i,()=>({baseMatch:{id:'match'+i,clubId:'club',teamId:'team',updatedAt:new Date().toISOString()},pending:[],verifiedAt:new Date(Date.now()+i).toISOString()}))
+  for(let i=0;i<17;i++) await storage.updateCoachMatchDayOutbox('coach',context,'match'+i,()=>({baseMatch:{id:'match'+i,clubId:'club',teamId:'team',updatedAt:new Date().toISOString()},pending:[],verifiedAt:new Date(Date.now()+i).toISOString()}))
   const ready=await storage.readCoachOfflineReadiness('coach',context)
-  assert.equal(ready.journals.length,8)
+  assert.equal(ready.journals.length,17)
+  assert.equal((await storage.readCoachMatchDayOutbox('coach',context,'match0')).baseMatch.id,'match0')
+  assert.equal((await storage.readCoachMatchDayOutbox('coach',context,'match16')).baseMatch.id,'match16')
   assert.equal(ready.resources.players[0].playerName,'Private Player')
   await storage.saveLocalCoachDevelopmentDraft('coach',context,{playerId:'player',formId:'form',values:{score:4},notes:'Private assessment'})
   const reopened=await storage.readCoachDevelopmentDrafts('coach',context)
@@ -99,6 +101,28 @@ test('unchanged assessment save preserves synced status and avoids any encrypted
 })
 
 const liveProfile = { id: 'recovery-coach', coachContexts: [recoveryContext] }
+
+test('bulk prepared fixtures save every older base in one account update while preserving pending edits',async()=>{
+ await freshRecoveryAccount()
+ await storage.coachOfflineProfileStore.write(liveProfile)
+ const matches=Array.from({length:21},(_,index)=>({id:'prepared-'+index,clubId:recoveryContext.clubId,teamId:recoveryContext.teamId,homeScore:2}))
+ await storage.updateCoachMatchDayOutbox(liveProfile.id,recoveryContext,matches[0].id,()=>({baseMatch:{...matches[0],homeScore:0},pending:[{id:'unsent-goal',operation:'goal'}]}))
+ const pending=await storage.readCoachMatchDayOutbox(liveProfile.id,recoveryContext,matches[0].id)
+ const update=storage.testEncryptedStore.update
+ let updates=0
+ storage.testEncryptedStore.update=(...args)=>{updates++;return update(...args)}
+ try { await storage.saveCoachPreparedMatchDays(liveProfile.id,recoveryContext,matches) }
+ finally { storage.testEncryptedStore.update=update }
+ assert.equal(updates,1)
+ assert.equal((await storage.readCoachOfflineReadiness(liveProfile.id,recoveryContext)).journals.length,21)
+ assert.deepEqual(await storage.readCoachMatchDayOutbox(liveProfile.id,recoveryContext,matches[0].id),pending)
+ for(const index of [1,9,20]) assert.deepEqual((await storage.readCoachMatchDayOutbox(liveProfile.id,recoveryContext,matches[index].id)).baseMatch,matches[index])
+ const before=[...globalThis.offlineCiphertext.entries()]
+ await storage.saveCoachPreparedMatchDays(liveProfile.id,recoveryContext,[{...matches[1],homeScore:99}],()=>false)
+ assert.deepEqual([...globalThis.offlineCiphertext.entries()],before)
+ await assert.rejects(storage.saveCoachPreparedMatchDays(liveProfile.id,recoveryContext,[{...matches[1],homeScore:99},{...matches[2],clubId:'foreign'}]),/does not match this workspace/)
+ assert.deepEqual([...globalThis.offlineCiphertext.entries()],before)
+})
 const sessionResources = {
   sessions: Array.from({ length: 3 }, (_, id) => ({ id: `session-${id}`, title: 'Passing practice', notes: 'Caf\u00e9 \ud83c\udfc6' })),
   sessionPlayers: Array.from({ length: 23 }, (_, id) => ({ id: `player-${id}`, notes: 'Synthetic detail '.repeat(50) })),

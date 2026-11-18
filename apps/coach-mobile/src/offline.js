@@ -264,6 +264,11 @@ export async function readCoachAccountPreparation(userId, contexts) {
     if (!matchesOfflineContext(document, userId, context) || entry?.authority !== outboxAuthority(context)) { results.push([context.id, null]); continue }
     const cache = getCoachOfflineResources(document, context)
     let status = validateCoachAccountOfflineStatus(entry.status, cache)
+    if (status?.savedAt && (status.matchIds || []).some(id => {
+      const journal = document.matchDayOutboxes?.[context.id]?.[id]
+      return journal?.authority !== outboxAuthority(context) || journal?.baseMatch?.id !== id
+        || journal.baseMatch.clubId !== context.clubId || journal.baseMatch.teamId !== context.teamId
+    })) status = { ...status, state: 'partial', error: 'Some saved fixtures need downloading again.' }
     const inventory = cache?.resources?.offlineMediaInventory || []
     if (status?.savedAt && !status.filesFailed && ['ready', 'partial'].includes(status.state) && inventory.length) {
       let verified = false
@@ -472,15 +477,30 @@ export async function updateCoachMatchDayOutbox(userId, context, matchId, change
     if (changed === previous) { journal = previous; return document }
     journal = { ...changed, authority: outboxAuthority(context) }
     if (journal?.baseMatch?.id !== matchId || journal.baseMatch.clubId !== context.clubId || journal.baseMatch.teamId !== context.teamId) throw new Error('The saved fixture does not match this workspace.')
-    const entries = Object.entries(outboxes[context.id] || {})
-    const recentIds = new Set(entries.filter(([, value]) => !value.pending?.length)
-      .sort((a, b) => Date.parse(b[1].verifiedAt) - Date.parse(a[1].verifiedAt)).slice(0, 7).map(([id]) => id))
-    const contextJournals = entries.filter(([id, value]) => id === matchId || value.pending?.length || recentIds.has(id))
-    const next = { ...document, matchDayOutboxes: { ...outboxes, [context.id]: { ...Object.fromEntries(contextJournals), [matchId]: journal } } }
+    const next = { ...document, matchDayOutboxes: { ...outboxes, [context.id]: { ...(outboxes[context.id] || {}), [matchId]: journal } } }
     if (getCoachCacheByteLength(next) > COACH_PHASE_31F_MAX_CACHE_BYTES) throw new Error('There is not enough offline storage. This action was not saved. Reconnect and sync first.')
     return next
   })
   return journal
+}
+
+export async function saveCoachPreparedMatchDays(userId, context, matches, isCurrent = () => true) {
+  const guard = store.captureScopeGuard(userId)
+  await store.update(userId, document => {
+    guard()
+    if (!isCurrent()) return document
+    assertOutboxContext(document, userId, context)
+    const authority = outboxAuthority(context)
+    const entries = { ...(document.matchDayOutboxes?.[context.id] || {}) }
+    const verifiedAt = new Date().toISOString()
+    for (const detail of matches) {
+      if (!detail?.id || detail.clubId !== context.clubId || detail.teamId !== context.teamId) throw new Error('The saved fixture does not match this workspace.')
+      const previous = entries[detail.id]
+      if (previous && previous.authority !== authority) throw new Error('Your access to this saved fixture changed. The saved actions need review.')
+      if (!previous?.pending?.length) entries[detail.id] = { authority, baseMatch: detail, pending: [], verifiedAt, error: '' }
+    }
+    return { ...document, matchDayOutboxes: { ...(document.matchDayOutboxes || {}), [context.id]: entries } }
+  })
 }
 
 export async function readCoachDevelopmentDrafts(userId, context) {

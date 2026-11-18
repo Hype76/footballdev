@@ -375,6 +375,17 @@ try {
   assert.equal(await page.locator('.club-tv-goal-large').count(), 0)
 
   matches = fullMatchday.map(match => ({ ...match, status: 'live', timerStatus: 'running' }))
+  await page.addInitScript(() => {
+    window.tvScorePollTimes = []
+    const fetch = window.fetch.bind(window)
+    window.fetch = (input, options) => {
+      if (input === '/.netlify/functions/club-matchday-tv' && options?.body) {
+        const body = JSON.parse(options.body)
+        if (!body.action) window.tvScorePollTimes.push(Date.now())
+      }
+      return fetch(input, options)
+    }
+  })
   await page.goto(`${origin}/club-matchday-tv`)
   const carousel = page.locator('.club-tv-pages')
   const firstFixture = page.locator('.club-tv-match .club-tv-own .club-tv-team-name').first()
@@ -384,8 +395,16 @@ try {
   assert.match(await carousel.textContent(), /Page 2 \/ 3/)
   const previousFixture = await firstFixture.textContent()
   const scorePollCount = () => requests.filter(request => !request.action).length
+  // Bootstrap and rendering may age the interval before the clock is paused.
+  // Observe its next real tick, then measure the unchanged refresh assertions
+  // from that tick instead of treating the pause as timer registration.
+  const beforeAnchor = scorePollCount()
+  for (let elapsed = 0; elapsed < TV_REFRESH_MS && scorePollCount() === beforeAnchor; elapsed += 100) await page.clock.runFor(100)
+  assert.equal(scorePollCount(), beforeAnchor + 1)
+  const sincePoll = await page.evaluate(() => Date.now() - window.tvScorePollTimes.at(-1))
+  assert.ok(sincePoll >= 0 && sincePoll < 1000, 'Polling phase is observed within one second of the actual request')
   const polls = scorePollCount()
-  await page.clock.runFor(TV_REFRESH_MS - 1000)
+  await page.clock.runFor(TV_REFRESH_MS - 1000 - sincePoll)
   assert.equal(scorePollCount(), polls)
   const beforeGoal = await carousel.textContent()
   const goalFixture = matches[17].teamName
@@ -410,7 +429,8 @@ try {
   await page.clock.runFor(1000)
   assert.notEqual(await carousel.textContent(), duringGoal)
 
-  await page.clock.fastForward(TV_RECOVERY_MS - 19000)
+  const sinceMount = await page.evaluate(() => Date.now() - window.tvScorePollTimes[0])
+  await page.clock.fastForward(TV_RECOVERY_MS - (sinceMount % TV_RECOVERY_MS) - 1000)
   assert.match(await carousel.textContent(), /Page 2 \/ 3/)
   const holdRecovery = Promise.withResolvers()
   holdNextScorePoll = holdRecovery

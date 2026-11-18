@@ -3,7 +3,7 @@ import { COACH_PHASE_31F_MAX_CACHE_BYTES } from '../../mobile-core/src/coachPhas
 import { authorizeCoachOfflineMedia, loadCoachOfflineContext } from '../../mobile-core/src/coachOfflineReadData'
 import { getScopedTeamBranding } from '../../../src/lib/team-branding-display.js'
 import { createCoachOfflineMedia } from './coachOfflineMedia'
-import { createCoachOfflineResourceSaver, measureCoachOfflineDocumentBytes, readCoachAccountPreparation, readCoachOfflineResources, registerCoachOfflineMediaHooks, saveCoachAccountPreparation, updateCoachMatchDayOutbox } from './offline'
+import { createCoachOfflineResourceSaver, measureCoachOfflineDocumentBytes, readCoachAccountPreparation, readCoachOfflineResources, registerCoachOfflineMediaHooks, saveCoachAccountPreparation, saveCoachPreparedMatchDays } from './offline'
 import { prepareCoachAccountOffline } from './coachAccountOfflinePreparation'
 import { captureCoachOfflineAccount } from './coachOfflineAccountSession'
 import { applyCoachContext } from '../../mobile-core/src/coachContextCore'
@@ -77,13 +77,8 @@ export async function prepareCoachAccount(user, contexts, selectedContextId, cal
   try { nativeMedia = getMedia(user); await startup } catch { /* Per-file preparation reports unavailable capability below. */ }
   return prepareCoachAccountOffline({ user, contexts, selectedContextId, isCurrent,
     createSaver: createCoachOfflineResourceSaver, saveStatus: saveCoachAccountPreparation,
-    saveMatch: async (profile, context, detail) => {
-      if (!isCurrent()) return
-      await updateCoachMatchDayOutbox(profile.id, context, detail.id, previous => {
-        if (!isCurrent() || previous?.pending?.length) return previous
-        return { baseMatch: detail, pending: [], verifiedAt: new Date().toISOString(), error: '' }
-      })
-    },
+    readBackResources: readCoachOfflineResources,
+    saveMatches: (profile, context, details) => saveCoachPreparedMatchDays(profile.id, context, details, isCurrent),
     prepareMedia: async (profile, context, resource, current) => {
       if (!nativeMedia) throw new Error('File downloads are unavailable on this device. Records can still be saved.')
       return nativeMedia.save({ context, resource, guard: captureAuthority(profile, context, current) })

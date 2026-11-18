@@ -17,7 +17,7 @@ test('actual account service fences a manual run across logout and same-account 
  activateCoachOfflineAccount(user.id)
  const dependencies={captureCoachOfflineAccount,getMedia:()=>({}),startup:Promise.resolve(),prepareCoachAccountOffline,applyCoachContext:profile=>profile,
   createCoachOfflineResourceSaver:profile=>{const guard=captureCoachOfflineAccount(profile.id);return async()=>{guard();return{resourceMetadata:{}}}},
-  saveCoachAccountPreparation:async()=>{},updateCoachMatchDayOutbox:async(id,_context,match,change)=>{captureCoachOfflineAccount(id)();const next=change(null);if(next)writes.push({id,match})},
+  saveCoachAccountPreparation:async()=>{},readCoachOfflineResources:async()=>({}),saveCoachPreparedMatchDays:async(id,_context,matches)=>{captureCoachOfflineAccount(id)();writes.push(...matches)},
   captureAuthority:()=>()=>{},getScopedTeamBranding:()=>null,authorizeCoachOfflineMedia:()=>{},
   loadCoachOfflineContext:async(_user,_context,options)=>{loading.resolve();await release.promise;await options.onMatch({id:'old-session-match'});return{complete:true}},
  }
@@ -28,19 +28,44 @@ test('actual account service fences a manual run across logout and same-account 
  assert.equal(result.cancelled,true);assert.deepEqual(writes,[])
 })
 
+test('preparation batches complete resources and fixture bases, and verifies every retained fingerprint before ready',async()=>{
+ const context={id:'team',clubId:'club',teamId:'team'},user={id:'user'},matches=Array.from({length:21},(_,id)=>({id:'match'+id}))
+ for(const evict of [false,true]) {
+  const resourceBatches=[],matchBatches=[],cache={resourceMetadata:{},resources:{}}
+  const result=await prepareCoachAccountOffline({user,contexts:[context],selectedContextId:context.id,
+   createSaver:()=>async resources=>{resourceBatches.push(Object.keys(resources));for(const[key,value]of Object.entries(resources)){cache.resources[key]=value;cache.resourceMetadata[key]={fingerprint:key}}return cache},
+   saveStatus:async()=>{},saveMatches:async(_user,_context,details)=>matchBatches.push(details),
+   readBackResources:async()=>{if(evict)delete cache.resourceMetadata.detail0;return cache},
+   loadContext:async(_user,_context,{onResource,onMatch})=>{for(let id=0;id<34;id++)await onResource({cacheKey:'detail'+id,value:{id},complete:true});for(const detail of matches)await onMatch(detail);return{complete:true}}})
+  assert.deepEqual(resourceBatches.map(batch=>batch.length),[16,16,2,1])
+  assert.deepEqual(matchBatches,[matches])
+  assert.deepEqual(result.results[0].matchIds,matches.map(match=>match.id))
+  assert.equal(result.results[0].state,evict?'partial':'ready')
+  assert.equal(result.complete,!evict)
+ }
+})
+
 test('actual readiness reader refuses missing or unverifiable physical media even with intact record fingerprints',async()=>{
  const source=readFileSync('apps/coach-mobile/src/offline.js','utf8')
  const start=source.indexOf('export async function readCoachAccountPreparation('),end=source.indexOf('export async function inspectCoachOfflineState(',start)
  const cache={resourceMetadata:{offlineMediaInventory:{fingerprint:'expected'}},resources:{offlineMediaInventory:[{id:'file',kind:'file'}]}}
  const document={profile:{value:{id:'user'}},accountPreparation:{team:{authority:'authority',status:{schemaVersion:1,state:'ready',savedAt:'2026-11-18',filesSaved:1,filesFailed:0,resources:{offlineMediaInventory:'expected'}}}}}
+ const context={id:'team',clubId:'club',teamId:'team'}
  let verified=false,calls=0
  const dependencies={store:{readSnapshot:async()=>({document}),captureScopeGuard:()=>()=>{}},matchesOfflineContext:()=>true,outboxAuthority:()=> 'authority',getCoachOfflineResources:()=>cache,validateCoachAccountOfflineStatus,
   mediaHooks:{verifyInventory:async()=>{calls++;return verified}}}
  const read=new Function(...Object.keys(dependencies),source.slice(start,end).replace('export ','')+';return readCoachAccountPreparation')(...Object.values(dependencies))
- assert.equal((await read('user',[{id:'team'}])).team.state,'partial')
- verified=true;assert.equal((await read('user',[{id:'team'}])).team.state,'ready');assert.equal(calls,2)
+ assert.equal((await read('user',[context])).team.state,'partial')
+ verified=true;assert.equal((await read('user',[context])).team.state,'ready');assert.equal(calls,2)
+ document.accountPreparation.team.status.matchIds=['old-fixture']
+ assert.equal((await read('user',[context])).team.state,'partial')
+ document.matchDayOutboxes={team:{'old-fixture':{authority:'authority',baseMatch:{id:'old-fixture',clubId:'club',teamId:'team'}}}}
+ assert.equal((await read('user',[context])).team.state,'ready')
+ document.matchDayOutboxes.team['old-fixture'].baseMatch.teamId='foreign'
+ assert.equal((await read('user',[context])).team.state,'partial')
+ document.matchDayOutboxes.team['old-fixture'].baseMatch.teamId='team'
  cache.resourceMetadata.offlineMediaInventory.fingerprint='new-fingerprint'
- assert.equal((await read('user',[{id:'team'}])).team.state,'partial')
+ assert.equal((await read('user',[context])).team.state,'partial')
 })
 
 test('actual record commit wrapper counts media, retained documents and staged envelope before accepting a write',async()=>{
