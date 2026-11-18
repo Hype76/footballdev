@@ -1,3 +1,4 @@
+import {createCoachAccountPreparationCoordinator,coachPreparationScopeKey} from '../apps/coach-mobile/src/coachAccountPreparationCoordinator.js'
 import assert from 'node:assert/strict'
 import {readFileSync} from 'node:fs'
 import test from 'node:test'
@@ -15,7 +16,7 @@ test('actual account service fences a manual run across logout and same-account 
  const loading=deferred(),release=deferred(),writes=[]
  const user={id:'same-user'},context={id:'team',clubId:'club',teamId:'team'}
  activateCoachOfflineAccount(user.id)
- const dependencies={captureCoachOfflineAccount,getMedia:()=>({}),startup:Promise.resolve(),prepareCoachAccountOffline,applyCoachContext:profile=>profile,
+ const dependencies={preparationCoordinator:createCoachAccountPreparationCoordinator(),coachPreparationScopeKey,captureCoachOfflineAccount,getMedia:()=>({}),startup:Promise.resolve(),prepareCoachAccountOffline,applyCoachContext:profile=>profile,
   createCoachOfflineResourceSaver:profile=>{const guard=captureCoachOfflineAccount(profile.id);return async()=>{guard();return{resourceMetadata:{}}}},
   saveCoachAccountPreparation:async()=>{},readCoachOfflineResources:async()=>({}),saveCoachPreparedMatchDays:async(id,_context,matches)=>{captureCoachOfflineAccount(id)();writes.push(...matches)},
   captureAuthority:()=>()=>{},getScopedTeamBranding:()=>null,authorizeCoachOfflineMedia:()=>{},
@@ -127,4 +128,18 @@ test('native document byte measurement includes active, previous and staging fil
  assert.equal(await storage.measureBytes(),657)
  sizes['unknown.json']=undefined
  await assert.rejects(storage.measureBytes(),/size_unavailable/)
+})
+
+test('actual account service waits for resumed authority before capturing generation and starting',async()=>{
+ const source=readFileSync('apps/coach-mobile/src/coachAccountOfflineService.js','utf8')
+ const start=source.indexOf('export async function prepareCoachAccount('),end=source.indexOf('async function savedResource(',start)
+ const authority=deferred();let generation=1,started=0
+ const user={id:'authority-user',getCoachAuthorityGeneration:()=>generation,waitForCoachAuthority:()=>authority.promise},context={id:'team',clubId:'club',teamId:'team'}
+ activateCoachOfflineAccount(user.id)
+ const dependencies={preparationCoordinator:createCoachAccountPreparationCoordinator(),coachPreparationScopeKey,captureCoachOfflineAccount,getMedia:()=>({}),startup:Promise.resolve(),
+  prepareCoachAccountOffline:async({isCurrent})=>{started++;return{complete:isCurrent()}},createCoachOfflineResourceSaver:()=>{},saveCoachAccountPreparation:()=>{},readCoachOfflineResources:()=>{},saveCoachPreparedMatchDays:()=>{}}
+ const prepare=new Function(...Object.keys(dependencies),source.slice(start,end).replace('export ','')+';return prepareCoachAccount')(...Object.values(dependencies))
+ const pending=prepare(user,[context],context.id);await Promise.resolve();assert.equal(started,0)
+ generation=2;authority.resolve();assert.equal((await pending).complete,true);assert.equal(started,1)
+ invalidateCoachOfflineAccount()
 })

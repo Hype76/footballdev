@@ -2,6 +2,29 @@ import { getCoachFriendlyError } from './coachFriendlyErrors.js'
 
 export const COACH_ACCOUNT_OFFLINE_SCHEMA = 1
 
+export function assertCoachAccountPreparationFinished(result, contexts, statuses) {
+  if (result?.cancelled) throw new Error('Download paused before every team was saved. Keep Coach open and connected, then retry.')
+  const targets = [...new Map((contexts || []).filter(context => context.id && context.clubId).map(context => [context.id, context])).values()]
+  const results = new Map((result?.results || []).map(status => [status.contextId, status]))
+  if (!targets.length || results.size !== targets.length || result.results.length !== targets.length) {
+    throw new Error('Download incomplete. Check the team statuses and retry while connected.')
+  }
+  let onlineOnlyCount = 0
+  let complete = true
+  for (const context of targets) {
+    const status = statuses ? statuses[context.id] : results.get(context.id)
+    const links = Array.isArray(status?.onlineOnly) ? status.onlineOnly.length : 0
+    if (!results.has(context.id) || !status?.savedAt || !Number.isFinite(Date.parse(status.savedAt))
+      || status.error || status.filesFailed || !['ready', 'partial'].includes(status.state)
+      || (status.state === 'partial' && !links)) {
+      throw new Error('Download incomplete. Check the team statuses and retry while connected.')
+    }
+    onlineOnlyCount += links
+    complete = complete && status.state === 'ready' && !links
+  }
+  return { complete, onlineOnlyCount }
+}
+
 // Preparation never changes the server's selected workspace. Each loader must
 // prove authority for its explicit target before returning viewable data.
 export async function prepareCoachAccountOffline({ user, contexts, selectedContextId, loadContext, createSaver, saveStatus, saveMatch, saveMatches, readBackResources, prepareMedia, isCurrent = () => true, now = () => new Date().toISOString() }) {
@@ -96,8 +119,9 @@ export async function prepareCoachAccountOffline({ user, contexts, selectedConte
 
 export function coachAccountOfflineLabel(status) {
   if (!status) return 'Not downloaded yet'
-  if (status.state === 'ready') return status.scope === 'club' ? 'Club overview saved with its teams' : `Ready offline, ${status.filesSaved || 0} files saved`
-  if (status.state === 'saving') return `Saving while connected, ${status.filesSaved || 0} files saved`
+  const savedFiles = `${status.filesSaved || 0} file${status.filesSaved === 1 ? '' : 's'} saved`
+  if (status.state === 'ready') return status.scope === 'club' ? 'Club overview saved with its teams' : `Ready offline, ${savedFiles}`
+  if (status.state === 'saving') return `Not ready offline yet, ${savedFiles}`
   if (status.filesFailed) return `${status.filesFailed} file${status.filesFailed === 1 ? '' : 's'} still need downloading`
   if (status.error) return 'Download incomplete'
   if (status.onlineOnly?.length) return `Saved, ${status.onlineOnly.length} link${status.onlineOnly.length === 1 ? '' : 's'} need internet`

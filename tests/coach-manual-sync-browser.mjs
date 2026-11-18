@@ -7,12 +7,12 @@ const root=process.cwd(), modules=path.join(root,'apps/coach-mobile/node_modules
 const entry=`import React from 'react';import {createRoot} from 'react-dom/client';
 import {CoachOfflineReadiness} from './apps/coach-mobile/src/CoachOfflineReadiness.js';
 window.fail=false;window.calls=0;
-const user={id:'test'},context={id:'team',teamId:'team'},styles={bodyText:{color:'#123'},helperText:{color:'#345'}};
+const user={id:'test'},context={id:'team',teamId:'team',clubId:'club'},styles={bodyText:{color:'#123'},helperText:{color:'#345'}};
 createRoot(document.getElementById('root')).render(<CoachOfflineReadiness user={user} context={context} styles={styles}/>);`
 const result=await build({stdin:{contents:entry,resolveDir:root,loader:'jsx'},bundle:true,write:false,jsx:'automatic',loader:{'.js':'jsx'},alias:{'react-native':path.join(modules,'react-native-web'),react:path.join(modules,'react'),'react-dom':path.join(modules,'react-dom')},define:{'process.env.NODE_ENV':'"production"',__DEV__:'false',global:'globalThis'},plugins:[{name:'services',setup(builder){
   builder.onResolve({filter:/\/offline$/},()=>({path:'offline',namespace:'mock'}))
   builder.onResolve({filter:/\/useCoachOfflinePreparation$/},()=>({path:'sync',namespace:'mock'}))
-  builder.onLoad({filter:/.*/,namespace:'mock'},({path:name})=>({contents:name==='offline'?`export const readCoachOfflineReadiness=async()=>({resources:{players:[{}]},journals:[],pending:0});export const readCoachAccountPreparation=async()=>({});`:`export const syncCoachOfflineNow=async()=>{window.calls++;await new Promise(resolve=>window.finish=resolve);if(window.fail)throw Error('Saved changes still need attention.');return{accountPreparation:{complete:true}}};`,loader:'js'}))
+  builder.onLoad({filter:/.*/,namespace:'mock'},({path:name})=>({contents:name==='offline'?`export const readCoachOfflineReadiness=async()=>({resources:{players:[{}]},journals:[],pending:0});export const readCoachAccountPreparation=async()=>({team:window.downloadStatus});`:`export const syncCoachOfflineNow=async()=>{window.calls++;await new Promise(resolve=>window.finish=resolve);if(window.fail)throw Error('Saved changes still need attention.');window.downloadStatus={contextId:'team',state:'ready',savedAt:'2026-11-18T17:00:00Z',filesFailed:0,onlineOnly:[],error:''};return{accountPreparation:{complete:true,results:[window.downloadStatus]}}};`,loader:'js'}))
 }}]})
 const browser=await chromium.launch({headless:true})
 try{
