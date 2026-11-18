@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Pressable, Text, View } from 'react-native'
 import { readCoachOfflineReadiness, readCoachAccountPreparation } from './offline'
 import { syncCoachOfflineNow } from './useCoachOfflinePreparation'
-import { coachAccountOfflineLabel } from './coachAccountOfflinePreparation'
+import { assertCoachAccountPreparationFinished, coachAccountOfflineLabel } from './coachAccountOfflinePreparation'
 
 export function CoachOfflineReadiness({ user, context, styles }) {
   const [summary, setSummary] = useState('Club records and files save while Coach is open and connected.')
@@ -16,10 +16,12 @@ export function CoachOfflineReadiness({ user, context, styles }) {
     setNotice('')
     try {
       const result = await syncCoachOfflineNow(user, context)
-      setNotice(result.accountPreparation.complete ? 'Download complete. All your teams are ready offline.' : 'Download complete. The links listed below still need internet.')
-      setRefresh(value => value + 1)
+      const outcome = assertCoachAccountPreparationFinished(result.accountPreparation, user.coachContexts || [context])
+      setNotice(outcome.complete
+        ? 'Download complete. All your teams are ready offline.'
+        : `All team records and uploaded files are saved. ${outcome.onlineOnlyCount} external links still need internet.`)
     } catch (error) { setNotice(error?.message || 'Sync could not finish. Your saved changes remain on this phone.') }
-    finally { setSyncing(false) }
+    finally { setSyncing(false); setRefresh(value => value + 1) }
   }
   useEffect(() => {
     let active = true

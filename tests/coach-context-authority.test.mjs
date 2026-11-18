@@ -129,35 +129,38 @@ for (const name of ['useCoachDevelopmentSync', 'useCoachMatchDayBackgroundSync']
 
 
 test('actual offline preparation waits for activation and fences an older preparation generation', async () => {
+ const { createCoachAccountPreparationCoordinator, coachPreparationScopeKey } = await import('../apps/coach-mobile/src/coachAccountPreparationCoordinator.js')
+ const { prepareCoachAccountOffline } = await import('../apps/coach-mobile/src/coachAccountOfflinePreparation.js')
  const source = readFileSync('apps/coach-mobile/src/useCoachOfflinePreparation.js', 'utf8')
  const start = source.indexOf('async runnerIsCurrent => {'), end = source.indexOf('\n      },', start)
  assert.ok(start>=0 && end>start,'The actual account preparation runner is present')
+ const service = readFileSync('apps/coach-mobile/src/coachAccountOfflineService.js', 'utf8')
+ const serviceStart = service.indexOf('export async function prepareCoachAccount('), serviceEnd = service.indexOf('async function savedResource(', serviceStart)
  const activation = deferred(), started = deferred(), work = deferred()
  let generation = 1, writes = 0, preparations = 0
+ const caches = new Map()
  const linkedContexts=[context,{...context,id:'linked-team',clubId:'linked-club',teamId:'linked-team'}]
- const dependencies = {
-  user: { ...user, clubId: context.clubId, waitForCoachAuthority: () => activation.promise, getCoachAuthorityGeneration: () => generation },
-  InteractionManager: { runAfterInteractions: resolve => resolve() }, availableContexts: linkedContexts,
-  selectedId: { current: context.id }, refreshHomeRef: { current: null },
-  prepareCoachAccount: async (profile,contexts,selectedId,isCurrent) => {
-   preparations++
-   assert.equal(profile,dependencies.user)
-   assert.equal(profile.clubId,context.clubId,'Server-selected club remains unchanged')
-   assert.deepEqual(contexts,linkedContexts,'Every own linked context reaches the account preparer')
-   assert.equal(selectedId,context.id)
-   started.resolve(); await work.promise
-   if (isCurrent()) writes++
-   return {cancelled:!isCurrent(),retryNeeded:false}
-  },
+ const scopedUser = { ...user, clubId: context.clubId, waitForCoachAuthority: () => activation.promise, getCoachAuthorityGeneration: () => generation }
+ const serviceDependencies = {
+  preparationCoordinator: createCoachAccountPreparationCoordinator(), coachPreparationScopeKey,
+  captureCoachOfflineAccount: () => () => {}, getMedia: () => ({}), startup: Promise.resolve(),
+  prepareCoachAccountOffline: options => { preparations++; assert.equal(options.user,scopedUser); assert.equal(options.user.clubId,context.clubId,'Server-selected club remains unchanged'); assert.deepEqual(options.contexts,linkedContexts,'Every own linked context reaches the account preparer'); assert.equal(options.selectedContextId,context.id); return prepareCoachAccountOffline(options) },
+  createCoachOfflineResourceSaver: (_profile,team) => async resources => { writes++; const cache=caches.get(team.id)||{resourceMetadata:{}}; for(const key of Object.keys(resources)) cache.resourceMetadata[key]={fingerprint:key}; caches.set(team.id,cache); return cache },
+  saveCoachAccountPreparation: async () => {}, readCoachOfflineResources: async (_id,team) => caches.get(team.id), saveCoachPreparedMatchDays: async () => {},
+  applyCoachContext: profile => profile, getScopedTeamBranding: () => null,
+  loadCoachOfflineContext: async (_profile,_context,options) => { started.resolve(); await work.promise; await options.onResource({cacheKey:'home',value:{},complete:true}); return {complete:true} },
  }
+ const prepare = new Function(...Object.keys(serviceDependencies), service.slice(serviceStart,serviceEnd).replace('export ','')+'; return prepareCoachAccount')(...Object.values(serviceDependencies))
+ const dependencies = { latest:{current:{user:scopedUser,contexts:linkedContexts}}, InteractionManager:{runAfterInteractions:resolve=>resolve()}, selectedId:{current:context.id}, refreshHomeRef:{current:null}, prepareCoachAccount:prepare }
  const run = new Function(...Object.keys(dependencies), 'return (' + source.slice(start, end + 8) + ')')(...Object.values(dependencies))
  const pending = run(() => true)
  await Promise.resolve(); assert.equal(writes, 0); assert.equal(preparations,0)
  activation.resolve(); await started.promise
  generation++; work.resolve(); await pending
  assert.equal(writes, 0)
- assert.equal(dependencies.user.clubId,context.clubId)
+ assert.equal(scopedUser.clubId,context.clubId)
  await run(()=>true)
  assert.equal(preparations,2)
- assert.equal(writes,1,'The current generation may save after the activation barrier')
+ assert.equal(writes,4,'The current generation saves the home and media inventory for each linked team')
+ assert.deepEqual([...caches.keys()].sort(),linkedContexts.map(team=>team.id).sort())
 })
