@@ -8,6 +8,9 @@ import { createEncryptedOfflineStore } from '../apps/mobile-core/src/offlineStor
 import { createCoachFileStorage } from '../apps/mobile-core/src/coachFileStorage.js'
 import { createCoachVersionedOfflineStore } from '../apps/mobile-core/src/coachVersionedOfflineStore.js'
 import { createCoachRecoveryNotice } from '../apps/coach-mobile/src/coachRecoveryNotice.js'
+import { withCoachOfflineStorageLock } from '../apps/coach-mobile/src/coachOfflineStorageBudget.js'
+import { activateCoachOfflineAccount, captureCoachOfflineAccount, invalidateCoachOfflineAccount } from '../apps/coach-mobile/src/coachOfflineAccountSession.js'
+import { getCoachCacheByteLength, COACH_PHASE_31F_MAX_CACHE_BYTES } from '../apps/mobile-core/src/coachPhase31FCore.js'
 import * as coach from '../apps/mobile-core/src/coachOfflineCore.js'
 import * as parent from '../apps/mobile-core/src/parentOfflineCore.js'
 import * as links from '../apps/mobile-core/src/parentLinks.js'
@@ -21,6 +24,7 @@ function fixture(role, options = {}) {
   const storage = { fail: false, async getItem(key) { return values.get(key) ?? null }, async removeItem(key) { values.delete(key) }, async setItem(key,value) { if (this.fail) throw new Error('synthetic_write_failure'); values.set(key,value) }, async getAllKeys() { return [...values.keys()] } }
   const keyStore = { async getItemAsync(key) { return keys.get(key) ?? null }, async setItemAsync(key,value) {keys.set(key,value)}, async deleteItemAsync(key) {keys.delete(key)} }
   const dependencies = { ...coach, ...parent, ...links, applyParentNotificationAction, createEncryptedOfflineStore, createCoachFileStorage, createCoachVersionedOfflineStore, createCoachRecoveryNotice, getScopedTeamBranding,
+    withCoachOfflineStorageLock, activateCoachOfflineAccount, captureCoachOfflineAccount, invalidateCoachOfflineAccount, getCoachCacheByteLength, COACH_PHASE_31F_MAX_CACHE_BYTES,
     AsyncStorage: storage, SecureStore:keyStore, Crypto:{randomUUID, CryptoDigestAlgorithm:{SHA256:'SHA256'}, digestStringAsync:async (_, value)=>createHash('sha256').update(value).digest('hex'), getRandomBytesAsync:async (n)=>new Uint8Array(randomBytes(n))}, xchacha20poly1305,bytesToUtf8,utf8ToBytes,
     requireOptionalNativeModule:()=>null,
     getMobileRuntimeConfig:()=>({isUsable:true,isProduction:false,supabaseUrl:`https://${projectRef}.supabase.co`}),
@@ -59,7 +63,7 @@ for (const role of ['coach','parent']) {
     assert.equal(await f.read(),null)
     await f.profileStore.clear()
     await assert.rejects(f.save({calendar:[{id:'after-logout'}]}),/offline_scope_invalidated/)
-    await assert.rejects(f.profileStore.write(f.profile),/offline_scope_invalidated/)
+    await assert.rejects(f.profileStore.write(f.profile),role==='coach' ? {message:'offline_account_session_changed'} : /offline_scope_invalidated/)
     await f.profileStore.read('different-user')
     await assert.rejects(f.save({calendar:[{id:'old-account'}]}),/offline_scope_invalidated/)
   })

@@ -9,16 +9,33 @@ const component = source.slice(source.indexOf('function ContextOptionBadge('), s
 const compiled = transformSync(component, { loader: 'jsx', jsxFactory: 'h' }).code
 
 function mount(logoUrl) {
+  let savedUri = logoUrl
   let failed = false, foreground, cleanup, effectInstalled = false
   const useState = () => [failed, value => { failed = typeof value === 'function' ? value(failed) : value }]
   const useEffect = callback => { if (!effectInstalled) { effectInstalled = true; cleanup = callback() } }
   const AppState = { addEventListener: (_name, callback) => { foreground = callback; return { remove() {} } } }
   const h = (_type, props) => props
   const badge = new Function('useState', 'useEffect', 'AppState', 'h', 'Image', 'require', 'useCoachSavedBadge', `${compiled}; return ContextOptionBadge`)(
-    useState, useEffect, AppState, h, 'Image', () => 'fallback', (_user, _context, remoteUrl) => remoteUrl,
+    useState, useEffect, AppState, h, 'Image', () => 'fallback', () => savedUri,
   )
-  return { render: () => badge({ logoUrl, styles: {} }), foreground: () => foreground('active'), unmount: () => cleanup() }
+  return { render: () => badge({ logoUrl, styles: {} }), foreground: () => foreground('active'), resolveSaved: uri => { savedUri = uri }, unmount: () => cleanup() }
 }
+
+test('a saved picker badge replaces a failed remote image immediately', () => {
+  const badge = mount('https://example.test/badge.png')
+  badge.render().onError()
+  assert.equal(badge.render().source, 'fallback')
+  badge.resolveSaved('data:image/png;base64,saved')
+  assert.equal(badge.render().source.uri, 'data:image/png;base64,saved')
+})
+
+test('a delayed error from the remote request cannot hide a saved picker badge', () => {
+  const badge = mount('https://example.test/badge.png')
+  const remote = badge.render()
+  badge.resolveSaved('data:image/png;base64,saved')
+  remote.onError()
+  assert.equal(badge.render().source.uri, 'data:image/png;base64,saved')
+})
 
 test('picker badge retries an authorized image after foregrounding', () => {
   const url = 'https://example.test/badge.png'

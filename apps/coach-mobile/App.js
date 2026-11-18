@@ -1836,15 +1836,15 @@ function NotificationStatusButton({ notificationState, notificationStateStatus, 
 
 function ContextOptionBadge({ logoUrl: remoteUrl, user, context, styles }) {
   const logoUrl = useCoachSavedBadge(user, context, remoteUrl)
-  const [failed, setFailed] = useState(false)
+  const [failedUri, setFailedUri] = useState('')
   useEffect(() => {
     const subscription = AppState.addEventListener('change', state => {
-      if (state === 'active') setFailed(false)
+      if (state === 'active') setFailedUri('')
     })
     return () => subscription.remove()
   }, [logoUrl])
-  const showLogo = logoUrl && !failed
-  return <Image key={showLogo ? logoUrl : 'football-player'} accessible={false} resizeMode="contain" onError={showLogo ? () => setFailed(true) : undefined}
+  const showLogo = logoUrl && failedUri !== logoUrl
+  return <Image key={showLogo ? logoUrl : 'football-player'} accessible={false} resizeMode="contain" onError={showLogo ? () => setFailedUri(logoUrl) : undefined}
     source={showLogo ? { uri: logoUrl } : require('./assets/football-player-logo.png')} style={styles.contextBadge} />
 }
 

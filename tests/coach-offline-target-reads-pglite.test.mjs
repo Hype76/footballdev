@@ -155,10 +155,15 @@ test('pagination has no silent cap, binds context and detects data changes betwe
 
 test('branding extension preserves the existing entitlement and expiry calculations verbatim',async()=>{
   const original=await readFile(new URL('../supabase/migrations/20261102162446_single_team_branding_colour.sql',import.meta.url),'utf8')
-  const start=original.indexOf('create or replace function public.get_team_branding_display(')
-  const expected=original.slice(start,original.indexOf('create or replace function public.save_first_250_team_branding('))
+  const extract=source=>{
+    const start=source.indexOf('create or replace function public.get_team_branding_display(')
+    const end=source.indexOf('$$;',start)
+    assert.ok(start>=0 && end>start,'Complete branding function is present')
+    return source.slice(start,end+3)
+  }
+  const expected=extract(original)
     .replace('if not (coalesce(public.current_user_can_access_team','if not (app_private.coach_offline_read_context(auth.uid(),club_value,team_value) is not null\n    or coalesce(public.current_user_can_access_team')
-  assert.equal(migration.slice(migration.indexOf('create or replace function public.get_team_branding_display(')),expected)
+  assert.equal(extract(migration),expected)
 })
 
 test('every family executes and target-scoped private templates, own drafts and actual room membership remain enforced',async()=>{

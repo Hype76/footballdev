@@ -21,6 +21,8 @@ import {View,Text,Image,StyleSheet,AppState} from 'react-native';
 import {createCoachTheme} from './apps/coach-mobile/src/coachThemeCore.js';
 let theme;const useCoachTheme=()=>theme;const config={isProduction:true};
 const NotificationStatusButton=()=>null;
+const useCoachSavedBadge=(_user,_context,remoteUrl)=>remoteUrl;
+import {MobileHeaderActivity} from './apps/mobile-core/src/MobileHeaderActivity.js';
 AppState.addEventListener=(_event,callback)=>{window.foreground=()=>callback('active');return{remove(){}}};
 ${selected}
 function App(){const[context,setContext]=useState({id:'cambourne',clubId:'club',clubName:'Cambourne Town FC',role:'head_manager',roleRank:70,planKey:'large_club',planStatus:'active',clubLogoUrl:'https://badge.test/good.png'});
