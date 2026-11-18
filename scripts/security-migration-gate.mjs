@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto'
 import { readdir, readFile } from 'node:fs/promises'
 import path from 'node:path'
 import process from 'node:process'
-import { matchesHardeningMigrationScope, matchesCompleteV1MigrationScope, matchesIncidentRecoveryMigrationScope, matchesAdultAccessMigrationScope, matchesAdultInvitationMigrationScope, matchesCoachAccountOfflineMigrationScope } from './v1-hardening-migration-scope.mjs'
+import { matchesHardeningMigrationScope, matchesCompleteV1MigrationScope, matchesIncidentRecoveryMigrationScope, matchesAdultAccessMigrationScope, matchesAdultInvitationMigrationScope, matchesCoachAccountOfflineMigrationScope, coachOfflineSchemaCompatibilityMigrationScope, matchesCoachOfflineSchemaCompatibilityMigrationScope } from './v1-hardening-migration-scope.mjs'
 
 const migrationDirectory = path.join(process.cwd(), 'supabase', 'migrations')
 const reconciliationManifestPath = path.join(process.cwd(), 'scripts', 'migration-reconciliation-manifest.json')
@@ -136,18 +136,24 @@ try {
   const mainTip = gitText(['rev-parse', 'origin/main'])
   const base = gitText(['merge-base', 'HEAD', 'origin/main'])
   const changed = gitLines(['diff', '--name-only', base, '--', 'supabase/migrations'])
-  if (changed.length > 1) {
+  const schemaCorrection = base === coachOfflineSchemaCompatibilityMigrationScope.base
+    || changed.some(file => Object.hasOwn(coachOfflineSchemaCompatibilityMigrationScope.hashes, file))
+  if (changed.length > 1 || schemaCorrection) {
     const entries = await Promise.all(changed.map(async (migrationPath) => ({
       path: migrationPath,
       status: gitText(['diff', '--name-status', '--no-renames', base, '--', migrationPath]).split(/\s/)[0],
       source: await readFile(migrationPath, 'utf8'),
     })))
+    if (schemaCorrection) {
+      if (mainTip !== base) failures.push('Coach offline schema correction requires the verified unchanged origin/main tip')
+      if (!matchesCoachOfflineSchemaCompatibilityMigrationScope(base, entries)) failures.push('Coach offline schema correction requires its exact single added migration on the verified base')
+    }
     if (matchesCompleteV1MigrationScope(base, entries) && mainTip !== base) failures.push('Combined V1 migration scope requires the verified unchanged origin/main tip')
     if (matchesIncidentRecoveryMigrationScope(base, entries) && mainTip !== base) failures.push('Incident recovery migration scope requires the verified unchanged origin/main tip')
     if (matchesAdultAccessMigrationScope(base, entries) && mainTip !== base) failures.push('Adult access migration scope requires the verified unchanged origin/main tip')
     if (matchesAdultInvitationMigrationScope(base, entries) && mainTip !== base) failures.push('Adult invitation migration scope requires the verified unchanged origin/main tip')
     if (matchesCoachAccountOfflineMigrationScope(base, entries) && mainTip !== base) failures.push('Coach account offline migration scope requires the verified unchanged origin/main tip')
-    if (!matchesHardeningMigrationScope(base, entries) && !matchesCompleteV1MigrationScope(base, entries) && !matchesIncidentRecoveryMigrationScope(base, entries) && !matchesAdultAccessMigrationScope(base, entries) && !matchesAdultInvitationMigrationScope(base, entries) && !matchesCoachAccountOfflineMigrationScope(base, entries)) await validateReconciliationManifest(base, changed)
+    if (!schemaCorrection && !matchesHardeningMigrationScope(base, entries) && !matchesCompleteV1MigrationScope(base, entries) && !matchesIncidentRecoveryMigrationScope(base, entries) && !matchesAdultAccessMigrationScope(base, entries) && !matchesAdultInvitationMigrationScope(base, entries) && !matchesCoachAccountOfflineMigrationScope(base, entries)) await validateReconciliationManifest(base, changed)
   }
 } catch {
   failures.push('Could not establish the origin/main migration allowlist base')

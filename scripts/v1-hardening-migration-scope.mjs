@@ -111,3 +111,19 @@ export function matchesCoachAccountOfflineMigrationScope(base, entries) {
   return entries.every(({ path, status, source }, index) => path === expected[index] && status === 'A'
     && createHash('sha256').update(source.replaceAll('\r\n', '\n')).digest('hex') === coachAccountOfflineMigrationScope.hashes[path])
 }
+
+// Exact unapplied compatibility correction. Applied originals stay immutable.
+export const coachOfflineSchemaCompatibilityMigrationScope = {
+  base: 'eca824004ede19fc5d58314b4a360d217585dd80',
+  hashes: {
+    'supabase/migrations/20261118155211_coach_offline_live_schema_compatibility.sql': 'f69ce67232b1acc02aef912012af12aaf51371df104180cec6628cc59c818767',
+  },
+}
+
+export function matchesCoachOfflineSchemaCompatibilityMigrationScope(base, entries) {
+  if (base !== coachOfflineSchemaCompatibilityMigrationScope.base) return false
+  const expected = Object.keys(coachOfflineSchemaCompatibilityMigrationScope.hashes).sort()
+  if (entries.length !== expected.length) return false
+  return entries.every(({ path, status, source }, index) => path === expected[index] && status === 'A'
+    && createHash('sha256').update(source.replaceAll('\r\n', '\n')).digest('hex') === coachOfflineSchemaCompatibilityMigrationScope.hashes[path])
+}

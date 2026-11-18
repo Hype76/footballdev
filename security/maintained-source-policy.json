@@ -310,5 +310,18 @@
       "gitHead": "6bb40679c218cefba5d4e9662408c5fdf699a8bb"
     },
     "behaviour": "Repeated extglob branches containing unbounded wildcard, raw plus quantifiers, nested parentheses or brace grouping use the existing literal fallback. Ambiguous repeated alternatives use the same fallback, while prefix-free plain literal alternatives remain supported. Escaped, quoted and nonliteral alternatives, and non-ASCII case-insensitive alternatives, conservatively fall back. Character-class scanning recognises literal opening brackets and the nobracket option. The exact existing star-of-literal simplification remains available. Ordinary globs, finite wildcards, escaping, quoted literals, character classes and non-repeating extglobs retain their existing behaviour."
+  },
+  "picomatchAdvisoryRequalification": {
+    "authorisedOn": "2026-11-18",
+    "authority": "Approved narrow withdrawal-metadata requalification during the authorised Coach offline release reconciliation.",
+    "originalPayloadSha256": "b66d36d6c28f481e9664503a641f23e1d8f5ee20b7b4f75de34edabcc89ee3ab",
+    "requalifiedPayloadSha256": "5f3ad11858d420fc94ddadde101bdf309c0037d6cce6be4847937d7ff558bc1f",
+    "advisory": {
+      "id": "GHSA-fc5q-39xc-vjpf",
+      "updatedAt": "2026-11-18T15:38:58Z",
+      "withdrawnAt": "2026-11-18T15:38:56Z",
+      "summary": "Withdrawn Advisory: picomatch vulnerable to ReDoS through single-branch repeated extglobs"
+    },
+    "scope": "Refresh only the exact withdrawn picomatch advisory meaning. Retain every existing source correction, all 27 target identities, official tooling proofs, locks and native inputs. Withdrawal grants no generic acceptance; fresh exact upstream verification and all four raw audit passes remain mandatory."
   }
 }
