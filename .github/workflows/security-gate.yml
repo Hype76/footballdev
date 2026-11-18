@@ -311,7 +311,28 @@ jobs:
       - name: Compile Coach and Parent mobile apps
         run: npm run mobile:export:web
       - name: Adult Player account linking
-        run: node --test tests/adult-player-setup.test.mjs tests/adult-player-status-race.test.mjs tests/adult-player-auth-bootstrap.test.mjs tests/adult-player-shared-account.test.mjs && node tests/adult-player-linking-browser.mjs && node tests/adult-player-workspace-bridge-browser.mjs && node tests/player-contact-layout-browser.mjs
+        run: >-
+          node --test --test-concurrency=1
+          tests/adult-player-setup.test.mjs
+          tests/adult-player-status-race.test.mjs
+          tests/adult-player-auth-bootstrap.test.mjs
+          tests/adult-player-shared-account.test.mjs
+          tests/adult-player-both-contact.test.mjs
+          tests/adult-player-both-contact-setup.test.mjs
+          tests/adult-player-invite-preview.test.mjs
+          tests/adult-player-invite-branding.test.mjs
+          tests/adult-player-sign-in.test.mjs
+          tests/adult-player-calendar-client.test.mjs
+          tests/adult-player-event-recipients.test.mjs
+          tests/adult-calendar-dispatch.test.mjs
+          tests/adult-calendar-notification-delivery.test.mjs
+          tests/adult-calendar-real-command.test.mjs
+          tests/adult-calendar-response-readback.test.mjs
+          && node tests/adult-player-linking-browser.mjs
+          && node tests/adult-player-workspace-bridge-browser.mjs
+          && node tests/adult-player-account-browser.mjs
+          && node tests/adult-player-invite-design-browser.mjs
+          && node tests/player-contact-layout-browser.mjs
       - name: Coach player profile navigation
         run: node tests/coach-player-profile-browser.mjs && node tests/coach-development-selectors-browser.mjs && node tests/coach-sessions-cache-warning-browser.mjs
       - name: Coach linked-club notification authority

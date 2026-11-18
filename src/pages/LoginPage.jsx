@@ -279,7 +279,7 @@ export function LoginPage({ role = 'coach', clubSignup = false, onPromotionCodeC
         await signInWithPassword({
           email: formData.email.trim(),
           password: formData.password,
-          preferredAccessMode: mode === 'parent-login' || parentInviteToken ? 'parent' : 'team',
+          preferredAccessMode: mode === 'parent-login' || parentInviteToken ? 'parent' : playerAccess ? 'player' : 'team',
         })
 
         if (parentInviteToken) {
@@ -289,6 +289,8 @@ export function LoginPage({ role = 'coach', clubSignup = false, onPromotionCodeC
           }
         } else if (mode === 'parent-login') {
           window.location.assign('/parent-portal')
+        } else if (playerAccess) {
+          window.location.assign('/player')
         }
       }
     } catch (error) {
@@ -317,6 +319,7 @@ export function LoginPage({ role = 'coach', clubSignup = false, onPromotionCodeC
   }
 
   const parentAccess = role === 'parent' || Boolean(parentInviteToken) || mode === 'parent-login'
+  const playerAccess = !parentAccess && !clubSignup && mode !== 'signup' && new URLSearchParams(window.location.search).get('access') === 'player'
   const finishFreshSignup = async (event, resend = false) => {
     event.preventDefault()
     if (submitLockRef.current) return
@@ -339,13 +342,13 @@ export function LoginPage({ role = 'coach', clubSignup = false, onPromotionCodeC
       <WebsiteAuthHeader />
       <main className="website-auth-main">
         <section className="website-auth-intro">
-          <p className="website-auth-eyebrow">{parentAccess ? 'Parent access' : mode === 'signup' ? 'Get started' : 'Coach and club access'}</p>
+          <p className="website-auth-eyebrow">{playerAccess ? 'Player access' : parentAccess ? 'Parent access' : mode === 'signup' ? 'Get started' : 'Coach and club access'}</p>
             <h1>{parentAccess ? 'Stay close to the game.' : clubSignup ? 'Your club starts here.' : mode === 'signup' ? 'Your team starts here.' : 'Back to your football.'}</h1>
-          <p>{parentAccess ? 'Fixtures, availability and match updates for your linked player, all in one place.' : 'Manage your team, prepare for match day and keep everyone connected.'}</p>
-          <figure className="website-auth-image">
+          <p>{playerAccess ? 'Your matches, training and event invitations, with your own Player login. Your existing Parent access stays available.' : parentAccess ? 'Fixtures, availability and match updates for your linked player, all in one place.' : 'Manage your team, prepare for match day and keep everyone connected.'}</p>
+          {!playerAccess ? <figure className="website-auth-image">
             <img src={parentAccess ? '/marketing-v70/assets/parent-matchday.webp' : '/marketing-v70/assets/coach-light.webp'} alt={parentAccess ? 'Parent fixture and player availability preview' : 'Coach team overview preview'} />
             <figcaption>Football Player {parentAccess ? 'Parent' : 'Coach'} app</figcaption>
-          </figure>
+          </figure> : null}
           <a href={parentAccess ? '/sign-in/coach' : '/sign-in/parent'}>{parentAccess ? 'Coach or club admin? Sign in here' : 'Parent? Sign in here'}</a>
         </section>
         <div className="website-auth-form-column">
@@ -370,6 +373,7 @@ export function LoginPage({ role = 'coach', clubSignup = false, onPromotionCodeC
               localMessage={localMessage}
               logo={parentAccess ? '/marketing-v70/assets/parent-logo.webp' : '/marketing-v70/assets/fp-logo.webp'}
               mode={mode}
+              playerAccess={playerAccess}
               role={parentAccess ? 'parent' : 'coach'}
               onChange={handleChange}
               onDemoLogin={handleDemoLogin}

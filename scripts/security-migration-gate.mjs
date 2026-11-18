@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto'
 import { readdir, readFile } from 'node:fs/promises'
 import path from 'node:path'
 import process from 'node:process'
-import { matchesHardeningMigrationScope, matchesCompleteV1MigrationScope, matchesIncidentRecoveryMigrationScope, matchesAdultAccessMigrationScope } from './v1-hardening-migration-scope.mjs'
+import { matchesHardeningMigrationScope, matchesCompleteV1MigrationScope, matchesIncidentRecoveryMigrationScope, matchesAdultAccessMigrationScope, matchesAdultInvitationMigrationScope } from './v1-hardening-migration-scope.mjs'
 
 const migrationDirectory = path.join(process.cwd(), 'supabase', 'migrations')
 const reconciliationManifestPath = path.join(process.cwd(), 'scripts', 'migration-reconciliation-manifest.json')
@@ -145,7 +145,8 @@ try {
     if (matchesCompleteV1MigrationScope(base, entries) && mainTip !== base) failures.push('Combined V1 migration scope requires the verified unchanged origin/main tip')
     if (matchesIncidentRecoveryMigrationScope(base, entries) && mainTip !== base) failures.push('Incident recovery migration scope requires the verified unchanged origin/main tip')
     if (matchesAdultAccessMigrationScope(base, entries) && mainTip !== base) failures.push('Adult access migration scope requires the verified unchanged origin/main tip')
-    if (!matchesHardeningMigrationScope(base, entries) && !matchesCompleteV1MigrationScope(base, entries) && !matchesIncidentRecoveryMigrationScope(base, entries) && !matchesAdultAccessMigrationScope(base, entries)) await validateReconciliationManifest(base, changed)
+    if (matchesAdultInvitationMigrationScope(base, entries) && mainTip !== base) failures.push('Adult invitation migration scope requires the verified unchanged origin/main tip')
+    if (!matchesHardeningMigrationScope(base, entries) && !matchesCompleteV1MigrationScope(base, entries) && !matchesIncidentRecoveryMigrationScope(base, entries) && !matchesAdultAccessMigrationScope(base, entries) && !matchesAdultInvitationMigrationScope(base, entries)) await validateReconciliationManifest(base, changed)
   }
 } catch {
   failures.push('Could not establish the origin/main migration allowlist base')

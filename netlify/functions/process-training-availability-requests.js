@@ -961,8 +961,15 @@ export async function prepareScheduledTrainingInvitationRow(row, {
   }
 
   if (requestPlayer.recipient_type === 'player') {
-    recipientIsCurrent = normalizeText(player.contact_type).toLowerCase() === 'self'
-      && normalizeEmail(player.parent_email) === recipientEmail
+    const eligibleContacts = await resolveEligibleEventInvitationContacts(supabaseClient, {
+      clubId: request.club_id,
+      playerIds: [player.id],
+      teamId: request.team_id,
+    })
+    recipientIsCurrent = eligibleContacts.some(contact => (
+      contact.playerId === player.id && contact.type === 'player'
+      && contact.parentLinkId === null && normalizeEmail(contact.email) === recipientEmail
+    ))
     recipient = {
       ...recipient,
       name: normalizeText(player.player_name),

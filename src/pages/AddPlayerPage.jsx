@@ -257,9 +257,9 @@ export function AddPlayerPage() {
       const form = {
         ...playerForm,
         parentContacts: ensureContactsForType(playerForm.parentContacts, playerForm.contactType, playerForm.playerName),
-        dateOfBirth: playerForm.contactType === 'self' ? playerForm.dateOfBirth : '',
+        dateOfBirth: ['self', 'both'].includes(playerForm.contactType) ? playerForm.dateOfBirth : '',
       }
-      if (form.dateOfBirth && !isAdultPlayerBirthDate(form.dateOfBirth)) {
+      if (form.contactType === 'self' && form.dateOfBirth && !isAdultPlayerBirthDate(form.dateOfBirth)) {
         throw new Error('Enter a date of birth confirming the player is 18 or over.')
       }
       if (form.contactType === 'self' && form.parentContacts.some(contact => contact.email.trim()) && !getAdultPlayerSetupEmail(form)) {
@@ -320,7 +320,7 @@ export function AddPlayerPage() {
       parentCount ? `${parentCount} Parent app invite${parentCount === 1 ? '' : 's'} sent.` : '',
       results[1].value?.state === 'sent' ? 'Player login invitation sent.' : '',
       results[1].value?.state === 'delivery_unknown' ? 'A previous Player invitation exists, but delivery cannot be confirmed.' : '',
-      player.contactType === 'self' && !adultReady
+      ['self', 'both'].includes(player.contactType) && !adultReady
         ? 'Player login requires one Player email and a date of birth confirming they are 18 or over.'
         : '',
     ].filter(Boolean).join(' ')

@@ -88,6 +88,8 @@ export function resolveAccessModeForRoute({
   const normalizedAccessMode = normalizeLoginAccessIntent(selectedAccessMode)
   const normalizedPath = normalizeParentIntentPath(pathname)
 
+  if (!isParentHost && normalizedPath === '/player') return 'player'
+
   if (normalizedAccessMode === PARENT_ACCESS_MODE && normalizedPath === '/' && !isIntentionalParentAccessContext({
     isParentHost,
     loginAccessIntent,

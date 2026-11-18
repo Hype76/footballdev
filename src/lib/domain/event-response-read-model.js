@@ -11,6 +11,7 @@ const INACTIVE_MATCH_AVAILABILITY_REQUEST_STATES = new Set(['cancelled', 'expire
 const RESPONSE_AUDIT_ACTIONS = [
   'adult_player_match_response_saved',
   'adult_player_training_response_saved',
+  'adult_player_calendar_response_saved',
   'event_player_availability_accepted_on_behalf',
   'event_player_availability_marked_unavailable_on_behalf',
 ]
@@ -288,13 +289,17 @@ function createParticipantRow({
 }) {
   const notifyRequested = invite?.notifyRequested === true
   const responseRequirement = normalizeStatus(invite?.responseRequirement)
-  const responseRequired = responseRequirement === 'response_required' || eventType === 'match'
-  const invitationState = notifyRequested ? 'created' : 'not_sent'
-  const responseState = invitationState === 'not_sent'
+  const adultCalendarInvite = source.sourceType === 'calendar' && !['match', 'training'].includes(eventType)
+    && ['player', 'parent_and_player'].includes(invite?.recipientType) && Boolean(invite?.playerContactEmail)
+  const adultResponse = adultCalendarInvite && FINAL_RESPONSE_STATES.has(normalizeStatus(invite?.adultResponseState))
+    ? normalizeStatus(invite.adultResponseState) : ''
+  const responseRequired = responseRequirement === 'response_required' || eventType === 'match' || adultCalendarInvite
+  const invitationState = notifyRequested || adultResponse ? 'created' : 'not_sent'
+  const responseState = adultResponse || (invitationState === 'not_sent'
     ? 'not_invited'
     : responseRequired
       ? 'awaiting_response'
-      : 'not_requested'
+      : 'not_requested')
 
   return {
     ...(invite || {}),
@@ -318,8 +323,8 @@ function createParticipantRow({
       : responseState === 'not_requested'
         ? 'Response not requested'
         : getResponseLabel(eventType, responseState),
-    responseSource: '',
-    respondedAt: invite?.respondedAt || '',
+    responseSource: adultResponse ? 'adult_player' : '',
+    respondedAt: adultCalendarInvite ? invite?.adultRespondedAt || '' : invite?.respondedAt || '',
     matchSelectionState: eventType === 'match' ? 'undecided' : '',
     selectionSource: '',
     attendanceState: 'not_recorded',

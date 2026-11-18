@@ -89,7 +89,7 @@ export function PlayersPage({
   const userScopeKey = user ? `${user.id}:${user.clubId || ''}:${user.role}:${user.roleRank}:${activeTeamScope}` : ''
   const canMovePlayersToTrial = canUseUiFeature(user, CAPABILITIES.trialPlayers)
   const canResendTeamInvites = Boolean(user?.activeTeamId && canManageTeamSettings(user) && canUseUiFeature(user, CAPABILITIES.players)
-    && players.some(player => player.teamId === user.activeTeamId && player.contactType === 'self'))
+    && players.some(player => player.teamId === user.activeTeamId && ['self', 'both'].includes(player.contactType)))
   const inviteScope = useMemo(() => ({ key: userScopeKey }), [userScopeKey])
   const activeBatch = inviteBatch?.scope === inviteScope ? inviteBatch : null
   const activeInviteProgress = inviteProgress?.scope === inviteScope ? inviteProgress : null

@@ -8,6 +8,7 @@ import {
 import { resolveMatchDayNotificationTeamName, resolveTeamNotificationDisplayName } from '../../../src/lib/team-notification-display.js'
 import { resolveEligibleEventInvitationContacts } from './_match-day-actionable-invitation.js'
 import { getDateInTimeZone } from './_parent-notification-validity.js'
+import { loadParentInviteBranding } from './_parent-invite-branding.js'
 
 async function validatePreparedMatchInvitation(client, row) {
   const reference = row.payload.matchDayAvailability || {}
@@ -50,6 +51,7 @@ async function validatePreparedMatchInvitation(client, row) {
 const CALENDAR_NOTIFICATION_SOURCES = new Set([
   'calendar_event_notification',
   'calendar_trial_event_notification',
+  'calendar_adult_event_notification',
 ])
 
 function normalizeText(value) {
@@ -234,11 +236,11 @@ async function loadParentNotificationContext(supabaseClient, row) {
       clubId: notification.club_id,
       teamId: notification.team_id,
     }),
-    notification.calendar_event_id && normalizeText(event?.event_type).toLowerCase() === 'training'
+    notification.calendar_event_id
       ? loadMaybeSingle(
           supabaseClient
             .from('calendar_event_invites')
-            .select('id, response_requirement, training_availability_requested, invite_status')
+            .select('id, response_requirement, training_availability_requested, invite_status, cancelled_at, recipient_type, player_contact_email')
             .eq('calendar_event_id', notification.calendar_event_id)
             .eq('player_id', notification.player_id)
             .eq('club_id', notification.club_id),
@@ -246,7 +248,7 @@ async function loadParentNotificationContext(supabaseClient, row) {
         )
       : Promise.resolve(null),
   ])
-  const parent = parentLink?.auth_user_id
+  let parent = parentLink?.auth_user_id
     ? await loadMaybeSingle(
         supabaseClient
           .from('users')
@@ -256,6 +258,17 @@ async function loadParentNotificationContext(supabaseClient, row) {
         'Parent profile',
       )
     : null
+  if (!parent && parentLink?.auth_user_id && calendarInvite?.recipient_type === 'parent_and_player'
+    && normalizeEmail(calendarInvite.player_contact_email) === queueRecipient) {
+    const { data, error } = await supabaseClient.auth.admin.getUserById(parentLink.auth_user_id)
+    if (error) throw error
+    const account = data?.user
+    if (account?.id === parentLink.auth_user_id && !account.deleted_at && account.email_confirmed_at
+      && (!account.banned_until || Date.parse(account.banned_until) <= Date.now())
+      && normalizeEmail(account.email) === queueRecipient) {
+      parent = { id: account.id, email: account.email, status: 'active' }
+    }
+  }
   const eventTeamId = normalizeText(event?.team_id)
   const notificationTeamId = normalizeText(notification.team_id)
   const playerTeamId = normalizeText(player?.team_id)
@@ -294,10 +307,24 @@ async function loadParentNotificationContext(supabaseClient, row) {
     return { reason: 'authoritative_scope_inactive', sendable: false }
   }
 
+  let adultPortalUrl = ''
+  if (notificationTeamId && calendarInvite?.recipient_type === 'parent_and_player'
+    && calendarInvite.invite_status !== 'cancelled' && !calendarInvite.cancelled_at
+    && normalizeEmail(calendarInvite.player_contact_email) === queueRecipient
+    && !['training', 'match_day'].includes(normalizeText(event.event_type).toLowerCase())
+    && Date.parse(event.starts_at) > Date.now()) {
+    // A shared Parent and Player email receives one message, with both authorized destinations.
+    const { data: adultCurrent, error: adultError } = await supabaseClient.rpc('is_adult_calendar_notification_current', {
+      player_value: notification.player_id, club_value: notification.club_id, team_value: notificationTeamId, email_value: queueRecipient,
+    })
+    if (adultError) throw adultError
+    if (adultCurrent === true) adultPortalUrl = `${CALENDAR_NOTIFICATION_PLATFORM_ORIGIN}/player`
+  }
   const portalUrl = `${CALENDAR_NOTIFICATION_PARENT_PORTAL_URL}&eventId=${encodeURIComponent(event.id)}&parentLinkId=${encodeURIComponent(parentLink.id)}`
 
   return {
     action: notification.notification_type,
+    adultPortalUrl,
     clubLogoUrl: normalizeText(brand.club.logo_url),
     clubName: normalizeText(brand.club.name),
     endsAt: event.ends_at,
@@ -429,9 +456,46 @@ export async function loadAuthoritativeCalendarNotificationContext(supabaseClien
     return { reason: 'not_calendar_notification', sendable: false }
   }
 
-  return isTrialCalendarNotificationQueueRow(row)
+  return getMetadata(row).source === 'calendar_adult_event_notification'
+    ? loadAdultNotificationContext(supabaseClient, row)
+    : isTrialCalendarNotificationQueueRow(row)
     ? loadTrialNotificationContext(supabaseClient, row)
     : loadParentNotificationContext(supabaseClient, row)
+}
+
+async function loadAdultNotificationContext(client, row) {
+  const invalid = { reason: 'adult_notification_scope_invalid', sendable: false }
+  const notification = await loadMaybeSingle(client.from('calendar_event_notification_events')
+    .select('id,club_id,team_id,calendar_event_id,player_id,recipient_email,notification_type,parent_link_id,status')
+    .eq('email_queue_id', row.id).eq('club_id', row.club_id).eq('team_id', row.team_id), 'Adult notification')
+  if (!notification || notification.parent_link_id || normalizeEmail(notification.recipient_email) !== normalizeEmail(row.to_email)) return invalid
+  const [event, invite, player, brand, branding] = await Promise.all([
+    loadEventContext(client, notification),
+    loadMaybeSingle(client.from('calendar_event_invites').select('id,club_id,team_id,player_id,recipient_type,player_contact_email,invite_status,cancelled_at')
+      .eq('calendar_event_id', notification.calendar_event_id).eq('player_id', notification.player_id)
+      .eq('club_id', notification.club_id).eq('team_id', notification.team_id), 'Adult invitation'),
+    loadMaybeSingle(client.from('players').select('id,player_name').eq('id', notification.player_id)
+      .eq('club_id', notification.club_id).eq('team_id', notification.team_id), 'Player'),
+    loadCommonBrandContext(client, { clubId: notification.club_id, teamId: notification.team_id }),
+    loadParentInviteBranding(client, { club_id: notification.club_id, team_id: notification.team_id }),
+  ])
+  if (!event || event.team_id !== notification.team_id || event.cancelled_at || !event.parent_visible
+    || ['training', 'match_day'].includes(event.event_type) || !(Date.parse(event.starts_at) > Date.now())
+    || !invite || invite.invite_status === 'cancelled' || invite.cancelled_at
+    || !['player', 'parent_and_player'].includes(invite.recipient_type)
+    || normalizeEmail(invite.player_contact_email) !== normalizeEmail(row.to_email) || !player || !brand.club) return invalid
+  const { data: current, error } = await client.rpc('is_adult_calendar_notification_current', {
+    player_value: notification.player_id, club_value: notification.club_id, team_value: notification.team_id,
+    email_value: normalizeEmail(row.to_email),
+  })
+  if (error) throw error
+  if (current !== true) return invalid
+  return { action: notification.notification_type, adultInvitation: true, clubLogoUrl: branding?.logoUrl || '',
+    clubName: brand.club.name, endsAt: event.ends_at, eventTitle: event.title, eventType: event.event_type,
+    location: event.location, notes: event.notes, parentName: player.player_name, playerName: player.player_name,
+    portalUrl: `${CALENDAR_NOTIFICATION_PLATFORM_ORIGIN}/player`, recipientEmail: normalizeEmail(row.to_email),
+    sendable: true, startsAt: event.starts_at, teamName: resolveEventNotificationTeamName(event, brand),
+    themeAccent: branding?.accent || '', trialInvitation: false }
 }
 
 export async function prepareScheduledCalendarNotificationRow(row, {
@@ -492,7 +556,7 @@ export async function prepareScheduledCalendarNotificationRow(row, {
         playerName: email.playerName,
         resendPayload: {
           ...safeExistingResendPayload,
-          emailAppRole: 'parent',
+          emailAppRole: context.adultInvitation ? 'none' : 'parent',
           html: email.html,
           subject: email.subject,
           to: [context.recipientEmail],

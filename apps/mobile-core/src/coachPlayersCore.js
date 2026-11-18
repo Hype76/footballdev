@@ -3,7 +3,7 @@ import { PLAYER_SECTIONS } from '../../../src/lib/player-participation.js'
 import { CAPABILITIES, getFeatureAccess } from '../../../src/lib/paywall-access.js'
 
 export const COACH_PLAYER_SECTIONS = PLAYER_SECTIONS
-export const COACH_PLAYER_CONTACT_TYPES = Object.freeze(['parent', 'self'])
+export const COACH_PLAYER_CONTACT_TYPES = Object.freeze(['parent', 'self', 'both'])
 
 function normalize(value) {
   return String(value ?? '').trim()
@@ -24,9 +24,9 @@ function normalizeContacts(value, fallbackName = '', fallbackEmail = '', contact
     .map((contact) => ({
       email: normalize(contact?.email ?? contact?.parentEmail).toLowerCase(),
       name: normalize(contact?.name ?? contact?.parentName),
-      type: COACH_PLAYER_CONTACT_TYPES.includes(normalize(contact?.type).toLowerCase())
+      type: ['parent', 'self'].includes(normalize(contact?.type).toLowerCase())
         ? normalize(contact.type).toLowerCase()
-        : contactType,
+        : contactType === 'self' ? 'self' : 'parent',
     }))
     .filter((contact) => contact.name || contact.email)
 }
@@ -189,7 +189,7 @@ export function buildCoachPlayerPayload({ context, form }) {
   return Object.freeze({
     club_id: context.clubId,
     contact_type: contactType,
-    ...(contactType === 'self' && form?.dateOfBirth !== undefined ? { date_of_birth: form.dateOfBirth || null } : {}),
+    ...(['self', 'both'].includes(contactType) && form?.dateOfBirth !== undefined ? { date_of_birth: form.dateOfBirth || null } : {}),
     notes: normalize(form?.notes),
     parent_contacts: contacts,
     parent_email: primaryContact.email,

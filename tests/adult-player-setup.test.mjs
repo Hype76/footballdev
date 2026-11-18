@@ -370,7 +370,7 @@ test('staff delivery uses the reserved recipient and repeats the same provider i
     client: {
       from: table => ({
         select: () => ({
-          eq: () => ({ maybeSingle: async () => ({ data: table === 'email_delivery_jobs' ? { provider_status: providerStatus, provider_message_id: 'provider-1' } : { id: player, club_id: club, team_id: team } }) }),
+          eq: () => ({ maybeSingle: async () => ({ data: table === 'email_delivery_jobs' ? { provider_status: providerStatus, provider_message_id: 'provider-1' } : table === 'clubs' ? { name: 'Test Club' } : table === 'teams' ? { name: 'Test Team', club_id: club } : { id: player, club_id: club, team_id: team } }) }),
         }),
       }),
       rpc: async (name) => {
@@ -384,6 +384,11 @@ test('staff delivery uses the reserved recipient and repeats the same provider i
     getActor: async () => ({ id: actor, email: 'coach@example.test' }),
     getProfile: async () => ({ clubId: club, roleRank: 30, role: 'coach' }),
     assertFeature: (_profile, feature) => assert.equal(feature, 'players'),
+    loadBranding: async (_client, scope) => {
+      assert.equal(scope.club_id, club)
+      assert.equal(scope.team_id, team)
+      return { logoUrl: 'https://example.test/club.png' }
+    },
     deliver: async (payload, options) => {
       deliveries.push({ payload, key: options.idempotencyKey, telemetryKey: options.context.deliveryTelemetry.logicalKey })
       if (deliveries.length === 1) throw new Error('temporary failure')
@@ -398,6 +403,10 @@ test('staff delivery uses the reserved recipient and repeats the same provider i
   assert.equal(deliveries[0].telemetryKey, `adult_player_setup_invite:player:${player}:${createHash('sha256').update(other).digest('hex')}`)
   assert.deepEqual(deliveries[0].payload.to, ['player@example.test'])
   assert.equal(deliveries[0].payload.emailAppRole, 'none')
+  assert.match(deliveries[0].payload.from, /^Test Club via Football Player </)
+  assert.match(deliveries[0].payload.html, /https:\/\/example\.test\/club\.png/)
+  assert.match(deliveries[0].payload.html, /Test Club/)
+  assert.match(deliveries[0].payload.html, /Test Team/)
   assert.equal((await send()).statusCode, 200)
   assert.equal(deliveries.length, 2)
   providerStatus = 'bounced'
@@ -424,7 +433,7 @@ test('team resend preview sends nothing, and resends recheck team scope and link
     client: {
       from: table => ({ select: () => ({ eq: () => ({
         maybeSingle: async () => ({ data: table === 'teams'
-          ? { id: team, club_id: club } : { id: player, club_id: club, team_id: team } }),
+          ? { id: team, club_id: club, name: 'Test Team' } : table === 'clubs' ? { name: 'Test Club' } : { id: player, club_id: club, team_id: team } }),
       }) }) }),
       rpc: async (name, args) => {
         calls.push({ name, args })
@@ -436,6 +445,7 @@ test('team resend preview sends nothing, and resends recheck team scope and link
     getActor: async () => ({ id: actor, email: 'coach@example.test' }),
     getProfile: async () => ({ clubId: club, roleRank: rank, role: 'head_manager' }),
     assertFeature: () => {},
+    loadBranding: async () => null,
     deliver: async (payload) => { deliveries.push(payload.to) },
   })
   const request = async (body) => handler({ httpMethod: 'POST', body: JSON.stringify(body) })

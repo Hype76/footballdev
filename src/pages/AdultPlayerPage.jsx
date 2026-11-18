@@ -39,7 +39,7 @@ function formatEventDate(value) {
 }
 
 function responseLabel(invitation) {
-  const labels = invitation.invitationType === 'training_attendance'
+  const labels = ['training_attendance', 'calendar_attendance'].includes(invitation.invitationType)
     ? trainingResponses
     : matchResponses
   return labels.find((option) => option.value === invitation.responseState)?.label
@@ -47,14 +47,14 @@ function responseLabel(invitation) {
 }
 
 function InvitationCard({ invitation, isSaving, onRespond }) {
-  const options = invitation.invitationType === 'training_attendance'
+  const options = ['training_attendance', 'calendar_attendance'].includes(invitation.invitationType)
     ? trainingResponses
     : invitation.invitationType === 'match_attendance'
       ? matchResponses
       : []
 
   return (
-    <article className="rounded-2xl border border-emerald-100 bg-white p-5 shadow-sm shadow-emerald-950/5 sm:p-6">
+    <article className="border-b border-slate-200 py-5 sm:py-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
           <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-700">
@@ -65,13 +65,13 @@ function InvitationCard({ invitation, isSaving, onRespond }) {
           {invitation.eventLocation ? <p className="mt-1 text-sm text-slate-600">{invitation.eventLocation}</p> : null}
           {invitation.teamName ? <p className="mt-1 text-sm text-slate-500">{invitation.teamName}</p> : null}
         </div>
-        <div className="shrink-0 rounded-xl bg-emerald-50 px-3 py-2 text-sm font-black text-emerald-800">
+        <div className="shrink-0 text-sm font-black text-emerald-800">
           {responseLabel(invitation)}
         </div>
       </div>
 
       {invitation.selectionState === 'selected' ? (
-        <p className="mt-4 rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm font-bold text-blue-900">
+        <p className="mt-4 text-sm font-bold text-blue-900">
           You are selected for this fixture.
         </p>
       ) : null}
@@ -215,7 +215,7 @@ export function AdultPlayerPage() {
             <p className="mt-2 text-sm font-semibold text-slate-600">New match, training, and Calendar invitations will appear here.</p>
           </div>
         ) : (
-          <div className="space-y-4">
+          <div>
             {upcomingInvitations.map((invitation) => (
               <InvitationCard
                 key={invitation.invitationId}

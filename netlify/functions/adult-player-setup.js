@@ -4,6 +4,8 @@ import { supabaseAdmin } from './lib/_supabase.js'
 import { assertPasswordPolicy } from '../../src/lib/password-policy.js'
 import { isDemoEmail } from '../../src/lib/demo.js'
 import { createHash } from 'node:crypto'
+import { loadParentInviteBranding } from './lib/_parent-invite-branding.js'
+import { buildAdultPlayerInviteEmail } from './lib/_adult-player-invite-email.js'
 
 const uuid = /^[\da-f]{8}(?:-[\da-f]{4}){3}-[\da-f]{12}$/i
 const inviteDigest = token => createHash('sha256').update(String(token).toLowerCase()).digest('hex')
@@ -42,6 +44,7 @@ export function createAdultPlayerSetupHandler({
   getProfile = getAuthenticatedPlanProfile,
   assertFeature = assertPlanFeature,
   deliver = sendEmail,
+  loadBranding = loadParentInviteBranding,
 } = {}) {
   async function rpc(name, params) {
     const { data, error } = await client.rpc(name, params)
@@ -77,13 +80,19 @@ export function createAdultPlayerSetupHandler({
     if (invite?.state !== 'pending') return inviteFailure(invite?.state)
 
     const link = `https://footballplayer.online/player-invite#invite=${invite.token}`
+    const [{ data: club, error: clubError }, { data: team, error: teamError }, branding] = await Promise.all([
+      client.from('clubs').select('name').eq('id', player.club_id).maybeSingle(),
+      client.from('teams').select('name,club_id').eq('id', player.team_id).maybeSingle(),
+      loadBranding(client, player),
+    ])
+    if (clubError || teamError) throw clubError || teamError
+    if (!club?.name || !team?.name || team.club_id !== player.club_id) throw new Error('Player invitation scope unavailable')
+    const email = buildAdultPlayerInviteEmail({ clubName: club.name, teamName: team.name, logoUrl: branding?.logoUrl, accent: branding?.accent, link })
     await deliver({
       emailAppRole: 'none',
-      from: createFromAddress('Football Player'),
+      from: createFromAddress(`${club.name} via Football Player`),
       to: [invite.email],
-      subject: 'Set up your Football Player access',
-      html: `<p>Your club has invited you to set up your own Player login.</p><p><a href="${link}">Set up Player access</a></p><p>This invitation expires in seven days. Once signed in, you can respond to fixtures and training on the website.</p>`,
-      text: `Your club has invited you to set up your own Player login.\n\n${link}\n\nThis invitation expires in seven days.`,
+      ...email,
     }, {
       idempotencyKey: `adult-player-setup:${invite.token}`,
       context: {
@@ -100,6 +109,14 @@ export function createAdultPlayerSetupHandler({
     })
     await rpc('confirm_adult_player_setup_email', { invite_token: invite.token })
     return reply(200, { success: true, state: 'sent' })
+  }
+
+  async function previewInvite(token) {
+    const invite = await rpc('preview_adult_player_setup_invite', { invite_token: token })
+    if (!['pending', 'accepted'].includes(invite?.state)) return inviteFailure('invalid')
+    const branding = await loadBranding(client, { club_id: invite.clubId, team_id: invite.teamId })
+    return reply(200, { success: true, state: invite.state, clubName: invite.clubName, teamName: invite.teamName,
+      logoUrl: branding?.logoUrl || '', accent: branding?.accent || '' })
   }
 
   async function listTeamResendTargets(event, teamId) {
@@ -214,6 +231,9 @@ export function createAdultPlayerSetupHandler({
       }
       if (body?.action === 'status' && typeof body.playerId === 'string' && uuid.test(body.playerId)) {
         return await getLinkStatus(event, body.playerId, body.reportDelivered === true)
+      }
+      if (body?.action === 'preview' && typeof body.token === 'string' && uuid.test(body.token)) {
+        return await previewInvite(body.token)
       }
       if (['create', 'accept'].includes(body?.action) && typeof body.token === 'string' && uuid.test(body.token)) {
         return await redeemInvite(event, body)

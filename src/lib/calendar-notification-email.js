@@ -118,6 +118,8 @@ export function buildCalendarNotificationHtml({
   teamName,
   themeAccent = '',
   trialInvitation = false,
+  adultInvitation = false,
+  adultPortalUrl = '',
 }) {
   const normalizedAction = normalizeText(action).toLowerCase()
   const resolvedAction = ['update', 'rescheduled', 'cancelled', 'deleted'].includes(normalizedAction)
@@ -142,12 +144,14 @@ export function buildCalendarNotificationHtml({
     maxWidth: 200,
     origin: CALENDAR_NOTIFICATION_PLATFORM_ORIGIN,
   })
-  const responseCopy = trialInvitation
+  const responseCopy = adultInvitation
+    ? 'Sign in to your Player account to view this event and respond.'
+    : trialInvitation
     ? 'Use the secure response link below to confirm attendance. This link is only for this event and this trial player.'
     : isTraining
       ? 'This Training session has been shared with you. No attendance response has been requested.'
       : 'This event has been shared with you for information. No attendance response has been requested.'
-  const actionLabel = trialInvitation ? 'Respond to invitation' : 'View event details'
+  const actionLabel = adultInvitation ? 'Open Player Calendar' : trialInvitation ? 'Respond to invitation' : 'View event details'
   const changeSummary = resolvedAction === 'rescheduled'
     ? `${resolvedPlayerName}'s event has been rescheduled by ${resolvedClubName}.`
     : resolvedAction === 'cancelled'
@@ -177,6 +181,7 @@ export function buildCalendarNotificationHtml({
       </div>
       ${showEventResponseCopy ? `<p style="margin:0 0 18px;color:#3f5147;font-size:14px;">${escapeHtml(responseCopy)}</p>` : ''}
       ${resolvedActionUrl ? `<p style="margin:0 0 22px;"><a href="${escapeHtml(resolvedActionUrl)}" style="display:inline-block;background:${escapeHtml(resolvedAccent)};color:#ffffff;text-decoration:none;font-weight:800;padding:12px 18px;border-radius:10px;">${escapeHtml(actionLabel)}</a></p>` : ''}
+      ${adultPortalUrl ? `<p style="margin:0 0 22px;">You can also <a href="${escapeHtml(adultPortalUrl)}">open your Player Calendar</a> to respond as a player.</p>` : ''}
       <p style="margin:0;color:#52635a;font-size:13px;">Sent by ${escapeHtml(resolvedClubName)} for ${escapeHtml(resolvedTeamName)}.</p>
       <div style="border-top:1px solid #e7ece3;margin-top:24px;padding-top:14px;">
         <p style="margin:0;color:#64748b;font-size:11px;line-height:1.45;">Delivered securely through Footballplayer.online.</p>
@@ -203,6 +208,8 @@ export async function buildAuthoritativeCalendarNotificationEmail({
   teamName,
   themeAccent,
   trialInvitation = false,
+  adultInvitation = false,
+  adultPortalUrl = '',
 } = {}) {
   const resolvedClubName = cleanEmailCopy(clubName, 'Your club')
   const resolvedPlayerName = cleanEmailCopy(playerName, 'your player')
@@ -231,6 +238,8 @@ export async function buildAuthoritativeCalendarNotificationEmail({
     teamName,
     themeAccent,
     trialInvitation,
+    adultInvitation,
+    adultPortalUrl,
   })
 
   return {

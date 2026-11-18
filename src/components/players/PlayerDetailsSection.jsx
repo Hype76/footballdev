@@ -137,7 +137,7 @@ export function PlayerDetailsSection({
                     player={player}
                   />
                 )}
-                {!isEditing && player.contactType === 'self' ? <div className="mt-4 border-t border-[#d7e5dc] pt-4">
+                {!isEditing && ['self', 'both'].includes(player.contactType) ? <div className="mt-4 border-t border-[#d7e5dc] pt-4">
                   <p className="text-sm font-bold">Player account</p>
                   <p role="status" className="text-sm">
                     {onResendAdultLink && adultLinkStatuses[player.id] === 'not_invited'
@@ -219,7 +219,7 @@ function PlayerDetailsEditor({
           className={fieldClass}
         />
       </label>
-      {draft.contactType === 'self' ? (
+      {['self', 'both'].includes(draft.contactType) ? (
         <label className="block">
           <span className={labelClass}>Player date of birth</span>
           <input type="date" value={draft.dateOfBirth || ''} onChange={event => onPlayerDraftChange('dateOfBirth', event.target.value)} className={fieldClass} />
@@ -230,7 +230,7 @@ function PlayerDetailsEditor({
           <div>
             <span className="block text-sm font-black text-[#101828]">Contacts</span>
             <p className="mt-1 text-xs font-semibold leading-5 text-[#4b5f55]">
-              {draft.contactType === 'self' ? 'Add the adult player’s own email address to invite them on Save.' : 'Add parent or guardian contacts to invite them on Save.'}
+              {['self', 'both'].includes(draft.contactType) ? 'Add one explicit Player contact and an adult date of birth to invite Player access on Save. Parent contacts keep their own invitations.' : 'Add parent or guardian contacts to invite them on Save.'}
             </p>
           </div>
           <button

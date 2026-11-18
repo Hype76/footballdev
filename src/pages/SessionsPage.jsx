@@ -9,6 +9,7 @@ import {
   EventResponseSummary,
 } from '../components/sessions/EventResponseManager.jsx'
 import { FootballCalendar } from '../components/sessions/FootballCalendar.jsx'
+import { AdultCalendarResponses } from '../components/sessions/AdultCalendarResponses.jsx'
 import { OpenSessionsSection } from '../components/sessions/OpenSessionsSection.jsx'
 import { PreviousSessionsWorkspace } from '../components/sessions/PreviousSessionsWorkspace.jsx'
 import { SessionPlayersSection } from '../components/sessions/SessionPlayersSection.jsx'
@@ -6551,6 +6552,8 @@ function CalendarEventModal({
                 <p className="text-sm font-black text-[#101828]">No players have been added to this event.</p>
               </div>
             )}
+            {event?.sourceType === 'calendar' && !['training', 'match_day'].includes(form.eventType)
+              ? <AdultCalendarResponses invites={currentInvites} /> : null}
             {form.eventType === 'training' ? <TrainingAvailabilityParentNotes details={trainingAvailabilityDetails} /> : null}
             <CalendarAttachedResourcesList
               activeResourceId={openingAttachedResourceId}

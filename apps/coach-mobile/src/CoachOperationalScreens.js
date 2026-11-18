@@ -981,7 +981,7 @@ function CoachPlayersScoped({ context, onNavigate, onQuickActionHandled, onReque
   useEffect(() => {
     let current = true
     setAdultLinkStatus(null)
-    if (!adultPlayerId || adultContactType !== 'self' || !policy.canEdit) return () => { current = false }
+    if (!adultPlayerId || !['self', 'both'].includes(adultContactType) || !policy.canEdit) return () => { current = false }
     setAdultLinkStatus({ playerId: adultPlayerId, state: 'loading' })
     getCoachAdultPlayerLinkStatus(adultPlayerId).then(
       result => { if (current) setAdultLinkStatus({ playerId: adultPlayerId, state: result.state }) },
@@ -1131,11 +1131,11 @@ function CoachPlayersScoped({ context, onNavigate, onQuickActionHandled, onReque
         const failed = parents.status === 'rejected' || attempts.some(result => result.status === 'failed')
         const notice = failed ? 'Player saved. An invitation could not be sent. Edit the player and select Save Player to retry.'
           : attempts.length ? 'Player saved. See each contact for their invitation status.'
-          : saved.contactType === 'self' && !adultReady
+          : ['self', 'both'].includes(saved.contactType) && !adultReady
             ? 'Player saved. Player login requires one Player email and a date of birth confirming they are 18 or over.'
             : 'Player saved.'
         setContactNotice(notice)
-        if (attempts.length || saved.contactType === 'self' || failed) setProfileSections(current => ({ ...current, contacts: true }))
+        if (attempts.length || ['self', 'both'].includes(saved.contactType) || failed) setProfileSections(current => ({ ...current, contacts: true }))
       }
     } catch (saveError) {
       if (request === playerRequest.current) setError(message(saveError, 'Player could not be saved.'))
@@ -1160,7 +1160,7 @@ function CoachPlayersScoped({ context, onNavigate, onQuickActionHandled, onReque
         ? { ...current, parentLinks: (current.parentLinks || []).filter(item => item.id !== link.id) }
         : current)
       setInviteResults(current => ({ ...current, [link.email.toLowerCase()]: { status: 'revoked' } }))
-      if (player.contactType === 'self') setAdultStatusRefresh(value => value + 1)
+      if (['self', 'both'].includes(player.contactType)) setAdultStatusRefresh(value => value + 1)
       setRevokeTarget(null)
       setContactNotice('Parent access removed for this player. You can now edit or remove their contact details.')
     } catch (revokeError) {
@@ -1189,24 +1189,28 @@ function CoachPlayersScoped({ context, onNavigate, onQuickActionHandled, onReque
           <Chips onChange={(value) => setForm({
             ...form,
             contactType: value,
-            parentContacts: form.parentContacts.some(contact => contact.type === value)
+            parentContacts: value === 'both'
+              ? ['self', 'parent'].reduce((contacts, type) => contacts.some(contact => contact.type === type)
+                ? contacts : [...contacts, { email: '', name: '', type }], form.parentContacts.map(contact => ({ ...contact, type: contact.type === 'self' ? 'self' : 'parent' })))
+              : form.parentContacts.some(contact => contact.type === value)
               ? form.parentContacts
               : form.parentContacts.every(contact => !contact.email && !contact.name)
                 ? [{ email: '', name: '', type: value }]
                 : [...form.parentContacts, { email: '', name: '', type: value }],
-          })} options={[{ label: 'Parent contact', value: 'parent' }, { label: 'Adult Player', value: 'self' }]} styles={styles} value={form.contactType} />
-          {form.contactType === 'self' ? <Field label="Player date of birth (DD:MM:YYYY)" onChangeText={(dateOfBirth) => setForm({ ...form, dateOfBirth })} styles={styles} value={String(form.dateOfBirth || '').replace(/^(\d{4})-(\d{2})-(\d{2})$/, '$3:$2:$1')} /> : null}
+          })} options={[{ label: 'Parent contact', value: 'parent' }, { label: 'Adult Player', value: 'self' }, { label: 'Player and Parents', value: 'both' }]} styles={styles} value={form.contactType} />
+          {['self', 'both'].includes(form.contactType) ? <Field label="Player date of birth (DD:MM:YYYY)" onChangeText={(dateOfBirth) => setForm({ ...form, dateOfBirth })} styles={styles} value={String(form.dateOfBirth || '').replace(/^(\d{4})-(\d{2})-(\d{2})$/, '$3:$2:$1')} /> : null}
           <Text style={styles.cardTitle}>Contacts</Text>
           {form.parentContacts.map((contact, index) => {
             const linked = detail?.parentLinks?.some((link) => link.email.toLowerCase() === contact.email.toLowerCase())
             return <View key={index} style={styles.calendarEventRow}>
+              {form.contactType === 'both' ? <Choice disabled={saving || linked} label={`Contact ${index + 1} for`} onChange={(type) => updateContact(index, { type })} options={[{ label: 'Player', value: 'self' }, { label: 'Parent or guardian', value: 'parent' }]} styles={styles} value={contact.type} /> : null}
               <Field label={`Contact ${index + 1} name`} onChangeText={(name) => updateContact(index, { name })} styles={styles} value={contact.name} />
               <Field label={`Contact ${index + 1} email`} onChangeText={(email) => updateContact(index, { email })} styles={styles} value={contact.email} />
               {linked ? <Text style={styles.meta}>To change this email or remove the contact, go back and remove their Parent access first.</Text> : null}
               <Button disabled={saving || linked} label={`Remove contact ${index + 1}`} onPress={() => setForm({ ...form, parentContacts: form.parentContacts.filter((_, i) => i !== index) })} secondary styles={styles} />
             </View>
           })}
-          <Button disabled={saving} label="Add another contact" onPress={() => setForm({ ...form, parentContacts: [...form.parentContacts, { name: '', email: '', type: form.contactType }] })} secondary styles={styles} />
+          <Button disabled={saving} label="Add another contact" onPress={() => setForm({ ...form, parentContacts: [...form.parentContacts, { name: '', email: '', type: form.contactType === 'self' ? 'self' : 'parent' }] })} secondary styles={styles} />
           <Field label="Private notes" multiline onChangeText={(value) => setForm({ ...form, notes: value })} styles={styles} value={form.notes} />
           {user?.planKey === 'matchday' ? <Text style={styles.meta}>New parent contacts receive an invitation automatically when you save.</Text> : null}
           <Button disabled={saving} label={saving ? (contactBusy ? 'Sending invitations...' : 'Saving...') : 'Save Player'} onPress={save} styles={styles} />
@@ -1229,7 +1233,7 @@ function CoachPlayersScoped({ context, onNavigate, onQuickActionHandled, onReque
                 {profileSections.contacts ? <>
                   {contactNotice ? <Text accessibilityLiveRegion="polite" style={styles.meta}>{contactNotice}</Text> : null}
                   {detail.parentLinksError ? <Text style={styles.danger}>{detail.parentLinksError}</Text> : null}
-                  {detail.player.contactType === 'self' && policy.canEdit ? <View style={styles.profileRow}>
+                  {['self', 'both'].includes(detail.player.contactType) && policy.canEdit ? <View style={styles.profileRow}>
                     <View style={{ flex: 1 }}><Text style={styles.fieldLabel}>Player account</Text><Text accessibilityLiveRegion="polite" style={styles.meta}>{adultPlayerLinkStatusLabel(adultLinkStatus?.playerId === detail.player.id ? adultLinkStatus.state : 'loading')}</Text></View>
                     <Pressable accessibilityRole="button" accessibilityLabel="Refresh Player account status" onPress={() => setAdultStatusRefresh(value => value + 1)} style={styles.profileAction}><Text style={styles.profileActionText}>Refresh</Text></Pressable>
                   </View> : null}
