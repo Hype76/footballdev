@@ -20,7 +20,7 @@ async function pickResource(source) {
   if (source === 'gallery') {
     const { launchImageLibraryAsync } = require('expo-image-picker')
     return launchImageLibraryAsync({
-      mediaTypes: ['images'],
+      mediaTypes: ['images', 'videos'],
       quality: 0.9,
       preferredAssetRepresentationMode: 'compatible',
     })
@@ -155,7 +155,7 @@ function NativeUpload({ user, stale, load, styles }) {
 
   if (!allowed) return null
   return <View style={{ borderBottomWidth: 1, borderBottomColor: styles.divider.backgroundColor, paddingVertical: 8, gap: 6 }}>
-    <Text style={styles.heading}>Upload files or photos</Text>
+    <Text style={styles.heading}>Upload files, photos or videos</Text>
     <View style={styles.row}>
       <UploadButton disabled={Boolean(busy)} label="Gallery" onPress={() => void choose('gallery')} styles={styles} />
       <UploadButton disabled={Boolean(busy)} label="Documents" onPress={() => void choose('documents')} styles={styles} />
@@ -165,7 +165,7 @@ function NativeUpload({ user, stale, load, styles }) {
       <TextInput accessibilityLabel="Resource title" editable={!busy} onChangeText={setTitle} style={styles.input} value={title} />
       <UploadButton disabled={Boolean(busy) || !title.trim()} label={busy === 'uploading' ? 'Uploading...' : 'Upload resource'} onPress={() => void upload()} styles={styles} />
     </> : null}
-    <Text accessibilityLiveRegion="polite" style={styles.helper}>{notice || 'Choose a photo or document up to 20 MB.'}</Text>
+    <Text accessibilityLiveRegion="polite" style={styles.helper}>{notice || 'Choose a file, photo or video up to 20 MB.'}</Text>
   </View>
 }
 

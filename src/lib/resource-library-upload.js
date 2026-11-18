@@ -11,6 +11,8 @@ export const RESOURCE_LIBRARY_ALLOWED_MIME_TYPES = new Set([
   'image/jpeg',
   'image/gif',
   'image/webp',
+  'video/mp4',
+  'video/quicktime',
 ])
 
 const EXTENSION_MIME_TYPES = new Map([
@@ -25,6 +27,8 @@ const EXTENSION_MIME_TYPES = new Map([
   ['jpeg', 'image/jpeg'],
   ['gif', 'image/gif'],
   ['webp', 'image/webp'],
+  ['mp4', 'video/mp4'],
+  ['mov', 'video/quicktime'],
 ])
 
 const BLOCKED_EXTENSIONS = new Set([
@@ -78,7 +82,7 @@ export function validateResourceLibraryFile(file) {
   const extension = getFileExtension(file.name)
 
   if (!extension || BLOCKED_EXTENSIONS.has(extension) || !EXTENSION_MIME_TYPES.has(extension)) {
-    throw new Error('Upload a PDF, DOCX, XLSX, PPTX, CSV, TXT, PNG, JPG, JPEG, GIF, or WebP file.')
+    throw new Error('Upload a PDF, DOCX, XLSX, PPTX, CSV, TXT, PNG, JPG, JPEG, GIF, WebP, MP4, or MOV file.')
   }
 
   const browserMimeType = normalizeText(file.type).toLowerCase()

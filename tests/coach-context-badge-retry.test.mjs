@@ -14,8 +14,8 @@ function mount(logoUrl) {
   const useEffect = callback => { if (!effectInstalled) { effectInstalled = true; cleanup = callback() } }
   const AppState = { addEventListener: (_name, callback) => { foreground = callback; return { remove() {} } } }
   const h = (_type, props) => props
-  const badge = new Function('useState', 'useEffect', 'AppState', 'h', 'Image', 'require', `${compiled}; return ContextOptionBadge`)(
-    useState, useEffect, AppState, h, 'Image', () => 'fallback',
+  const badge = new Function('useState', 'useEffect', 'AppState', 'h', 'Image', 'require', 'useCoachSavedBadge', `${compiled}; return ContextOptionBadge`)(
+    useState, useEffect, AppState, h, 'Image', () => 'fallback', (_user, _context, remoteUrl) => remoteUrl,
   )
   return { render: () => badge({ logoUrl, styles: {} }), foreground: () => foreground('active'), unmount: () => cleanup() }
 }

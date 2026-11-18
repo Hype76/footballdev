@@ -6,7 +6,7 @@ import { build } from 'esbuild'
 import { chromium } from 'playwright'
 
 if (!process.env.FORMATION_ASYNC_SCENARIO) {
-  for (const scenario of ['race', 'scope', 'cache', 'cache-missing', 'restored-authority', 'restored-revoked', 'restored-denied', 'stable', 'loading-back', 'back', 'back-offline', 'fast-save', 'fast-save-no-storage', 'shirt-kit', 'readonly', 'panels', 'multiple', 'queue-resume', 'recover-audience', 'conflict', 'ack-refresh', 'queue-switch', 'new-board-isolation']) {
+  for (const scenario of ['race', 'scope', 'cache', 'cache-missing', 'restored-authority', 'restored-revoked', 'restored-denied', 'stable', 'loading-back', 'back', 'back-offline', 'fast-save', 'fast-save-no-storage', 'shirt-kit', 'readonly', 'panels', 'multiple', 'queue-resume', 'recover-audience', 'conflict', 'ack-refresh', 'queue-switch', 'new-board-isolation', 'account-offline', 'account-denied']) {
     const result = spawnSync(process.execPath, [fileURLToPath(import.meta.url)], {
       env: { ...process.env, FORMATION_ASYNC_SCENARIO: scenario },
       encoding: 'utf8',
@@ -82,7 +82,7 @@ const entry = `
         players={[{ id: 'player-1', playerName: 'Player One', shirtNumber: 1 }]}
         registerBackHandler={handler => { backHandler.current = handler }}
         stale={stale}
-        user={{ id: scopeId === 'a' ? 'coach-1' : 'coach-2', clubId: 'club-1', activeTeamId: scopeId === 'a' ? 'team-1' : 'team-2', role: 'coach', roleRank: scenario === 'readonly' ? 20 : 30, hasActivePlanAccess: true }}
+        user={{ id: scopeId === 'a' ? 'coach-1' : 'coach-2', clubId: 'club-1', activeTeamId: scopeId === 'a' ? 'team-1' : 'team-2', role: 'coach', roleRank: scenario === 'readonly' ? 20 : 30, hasActivePlanAccess: true, isOfflineProfile: scenario === 'account-offline' }}
       /> : null}
     </View>
   }
@@ -133,7 +133,7 @@ const dataMock = `
 
   export const getCoachFormationBoards = async () => {
     const state = globalThis.__formationTest
-    if (state.mode === 'restored-denied') throw Object.assign(new Error('permission denied'), { status: 403 })
+    if (state.mode === 'restored-denied' || state.mode === 'account-denied') throw Object.assign(new Error('permission denied'), { status: 403 })
     if (state.mode === 'race' || state.mode === 'scope' || state.mode === 'cache' || state.mode === 'cache-missing' || state.mode === 'restored-authority' || state.mode === 'restored-revoked' || state.mode === 'loading-back') {
       const call = ++state.boardCalls
       return new Promise(resolve => { state.boardResolvers[call] = resolve })
@@ -193,7 +193,11 @@ const offlineMock = `
   let stored = null
   const current = () => {
     if (stored) return stored
-    if (window.__formationTest.mode === 'new-board-isolation') {
+    if (['account-offline', 'account-denied'].includes(window.__formationTest.mode)) {
+      const board = { id: 'account-board', clubId: 'club-1', teamId: 'team-1', title: 'Account saved board', linkedMatchDayId: 'match-a', gameFormat: '11v11', formationPresetKey: '11v11-4-4-2', currentVersion: { id: 'account-version', gameFormat: '11v11', formationPresetKey: '11v11-4-4-2', shirtKit: { type: 'away', colour: '#123456', imagePath: 'club-1/away/saved-kit.png' }, placements: [{ playerId: 'player-1', displayName: 'Player One', slotId: 'defender-1', positionGroup: 'defender', x: 0.25, y: 0.68 }], bench: [] } }
+      stored = { resources: { formations: [board], formationPresets: [{ key: '11v11-4-4-2', gameFormat: '11v11', displayName: '4-4-2', slots: cachedSlots }], formationPublications: [] } }
+      window.__accountSnapshot = stored
+    } else if (window.__formationTest.mode === 'new-board-isolation') {
       const otherMatchBoard = { id: 'other-match-board', title: 'Other match board', linkedMatchDayId: 'match-b', createdByProfileId: 'coach-1', currentVersionId: 'other-match-v1', currentVersionNumber: 1, currentVersion: { id: 'other-match-v1', versionNumber: 1, gameFormat: '11v11', formationPresetKey: '11v11-4-4-2', placements: [], bench: [] } }
       stored = { resources: { formation: { board: otherMatchBoard, boards: [otherMatchBoard], draft: { gameFormat: '11v11', presetKey: '11v11-4-4-2', placements: [], bench: [] }, localDrafts: {}, matchDayId: 'match-b', pendingSave: null, pendingSaves: {}, presets: [{ key: '11v11-4-4-2', gameFormat: '11v11', displayName: '4-4-2', slots: cachedSlots }] } } }
     } else if (['cache', 'cache-missing', 'restored-authority', 'restored-revoked', 'restored-denied'].includes(window.__formationTest.mode)) {
@@ -242,6 +246,12 @@ const offlineMock = `
 `
 
 const mocks = [
+  [/coachAccountOfflineService$/, `export const resolveCoachSavedKit=async(_user,_context,versionId,imagePath)=>{
+    if(window.__formationTest.mode!=='account-offline')return '';
+    window.__savedKitRequest={versionId,imagePath};
+    window.__savedKitUri='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jK3sAAAAASUVORK5CYII=';
+    return window.__savedKitUri;
+  };`],
   [/^react-native-safe-area-context$/, "import React from 'react'; import { View } from 'react-native'; export const SafeAreaProvider = ({children}) => <View style={{flex:1}}>{children}</View>; export const useSafeAreaInsets = () => ({ top: 47, right: 0, bottom: 34, left: 0 }); export const SafeAreaView = ({style,...props}) => <View {...props} style={[style,{paddingTop:47,paddingBottom:34}]} />"],
   [/coachFormationBoardData$/, dataMock],
   [/mobileKitCache$/, `const getKits = clubId => ({ home: { colour: '#ffffff', imagePath: null }, away: { colour: clubId === 'club-2' ? '#123456' : '#aabbcc', imagePath: null } }); export const peekMobileClubKits = getKits; export const loadMobileClubKits = async (clubId, publish) => { const kits = getKits(clubId); publish?.(kits); return kits }`],
@@ -293,7 +303,24 @@ try {
     return value
   }
 
-  if ((process.env.FORMATION_ASYNC_SCENARIO || 'race') === 'race') {
+  if (process.env.FORMATION_ASYNC_SCENARIO === 'account-offline') {
+    await page.getByText('Viewing saved Formation Boards. Connect to refresh or make changes.', { exact: true }).waitFor()
+    assert.equal(await readPlanTitle(), 'Account saved board')
+    assert.equal(await page.getByRole('button', { name: 'Players', exact: true }).isEnabled(), false)
+    const state = await page.evaluate(() => window.__formationTest)
+    assert.equal(state.boardCalls, 0)
+    assert.equal(state.presetCalls, 0)
+    assert.equal(state.formationWrites, 0)
+    assert.equal(state.saveCalls, 0)
+    await page.waitForFunction(() => Array.from(document.images).some(image => image.src === window.__savedKitUri))
+    assert.deepEqual(await page.evaluate(() => window.__savedKitRequest), { versionId: 'account-version', imagePath: 'club-1/away/saved-kit.png' })
+    assert.equal(await page.evaluate(() => JSON.stringify(window.__accountSnapshot).includes('data:image')), false)
+    console.log('PASS: cold account-wide snapshot opens a saved Formation Board offline read-only without network or draft writes')
+  } else if (process.env.FORMATION_ASYNC_SCENARIO === 'account-denied') {
+    await page.getByText('permission denied', { exact: true }).waitFor()
+    assert.equal(await page.getByText('Viewing saved Formation Boards. Connect to refresh or make changes.', { exact: true }).count(), 0)
+    console.log('PASS: live permission denial never restores an account-wide Formation Board snapshot')
+  } else if ((process.env.FORMATION_ASYNC_SCENARIO || 'race') === 'race') {
     await page.getByRole('button', { name: 'Switch to match B', exact: true }).click()
     await page.waitForFunction(() => window.__formationTest.boardCalls >= 2)
     await page.evaluate(() => window.__formationTest.boardResolvers[2]([{

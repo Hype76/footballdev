@@ -7,7 +7,7 @@ import { pathToFileURL } from 'node:url'
 import { resolveCoachStaffContext } from '../apps/mobile-core/src/coachContextCore.js'
 import { resolveCoachBranding } from '../apps/coach-mobile/src/coachThemeCore.js'
 const mocks = {
-  'expo': `const key=p=>'file:'+p.split('/').pop().replace(/\.json(?=\.pending$|$)/,'');export const requireOptionalNativeModule=()=>({documentDirectory:'file:///documents/',getInfoAsync:async p=>({exists:globalThis.offlineCiphertext.has(key(p))}),makeDirectoryAsync:async()=>{},readAsStringAsync:async p=>globalThis.offlineCiphertext.get(key(p)),writeAsStringAsync:async(p,v)=>{if(globalThis.offlineNativeFailure==='data-write')throw Error('Device storage unavailable');globalThis.offlineCiphertext.set(key(p),v)},deleteAsync:async p=>{globalThis.offlineCiphertext.delete(key(p))},moveAsync:async({from,to})=>{const v=globalThis.offlineCiphertext.get(key(from));globalThis.offlineCiphertext.delete(key(from));globalThis.offlineCiphertext.set(key(to),v)}})`,
+  'expo': "const key=p=>'file:'+p.split('/').pop().replace(/\\.json(?=\\.pending$|$)/,'');\nconst nativePaths=new Map(),directories=new Set();const directoryKey=p=>p.replace(/\\/+$/,'');\nexport const requireOptionalNativeModule=()=>({documentDirectory:'file:///documents/',\n getInfoAsync:async p=>directories.has(directoryKey(p))?{exists:true,isDirectory:true,size:0}:{exists:globalThis.offlineCiphertext.has(key(p)),isDirectory:false,size:globalThis.offlineCiphertext.has(key(p))?new TextEncoder().encode(globalThis.offlineCiphertext.get(key(p))).byteLength:undefined},\n readDirectoryAsync:async p=>[...nativePaths.keys()].filter(path=>path.startsWith(directoryKey(p)+'/')&&globalThis.offlineCiphertext.has(key(path))).map(path=>path.slice(directoryKey(p).length+1)),\n makeDirectoryAsync:async p=>{directories.add(directoryKey(p))},readAsStringAsync:async p=>globalThis.offlineCiphertext.get(key(p)),\n writeAsStringAsync:async(p,v)=>{if(globalThis.offlineNativeFailure==='data-write')throw Error('Device storage unavailable');nativePaths.set(p,key(p));globalThis.offlineCiphertext.set(key(p),v)},\n deleteAsync:async p=>{nativePaths.delete(p);globalThis.offlineCiphertext.delete(key(p))},\n moveAsync:async({from,to})=>{const v=globalThis.offlineCiphertext.get(key(from));if(v===undefined)throw Error('Missing native file');nativePaths.delete(from);nativePaths.set(to,key(to));globalThis.offlineCiphertext.delete(key(from));globalThis.offlineCiphertext.set(key(to),v)}\n})",
   '@react-native-async-storage/async-storage': `globalThis.offlineCiphertext=new Map();export default {getAllKeys:async()=>[...globalThis.offlineCiphertext.keys()],getItem:async k=>globalThis.offlineCiphertext.get(k)||null,setItem:async(k,v)=>{if(globalThis.offlineNativeFailure==='data-write')throw new Error('Device storage unavailable');globalThis.offlineCiphertext.set(k,v)},removeItem:async k=>{globalThis.offlineCiphertext.delete(k)}}`,
   'expo-secure-store': `globalThis.offlineKeys=new Map();const keys=globalThis.offlineKeys;export const AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY='device';export const getItemAsync=async k=>keys.get(k)||null;export const setItemAsync=async(k,v)=>{if(globalThis.offlineNativeFailure==='key-write')throw new Error('SecureStore unavailable');keys.set(k,v)};export const deleteItemAsync=async k=>{keys.delete(k)};`,
   'expo-crypto': `import {randomBytes as random,randomUUID as uuid,createHash} from 'node:crypto';export const CryptoDigestAlgorithm={SHA256:'SHA-256'};export const digestStringAsync=async(_,v)=>createHash('sha256').update(v).digest('hex');export const getRandomBytesAsync=async n=>new Uint8Array(random(n));export const randomUUID=uuid;`,
@@ -275,4 +275,22 @@ test('encrypted Sessions cache retains older reads below 500 MB without losing u
   assert.deepEqual(await storage.readCoachDevelopmentDrafts(liveProfile.id, recoveryContext), drafts)
   assert.ok(![...globalThis.offlineCiphertext.values()].join('').includes('Unsynced recovery work'))
   assert.equal((await storage.inspectCoachOfflineState(liveProfile.id)).status, 'ready')
+})
+
+test('real encrypted record writes reject a combined media budget overflow without changing pending work', async () => {
+  await freshRecoveryAccount()
+  await storage.coachOfflineProfileStore.write(liveProfile)
+  await storage.updateCoachMatchDayOutbox(liveProfile.id, recoveryContext, 'protected-match', () => ({ baseMatch:{id:'protected-match',clubId:recoveryContext.clubId,teamId:recoveryContext.teamId}, pending:[{id:'unsent-goal'}] }))
+  await storage.saveLocalCoachDevelopmentDraft(liveProfile.id,recoveryContext,{playerId:'protected-player',formId:'form',values:{score:7},notes:'Keep this draft'})
+  const outbox=await storage.readCoachMatchDayOutbox(liveProfile.id,recoveryContext,'protected-match')
+  const drafts=await storage.readCoachDevelopmentDrafts(liveProfile.id,recoveryContext)
+  const before=[...globalThis.offlineCiphertext.entries()]
+  storage.registerCoachOfflineMediaHooks({measureBytes:async()=>500_000_000,clearAccount:async()=>{},verifyInventory:async()=>false})
+  try {
+    await assert.rejects(storage.saveCoachOfflineResources(liveProfile.id,recoveryContext,{players:[{id:'fresh-player'}]}),/not enough offline storage/)
+    await assert.rejects(storage.updateCoachMatchDayOutbox(liveProfile.id,recoveryContext,'protected-match', previous=>({...previous,pending:[...previous.pending,{id:'not-saved'}]})),/not enough offline storage/)
+    assert.deepEqual([...globalThis.offlineCiphertext.entries()],before)
+    assert.deepEqual(await storage.readCoachMatchDayOutbox(liveProfile.id,recoveryContext,'protected-match'),outbox)
+    assert.deepEqual(await storage.readCoachDevelopmentDrafts(liveProfile.id,recoveryContext),drafts)
+  } finally { storage.registerCoachOfflineMediaHooks({measureBytes:async()=>0,clearAccount:async()=>{},verifyInventory:async()=>false}) }
 })

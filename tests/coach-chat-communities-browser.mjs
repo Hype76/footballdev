@@ -38,6 +38,8 @@ const markCoachChatRead = async (_user, room) => { window.marked.push(room.id) }
 const subscribeToCoachChatRoom = () => () => {}
 const invalidateMobileResource = () => {}
 const saveCoachOfflineResources = async () => {}
+const readCoachOfflineResources = async () => ({ resources: {} })
+const createCoachOfflineResourceSaver = () => async () => {}
 const peekMobileResource = () => []
 const load = async () => {}
 const reloadHome = async () => {}

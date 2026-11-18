@@ -12,6 +12,25 @@ export function createCoachFileStorage({ fileSystem, legacyStorage, appRole = 'c
   const file = key => `${directory}${key}.json`
   const marker = key => `${key}.file-backed`
   return {
+    async measureBytes() {
+      if (typeof legacyStorage.getAllKeys !== 'function') throw new Error('offline_storage_size_unavailable')
+      let total = 0
+      for (const key of await legacyStorage.getAllKeys()) if (GENERATION_KEY.test(key)) {
+        const value = await legacyStorage.getItem(key)
+        if (value) total += value.length
+      }
+      if (!supported) return total
+      if (typeof fileSystem.readDirectoryAsync !== 'function') throw new Error('offline_storage_size_unavailable')
+      const info = await fileSystem.getInfoAsync(directory, {})
+      if (!info.exists) return total
+      for (const name of await fileSystem.readDirectoryAsync(directory)) {
+        if (!/^[A-Za-z0-9._-]+$/.test(name)) throw new Error('offline_storage_invalid_file')
+        const entry = await fileSystem.getInfoAsync(`${directory}${name}`, { size: true })
+        if (entry.isDirectory || !Number.isSafeInteger(entry.size) || entry.size < 0) throw new Error('offline_storage_size_unavailable')
+        total += entry.size
+      }
+      return total
+    },
     async getItem(key) {
       if (!GENERATION_KEY.test(key)) return legacyStorage.getItem(key)
       if (!supported) {

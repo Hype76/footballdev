@@ -78,25 +78,26 @@ function useShirtImage(kit) {
   return image.remote === remote ? image.uri : ''
 }
 
-function ShirtImage({ goalkeeper, kit, style }) {
-  const uri = useShirtImage(goalkeeper ? null : kit)
+function ShirtImage({ goalkeeper, kit, imageUri, style }) {
+  const remoteUri = useShirtImage(goalkeeper ? null : kit)
+  const uri = goalkeeper ? '' : (imageUri || remoteUri)
   const [failed, setFailed] = useState('')
   return <Image accessibilityIgnoresInvertColors source={uri && failed !== uri ? { uri } : goalkeeper ? GOLD_SHIRT : WHITE_SHIRT} onError={() => setFailed(uri)} style={[style, !goalkeeper && kit?.colour && (!uri || failed === uri) ? { tintColor: kit.colour } : null]} />
 }
 
-export function FormationPlayerArtwork({ name, number, goalkeeper = false, shirtKit = null, children, styles = formationVisualStyles }) {
+export function FormationPlayerArtwork({ name, number, goalkeeper = false, shirtKit = null, imageUri = '', children, styles = formationVisualStyles }) {
   return <>
-    <ShirtImage goalkeeper={goalkeeper} kit={shirtKit} style={styles.markerImage} />
+    <ShirtImage goalkeeper={goalkeeper} kit={shirtKit} imageUri={imageUri} style={styles.markerImage} />
     {number ? <Text style={[styles.markerNumber, goalkeeper && styles.markerNumberGoalkeeper, !goalkeeper && shirtKit && { color: formationBoardShirtNumberColour(shirtKit), textShadowColor: shirtKit.imagePath ? '#000000' : 'transparent', textShadowRadius: shirtKit.imagePath ? 2 : 0 }]}>{number}</Text> : null}
     {children}
     <Text numberOfLines={1} style={styles.markerName}>{name}</Text>
   </>
 }
 
-export function FormationSubArtwork({ goalkeeper = false, name, number, shirtKit = null, styles = formationVisualStyles }) {
+export function FormationSubArtwork({ goalkeeper = false, name, number, shirtKit = null, imageUri = '', styles = formationVisualStyles }) {
   return <View style={styles.benchPlayer}>
     <View style={styles.shirtWrap}>
-      <ShirtImage goalkeeper={goalkeeper} kit={shirtKit} style={styles.shirtSmall} />
+      <ShirtImage goalkeeper={goalkeeper} kit={shirtKit} imageUri={imageUri} style={styles.shirtSmall} />
       {number ? <Text style={[styles.shirtSmallNumber, !goalkeeper && shirtKit && { color: formationBoardShirtNumberColour(shirtKit), textShadowColor: shirtKit.imagePath ? '#000000' : 'transparent', textShadowRadius: shirtKit.imagePath ? 2 : 0 }]}>{number}</Text> : null}
     </View>
     <Text numberOfLines={1} style={styles.shirtSmallName}>{name}</Text>

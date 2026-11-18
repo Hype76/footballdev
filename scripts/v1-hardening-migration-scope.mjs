@@ -94,3 +94,20 @@ export function matchesAdultInvitationMigrationScope(base, entries) {
   return entries.every(({ path, status, source }, index) => path === expected[index] && status === 'A'
     && createHash('sha256').update(source.replaceAll('\r\n', '\n')).digest('hex') === adultInvitationMigrationScope.hashes[path])
 }
+
+// Exact account-wide offline release source inventory. Does not apply migrations.
+export const coachAccountOfflineMigrationScope = {
+  base: '303853d427db19892e2f4c96cec570c167e710ce',
+  hashes: {
+    'supabase/migrations/20261118125500_coach_account_offline_scoped_reads.sql': '7e02bed8852fd25e525009d1149694aa387764d67c19aa0d09fe97f3e74848a1',
+    'supabase/migrations/20261118131314_resource_library_video_formats.sql': '1c6f34d6ae0cea130fc4d6fa064bcf4ac8dd6e47f1b480616948490bf0e06952',
+  },
+}
+
+export function matchesCoachAccountOfflineMigrationScope(base, entries) {
+  if (base !== coachAccountOfflineMigrationScope.base) return false
+  const expected = Object.keys(coachAccountOfflineMigrationScope.hashes).sort()
+  if (entries.length !== expected.length) return false
+  return entries.every(({ path, status, source }, index) => path === expected[index] && status === 'A'
+    && createHash('sha256').update(source.replaceAll('\r\n', '\n')).digest('hex') === coachAccountOfflineMigrationScope.hashes[path])
+}

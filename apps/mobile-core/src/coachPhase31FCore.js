@@ -7,30 +7,35 @@ const normalize = (value) => String(value ?? '').trim()
 const normalizeLower = (value) => normalize(value).toLowerCase()
 
 export const COACH_OFFLINE_READ_POLICIES = Object.freeze({
-  home: Object.freeze({ cache: true, maxItems: 40, sensitivity: 'operational', staleLabel: 'Offline Coach overview' }),
-  calendar: Object.freeze({ cache: true, maxItems: 180, sensitivity: 'operational', staleLabel: 'Offline Calendar' }),
-  calendarPlayers: Object.freeze({ cache: true, maxItems: 300, sensitivity: 'child-data', staleLabel: 'Offline Calendar Players' }),
-  players: Object.freeze({ cache: true, maxItems: 300, sensitivity: 'child-data', staleLabel: 'Offline Player list' }),
-  playerDetail: Object.freeze({ cache: true, maxItems: 80, sensitivity: 'child-data', staleLabel: 'Offline Player detail' }),
-  sessions: Object.freeze({ cache: true, maxItems: 180, sensitivity: 'operational', staleLabel: 'Offline Sessions' }),
-  sessionPlayers: Object.freeze({ cache: true, maxItems: 300, sensitivity: 'child-data', staleLabel: 'Offline Session Players' }),
-  matchDayList: Object.freeze({ cache: true, maxItems: 100, sensitivity: 'operational', staleLabel: 'Offline Match list' }),
-  matchDayDetail: Object.freeze({ cache: true, maxItems: 250, sensitivity: 'live-match', staleLabel: 'Stale Match state' }),
-  matchDayPlayers: Object.freeze({ cache: true, maxItems: 300, sensitivity: 'child-data', staleLabel: 'Offline Match squad' }),
-  formation: Object.freeze({ cache: true, maxItems: 300, sensitivity: 'child-data', staleLabel: 'Offline Formation plan' }),
-  development: Object.freeze({ cache: true, maxItems: 80, sensitivity: 'private-development', staleLabel: 'Offline Development history' }),
-  resources: Object.freeze({ cache: true, maxItems: 150, sensitivity: 'authorised-resource-metadata', staleLabel: 'Offline Resource list' }),
-  chat: Object.freeze({ cache: true, maxItems: 100, sensitivity: 'private-communication', staleLabel: 'Offline Chat history' }),
-  messages: Object.freeze({ cache: true, maxItems: 120, sensitivity: 'private-communication', staleLabel: 'Offline communication history' }),
-  polls: Object.freeze({ cache: true, maxItems: 100, sensitivity: 'operational', staleLabel: 'Offline Poll summary' }),
-  invites: Object.freeze({ cache: true, maxItems: 180, sensitivity: 'child-data', staleLabel: 'Offline availability summary' }),
-  'invites:fixture': Object.freeze({ cache: true, maxItems: 180, sensitivity: 'child-data', staleLabel: 'Saved fixture availability' }),
-  context: Object.freeze({ cache: true, maxItems: 30, sensitivity: 'authority-metadata', staleLabel: 'Last authorised context' }),
-  branding: Object.freeze({ cache: true, maxItems: 20, sensitivity: 'public-branding', staleLabel: 'Saved branding' }),
-  notifications: Object.freeze({ cache: true, maxItems: 100, sensitivity: 'private-communication', staleLabel: 'Saved notifications' }),
-  trainingEvents: Object.freeze({ cache: true, maxItems: 180, sensitivity: 'operational', staleLabel: 'Saved Training events' }),
-  trainingLocations: Object.freeze({ cache: true, maxItems: 80, sensitivity: 'operational', staleLabel: 'Saved Training locations' }),
-  calendarResourceOptions: Object.freeze({ cache: true, maxItems: 150, sensitivity: 'authorised-resource-metadata', staleLabel: 'Saved Calendar resources' }),
+  home: Object.freeze({ cache: true, maxItems: null, sensitivity: 'operational', staleLabel: 'Offline Coach overview' }),
+  calendar: Object.freeze({ cache: true, maxItems: null, sensitivity: 'operational', staleLabel: 'Offline Calendar' }),
+  calendarPlayers: Object.freeze({ cache: true, maxItems: null, sensitivity: 'child-data', staleLabel: 'Offline Calendar Players' }),
+  players: Object.freeze({ cache: true, maxItems: null, sensitivity: 'child-data', staleLabel: 'Offline Player list' }),
+  playerDetail: Object.freeze({ cache: true, maxItems: null, sensitivity: 'child-data', staleLabel: 'Offline Player detail' }),
+  sessions: Object.freeze({ cache: true, maxItems: null, sensitivity: 'operational', staleLabel: 'Offline Sessions' }),
+  sessionDetail: Object.freeze({ cache: true, maxItems: null, sensitivity: 'child-data', staleLabel: 'Offline Session detail' }),
+  sessionPlayers: Object.freeze({ cache: true, maxItems: null, sensitivity: 'child-data', staleLabel: 'Offline Session Players' }),
+  matchDayList: Object.freeze({ cache: true, maxItems: null, sensitivity: 'operational', staleLabel: 'Offline Match list' }),
+  matchDayDetail: Object.freeze({ cache: true, maxItems: null, sensitivity: 'live-match', staleLabel: 'Stale Match state' }),
+  matchDayPlayers: Object.freeze({ cache: true, maxItems: null, sensitivity: 'child-data', staleLabel: 'Offline Match squad' }),
+  formations: Object.freeze({ cache: true, maxItems: null, sensitivity: 'child-data', staleLabel: 'Offline Formation boards' }),
+  formationPresets: Object.freeze({ cache: true, maxItems: null, sensitivity: 'public-formation-metadata', staleLabel: 'Offline Formation presets' }),
+  formationPublications: Object.freeze({ cache: true, maxItems: null, sensitivity: 'child-data', staleLabel: 'Offline Formation publications' }),
+  formation: Object.freeze({ cache: true, maxItems: null, sensitivity: 'child-data', staleLabel: 'Offline Formation plan' }),
+  development: Object.freeze({ cache: true, maxItems: null, sensitivity: 'private-development', staleLabel: 'Offline Development history' }),
+  resources: Object.freeze({ cache: true, maxItems: null, sensitivity: 'authorised-resource-metadata', staleLabel: 'Offline Resource list' }),
+  chat: Object.freeze({ cache: true, maxItems: null, sensitivity: 'private-communication', staleLabel: 'Offline Chat history' }),
+  messages: Object.freeze({ cache: true, maxItems: null, sensitivity: 'private-communication', staleLabel: 'Offline communication history' }),
+  polls: Object.freeze({ cache: true, maxItems: null, sensitivity: 'operational', staleLabel: 'Offline Poll summary' }),
+  invites: Object.freeze({ cache: true, maxItems: null, sensitivity: 'child-data', staleLabel: 'Offline availability summary' }),
+  'invites:fixture': Object.freeze({ cache: true, maxItems: null, sensitivity: 'child-data', staleLabel: 'Saved fixture availability' }),
+  context: Object.freeze({ cache: true, maxItems: null, sensitivity: 'authority-metadata', staleLabel: 'Last authorised context' }),
+  branding: Object.freeze({ cache: true, maxItems: null, sensitivity: 'public-branding', staleLabel: 'Saved branding' }),
+  notifications: Object.freeze({ cache: true, maxItems: null, sensitivity: 'private-communication', staleLabel: 'Saved notifications' }),
+  trainingEvents: Object.freeze({ cache: true, maxItems: null, sensitivity: 'operational', staleLabel: 'Saved Training events' }),
+  trainingLocations: Object.freeze({ cache: true, maxItems: null, sensitivity: 'operational', staleLabel: 'Saved Training locations' }),
+  offlineMediaInventory: Object.freeze({ cache: true, maxItems: null, sensitivity: 'authorised-resource-metadata', staleLabel: 'Saved media inventory' }),
+  calendarResourceOptions: Object.freeze({ cache: true, maxItems: null, sensitivity: 'authorised-resource-metadata', staleLabel: 'Saved Calendar resources' }),
 })
 
 const ONLINE_ONLY_MUTATIONS = [
@@ -63,7 +68,11 @@ export const COACH_OFFLINE_MUTATION_POLICIES = Object.freeze(Object.fromEntries(
 
 export function getCoachOfflineReadPolicy(resourceKey) {
   const key = normalize(resourceKey).replace(/^phase31e:/, '')
-  return COACH_OFFLINE_READ_POLICIES[key] || Object.freeze({ cache: false, maxItems: 0, sensitivity: 'unclassified', staleLabel: 'Offline data unavailable' })
+  const uuid = '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}'
+  const detail = key.match(new RegExp('^(playerDetail|sessionDetail):' + uuid + '$', 'i'))
+  const collectionKey = detail ? detail[1].toLowerCase() === 'playerdetail' ? 'playerDetail' : 'sessionDetail'
+    : new RegExp('^chatMessages:(staff|parent):' + uuid + '$', 'i').test(key) ? 'chat' : key
+  return COACH_OFFLINE_READ_POLICIES[collectionKey] || Object.freeze({ cache: false, maxItems: 0, sensitivity: 'unclassified', staleLabel: 'Offline data unavailable' })
 }
 
 export function getCoachOfflineMutationPolicy(operation) {
@@ -87,26 +96,21 @@ export function assertCoachMutationOnline(operation, online) {
   return policy
 }
 
-function clampArray(value, maximum) {
-  return value.slice(0, Math.max(0, maximum))
-}
-
-function boundNestedValue(value, maximum, depth = 0) {
+// Keep every supplied authorized row. The encrypted document's byte budget is
+// authoritative; oversized writes fail atomically instead of appearing complete.
+function copyNestedValue(value, depth = 0) {
   if (depth > 8 || value === null || value === undefined) return value
-  if (Array.isArray(value)) return clampArray(value, maximum).map((entry) => boundNestedValue(entry, maximum, depth + 1))
+  if (Array.isArray(value)) return value.map(entry => copyNestedValue(entry, depth + 1))
   if (typeof value !== 'object') return value
-  return Object.fromEntries(Object.entries(value).map(([key, entry]) => {
-    const nestedMaximum = /messages|events|timeline|history|responses/i.test(key) ? Math.min(maximum, 100) : maximum
-    return [key, boundNestedValue(entry, nestedMaximum, depth + 1)]
-  }))
+  return Object.fromEntries(Object.entries(value).map(([key, entry]) => [key, copyNestedValue(entry, depth + 1)]))
 }
 
 export function boundCoachOfflineResource(resourceKey, value) {
   const policy = getCoachOfflineReadPolicy(resourceKey)
   if (!policy.cache) return null
-  const bounded = boundNestedValue(value, policy.maxItems)
+  const bounded = copyNestedValue(value)
   const key = normalize(resourceKey).replace(/^phase31e:/, '')
-  const boundRow = row => boundNestedValue(row, policy.maxItems, 2)
+  const boundRow = row => copyNestedValue(row, 2)
   if (value && !Array.isArray(value) && typeof value === 'object' && key === 'invites') return compactCoachAvailabilitySnapshot(value, bounded, boundRow)
   if (value && !Array.isArray(value) && typeof value === 'object' && key === 'invites:fixture') return compactCoachFixtureAvailabilitySnapshot(value, bounded, boundRow)
   return bounded

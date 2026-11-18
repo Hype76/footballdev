@@ -97,11 +97,11 @@ test('encrypted Coach cache isolates user, Club, Team, context, and schema metad
   assert.equal(evaluateCoachCachedScope({ context: contextA, entry: { clubId: 'club-a', contextId: contextA.id, teamId: 'team-a', userId: 'user-b' }, userId: 'user-a' }).allowed, false)
 })
 
-test('cache writes are bounded and identical payloads retain data while advancing verification time', () => {
+test('cache writes retain complete collections and identical payloads advance verification time', () => {
   const document = createCoachOfflineDocument({ userScope: 'user-a' })
   const large = Array.from({ length: 500 }, (_, index) => ({ id: index }))
   const bounded = boundCoachOfflineResource('chat', { messages: large })
-  assert.equal(bounded.messages.length, 100)
+  assert.equal(bounded.messages.length, large.length)
   const first = setCoachOfflineResources(document, contextA, { chat: bounded }, '2026-08-09T16:01:00Z')
   const duplicate = setCoachOfflineResources(first, contextA, { chat: bounded }, '2026-08-09T16:02:00Z')
   assert.equal(duplicate.contexts[contextA.id].resources.chat, first.contexts[contextA.id].resources.chat)

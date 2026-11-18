@@ -7,9 +7,20 @@ import { COACH_PHASE_31F_MAX_CACHE_BYTES } from '../apps/mobile-core/src/coachPh
 const key = 'fp.mobile.offline.v1.coach.live.project.g.a'
 const pointer = 'fp.mobile.offline.v1.coach.live.project.active'
 function fixture() {
-  const legacy = new Map(), files = new Map()
-  const storage = { async getItem(k) { return legacy.get(k) ?? null }, async setItem(k,v) { legacy.set(k,v) }, async removeItem(k) { legacy.delete(k) } }
-  const fs = { documentDirectory: 'file:///documents/', async getInfoAsync(p) { return { exists: files.has(p), isDirectory: false } }, async makeDirectoryAsync() {}, async readAsStringAsync(p) { return files.get(p) }, async writeAsStringAsync(p,v) { files.set(p,v) }, async moveAsync({from,to}) { if (!files.has(from)) throw Error('missing'); files.set(to,files.get(from)); files.delete(from) }, async deleteAsync(p) { files.delete(p) } }
+  const legacy = new Map(), files = new Map(), directories = new Set()
+  const storage = { async getAllKeys() { return [...legacy.keys()] }, async getItem(k) { return legacy.get(k) ?? null }, async setItem(k,v) { legacy.set(k,v) }, async removeItem(k) { legacy.delete(k) } }
+  const directoryKey = value => value.replace(/\/+$/, '')
+  const fs = { documentDirectory: 'file:///documents/',
+    async getInfoAsync(p) {
+      if (directories.has(directoryKey(p))) return { exists: true, isDirectory: true, size: 0 }
+      const value = files.get(p)
+      return { exists: files.has(p), isDirectory: false, size: value === undefined ? undefined : new TextEncoder().encode(value).byteLength }
+    },
+    async readDirectoryAsync(p) { const prefix = directoryKey(p) + '/'; return [...files.keys()].filter(file => file.startsWith(prefix) && !file.slice(prefix.length).includes('/')).map(file => file.slice(prefix.length)) },
+    async makeDirectoryAsync(p) { directories.add(directoryKey(p)) },
+    async readAsStringAsync(p) { return files.get(p) }, async writeAsStringAsync(p,v) { files.set(p,v) },
+    async moveAsync({from,to}) { if (!files.has(from)) throw Error('missing'); files.set(to,files.get(from)); files.delete(from) }, async deleteAsync(p) { files.delete(p) },
+  }
   return { legacy, files, storage, fs, adapter: createCoachFileStorage({ fileSystem: fs, legacyStorage: storage }) }
 }
 
@@ -139,4 +150,19 @@ test('a corrupt active generation never allows writing over the only valid previ
   await assert.rejects(store.update('coach', () => ({ pending:[] })),/offline_storage_recovery_required/)
   await assert.rejects(store.write('coach',{ pending:[] }),/offline_storage_recovery_required/)
   assert.equal(f.legacy.get(key),previous); assert.equal(f.legacy.get(pointer),pendingPointer)
+})
+
+test('native measurement counts UTF-8 active, previous and staging envelopes without counting unrelated directories',async()=>{
+ const f=fixture()
+ await f.adapter.setItem(key,'Café')
+ const directory='file:///documents/fp-coach-offline-v1/'
+ f.files.set(directory+'retained.json.previous','retained')
+ f.files.set(directory+'staged.json.pending','next')
+ f.files.set('file:///documents/unrelated/private.txt','unrelated')
+ f.legacy.set(key.replace(/\.a$/,'.b'),'unconverted')
+ f.legacy.set('unrelated','not an offline generation')
+ assert.equal(await f.adapter.measureBytes(),new TextEncoder().encode('Caféretainednextunconverted').byteLength)
+ const original=f.fs.getInfoAsync
+ f.fs.getInfoAsync=async(p,options)=>p.endsWith('staged.json.pending')?{exists:true,isDirectory:false}:original(p,options)
+ await assert.rejects(f.adapter.measureBytes(),/size_unavailable/)
 })

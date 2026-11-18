@@ -29,6 +29,7 @@ import {View,Text,StyleSheet,Pressable,TextInput,Switch,Modal,ScrollView} from '
 import {createCoachTheme} from './apps/coach-mobile/src/coachThemeCore.js';
 import {COACH_RESOURCE_CATEGORIES,groupCoachResources} from './apps/mobile-core/src/coachResourceBrowseCore.js';
 import {getResourceDisplayTitle} from './src/lib/resource-date-presentation.js';
+import {openCoachResource} from './apps/mobile-core/src/coachResourceOpenCore.js';
 import {buildCoachResourceUploadUrl,canOpenCoachResourceUpload,isCoachResourceReturn} from './src/lib/coach-resource-upload-handoff.js';
 const SafeAreaView=View,config={isProduction:true};const Keyboard={dismiss:()=>{window.keyboardDismissals=(window.keyboardDismissals||0)+1;document.activeElement?.blur()}};
 const getMobileRuntimeConfig=()=>({apiBaseUrl:'https://footballplayer.online'});
@@ -41,6 +42,7 @@ const resources=${JSON.stringify(fixture)};
 window.calls=[];window.created=[];window.playerLoads=0;
 const getCoachPlayerList=async()=>{window.playerLoads++;if(window.failPlayers){window.failPlayers=false;throw new Error('Player loading failed.')}return Array.from({length:22},(_,i)=>({id:'p'+i,playerName:'FP TEST Player '+i}))};
 const getCoachFriendlyError=e=>e.message,getCoachResourceErrorMessage=e=>e.message;
+const openCoachSavedResource=async()=>{window.savedOpenCount=(window.savedOpenCount||0)+1;return window.savedFile===true};
 const getCoachResourceAccessUrl=async()=>{if(window.holdResourceUrl)await new Promise(resolve=>window.releaseResourceUrl=resolve);if(window.failOpen){window.failOpen=false;throw new Error('Resource could not be opened.')}return 'https://example.test/resource'};
 const Linking={addEventListener:(_,fn)=>listen('url',fn),canOpenURL:async()=>{if(window.holdCanOpen)await new Promise(resolve=>window.releaseCanOpen=resolve);return true},openURL:async u=>{if(u.startsWith('https://footballplayer.online/phone-resources'))window.uploadCalls.push(u);else window.calls.push(['open',u])}};
 const createCoachExternalResource=async(u,form)=>{window.created.push(form);if(window.holdCreate)await new Promise(resolve=>window.releaseCreate=resolve);resources.push({id:'created',title:form.title,category:form.category,links:[]})};

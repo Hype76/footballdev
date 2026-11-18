@@ -120,6 +120,9 @@ import { coachOfflineProfileStore, coachRecoveryNotice, countPendingCoachMatchDa
 import { useCoachMatchDayBackgroundSync } from './src/useCoachMatchDayBackgroundSync'
 import { useCoachDevelopmentSync } from './src/useCoachDevelopmentSync'
 import { CoachOfflineReadiness } from './src/CoachOfflineReadiness'
+import { useCoachSavedBadge } from './src/useCoachSavedBadge'
+import { useCoachAccountPreparationStatus } from './src/useCoachAccountPreparationStatus'
+import { coachAccountOfflineLabel } from './src/coachAccountOfflinePreparation'
 import { CoachTeamKitSettings } from './src/CoachTeamKitSettings'
 import { TeamLeagueLinkRow, TeamLeagueLinkSettings } from '../mobile-core/src/TeamLeagueLink'
 import { NotificationSetupReminder } from '../mobile-core/src/NotificationSetupReminder'
@@ -1163,7 +1166,7 @@ function CoachHome() {
   if (!activeContext) {
     return <CoachThemeContext.Provider value={themeContext}><SafeAreaView edges={['top', 'right', 'left']} style={styles.appShell}>
       <View style={styles.contextPickerIntro}><Text accessibilityRole="header" style={styles.screenTitle}>Choose your team or club</Text><Text style={styles.contextOptionMeta}>Select a workspace to open. Your choice will be remembered on this phone.</Text></View>
-      <ContextSwitcher contexts={contextResolution.contexts} initial onSelect={selectContext} selectedContextId="" switching={isSwitchingContext} />
+      <ContextSwitcher user={user} contexts={contextResolution.contexts} initial onSelect={selectContext} selectedContextId="" switching={isSwitchingContext} />
       {notice ? <Notice message={notice} onDismiss={() => setNotice('')} /> : null}
     </SafeAreaView></CoachThemeContext.Provider>
   }
@@ -1240,6 +1243,7 @@ function CoachHome() {
             />
             {!isMatchInvitesRoute ? <View testID="coach-scroll-header">
               <ContextSwitcher
+                user={selectedMobileUser}
                 contexts={contextResolution.contexts}
                 onSelect={selectContext}
                 selectedContextId={activeContext.id}
@@ -1776,10 +1780,11 @@ function SettingsScreen({
 
 function CoachHeader({ context, notificationState, notificationStateStatus, onOpenNotificationSettings, user }) {
   const { branding, styles } = useCoachTheme()
-  const logoKey = `${context.id || context.clubId}:${branding.logoUrl}`
+  const logoUrl = useCoachSavedBadge(user, context, branding.logoUrl)
+  const logoKey = `${context.id || context.clubId}:${logoUrl}`
   const [logoState, setLogoState] = useState({ key: logoKey, failed: false })
   if (logoState.key !== logoKey) setLogoState({ key: logoKey, failed: false })
-  const showClubLogo = Boolean(branding.logoUrl && (logoState.key !== logoKey || !logoState.failed))
+  const showClubLogo = Boolean(logoUrl && (logoState.key !== logoKey || !logoState.failed))
   useEffect(() => {
     // Returning to the app gives a failed remote logo another chance to load.
     const subscription = AppState.addEventListener('change', state => {
@@ -1787,7 +1792,7 @@ function CoachHeader({ context, notificationState, notificationStateStatus, onOp
     })
     return () => subscription.remove()
   }, [logoKey])
-  const source = showClubLogo ? { uri: branding.logoUrl } : require('./assets/football-player-logo.png')
+  const source = showClubLogo ? { uri: logoUrl } : require('./assets/football-player-logo.png')
   return (
     <View style={styles.header}>
       <Image
@@ -1829,7 +1834,8 @@ function NotificationStatusButton({ notificationState, notificationStateStatus, 
   )
 }
 
-function ContextOptionBadge({ logoUrl, styles }) {
+function ContextOptionBadge({ logoUrl: remoteUrl, user, context, styles }) {
+  const logoUrl = useCoachSavedBadge(user, context, remoteUrl)
   const [failed, setFailed] = useState(false)
   useEffect(() => {
     const subscription = AppState.addEventListener('change', state => {
@@ -1842,9 +1848,10 @@ function ContextOptionBadge({ logoUrl, styles }) {
     source={showLogo ? { uri: logoUrl } : require('./assets/football-player-logo.png')} style={styles.contextBadge} />
 }
 
-function ContextSwitcher({ contexts, initial = false, onSelect, selectedContextId, switching = false }) {
+function ContextSwitcher({ contexts, user, initial = false, onSelect, selectedContextId, switching = false }) {
   const { palette, styles } = useCoachTheme()
   const [open, setOpen] = useState(false)
+  const preparation = useCoachAccountPreparationStatus(user, contexts, open || initial)
   if (contexts.length < 2 && !initial) return null
   const selected = contexts.find(context => context.id === selectedContextId)
   const groups = contexts.reduce((result, context) => {
@@ -1867,10 +1874,11 @@ function ContextSwitcher({ contexts, initial = false, onSelect, selectedContextI
           onPress={() => { setOpen(false); void onSelect(context.id) }}
           style={({ pressed }) => [styles.contextPickerRow, isSelected && styles.contextPickerRowSelected, pressed && styles.pressed]}
         >
-          <ContextOptionBadge key={logoUrl} logoUrl={logoUrl} styles={styles} />
+          <ContextOptionBadge key={`${user.id}:${context.id}:${logoUrl}`} user={user} context={context} logoUrl={logoUrl} styles={styles} />
           <View style={styles.contextPickerCopy}>
             <Text style={styles.contextOptionTitle}>{context.teamName || 'Club admin'}</Text>
             <Text style={styles.contextOptionMeta}>{context.roleLabel}</Text>
+            <Text style={styles.contextOptionMeta}>{coachAccountOfflineLabel(preparation[context.id])}</Text>
           </View>
           {isSelected ? <View style={styles.contextPickerIndicator}><CoachIcon color={palette.accentText} name="check-circle" size={20} /><Text style={styles.contextPickerSelectedText}>Selected</Text></View>
             : <CoachIcon color={palette.textMuted} name="chevron-right" size={20} />}

@@ -107,6 +107,7 @@ const mocks = [
   [/^\.\/supabase$/, 'export const supabase = {}'],
   [/coachFormationBoardData$/, dataMock],
   [/^\.\/offline$/, offlineMock],
+  [/^\.\/coachAccountOfflineService$/, 'export const resolveCoachSavedKit = async () => ""'],
   [/^@expo\/vector-icons\/MaterialIcons$/, `import React from 'react'; import { Text } from 'react-native'; const glyphs = ${JSON.stringify(materialIconGlyphs)}; export default function MaterialIcons({ color, name, size = 24, style }) { return <Text aria-hidden="true" style={[{ color, fontFamily: 'MaterialIcons', fontSize: size }, style]}>{String.fromCodePoint(glyphs[name] || glyphs.help)}</Text> }`],
   [/^@react-native-async-storage\/async-storage$/, 'export default { getItem: async () => null, setItem: async () => {} }'],
   [/^react-native-safe-area-context$/, "import React from 'react'; import { View } from 'react-native'; export const SafeAreaProvider = ({children}) => <View style={{flex:1}}>{children}</View>; export const useSafeAreaInsets = () => ({ top: 47, right: 0, bottom: 34, left: 0 }); export function SafeAreaView({ style, ...props }) { return <View {...props} style={[style, { paddingTop: 47, paddingBottom: 34 }]} /> }"],

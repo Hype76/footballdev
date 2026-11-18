@@ -4,7 +4,7 @@ import { execFileSync, spawnSync } from 'node:child_process'
 import os from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
-import { hardeningMigrationScope, matchesHardeningMigrationScope, completeV1MigrationScope, matchesCompleteV1MigrationScope, incidentRecoveryMigrationScope, matchesIncidentRecoveryMigrationScope, adultAccessMigrationScope, matchesAdultAccessMigrationScope, adultInvitationMigrationScope, matchesAdultInvitationMigrationScope } from '../scripts/v1-hardening-migration-scope.mjs'
+import { hardeningMigrationScope, matchesHardeningMigrationScope, completeV1MigrationScope, matchesCompleteV1MigrationScope, incidentRecoveryMigrationScope, matchesIncidentRecoveryMigrationScope, adultAccessMigrationScope, matchesAdultAccessMigrationScope, adultInvitationMigrationScope, matchesAdultInvitationMigrationScope, coachAccountOfflineMigrationScope, matchesCoachAccountOfflineMigrationScope } from '../scripts/v1-hardening-migration-scope.mjs'
 
 test('no-wait migration preserves both command bodies apart from the contested row lock', () => {
  const candidate = readFileSync('supabase/migrations/20261107193737_coach_match_day_command_no_wait.sql', 'utf8').replaceAll('\r\n', '\n')
@@ -95,5 +95,16 @@ test('adult invitation migration gate accepts only five exact additions on the v
  assert.equal(matchesAdultInvitationMigrationScope(adultInvitationMigrationScope.base, [...entries, entries[0]]), false)
  for (const change of [{ status: 'M' }, { path: 'supabase/migrations/20990101000000_unreviewed.sql' }, { source: entries[0].source + 'select 1;' }]) {
   assert.equal(matchesAdultInvitationMigrationScope(adultInvitationMigrationScope.base, [{ ...entries[0], ...change }, ...entries.slice(1)]), false)
+ }
+})
+
+test('Coach account offline gate accepts only two exact additions on the verified main base', () => {
+ const entries = Object.keys(coachAccountOfflineMigrationScope.hashes).sort().map(path => ({ path, status: 'A', source: readFileSync(path, 'utf8') }))
+ assert.equal(matchesCoachAccountOfflineMigrationScope(coachAccountOfflineMigrationScope.base, entries), true)
+ assert.equal(matchesCoachAccountOfflineMigrationScope('wrong-base', entries), false)
+ assert.equal(matchesCoachAccountOfflineMigrationScope(coachAccountOfflineMigrationScope.base, entries.slice(1)), false)
+ assert.equal(matchesCoachAccountOfflineMigrationScope(coachAccountOfflineMigrationScope.base, [...entries, entries[0]]), false)
+ for (const change of [{ status: 'M' }, { path: 'supabase/migrations/20990101000000_unreviewed.sql' }, { source: entries[0].source + 'select 1;' }]) {
+  assert.equal(matchesCoachAccountOfflineMigrationScope(coachAccountOfflineMigrationScope.base, [{ ...entries[0], ...change }, ...entries.slice(1)]), false)
  }
 })
