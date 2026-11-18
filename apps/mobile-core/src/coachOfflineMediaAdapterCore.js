@@ -17,7 +17,7 @@ const extensions = Object.freeze({
 })
 
 export function createCoachOfflineMediaAdapter({ storage, keyStore, crypto, fingerprint, remainingBudget,
-  fetchAuthorized, fetchImpl, tempFiles, sharing, appState, allowedOrigin }) {
+  fetchAuthorized, fetchImpl, tempFiles, sharing, appState, allowedOrigin, withCommitLock = operation => operation() }) {
   let account = '', generation = 0, sharingActive = false
   const store = createCoachEncryptedMediaStore({ storage, keyStore, crypto, fingerprint,
     availableBytes: async () => remainingBudget(await storage.measureBytes()) })
@@ -49,6 +49,7 @@ export function createCoachOfflineMediaAdapter({ storage, keyStore, crypto, fing
     },
     async save({ context, resource, guard }) {
       const scope = capture(guard); scope.guard()
+      resource = { ...resource }
       if (resource?.type === 'external_link') throw fail('offline_media_external_online_only')
       const mime = String(resource?.mimeType || '').toLowerCase(), size = Number(resource?.fileSizeBytes)
       if (!extensions[mime] || !Number.isSafeInteger(size) || size < 1 || size > COACH_MEDIA_MAX_FILE_BYTES) throw fail('offline_media_size_or_type_unsupported')
@@ -71,7 +72,11 @@ export function createCoachOfflineMediaAdapter({ storage, keyStore, crypto, fing
         if (!response.ok || !Number.isSafeInteger(length) || length !== size || length > COACH_MEDIA_MAX_FILE_BYTES) throw fail('offline_media_download_size_unverified')
         const bytes = new Uint8Array(await response.arrayBuffer()); scope.guard()
         if (bytes.length !== size) throw fail('offline_media_download_size_unverified')
-        return await store.prepare({ ...scope, context, resource, bytes })
+        return await withCommitLock(async () => {
+          scope.guard()
+          if (fields.some(field => String(confirmed[field] ?? '') !== String(resource[field] ?? ''))) throw fail('offline_media_revision_mismatch')
+          return store.prepare({ ...scope, context, resource, bytes })
+        })
       } finally { clearTimeout(timeout) }
     },
     has({ context, resource, guard }) { const scope = capture(guard); return store.has({ ...scope, context, resource }) },

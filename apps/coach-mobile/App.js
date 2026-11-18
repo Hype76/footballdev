@@ -72,7 +72,7 @@ import { getMobileRuntimeConfig } from '../mobile-core/src/config'
 import { invalidateMobileResource, peekMobileResource, readMobileResource } from '../mobile-core/src/mobileResourceCache'
 import { getCoachCalendarResources } from '../mobile-core/src/coachCalendarData'
 import { getCoachPlayerList } from '../mobile-core/src/coachPlayersData'
-import { getCoachChatRooms, getCoachDevelopmentSummary, getCoachInvitesAndAvailability } from '../mobile-core/src/coachPhase31EData'
+import { getCoachHomeChatSummary, getCoachDevelopmentSummary, getCoachInvitesAndAvailability } from '../mobile-core/src/coachPhase31EData'
 import { mergeUnfinishedDevelopmentDrafts } from '../mobile-core/src/developmentOfflineCore'
 import { useMobileDeviceControls } from '../mobile-core/src/deviceControls'
 import { useLiveActivityStartSubscriptions } from '../mobile-core/src/useLiveActivityStartSubscriptions'
@@ -575,8 +575,8 @@ function CoachHome() {
       const chatRefreshId = ++chatRefreshIdRef.current
       const isCurrent = () => requestId === requestIdRef.current && chatRefreshId === chatRefreshIdRef.current
       try {
-        const rooms = await readMobileResource(selectedMobileUser, 'coach:phase31e:chat',
-          () => getCoachChatRooms(selectedMobileUser), { force: true })
+        const rooms = await readMobileResource(selectedMobileUser, 'coach:home-chat-summary',
+          () => getCoachHomeChatSummary(selectedMobileUser), { force: true })
         if (isCurrent()) setHomeState(current => updateCoachHomeSourceState(current, 'chatRooms', { ...buildCoachChatSummary(rooms), homeSources: { ...current.homeSources, chatRooms: true } }))
       } catch (error) {
         const denied = error?.code === '42501' || error?.status === 403 || error?.statusCode === 403 || /permission denied|row.level security|not authori[sz]ed/i.test(String(error?.message || ''))
@@ -617,6 +617,11 @@ function CoachHome() {
           return next
         })
       }, recordTiming), { force: refresh || homeDeniedScopeRef.current }).then(value => ({ value }), error => ({ error }))
+    const attentionRequest = selectedMobileUser.isOfflineProfile ? null : Promise.resolve().then(() =>
+      getCoachPhase31GAttentionSnapshot(selectedMobileUser, { force: refresh,
+        onTiming: recordTiming,
+        readLocalDevelopmentDrafts: () => readCoachDevelopmentDrafts(user.id, activeContext),
+      })).then(value => ({ value }), error => ({ error }))
     let cached = null
     let localDevelopmentDrafts = {}
     let developmentReadFailed = false
@@ -698,11 +703,7 @@ function CoachHome() {
         if (isMobileRouteAllowed(selectedMobileUser, 'calendar', selectedMobileUser.matchdayPolicy)) void readMobileResource(selectedMobileUser, 'coach:calendar', () => getCoachCalendarResources(selectedMobileUser)).catch(() => {})
         if (selectedMobileUser.activeTeamId && isMobileRouteAllowed(selectedMobileUser, 'players', selectedMobileUser.matchdayPolicy)) void readMobileResource(selectedMobileUser, 'coach:players', () => getCoachPlayerList(selectedMobileUser)).catch(() => {})
       })
-      const attentionResult = await getCoachPhase31GAttentionSnapshot(selectedMobileUser, { force: refresh,
-        onTiming: recordTiming,
-        readLocalDevelopmentDrafts: () => readCoachDevelopmentDrafts(user.id, activeContext),
-      })
-        .then(value => ({ value }), error => ({ error }))
+      const attentionResult = await attentionRequest
       if (requestId !== requestIdRef.current) return
       if (attentionResult.error) {
         const denied = attentionResult.error?.code === '42501' || attentionResult.error?.status === 403 || attentionResult.error?.statusCode === 403 || /permission denied|row.level security|not authori[sz]ed/i.test(String(attentionResult.error?.message || ''))

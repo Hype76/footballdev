@@ -34,7 +34,7 @@ function harness(errors = []) {
     readCoachDevelopmentDrafts: async () => ({}), mergeUnfinishedDevelopmentDrafts, preserveCoachDevelopmentSummary,
     setHomeState: update => { state = typeof update === 'function' ? update(state) : update },
     readMobileResource: async (user, key, loader, options) => { reads.push({ key, options }); return loader() },
-    getCoachInvitesAndAvailability: async () => ({ all: [] }), getCoachChatRooms: async () => [{ id: 'fresh-room', unreadCount: 5 }],
+    getCoachInvitesAndAvailability: async () => ({ all: [] }), getCoachHomeChatSummary: async () => [{ id: 'fresh-room', unreadCount: 5 }],
     buildCoachChatSummary, countPendingCoachAvailability, preserveCoachAvailabilitySummary: baselinePreserveAvailability, preserveCoachChatSummary, updateCoachHomeSourceState,
     setIsRefreshing() {}, peekMobileResource: () => undefined, invalidateMobileResource() {}, readCoachOfflineResources: async () => null,
     readCoachHomeOfflineView: async (userId, context) => ({
@@ -53,8 +53,61 @@ function harness(errors = []) {
 }
 const targets = [
   { source: 'invites', options: { availabilityOnly: true }, loader: 'getCoachInvitesAndAvailability', value: { all: [] }, field: 'pendingAvailability', expected: 0 },
-  { source: 'chatRooms', options: { chatOnly: true }, loader: 'getCoachChatRooms', value: [{ id: 'fresh-room', unreadCount: 5 }], field: 'unreadChat', expected: 5 },
+  { source: 'chatRooms', options: { chatOnly: true }, loader: 'getCoachHomeChatSummary', value: [{ id: 'fresh-room', unreadCount: 5 }], field: 'unreadChat', expected: 5 },
 ]
+
+test('attention requests start while primary data is pending without publishing before primary authority succeeds', async () => {
+  const h = harness()
+  const primary = deferred(), attentionStarted = deferred(), attention = deferred()
+  h.deps.getCoachPhase31GPrimaryHomeSnapshot = () => primary.promise
+  h.deps.getCoachPhase31GAttentionSnapshot = () => { attentionStarted.resolve(); return attention.promise }
+  const before = h.state()
+  const running = h.load({ refresh: true })
+  await attentionStarted.promise
+  attention.resolve({ ...healthy(), unreadChat: 42, chatRooms: [{ id: 'new-room', unreadCount: 42 }] })
+  await new Promise(resolve => setImmediate(resolve))
+  assert.equal(h.state().unreadChat, before.unreadChat)
+  primary.resolve(healthy())
+  await running
+  assert.equal(h.state().unreadChat, 42)
+})
+
+test('early attention rejection is handled while primary is pending and cannot erase authorised saved values', async () => {
+  const h = harness()
+  const primary = deferred(), attentionStarted = deferred()
+  h.deps.getCoachPhase31GPrimaryHomeSnapshot = () => primary.promise
+  h.deps.getCoachPhase31GAttentionSnapshot = async () => { attentionStarted.resolve(); throw Error('Attention unavailable') }
+  const before = h.state()
+  const running = h.load({ refresh: true })
+  await attentionStarted.promise
+  await new Promise(resolve => setImmediate(resolve))
+  assert.equal(h.state().unreadChat, before.unreadChat)
+  primary.resolve(healthy())
+  await running
+  assert.equal(h.state().unreadChat, before.unreadChat)
+  assert.ok(h.state().errors.some(error => error.startsWith('chatRooms:')))
+})
+
+for (const attentionFirst of [false, true]) test(`primary denial prevents attention publication and saving when attention finishes ${attentionFirst ? 'first' : 'last'}`, async () => {
+  const h = harness(), primary = deferred(), attention = deferred(), writes = []
+  h.deps.getCoachPhase31GPrimaryHomeSnapshot = () => primary.promise
+  h.deps.getCoachPhase31GAttentionSnapshot = () => attention.promise
+  h.deps.saveCoachOfflineResources = async (_user, _context, value) => { writes.push(value) }
+  const running = h.load({ refresh: true })
+  await new Promise(resolve => setImmediate(resolve))
+  if (attentionFirst) {
+    attention.resolve({ ...healthy(), unreadChat: 42, chatRooms: [{ id: 'private-room', unreadCount: 42 }] })
+    await new Promise(resolve => setImmediate(resolve))
+    assert.equal(h.state().unreadChat, 2)
+  }
+  primary.reject(Object.assign(new Error('Permission denied'), { code: '42501' }))
+  await running
+  if (!attentionFirst) attention.resolve({ ...healthy(), unreadChat: 42 })
+  await new Promise(resolve => setImmediate(resolve))
+  assert.equal(h.state().unreadChat, 0)
+  assert.equal(h.deps.homeDeniedScopeRef.current, true)
+  assert.deepEqual(writes, [{ home: null }])
+})
 
 for (const target of targets) {
   test(`${target.source} recovery clears its last warning`, async () => {

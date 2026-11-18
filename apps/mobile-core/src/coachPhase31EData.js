@@ -506,6 +506,10 @@ export async function getCoachResourceAccessUrl(user, resource) {
 function canOpenStaffRoom(user, room) {
   const membership = room.members.find((member) => member.userId === user.id && !member.archivedAt)
   if (!membership) return false
+  return canOpenStaffRoomInContext(user, room)
+}
+
+function canOpenStaffRoomInContext(user, room) {
   if (room.type === 'team_staff' || room.type === 'player_staff') return room.teamId === user.activeTeamId
   if (room.type === 'club_staff') return normalize(user.role).toLowerCase() === 'admin' && normalize(user.workspaceScope).toLowerCase() === 'club'
   return ['direct', 'group'].includes(room.type)
@@ -536,6 +540,30 @@ export async function getCoachChatRooms(user) {
   const unreadById = new Map((scopedStaffRows || []).map((row) => [normalize(row.id), Number(row.unread_count || 0)]))
   const staff = (staffResult.data || []).map((row) => normalizeCoachChatRoom({ ...row, unread_count: unreadById.get(normalize(row.id)) || 0 }, 'staff')).filter((room) => canOpenStaffRoom(user, room))
   const parent = (parentRows || []).map((row) => normalizeCoachChatRoom(row, 'parent')).filter((room) => room.teamId === user.activeTeamId)
+  return Object.freeze({ staff: Object.freeze(staff), parent: Object.freeze(parent) })
+}
+
+export async function getCoachHomeChatSummary(user) {
+  assertCoachOperationalRead(user, { requiresTeam: true })
+  const [staffRows, parentRows] = await Promise.all([
+    rpc('get_staff_chat_unread_summary', { active_team_id_value: user.activeTeamId }),
+    rpc('get_parent_chat_rooms', { active_team_id_value: user.activeTeamId }),
+  ])
+  const ids = (staffRows || []).map(row => normalize(row.id)).filter(Boolean)
+  // The canonical unread RPC checks current membership and room authority. The
+  // small metadata read retains the full screen's tighter Club/Team filter.
+  const metadata = ids.length
+    ? await supabase.from('staff_chat_conversations').select('id,type,team_id')
+      .eq('club_id', user.clubId).in('id', ids)
+    : { data: [], error: null }
+  if (metadata.error) throw metadata.error
+  const unread = new Map((staffRows || []).map(row => [normalize(row.id), Number(row.unread_count || 0)]))
+  const staff = (metadata.data || []).map(row => ({
+    id: normalize(row.id), kind: 'staff', type: normalize(row.type),
+    teamId: normalize(row.team_id), unreadCount: unread.get(normalize(row.id)) || 0,
+  })).filter(room => unread.has(room.id) && canOpenStaffRoomInContext(user, room)).map(Object.freeze)
+  const parent = (parentRows || []).filter(row => normalize(row.team_id) === user.activeTeamId)
+    .map(row => Object.freeze({ id: normalize(row.id), kind: 'parent', teamId: normalize(row.team_id), unreadCount: Number(row.unread_count || 0) }))
   return Object.freeze({ staff: Object.freeze(staff), parent: Object.freeze(parent) })
 }
 
@@ -645,6 +673,16 @@ export async function getCoachPolls(user) {
   const { data, error } = await supabase.from('polls').select('*,teams:team_id(name),poll_votes(*)').eq('club_id', user.clubId).or(`team_id.is.null,team_id.eq.${user.activeTeamId}`).order('created_at', { ascending: false })
   if (error) throw error
   return (data || []).map((poll) => normalizeCoachPoll(poll, user.id))
+}
+
+export async function getCoachHomePollSummary(user) {
+  assertCoachOperationalRead(user, { requiresTeam: true })
+  const now = new Date().toISOString()
+  const openExpiry = `or(closes_at.is.null,closes_at.gt.${now})`
+  const rows = await readAllPages(() => supabase.from('polls').select('id,status,closes_at')
+    .eq('club_id', user.clubId).eq('status', 'open')
+    .or(`and(team_id.is.null,${openExpiry}),and(team_id.eq.${user.activeTeamId},${openExpiry})`))
+  return Object.freeze(rows.map(row => Object.freeze({ id: normalize(row.id), status: normalize(row.status), closesAt: normalize(row.closes_at) })))
 }
 
 export async function createCoachPoll(user, poll) {

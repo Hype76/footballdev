@@ -2,7 +2,7 @@ import { normalizeCoachPlayer, normalizeCoachPlayerEvaluation, normalizeCoachPla
 import { normalizeCoachSession, normalizeCoachSessionPlayer } from './coachSessionsCore.js'
 import { normalizeCoachMatchDay } from './coachMatchDayNormalization.js'
 import { normalizeCoachFormationBoard, normalizeCoachFormationPreset } from './coachFormationBoardPayload.js'
-import { buildCoachCalendarEvents } from './coachCalendarCore.js'
+import { buildCoachCalendarEvents, buildCoachHomeCalendarEvents } from './coachCalendarCore.js'
 import { normalizeCoachDevelopmentField, normalizeCoachDevelopmentForm, normalizeCoachDevelopmentRecord, normalizeCoachResource,
   normalizeCoachChatRoom, normalizeCoachChatMessage, normalizeCoachMessage, normalizeCoachPoll, normalizeCoachInvite, summarizeCoachInvites, collapseCoachInvitesByPlayer } from './coachPhase31ECore.js'
 import { buildCoachHomeOperationalSnapshot } from './coachPhase31GCore.js'
@@ -188,9 +188,9 @@ export async function loadCoachOfflineContext(user,context,{isCurrent=()=>true,o
     const collapsed=collapseCoachInvitesByPlayer(rows)
     availability[`${request.calendar_event_id}:${request.occurrence_date}`]={...summarizeCoachInvites(collapsed),details:collapsed}
   }
-  const normalizedCalendar=buildCoachCalendarEvents({availabilityByEventId:availability,
-    calendarEvents:(records.calendarEvents || []).map(row=>({...row,canEdit:user.role==='admin' || Boolean(row.team_id),isInheritedClubEvent:!row.team_id,
-      involvedPlayerIds:(records.calendarInvites || []).filter(invite=>invite.calendar_event_id===row.id && invite.invite_status!=='cancelled' && !invite.cancelled_at).map(invite=>invite.player_id)})),
+  const calendarEvents=(records.calendarEvents || []).map(row=>({...row,canEdit:user.role==='admin' || Boolean(row.team_id),isInheritedClubEvent:!row.team_id,
+    involvedPlayerIds:(records.calendarInvites || []).filter(invite=>invite.calendar_event_id===row.id && invite.invite_status!=='cancelled' && !invite.cancelled_at).map(invite=>invite.player_id)}))
+  const normalizedCalendar=buildCoachCalendarEvents({availabilityByEventId:availability,calendarEvents,
     matches:(records.matches || []).filter(row=>row.team_id===context.teamId),sessions:records.sessions || []})
   await emit('calendar',normalizedCalendar)
   await emit('trainingEvents',normalizedCalendar.filter(row=>row.sourceType==='calendar_event' && row.eventType==='training'))
@@ -222,7 +222,7 @@ export async function loadCoachOfflineContext(user,context,{isCurrent=()=>true,o
       matchStats:{year,matchdaySquad:squad,goals:scoring ? Number(scoring.goals) : null,assists:scoring ? Number(scoring.assists) : null,playerOfTheMatch:scoring ? Number(scoring.motm_votes) : null,playingMinutes:time.minutes,playingTimeMatches:time.recordedMatches},matchStatsError:'',
       sessions:(records.sessionPlayers || []).filter(row=>row.player_id===player.id).map(row=>{const session=(records.sessions || []).find(item=>item.id===row.session_id);return {id:row.session_id,notes:row.notes || '',sessionDate:session?.session_date || '',sessionType:session?.session_type || '',status:session?.status || '',title:session?.title || ''}})})
   }
-  await emit('home',{...buildCoachHomeOperationalSnapshot({matches:records.normalizedMatches,sessions:records.normalizedSessions,calendar:normalizedCalendar,
+  await emit('home',{...buildCoachHomeOperationalSnapshot({matches:records.normalizedMatches,sessions:records.normalizedSessions,calendar:buildCoachHomeCalendarEvents({calendarEvents}),
     chatRooms:chat,polls:records.normalizedPolls,messages:(records.messages || []).map(normalizeCoachMessage),invites,development:records.development}),
     homeSources:{development:true,chatRooms:true,polls:true,invites:true},savedAt:new Date().toISOString()})
   return {complete:true,resourceCount,onlineOnly}

@@ -41,7 +41,7 @@ function harness(initial = { pendingAvailability: 107, unreadChat: 2, errors: ['
     readMobileResource: async (user, key, loader, options) => { reads.push({ user, key, options }); return loader() },
     invalidateMobileResource: (_user, key) => { invalidated.push(key) },
     getCoachInvitesAndAvailability: async () => ({ all: [invite('one'), invite('two', { status: 'available' })] }),
-    getCoachChatRooms: async () => [], countPendingCoachAvailability, buildCoachChatSummary, preserveCoachAvailabilitySummary, preserveCoachChatSummary, updateCoachHomeSourceState,
+    getCoachHomeChatSummary: async () => [], countPendingCoachAvailability, buildCoachChatSummary, preserveCoachAvailabilitySummary, preserveCoachChatSummary, updateCoachHomeSourceState,
     setIsRefreshing() {}, peekMobileResource: () => undefined, readCoachOfflineResources: async () => null, readCoachHomeOfflineView: async () => ({ cache: null, developmentDrafts: {} }),
     activeContext: {}, user: { id: 'coach' }, getCoachPhase31GPrimaryHomeSnapshot: async () => ({ pendingAvailability: 0 }),
     setLastUpdatedAt() {}, lastHomeRefreshAtRef: { current: 0 }, saveCoachOfflineResources: async (_user, _context, value) => { offlineWrites.push(value) },
