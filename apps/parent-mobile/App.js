@@ -194,7 +194,7 @@ import {
   readParentOfflineView,
   refreshParentScorerOutboxes,
   removeParentOfflineAccessScopes,
-  reconcileParentOfflineAttention,
+  commitParentRefresh,
   saveParentOfflineResources,
   saveParentOfflineSelection,
   syncParentOfflineCommands,
@@ -420,7 +420,12 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
   const lastBackAtRef = useRef(0)
   const [pollDrafts, setPollDrafts] = useState({})
   const [resources, setResources] = useState(createResourceState)
-  const [scorerOutboxes, setScorerOutboxes] = useState({})
+  const [scorerOutboxes, updateScorerOutboxes] = useState({})
+  const scorerOutboxesRevisionRef = useRef(0)
+  const setScorerOutboxes = useCallback((value) => {
+    scorerOutboxesRevisionRef.current += 1
+    updateScorerOutboxes(value)
+  }, [])
   const [matchDayPlayers, setMatchDayPlayers] = useState([])
   const [selectedResourcePreview, setSelectedResourcePreview] = useState(null)
   const [selectedLinkId, setSelectedLinkId] = useState('')
@@ -433,7 +438,12 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
   const [selectedPollId, setSelectedPollId] = useState('')
   const [selectedRoomId, setSelectedRoomId] = useState('')
   const [pendingNotificationRoomId, setPendingNotificationRoomId] = useState('')
-  const [syncSummary, setSyncSummary] = useState({ attentionItems: [], needsAttention: 0, state: 'synced', waiting: 0 })
+  const [syncSummary, updateSyncSummary] = useState({ attentionItems: [], needsAttention: 0, state: 'synced', waiting: 0 })
+  const syncSummaryRevisionRef = useRef(0)
+  const setSyncSummary = useCallback((value) => {
+    syncSummaryRevisionRef.current += 1
+    updateSyncSummary(value)
+  }, [])
   const appStateRef = useRef(AppState.currentState)
   const backgroundedAtRef = useRef(0)
   const hydratedScopeRef = useRef('')
@@ -734,42 +744,59 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
       setMatchDayPlayers([])
       setLastUpdatedAt('')
     }
+    const liveSettlements = {}
+    const cachedScorerRevision = scorerOutboxesRevisionRef.current
+    const cachedSyncRevision = syncSummaryRevisionRef.current
     let cachedView = null
-    try {
-      cachedView = await readParentOfflineView(selectedMobileUser.id, selectedLink.id, selectedMobileUser)
-    } catch (error) {
-      console.warn(error)
+    if (!shouldHydrateCache && !isOffline) {
+      setResources((current) => Object.fromEntries(resourceNames.map((name) => [
+        name, { ...current[name], loading: true },
+      ])))
     }
-    if (requestId !== requestIdRef.current) return { failed: 0, stale: true }
-    if (shouldHydrateCache) hydratedScopeRef.current = cacheScopeKey
-    if (shouldHydrateCache) setScorerOutboxes(cachedView?.scorerOutboxes || {})
-
-    if (cachedView?.cache && shouldHydrateCache) {
-      setResources(Object.fromEntries(resourceNames.map((name) => [name, {
-        error: deniedResourceScopesRef.current.has(JSON.stringify([cacheScopeKey, name])) ? 'Your current access does not allow this information to be shown.' : '',
-        items: deniedResourceScopesRef.current.has(JSON.stringify([cacheScopeKey, name])) ? [] : name === 'chatHistory'
-          ? filterDeniedParentChatHistory(cachedView.cache.resources[name], deniedChatScopesRef.current, (roomId) => parentChatScope(selectedMobileUser, selectedLink, roomId))
-          : prepareParentResourceItems(name, cachedView.cache.resources[name], selectedLink),
-        loading: !isOffline,
-      }])))
-      setLastUpdatedAt(cachedView.cache.retrievedAt)
-      setOfflineCacheState({ source: 'cache', stale: cachedView.cache.stale })
-    } else if (shouldHydrateCache || !cachedView?.cache) {
-      setResources((current) => Object.fromEntries(resourceNames.map((name) => [name, {
-        error: isOffline ? 'No saved information is available for this section yet.' : '',
-        items: reset ? [] : current[name].items,
-        loading: !isOffline,
-      }])))
-      setOfflineCacheState({ source: '', stale: false })
-    } else {
-      setResources((current) => Object.fromEntries(resourceNames.map((name) => [name, {
-        ...current[name],
-        loading: true,
-      }])))
+    const cacheReady = Promise.resolve().then(async () => {
+      if (!shouldHydrateCache && !isOffline) return
+      try {
+        cachedView = await readParentOfflineView(selectedMobileUser.id, selectedLink.id, selectedMobileUser)
+      } catch (error) {
+        console.warn(error)
+      }
+      if (requestId !== requestIdRef.current) return
+      if (shouldHydrateCache) {
+        hydratedScopeRef.current = cacheScopeKey
+        if (scorerOutboxesRevisionRef.current === cachedScorerRevision) setScorerOutboxes(cachedView?.scorerOutboxes || {})
+      }
+      const cache = cachedView?.cache
+      if (cache) {
+        const savedResources = resourceNames.flatMap((name) => {
+          if (liveSettlements[name]?.status === 'fulfilled' || deniedResourceScopesRef.current.has(JSON.stringify([cacheScopeKey, name]))) return []
+          const items = name === 'chatHistory'
+            ? filterChatHistory(cache.resources[name])
+            : prepareParentResourceItems(name, cache.resources[name], selectedLink)
+          return [{ name, items, loading: !isOffline && !liveSettlements[name] }]
+        })
+        setResources((current) => {
+          const next = { ...current }
+          for (const { name, items, loading } of savedResources) {
+            next[name] = { ...current[name], items, loading }
+          }
+          return next
+        })
+        setLastUpdatedAt(cache.retrievedAt)
+        setOfflineCacheState({ source: 'cache', stale: cache.stale })
+      } else if (isOffline) {
+        setResources((current) => Object.fromEntries(resourceNames.map((name) => [name, {
+          ...current[name], error: 'No saved information is available for this section yet.', loading: false,
+        }])))
+        setOfflineCacheState({ source: '', stale: false })
+      }
+      if (cachedView?.sync && syncSummaryRevisionRef.current === cachedSyncRevision) setSyncSummary(cachedView.sync)
+    })
+    const filterChatHistory = (items) => filterDeniedParentChatHistory(items, deniedChatScopesRef.current, (roomId) => parentChatScope(selectedMobileUser, selectedLink, roomId), deniedResourceScopesRef.current.has(JSON.stringify([cacheScopeKey, 'chatHistory'])))
+    if (isOffline) {
+      await cacheReady
+      if (requestId !== requestIdRef.current) return { failed: 0, stale: true }
+      return { cached: Boolean(cachedView?.cache), failed: cachedView?.cache ? 0 : resourceNames.length }
     }
-
-    if (cachedView?.sync) setSyncSummary(cachedView.sync)
-    if (isOffline) return { cached: Boolean(cachedView?.cache), failed: cachedView?.cache ? 0 : resourceNames.length }
 
     const calendarEventResourcesPromise = getParentCalendarEventResources(selectedMobileUser)
     const resourcesByOccurrencePromise = calendarEventResourcesPromise.then(buildCalendarResourcesByOccurrence)
@@ -777,13 +804,26 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
     const calendarEventDetailsByIdPromise = calendarEventDetailsPromise.then((events) => new Map(
       events.map((event) => [normalizeText(event.id), event]),
     ))
+    // A base read can fail before it consumes either shared request.
+    void resourcesByOccurrencePromise.catch(() => {})
+    void calendarEventDetailsByIdPromise.catch(() => {})
     const loaders = {
-      calendar: async () => {
-        const [calendarEvents, resourcesByOccurrence, detailsById] = await Promise.all([
-          getParentCalendarEvents(selectedMobileUser),
-          resourcesByOccurrencePromise,
-          calendarEventDetailsByIdPromise,
-        ])
+      calendar: () => getParentCalendarEvents(selectedMobileUser),
+      chatRooms: () => getParentChatRooms(selectedMobileUser),
+      development: () => getParentDevelopmentHistory(selectedMobileUser),
+      invitations: () => getParentInvitations(selectedMobileUser),
+      matches: () => Promise.all([
+        getParentPortalMatchDays(selectedMobileUser),
+        getParentPortalMatchDayPlayers(selectedMobileUser),
+      ]),
+      messages: () => getParentMessages(selectedMobileUser),
+      notifications: () => getParentNotificationInbox(selectedMobileUser),
+      polls: () => getParentPolls(selectedMobileUser),
+      resources: () => getParentResources(selectedMobileUser),
+    }
+    const afterLoad = {
+      calendar: async (calendarEvents) => {
+        const [resourcesByOccurrence, detailsById] = await Promise.all([resourcesByOccurrencePromise, calendarEventDetailsByIdPromise])
         return calendarEvents.map((event) => ({
           ...event,
           notes: detailsById.get(normalizeText(event.id))?.notes || event.notes,
@@ -792,15 +832,8 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
           resources: resourcesByOccurrence.get(getCalendarResourceOccurrenceKey(event.id, event.startsAt)) || [],
         }))
       },
-      chatHistory: () => Promise.resolve(previousResources?.chatHistory?.items || cachedView?.cache?.resources.chatHistory || []),
-      chatRooms: () => getParentChatRooms(selectedMobileUser),
-      development: () => getParentDevelopmentHistory(selectedMobileUser),
-      invitations: async () => {
-        const [invitations, resourcesByOccurrence, detailsById] = await Promise.all([
-          getParentInvitations(selectedMobileUser),
-          resourcesByOccurrencePromise,
-          calendarEventDetailsByIdPromise,
-        ])
+      invitations: async (invitations) => {
+        const [resourcesByOccurrence, detailsById] = await Promise.all([resourcesByOccurrencePromise, calendarEventDetailsByIdPromise])
         return invitations.map((invitation) => ({
           ...invitation,
           notes: detailsById.get(normalizeText(invitation.eventId))?.notes || invitation.notes || '',
@@ -809,33 +842,30 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
           resources: resourcesByOccurrence.get(getCalendarResourceOccurrenceKey(invitation.eventId, invitation.eventStart || invitation.eventDate, invitation.sourceEventType || 'calendar_event')) || [],
         }))
       },
-      matches: async () => {
-        const [matches, players, resourcesByOccurrence] = await Promise.all([
-          getParentPortalMatchDays(selectedMobileUser),
-          getParentPortalMatchDayPlayers(selectedMobileUser),
-          resourcesByOccurrencePromise,
-        ])
+      matches: async ([matches, players]) => {
+        const resourcesByOccurrence = await resourcesByOccurrencePromise
         if (requestId === requestIdRef.current) setMatchDayPlayers(players)
-        return matches.map((match) => ({ ...match, offlineVerifiedAt: new Date().toISOString(), resources: resourcesByOccurrence.get(getCalendarResourceOccurrenceKey(match.id, match.matchDate, 'match_day')) || [] }))
+        const verifiedAt = new Date().toISOString()
+        return matches.map((match) => ({ ...match, offlineVerifiedAt: verifiedAt, resources: resourcesByOccurrence.get(getCalendarResourceOccurrenceKey(match.id, match.matchDate, 'match_day')) || [] }))
       },
-      messages: () => getParentMessages(selectedMobileUser),
-      notifications: () => getParentNotificationInbox(selectedMobileUser),
-      polls: () => getParentPolls(selectedMobileUser),
-      resources: () => getParentResources(selectedMobileUser),
     }
-    const filterChatHistory = (items) => filterDeniedParentChatHistory(items, deniedChatScopesRef.current, (roomId) => parentChatScope(selectedMobileUser, selectedLink, roomId), deniedResourceScopesRef.current.has(JSON.stringify([cacheScopeKey, 'chatHistory'])))
     const calendarDependencies = parentCalendarDependencies
-    const buildRefreshedCalendar = (settled) => buildParentCalendarEvents({
-      calendarEvents: prepareParentResourceItems('calendar', settled.calendar.value, selectedLink),
-      invitations: prepareParentResourceItems('invitations', settled.invitations.value, selectedLink),
-      matches: prepareParentResourceItems('matches', settled.matches.value, selectedLink),
+    const preparedItems = {}
+    let refreshedCalendar
+    const buildRefreshedCalendar = () => refreshedCalendar ??= buildParentCalendarEvents({
+      calendarEvents: preparedItems.calendar,
+      invitations: preparedItems.invitations,
+      matches: preparedItems.matches,
     })
     const deniedCachePurges = []
     const resultByName = await runPrioritizedMobileLoads(loaders, {
+      afterLoad,
       priority: [...calendarDependencies, 'notifications', 'chatRooms', 'messages', 'polls'],
       concurrency: 4,
       onSettled(name, result, settled) {
         if (requestId !== requestIdRef.current) return
+        if (result.status === 'fulfilled') preparedItems[name] = prepareParentResourceItems(name, result.value, selectedLink)
+        if (name !== 'calendar') liveSettlements[name] = result
         if (result.status === 'rejected' && isParentAccessDenied(result.reason)) {
           const names = [name, ...(calendarDependencies.includes(name) ? ['calendar'] : []), ...(name === 'chatRooms' ? ['chatHistory'] : [])]
           names.forEach((item) => deniedResourceScopesRef.current.add(JSON.stringify([cacheScopeKey, item])))
@@ -851,10 +881,15 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
           void reconcileAttendance(result.value.map(invitation => invitation.attendancePreparation))
         }
         const publishCalendar = calendarDependencies.includes(name)
+        if (publishCalendar && calendarDependencies.every((key) => settled[key])) {
+          liveSettlements.calendar = calendarDependencies.find((key) => settled[key].status === 'rejected')
+            ? { status: 'rejected' }
+            : settled.calendar
+        }
         setResources((current) => {
           const next = { ...current }
           if (name !== 'calendar') next[name] = result.status === 'fulfilled'
-            ? { error: '', items: name === 'chatHistory' ? filterChatHistory(result.value) : prepareParentResourceItems(name, result.value, selectedLink), loading: false }
+            ? { error: '', items: preparedItems[name], loading: false }
             : resolveParentResourceFailure(current[name], result.reason, getParentFriendlyError(result.reason, resourceFallbacks[name]))
           if (shouldClearParentChatOnSettlement(name, result)) next.chatHistory = { error: 'Your current access does not allow this Chat to be shown.', items: [], loading: false }
           if (publishCalendar) next.calendar = resolveParentCalendarRefresh(current.calendar, settled, buildRefreshedCalendar)
@@ -862,6 +897,11 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
         })
       },
     })
+    await cacheReady
+    resultByName.chatHistory = {
+      status: 'fulfilled',
+      value: previousResources?.chatHistory?.items || cachedView?.cache?.resources.chatHistory || [],
+    }
     const results = resourceNames.map((name) => resultByName[name])
 
     if (requestId !== requestIdRef.current) return { failed: 0, stale: true }
@@ -870,11 +910,11 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
     if (resultByName.matches?.status === 'rejected' && isParentAccessDenied(resultByName.matches.reason)) setMatchDayPlayers([])
     const failed = results.filter((result) => result.status === 'rejected').length
     const valueFor = (name) => resultByName[name]?.status === 'fulfilled'
-      ? name === 'chatHistory' ? filterChatHistory(resultByName[name].value) : prepareParentResourceItems(name, resultByName[name].value, selectedLink)
+      ? name === 'chatHistory' ? filterChatHistory(resultByName[name].value) : preparedItems[name]
       : isParentAccessDenied(resultByName[name]?.reason) ? []
         : previousResources?.[name]?.items || prepareParentResourceItems(name, cachedView?.cache?.resources[name], selectedLink)
     const combinedCalendar = calendarDependencies.every((name) => resultByName[name].status === 'fulfilled')
-      ? buildRefreshedCalendar(resultByName)
+      ? buildRefreshedCalendar()
       : calendarDependencies.some((name) => isParentAccessDenied(resultByName[name]?.reason)) ? []
         : previousResources?.calendar?.items || cachedView?.cache?.resources.calendar || []
     const refreshedItems = Object.fromEntries(
@@ -920,26 +960,32 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
           InteractionManager.runAfterInteractions(resolve)
         })
         if (requestId !== requestIdRef.current) return { failed: 0, stale: true }
-        refreshedItems.chatHistory = filterChatHistory(refreshedItems.chatHistory)
-        await saveParentOfflineResources(selectedMobileUser, selectedLink.id, Object.fromEntries(
+        const resourcesToSave = Object.fromEntries(
           resourceNames.filter((name) => resultByName[name].status === 'fulfilled'
             && (name !== 'calendar' || !calendarDependencyFailed) && (name !== 'chatHistory' || !chatRoomsDenied))
             .map((name) => [name, name === 'chatHistory' ? filterChatHistory(refreshedItems[name]) : refreshedItems[name]]),
-        ))
-        if (resultByName.matches?.status === 'fulfilled') {
-          const outboxes = await refreshParentScorerOutboxes(selectedMobileUser, selectedLink, refreshedItems.matches)
-          if (requestId === requestIdRef.current) setScorerOutboxes(outboxes)
-        }
-        if (failed === 0) {
-          reconciledSync = await reconcileParentOfflineAttention(selectedMobileUser, selectedLink.id, refreshedItems)
-          if (requestId === requestIdRef.current) setSyncSummary(reconciledSync)
+        )
+        const matchesFresh = resultByName.matches?.status === 'fulfilled'
+        const scorerRevision = scorerOutboxesRevisionRef.current
+        const syncRevision = syncSummaryRevisionRef.current
+        const saved = await commitParentRefresh(selectedMobileUser, selectedLink, resourcesToSave, {
+          matches: matchesFresh ? refreshedItems.matches : null,
+          reconcile: failed === 0,
+          isCurrent: () => requestId === requestIdRef.current,
+        })
+        if (requestId === requestIdRef.current) {
+          if (matchesFresh && scorerOutboxesRevisionRef.current === scorerRevision) setScorerOutboxes(saved.outboxes)
+          if (saved.sync) {
+            reconciledSync = saved.sync
+            if (syncSummaryRevisionRef.current === syncRevision) setSyncSummary(saved.sync)
+          }
         }
       } catch (error) {
         console.warn(error)
       }
     }
     return { failed, items: refreshedItems, matchesFresh: resultByName.matches?.status === 'fulfilled', sync: reconciledSync }
-  }, [isOffline, parentLinks, selectedLink, selectedMobileUser, reconcileAttendance])
+  }, [isOffline, parentLinks, selectedLink, selectedMobileUser, reconcileAttendance, setScorerOutboxes, setSyncSummary])
 
   const parentSyncScopeRef = useRef('')
   const parentActionScopeRef = useRef(0)
@@ -949,7 +995,7 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
   useEffect(() => {
     setIsSyncing(false)
     setSyncSummary({ attentionItems: [], needsAttention: 0, state: 'synced', waiting: 0 })
-  }, [selectedMobileUser?.id, selectedLink?.id])
+  }, [selectedMobileUser?.id, selectedLink?.id, setSyncSummary])
   const runParentSync = useCallback(async ({ explicitRetry = false } = {}) => {
     if (isOffline || !selectedMobileUser?.id) return null
     const scope = parentSyncScopeRef.current
@@ -973,26 +1019,37 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
     } finally {
       if (scope === parentSyncScopeRef.current) setIsSyncing(false)
     }
-  }, [isOffline, loadParentData, selectedLink?.id, selectedMobileUser])
+  }, [isOffline, loadParentData, selectedLink?.id, selectedMobileUser, setScorerOutboxes, setSyncSummary])
 
   const refreshParentMatchDay = useCallback(async () => {
     if (isOffline || !selectedMobileUser?.id) return
+    const scope = parentSyncScopeRef.current
+    const generation = parentActionScopeRef.current
+    const requestId = requestIdRef.current
+    const isCurrent = () => scope === parentSyncScopeRef.current
+      && generation === parentActionScopeRef.current && requestId === requestIdRef.current
     try {
       const [matches, players] = await Promise.all([
         getParentPortalMatchDays(selectedMobileUser),
         getParentPortalMatchDayPlayers(selectedMobileUser),
       ])
+      if (!isCurrent()) return
       setMatchDayPlayers(players)
-      const verifiedMatches = matches.map(match => ({ ...match, offlineVerifiedAt: new Date().toISOString() }))
-      if (selectedLink) setScorerOutboxes(await refreshParentScorerOutboxes(selectedMobileUser, selectedLink, verifiedMatches))
+      const verifiedAt = new Date().toISOString()
+      const verifiedMatches = matches.map(match => ({ ...match, offlineVerifiedAt: verifiedAt }))
       setResources((current) => ({
         ...current,
         matches: { error: '', items: verifiedMatches, loading: false },
       }))
+      if (selectedLink) {
+        const revision = scorerOutboxesRevisionRef.current
+        const outboxes = await refreshParentScorerOutboxes(selectedMobileUser, selectedLink, verifiedMatches)
+        if (isCurrent() && scorerOutboxesRevisionRef.current === revision) setScorerOutboxes(outboxes)
+      }
     } catch {
       return
     }
-  }, [isOffline, selectedLink, selectedMobileUser])
+  }, [isOffline, selectedLink, selectedMobileUser, setScorerOutboxes])
 
   useEffect(() => {
     if (syncSummary.needsAttention === 0) setAttentionIndex(0)
@@ -1494,6 +1551,7 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
     try {
       await runParentSync({ explicitRetry: true })
       const result = await loadParentData()
+      if (result.stale) return
       setNotice(isOffline
         ? null
         : result.failed > 0
@@ -1712,16 +1770,12 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
     try {
       await respondToParentInvitation(selectedMobileUser, invitation, responseState)
       if (actionScope !== parentSyncScopeRef.current || actionGeneration !== parentActionScopeRef.current) return
-      if (inlineFeedback) {
-        setResources((current) => ({ ...current, invitations: { ...current.invitations,
-          items: current.invitations.items.map((item) => item.invitationId === invitation.invitationId
-            ? { ...item, responseState } : item),
-        } }))
-        void loadParentData().catch(() => {})
-        return { saved: true }
-      }
-      await loadParentData()
-      if (actionScope !== parentSyncScopeRef.current || actionGeneration !== parentActionScopeRef.current) return
+      setResources((current) => ({ ...current, invitations: { ...current.invitations,
+        items: current.invitations.items.map((item) => item.invitationId === invitation.invitationId
+          ? { ...item, responseState } : item),
+      } }))
+      void loadParentData().catch(() => {})
+      if (inlineFeedback) return { saved: true }
       setNotice({ message: 'Your invitation response has been saved.', tone: 'success' })
     } catch (error) {
       if (actionScope !== parentSyncScopeRef.current || actionGeneration !== parentActionScopeRef.current) return
@@ -1743,8 +1797,7 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
     try {
       await setParentMatchTransport(selectedMobileUser, invitation, mode, seatsOffered)
       if (actionScope !== parentSyncScopeRef.current || actionGeneration !== parentActionScopeRef.current) return
-      await loadParentData()
-      if (actionScope !== parentSyncScopeRef.current || actionGeneration !== parentActionScopeRef.current) return
+      void loadParentData().catch(() => {})
       setNotice({ message: 'Your carpool choice has been saved.', tone: 'success' })
     } catch (error) {
       if (actionScope !== parentSyncScopeRef.current || actionGeneration !== parentActionScopeRef.current) return

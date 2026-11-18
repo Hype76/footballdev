@@ -1,7 +1,8 @@
+import { readFileSync } from 'node:fs'
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { runPrioritizedMobileLoads } from '../apps/mobile-core/src/mobileLoadCoordinator.js'
-import { createParentChatRequestGate, discardDeniedParentCache, filterDeniedParentChatHistory, isParentAccessDenied, resolveParentCalendarRefresh, resolveParentResourceFailure, shouldClearParentChatOnSettlement } from '../apps/parent-mobile/src/parentRefreshCore.js'
+import { createParentChatRequestGate, discardDeniedParentCache, filterDeniedParentChatHistory, isParentAccessDenied, parentCalendarDependencies, resolveParentCalendarRefresh, resolveParentResourceFailure, shouldClearParentChatOnSettlement } from '../apps/parent-mobile/src/parentRefreshCore.js'
 
 const ok = (value) => ({ status: 'fulfilled', value })
 const failed = { status: 'rejected', reason: new Error('offline') }
@@ -127,5 +128,142 @@ test('room-list denial clears open chat before unrelated loaders finish and bloc
   const lateHistory = [{ roomId: 'room', id: 'private' }]
   assert.deepEqual(filterDeniedParentChatHistory(lateHistory, new Set(), (room) => room, deniedAll), [])
   releaseOther([])
+  await pending
+})
+
+const appSource = readFileSync(new URL('../apps/parent-mobile/App.js', import.meta.url), 'utf8')
+const loadSource = appSource.slice(
+  appSource.indexOf('  const loadParentData = useCallback('),
+  appSource.indexOf('  const parentSyncScopeRef'),
+)
+const resourceNames = [
+  'calendar', 'chatHistory', 'chatRooms', 'development', 'invitations', 'matches',
+  'messages', 'notifications', 'polls', 'resources',
+]
+
+function deferred() {
+  let resolve
+  const promise = new Promise((done) => { resolve = done })
+  return { promise, resolve }
+}
+
+function loadFixture({ denyChat = false, isOffline = false, warm = false } = {}) {
+  const cache = deferred()
+  const details = deferred()
+  const notifications = deferred()
+  const link = { id: 'child', clubId: 'club', teamId: 'team', playerId: 'player' }
+  const requestIdRef = { current: 0 }
+  const createResourceState = () => Object.fromEntries(resourceNames.map(name => [name, { items: [], error: '', loading: true }]))
+  const resourcesRef = { current: createResourceState() }
+  const requests = []
+  const read = (name, value = []) => () => { requests.push(name); return Promise.resolve(value) }
+  const noop = () => {}
+  const scorerOutboxesRevisionRef = { current: 0 }
+  const syncSummaryRevisionRef = { current: 0 }
+  const published = {}
+  const deps = {
+    useCallback: (callback) => callback, requestIdRef, isOffline, resourceNames, resourcesRef,
+    selectedMobileUser: { id: 'parent' }, selectedLink: link, parentLinks: [link],
+    hydratedScopeRef: { current: warm ? JSON.stringify(['parent', [['child', 'club', 'team', 'player']], ['child', 'club', 'team', 'player']]) : '' },
+    mobileResourceKey: () => 'parent', createResourceState,
+    setResources: (change) => { resourcesRef.current = typeof change === 'function' ? change(resourcesRef.current) : change },
+    scorerOutboxesRevisionRef, syncSummaryRevisionRef,
+    setScorerOutboxes: value => { published.scorer = value }, setSyncSummary: value => { published.sync = value },
+    setLastUpdatedAt: noop, setOfflineCacheState: noop,
+    deniedResourceScopesRef: { current: new Set() }, deniedChatScopesRef: { current: new Set() },
+    chatRequestGateRef: { current: { invalidate: noop } }, setChatMessages: noop, parentChatScope: (...args) => args.at(-1),
+    readParentOfflineView: () => { requests.push('cache'); return cache.promise },
+    getParentCalendarEventResources: read('attachments'), buildCalendarResourcesByOccurrence: () => new Map(),
+    getParentCalendarEventDetails: read('details', details.promise), normalizeText: String,
+    getParentCalendarEvents: read('calendar'), getParentDevelopmentHistory: read('development'),
+    getParentChatRooms: denyChat ? async () => { throw { status: 403 } } : read('chat', ['live chat']),
+    getParentInvitations: read('invites'), getParentPortalMatchDays: read('matches'), getParentPortalMatchDayPlayers: read('players'),
+    getParentMessages: read('messages', ['live message']), getParentNotificationInbox: read('notifications', notifications.promise),
+    getParentPolls: read('polls'), getParentResources: read('resources'),
+    parentCalendarDependencies, runPrioritizedMobileLoads, isParentAccessDenied, shouldClearParentChatOnSettlement,
+    discardParentOfflineResources: async () => {}, filterDeniedParentChatHistory,
+    prepareParentResourceItems: (_name, items) => items || [], resolveParentResourceFailure, resolveParentCalendarRefresh,
+    buildParentCalendarEvents: ({ calendarEvents, matches, invitations }) => [...calendarEvents, ...matches, ...invitations],
+    reconcileAttendance: noop, setMatchDayPlayers: noop, lastDataRefreshAtRef: {},
+    getParentFriendlyError: (_reason, fallback) => fallback, resourceFallbacks: {},
+    InteractionManager: { runAfterInteractions: (done) => done() }, commitParentRefresh: async () => ({ outboxes: {} }),
+  }
+  const load = new Function(...Object.keys(deps), loadSource + '\nreturn loadParentData')(...Object.values(deps))
+  const resolveCache = () => cache.resolve({ scorerOutboxes: { match: 'saved' }, sync: { waiting: 0 }, cache: { resources: { messages: ['cached message'], chatRooms: ['cached room'], chatHistory: [{ roomId: 'restricted' }] } } })
+  return { load, requests, details, notifications, resolveCache, resourcesRef, requestIdRef, scorerOutboxesRevisionRef, syncSummaryRevisionRef, published }
+}
+
+const tick = () => new Promise(resolve => setImmediate(resolve))
+
+test('actual Parent refresh displays live messages and Chat while disk and calendar details wait', async () => {
+  const f = loadFixture()
+  const pending = f.load()
+  await tick()
+  assert.ok(f.requests.includes('chat'))
+  assert.deepEqual(f.resourcesRef.current.messages.items, ['live message'])
+  assert.deepEqual(f.resourcesRef.current.chatRooms.items, ['live chat'])
+  assert.equal(f.resourcesRef.current.calendar.loading, true)
+  f.resolveCache()
+  await tick()
+  assert.deepEqual(f.resourcesRef.current.messages.items, ['live message'])
+  assert.deepEqual(f.resourcesRef.current.chatRooms.items, ['live chat'])
+  f.notifications.resolve([])
+  f.details.resolve([])
+  assert.equal((await pending).failed, 0)
+})
+
+test('actual Parent refresh cannot restore denied chat from late disk data', async () => {
+  const f = loadFixture({ denyChat: true })
+  const pending = f.load()
+  await tick()
+  f.resolveCache()
+  await tick()
+  assert.deepEqual(f.resourcesRef.current.chatHistory.items, [])
+  assert.deepEqual(f.resourcesRef.current.chatRooms.items, [])
+  assert.match(f.resourcesRef.current.chatRooms.error, /access/)
+  f.notifications.resolve([])
+  f.details.resolve([])
+  assert.equal((await pending).failed, 1)
+})
+
+test('actual Parent refresh ignores late disk after scope changes', async () => {
+  const f = loadFixture()
+  const pending = f.load()
+  await tick()
+  f.requestIdRef.current++
+  const current = f.resourcesRef.current
+  f.resolveCache()
+  f.notifications.resolve([])
+  f.details.resolve([])
+  assert.equal((await pending).stale, true)
+  assert.equal(f.resourcesRef.current, current)
+})
+
+test('warm Parent refresh skips disk and offline refresh starts no network reads', async () => {
+  const warm = loadFixture({ warm: true })
+  const pending = warm.load()
+  warm.notifications.resolve([])
+  warm.details.resolve([])
+  await pending
+  assert.ok(!warm.requests.includes('cache'))
+  const offline = loadFixture({ isOffline: true })
+  const saved = offline.load()
+  offline.resolveCache()
+  assert.equal((await saved).cached, true)
+  assert.deepEqual(offline.requests, ['cache'])
+  assert.deepEqual(offline.resourcesRef.current.messages.items, ['cached message'])
+})
+
+test('late Parent cache cannot overwrite newer scorer or sync state', async () => {
+  const f = loadFixture()
+  const pending = f.load()
+  await tick()
+  f.scorerOutboxesRevisionRef.current++
+  f.syncSummaryRevisionRef.current++
+  f.resolveCache()
+  await tick()
+  assert.deepEqual(f.published, {})
+  f.notifications.resolve([])
+  f.details.resolve([])
   await pending
 })

@@ -94,3 +94,30 @@ for (const [name, item, option] of [
     assert.equal(f.state.notices.length, notices)
   })
 }
+
+test('confirmed carpool save releases the action while refresh is still pending', async () => {
+  const refresh = deferred()
+  const remote = deferred()
+  const active = []
+  const notices = []
+  let refreshes = 0
+  const dependencies = {
+    isOffline: false, activeActionId: '',
+    parentSyncScopeRef: { current: 'parent:player' }, parentActionScopeRef: { current: 0 },
+    setActiveActionId: value => active.push(value), setNotice: value => notices.push(value),
+    selectedMobileUser: { id: 'parent' }, setParentMatchTransport: () => remote.promise,
+    loadParentData: () => { refreshes++; return refresh.promise },
+  }
+  const start = source.indexOf('  async function handleMatchTransport(')
+  const end = source.indexOf('\n  async function ', start + 1)
+  const handler = new Function(...Object.keys(dependencies), 'return (' + source.slice(start, end) + ')')(...Object.values(dependencies))
+  const action = handler({ invitationId: 'match' }, 'offer', 2)
+  assert.equal(active.at(-1), 'transport:match')
+  assert.equal(refreshes, 0)
+  remote.resolve()
+  await action
+  assert.equal(refreshes, 1)
+  assert.equal(active.at(-1), '')
+  assert.equal(notices.at(-1).tone, 'success')
+  refresh.resolve()
+})
