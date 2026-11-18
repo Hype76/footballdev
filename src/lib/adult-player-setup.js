@@ -1,5 +1,5 @@
 export function getAdultPlayerSetupEmail(player) {
-  if (player?.contactType !== 'self') return ''
+  if (!['self', 'both'].includes(player?.contactType)) return ''
   const emails = new Set((player.parentContacts || [])
     .filter(contact => contact.type === 'self')
     .map(contact => String(contact.email ?? '').trim().toLowerCase())

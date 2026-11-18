@@ -89,6 +89,8 @@ export function normalizeCalendarEventInvite(row) {
     invitedAt: row.invited_at ?? '',
     cancelledAt: row.cancelled_at ?? '',
     respondedAt: row.responded_at ?? '',
+    adultResponseState: normalizeText(row.adult_response_status),
+    adultRespondedAt: row.adult_responded_at ?? '',
     responseRequirement: normalizeText(row.response_requirement) || 'informational',
     player: normalizeInvitePlayer(row),
     createdAt: row.created_at ?? '',

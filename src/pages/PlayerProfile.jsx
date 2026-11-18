@@ -585,7 +585,7 @@ export function PlayerProfile() {
 
   useEffect(() => {
     let current = true
-    const adults = profilePlayers.filter(player => player.contactType === 'self')
+    const adults = profilePlayers.filter(player => ['self', 'both'].includes(player.contactType))
     setAdultLinkStatuses(Object.fromEntries(adults.map(player => [player.id, 'loading'])))
     void Promise.all(adults.map(async player => {
       try { return [player.id, (await getAdultPlayerLinkStatus(player.id)).state] }
@@ -1602,7 +1602,7 @@ export function PlayerProfile() {
         : adult.value?.state === 'sent' ? 'Player login invitation sent.'
         : adult.value?.state === 'delivery_unknown' ? 'A previous Player invitation exists, but delivery cannot be confirmed.'
         : parents.value.length ? 'Parent app invitation sent.'
-          : savedPlayer.contactType === 'self' && !adultReady
+          : ['self', 'both'].includes(savedPlayer.contactType) && !adultReady
             ? 'Player login requires one Player email and a date of birth confirming they are 18 or over.'
             : `${savedPlayer.playerName} details have been updated.`
       showToast({ title: 'Player saved', message, ...(failure ? { tone: 'error' } : {}) })

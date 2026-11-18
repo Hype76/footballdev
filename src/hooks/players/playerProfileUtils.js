@@ -704,13 +704,13 @@ export async function getLatestClubLogoUrl(user) {
 }
 
 export function getEditableParentContacts(player) {
-  const contactType = player?.contactType === 'self' ? 'self' : 'parent'
+  const contactType = normalizePlayerContactType(player?.contactType)
   const contacts = normalizeParentContacts(player?.parentContacts, {
     contactType,
     parentName: player?.parentName,
     parentEmail: player?.parentEmail,
   })
-  if (contactType === 'self' && !contacts.some(contact => contact.type === 'self')) {
+  if (['self', 'both'].includes(contactType) && !contacts.some(contact => contact.type === 'self')) {
     return [...contacts, { name: player.playerName || '', email: '', type: 'self' }]
   }
   return contacts.length ? contacts : [{ name: '', email: '', type: contactType }]
@@ -763,7 +763,7 @@ export function updateParentContactDraft(currentDrafts, playerId, index, fieldNa
 
 export function addParentContactDraft(currentDrafts, playerId) {
   const draft = currentDrafts[playerId] ?? {}
-  const type = draft.contactType === 'self' ? 'self' : 'parent'
+  const type = draft.contactType === 'self' || (draft.contactType === 'both' && !(draft.parentContacts || []).some(contact => contact.type === 'self')) ? 'self' : 'parent'
   return { ...currentDrafts, [playerId]: { ...draft, parentContacts: [...(draft.parentContacts || []), { name: '', email: '', type }] } }
 }
 

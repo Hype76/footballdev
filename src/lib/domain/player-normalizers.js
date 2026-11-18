@@ -94,7 +94,7 @@ export function mapPlayerToRow(player, user) {
     team: String(player.team ?? '').trim(),
     positions,
     contact_type: normalizePlayerContactType(player.contactType ?? player.contact_type ?? (player.isAdult || player.is_adult ? 'self' : 'parent')),
-    ...((player.contactType === 'self' && player.dateOfBirth !== undefined) ? { date_of_birth: player.dateOfBirth || null } : {}),
+    ...((['self', 'both'].includes(player.contactType) && player.dateOfBirth !== undefined) ? { date_of_birth: player.dateOfBirth || null } : {}),
     parent_name: primaryParent.name,
     parent_email: primaryParent.email,
     parent_contacts: parentContacts,

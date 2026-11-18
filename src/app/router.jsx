@@ -1165,6 +1165,10 @@ function RequireUser() {
       return <ParentSignInRedirect />
     }
 
+    if (!isParentHost() && location.pathname.replace(/\/+$/, '') === '/player') {
+      return <Navigate to="/sign-in?access=player" replace />
+    }
+
     return isParentHost() ? <ParentSignInRedirect /> : <Navigate to="/sign-in" replace />
   }
 
@@ -1234,7 +1238,7 @@ function RequireAdultPlayerAccess() {
   }
 
   if (!session?.user) {
-    return <Navigate to="/sign-in" replace />
+    return <Navigate to="/sign-in?access=player" replace />
   }
 
   if (!user && isProfileLoading) {

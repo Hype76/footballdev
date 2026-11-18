@@ -829,8 +829,8 @@ function RuntimeAuthProvider({ children }) {
     const nextPreferredAccessMode = String(preferredAccessMode ?? '').trim()
 
     if (nextPreferredAccessMode) {
-      if (!['team', 'parent', 'platform_admin'].includes(nextPreferredAccessMode)) {
-        throw new Error('Choose parent, team, or platform admin access to continue.')
+      if (!['team', 'parent', 'player', 'platform_admin'].includes(nextPreferredAccessMode)) {
+        throw new Error('Choose Player, Parent, team, or platform admin access to continue.')
       }
 
       window.sessionStorage.setItem(SELECTED_ACCESS_MODE_STORAGE_KEY, nextPreferredAccessMode)

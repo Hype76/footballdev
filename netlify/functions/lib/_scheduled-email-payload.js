@@ -33,8 +33,8 @@ export function buildPreparedScheduledEmail(row, planProfile, {
   const recipients = normalizeQueuedEmailRecipients(resendPayload.to || row?.to_email)
   const emailPayload = {
     ...resendPayload,
-    // This queue delivers Parent communications, including older rows without app metadata.
-    emailAppRole: 'parent',
+    // Adult Calendar rows are validated by the authoritative Calendar preparation before delivery.
+    emailAppRole: payload.communicationLog?.metadata?.source === 'calendar_adult_event_notification' ? 'none' : 'parent',
     emailCcAppRole: normalizeQueuedEmailRecipients(resendPayload.cc).length ? 'coach' : undefined,
     from: String(resendPayload.from ?? '').trim()
       || createFromAddress(getQueuedEmailFromName(payload, fromDisplayName)),

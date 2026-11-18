@@ -74,3 +74,23 @@ export function matchesAdultAccessMigrationScope(base, entries) {
   return entries.every(({ path, status, source }, index) => path === expected[index] && status === 'A'
     && createHash('sha256').update(source.replaceAll('\r\n', '\n')).digest('hex') === adultAccessMigrationScope.hashes[path])
 }
+
+// Exact adult invitation release source inventory. This does not apply migrations.
+export const adultInvitationMigrationScope = {
+  "base": "60397fd0bee828eb0e4dc5a55255a3c7d3b1b22c",
+  "hashes": {
+    "supabase/migrations/20261118100920_adult_player_invite_preview.sql": "4f869e8b3bfd0b1a522c237d2c821d654f2f1d65bdae5ead175a183881f2cc71",
+    "supabase/migrations/20261118101012_adult_player_calendar_rsvp_and_token_identity.sql": "ece8ad3c408c8ff772b557b5466125c7c934131c12e0561ca98d1651f272380d",
+    "supabase/migrations/20261118101357_adult_player_calendar_dispatch.sql": "46ce69106655193291959325fbb006d2447254209dacdec3dd8ef551990f55b0",
+    "supabase/migrations/20261118101931_adult_player_event_recipient_contact_authority.sql": "eb43f602e3473fc6e30fb0ac6cedd5c5859f4fcbc85927011dbe877a0538a90c",
+    "supabase/migrations/20261118103811_adult_player_both_contact_setup_eligibility.sql": "93b1b6251b9ff23fbed7b46f96eec8d8f931dff74f1befcf9dd152f1a888752b"
+  }
+}
+
+export function matchesAdultInvitationMigrationScope(base, entries) {
+  if (base !== adultInvitationMigrationScope.base) return false
+  const expected = Object.keys(adultInvitationMigrationScope.hashes).sort()
+  if (entries.length !== expected.length) return false
+  return entries.every(({ path, status, source }, index) => path === expected[index] && status === 'A'
+    && createHash('sha256').update(source.replaceAll('\r\n', '\n')).digest('hex') === adultInvitationMigrationScope.hashes[path])
+}

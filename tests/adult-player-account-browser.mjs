@@ -91,6 +91,7 @@ async function stopServer(server) {
 async function preparePage(page) {
   let matchResponse = 'awaiting_response'
   let trainingResponse = 'awaiting_response'
+  let calendarResponse = 'awaiting_response'
   let responseCalls = 0
 
   await page.route('**/rest/v1/rpc/get_own_adult_player_invitation_state', async (route) => {
@@ -134,8 +135,23 @@ async function preparePage(page) {
           response_deadline: '2026-08-05T17:30:00.000Z',
           last_responded_at: trainingResponse === 'awaiting_response' ? null : '2026-07-30T08:00:00.000Z',
         },
+        {
+          invitation_id: 'calendar:calendar-invite-fixture', invitation_type: 'calendar_attendance',
+          source_record_id: 'calendar-invite-fixture', event_id: 'calendar-fixture', event_type: 'general',
+          event_title: 'Club presentation evening', event_start: '2026-08-10T18:00:00.000Z',
+          team_name: 'U12 Fixture Team', response_state: calendarResponse, can_respond: true,
+        },
       ]),
     })
+  })
+
+  await page.route('**/rest/v1/rpc/respond_own_adult_player_calendar_invitation', async route => {
+    const request = route.request().postDataJSON()
+    assert.deepEqual(Object.keys(request).sort(), ['invite_id_value', 'response_value'])
+    assert.equal(request.invite_id_value, 'calendar-invite-fixture')
+    calendarResponse = request.response_value
+    responseCalls += 1
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true, responseState: calendarResponse }) })
   })
 
   await page.route('**/rest/v1/rpc/respond_own_adult_player_match_invitation', async (route) => {
@@ -182,12 +198,16 @@ async function preparePage(page) {
 }
 
 async function signIn(page) {
-  await page.goto(`${baseUrl}/sign-in`, { waitUntil: 'domcontentloaded', timeout: 60000 })
+  await page.goto(`${baseUrl}/player`, { waitUntil: 'domcontentloaded', timeout: 60000 })
+  await page.waitForURL('**/sign-in?access=player', { timeout: 30000 })
+  await page.getByRole('heading', { name: 'Player sign in', exact: true }).waitFor({ state: 'visible' })
+  assert.equal(await page.getByRole('button', { name: 'Sign up', exact: true }).count(), 0)
   await page.getByPlaceholder('you@club.com').waitFor({ state: 'visible', timeout: 30000 })
   await page.getByPlaceholder('you@club.com').fill(fixtureEmail)
   await page.getByPlaceholder('Enter password').fill(fixturePassword)
   await page.locator('form').getByRole('button', { name: /^Log in$/i }).click()
   await page.waitForURL('**/player', { timeout: 30000 })
+  assert.equal(await page.evaluate(() => window.sessionStorage.getItem('selected-access-mode')), 'player')
   await page.getByRole('heading', { name: 'Adult Player Fixture' }).waitFor({ state: 'visible' })
 }
 
@@ -211,7 +231,13 @@ async function runJourney(browser, name, contextOptions) {
 
   await page.getByLabel('Respond to First Team Training').getByRole('button', { name: 'Not attending', exact: true }).click()
   await page.getByText('Not attending', { exact: true }).first().waitFor({ state: 'visible' })
-  assert.equal(prepared.getResponseCalls(), 2)
+  const calendar = page.getByLabel('Respond to Club presentation evening')
+  for (const choice of ['Attending', 'Maybe', 'Not attending']) {
+    await calendar.getByRole('button', { name: choice, exact: true }).click()
+    await page.getByText('Your response has been saved.', { exact: true }).waitFor({ state: 'visible' })
+    await calendar.getByRole('button', { name: choice, exact: true }).waitFor({ state: 'visible' })
+  }
+  assert.equal(prepared.getResponseCalls(), 5)
 
   await page.goto(`${baseUrl}/parent-portal`, { waitUntil: 'domcontentloaded' })
   await page.waitForURL('**/player', { timeout: 15000 })

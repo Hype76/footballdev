@@ -26,7 +26,7 @@ async function setClaims(db, userId = '') {
   ])
 }
 
-async function createDatabase() {
+async function createDatabase({ applyRepair = true } = {}) {
   const migration = await readFile(migrationUrl, 'utf8')
   const auditMigration = await readFile(auditMigrationUrl, 'utf8')
   const db = new PGlite()
@@ -36,6 +36,7 @@ async function createDatabase() {
     create role authenticated;
     create role service_role;
     create schema auth;
+    create schema app_private;
 
     create table auth.users (id uuid primary key);
     create function auth.uid()
@@ -218,6 +219,7 @@ async function createDatabase() {
     declare
       request_row public.match_day_availability_requests%rowtype;
     begin
+      if not public.is_match_day_action_token_current_internal(token_hash_value) then return; end if;
       update public.match_day_availability_requests request
       set status = status_value, responded_at = now()
       where request.token_hash = token_hash_value
@@ -262,6 +264,7 @@ async function createDatabase() {
     declare
       request_player_row public.training_availability_request_players%rowtype;
     begin
+      if not public.is_training_availability_token_current_internal(token_hash_value) then return; end if;
       update public.training_availability_request_players request_player
       set status = 'responded', responded_at = now()
       where request_player.token_hash = token_hash_value
@@ -290,6 +293,18 @@ async function createDatabase() {
     $$;
   `)
 
+  await db.exec(`
+    alter table auth.users add column email text default 'adult@example.test', add column email_confirmed_at timestamptz default now(), add column banned_until timestamptz, add column deleted_at timestamptz;
+    alter table public.clubs add column status text default 'active', add column archived_at timestamptz;
+    alter table public.teams add column status text default 'active';
+    alter table public.players add column parent_email text default 'adult@example.test', add column parent_contacts jsonb default '[{"type":"self","email":"adult@example.test"}]';
+    alter table public.users add column club_id uuid, add column status text, add column email text;
+    create table public.user_club_memberships(auth_user_id uuid);
+    alter table public.parent_player_links add column club_id uuid, add column team_id uuid, add column email text;
+    alter table public.match_day_availability_requests add column recipient_email text default 'adult@example.test', add column token_revoked_at timestamptz;
+    alter table public.training_availability_request_players add column recipient_email text default 'adult@example.test', add column token_revoked_at timestamptz, add column response_deadline_at timestamptz;
+    alter table public.calendar_event_invites add column player_contact_email text default 'adult@example.test', add column cancelled_at timestamptz;
+  `)
   await db.exec(migration)
   await db.exec(auditMigration)
   const hardening = await readFile(new URL('../supabase/migrations/20260907093937_v1_internal_audit_permissions.sql', import.meta.url), 'utf8')
@@ -354,6 +369,12 @@ async function createDatabase() {
     );
   `)
 
+  const guards = await readFile(new URL('../supabase/migrations/20260802214626_team_removal_event_scope_26c.sql', import.meta.url), 'utf8')
+  for (const name of ['is_match_day_action_token_current_internal', 'is_training_availability_token_current_internal']) {
+    const start = guards.indexOf('create or replace function public.' + name + '(')
+    await db.exec(guards.slice(start, guards.indexOf('$$;', start) + 3))
+  }
+  if (applyRepair) await db.exec(await readFile(new URL('../supabase/migrations/20261118101012_adult_player_calendar_rsvp_and_token_identity.sql', import.meta.url), 'utf8'))
   return db
 }
 
@@ -462,4 +483,106 @@ test('signed-out calls resolve no adult-player authority', async () => {
   assert.equal(response.rows[0].result.success, false)
   assert.equal(response.rows[0].result.denialCategory, 'adult_player_context_denied')
   await db.close()
+})
+
+
+test('real pre-repair guards reject auth-only adults even when their own invitation is valid', async () => {
+  const db = await createDatabase({ applyRepair: false })
+  try {
+    await setClaims(db, ids.user)
+    const guards = await db.query("select public.is_match_day_action_token_current_internal(repeat('a',64)) as match, public.is_training_availability_token_current_internal(repeat('c',64)) as training")
+    assert.deepEqual(guards.rows, [{ match: false, training: false }])
+    for (const [rpc, request] of [['respond_own_adult_player_match_invitation', ids.ownMatchRequest], ['respond_own_adult_player_training_invitation', ids.trainingPlayerRequest]]) {
+      const { rows } = await db.query('select public.' + rpc + '($1,$2) as result', [request, 'available'])
+      assert.equal(rows[0].result.denialCategory, 'action_token_invalid')
+    }
+  } finally { await db.close() }
+})
+
+test('ordinary Calendar RSVP saves all choices only for the adult invitation and preserves Parent state', async () => {
+  const db = await createDatabase()
+  try {
+    await setClaims(db, ids.user)
+    await db.query("update public.calendar_events set event_type='general' where id=$1", [ids.event])
+    await db.query(`insert into public.calendar_event_invites(id,club_id,team_id,calendar_event_id,player_id,recipient_type,responded_at)
+      values($1,$2,$3,$4,$5,'parent_and_player',now()-interval '1 day'),($6,$2,$3,$4,$7,'player',null)`,
+    [ids.ownMatchRequest, ids.club, ids.team, ids.event, ids.player, ids.otherMatchRequest, ids.otherPlayer])
+    await db.query('insert into public.parent_player_links(auth_user_id,player_id,club_id,team_id,email) values($1,$2,$3,$4,$5)', [ids.user, ids.otherPlayer, ids.club, ids.team, 'adult@example.test'])
+    const before = (await db.query('select responded_at,invite_status from public.calendar_event_invites where id=$1', [ids.ownMatchRequest])).rows[0]
+    const parentBefore = (await db.query('select * from public.parent_player_links')).rows
+    for (const response of ['available', 'maybe', 'unavailable']) {
+      const result = (await db.query('select public.respond_own_adult_player_calendar_invitation($1,$2) as result', [ids.ownMatchRequest, response])).rows[0].result
+      assert.equal(result.success, true)
+      assert.equal(result.responseState, response)
+      const invitation = (await db.query('select * from public.get_own_adult_player_invitation_state()')).rows.find(row => row.invitation_type === 'calendar_attendance')
+      assert.equal(invitation.source_record_id, ids.ownMatchRequest)
+      assert.equal(invitation.response_state, response)
+      assert.equal(invitation.can_respond, true)
+    }
+    assert.deepEqual((await db.query('select responded_at,invite_status from public.calendar_event_invites where id=$1', [ids.ownMatchRequest])).rows[0], before)
+    assert.deepEqual((await db.query('select * from public.parent_player_links')).rows, parentBefore)
+    for (const [invite, response, category] of [[ids.otherMatchRequest, 'available', 'invitation_not_owned'], [ids.ownMatchRequest, 'yes', 'invalid_response']]) {
+      assert.equal((await db.query('select public.respond_own_adult_player_calendar_invitation($1,$2) as result', [invite, response])).rows[0].result.denialCategory, category)
+    }
+    for (const change of ["update public.calendar_events set cancelled_at=now()", "update public.calendar_events set starts_at=now()-interval '1 second'", "update public.calendar_event_invites set invite_status='cancelled'", "update public.calendar_event_invites set player_contact_email='stale@example.test'", "update public.calendar_event_invites set recipient_type='parent_guardian'"]) {
+      await db.exec('begin')
+      await db.exec(change)
+      const result = (await db.query('select public.respond_own_adult_player_calendar_invitation($1,$2) as result', [ids.ownMatchRequest, 'available'])).rows[0].result
+      assert.equal(result.success, false, change)
+      const listing = (await db.query('select * from public.get_own_adult_player_invitation_state()')).rows.filter(row => row.invitation_type === 'calendar_attendance')
+      assert.ok(listing.every(row => !row.can_respond), change)
+      await db.exec('rollback')
+    }
+  } finally { await db.close() }
+})
+
+test('real adult token guards enforce verified email, self contact, eligibility and revocation', async () => {
+  const db = await createDatabase()
+  try {
+    const check = async expected => {
+      const result = (await db.query("select public.is_match_day_action_token_current_internal(repeat('a',64)) as match, public.is_training_availability_token_current_internal(repeat('c',64)) as training")).rows[0]
+      assert.deepEqual(result, { match: expected, training: expected })
+    }
+    await check(true)
+    for (const change of [
+      'update auth.users set email_confirmed_at=null',
+      "update auth.users set email='changed@example.test'",
+      "update auth.users set banned_until=now()+interval '1 day'",
+      'update auth.users set deleted_at=now()',
+      "update public.players set parent_contacts='[{\"type\":\"parent\",\"email\":\"adult@example.test\"}]'",
+      "update public.players set date_of_birth=current_date-interval '17 years'",
+      "update public.players set status='archived'",
+      "update public.adult_player_account_links set status='revoked',revoked_at=now()",
+      'update public.clubs set archived_at=now()',
+      "update public.teams set status='archived'",
+    ]) {
+      await db.exec('begin')
+      await db.exec(change)
+      await check(false)
+      await db.exec('rollback')
+    }
+    await db.exec(`update public.match_day_availability_requests set token_revoked_at=now(); update public.training_availability_request_players set token_revoked_at=now()`)
+    await check(false)
+  } finally { await db.close() }
+})
+
+test('Calendar and real match/training responses deny closed windows and signed-out accounts', async () => {
+  const db = await createDatabase()
+  try {
+    await setClaims(db, ids.user)
+    for (const [rpc, request, change] of [
+      ['respond_own_adult_player_match_invitation', ids.ownMatchRequest, "update public.match_days set status='full_time'"],
+      ['respond_own_adult_player_match_invitation', ids.ownMatchRequest, "update public.match_day_availability_requests set expires_at=now()-interval '1 second'"],
+      ['respond_own_adult_player_training_invitation', ids.trainingPlayerRequest, 'update public.calendar_events set cancelled_at=now()'],
+      ['respond_own_adult_player_training_invitation', ids.trainingPlayerRequest, "update public.training_availability_requests set occurrence_starts_at=now()-interval '1 second'"],
+    ]) {
+      await db.exec('begin'); await db.exec(change)
+      const result = (await db.query('select public.' + rpc + '($1,$2) as result', [request, 'maybe'])).rows[0].result
+      assert.equal(result.denialCategory, 'response_window_closed')
+      await db.exec('rollback')
+    }
+    await setClaims(db)
+    assert.equal((await db.query('select public.respond_own_adult_player_calendar_invitation($1,$2) as result', [ids.ownMatchRequest, 'available'])).rows[0].result.denialCategory, 'adult_player_context_denied')
+    assert.equal((await db.query("select has_function_privilege('anon','public.respond_own_adult_player_calendar_invitation(uuid,text)','execute') as allowed")).rows[0].allowed, false)
+  } finally { await db.close() }
 })

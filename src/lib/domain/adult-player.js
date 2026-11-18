@@ -47,7 +47,9 @@ export async function respondToOwnAdultPlayerInvitation({ invitation, responseSt
     ? 'respond_own_adult_player_match_invitation'
     : invitation.invitationType === 'training_attendance'
       ? 'respond_own_adult_player_training_invitation'
-      : ''
+      : invitation.invitationType === 'calendar_attendance'
+        ? 'respond_own_adult_player_calendar_invitation'
+        : ''
 
   if (!rpcName) {
     throw new Error('This event does not require a response.')
@@ -55,7 +57,9 @@ export async function respondToOwnAdultPlayerInvitation({ invitation, responseSt
 
   const requestField = invitation.invitationType === 'match_attendance'
     ? 'request_id_value'
-    : 'request_player_id_value'
+    : invitation.invitationType === 'calendar_attendance'
+      ? 'invite_id_value'
+      : 'request_player_id_value'
   const { data, error } = await supabase.rpc(rpcName, {
     [requestField]: invitation.sourceRecordId,
     response_value: normalizedResponse,

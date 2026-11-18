@@ -11,6 +11,7 @@ createRoot(document.getElementById('root')).render(<AdultPlayerInvitePage/>);
 const built = await build({
   stdin: { contents: entry, resolveDir: process.cwd(), loader: 'jsx' },
   bundle: true, write: false, platform: 'browser', format: 'iife', jsx: 'automatic',
+  loader: { '.webp': 'dataurl' },
   plugins: [{ name: 'fake-auth', setup(buildApi) {
     buildApi.onResolve({ filter: /\/lib\/supabase-client\.js$/ }, () => ({ path: 'auth', namespace: 'fixture' }))
     buildApi.onLoad({ filter: /.*/, namespace: 'fixture' }, () => ({
@@ -30,6 +31,7 @@ try {
     window.rejectAcceptance = true
     window.fetch = async (_url, options) => {
       const body = JSON.parse(options.body)
+      if (body.action === 'preview') return { ok: true, json: async () => ({ success: true, state: 'pending', clubName: 'Fixture United', teamName: 'Adult team', logoUrl: '' }) }
       window.requests.push({ body, authorization: options.headers.Authorization })
       if (body.action === 'accept') {
         window.sessionBeforeAcceptance = window.persistedSession || null
@@ -78,10 +80,32 @@ try {
   assert.equal(await success.evaluate(() => sessionStorage.getItem('selected-access-mode')), 'player')
   assert.equal(await success.evaluate(() => sessionStorage.getItem('selected-access-mode-explicit')), 'true')
   assert.equal(await success.evaluate(() => sessionStorage.getItem('selected-club-id')), null)
+  const created = await browser.newPage()
+  await created.route('http://127.0.0.1/**', route => route.fulfill({ contentType: 'text/html', body: '<div id="root"></div>' }))
+  await created.goto('http://127.0.0.1/player-invite#invite=00000000-0000-4000-8000-000000000006')
+  await created.evaluate(() => {
+    window.completeSession = true; window.requests = []
+    window.fetch = async (_url, options) => {
+      const body = JSON.parse(options.body)
+      if (body.action === 'preview') return { ok: true, json: async () => ({ success: true, state: 'pending', clubName: 'Fixture United' }) }
+      window.requests.push(body)
+      sessionStorage.setItem('created-fixture-requests', JSON.stringify(window.requests))
+      return { ok: true, json: async () => ({ success: true }) }
+    }
+  })
+  await created.addScriptTag({ content: built.outputFiles[0].text })
+  await created.getByLabel('Player email').fill('NewPlayer@Example.test')
+  await created.getByLabel('Create a password', { exact: true }).fill('NewPassword123!')
+  await created.getByRole('button', { name: 'Create Player login', exact: true }).click()
+  await created.waitForURL('http://127.0.0.1/player')
+  const createdRequests = await created.evaluate(() => JSON.parse(sessionStorage.getItem('created-fixture-requests')))
+  assert.deepEqual(createdRequests.map(body => body.action), ['create'])
+  assert.equal(createdRequests[0].email, 'newplayer@example.test')
+  assert.equal(await created.evaluate(() => sessionStorage.getItem('selected-access-mode')), 'player')
   const changed = await browser.newPage()
   await changed.route('http://127.0.0.1/player-invite', route => route.fulfill({ contentType: 'text/html', body: '<div id="root"></div>' }))
   await changed.goto('http://127.0.0.1/player-invite#invite=00000000-0000-4000-8000-000000000006')
-  await changed.evaluate(() => { window.holdSignIn = true; window.requests = []; window.fetch = async (_url, options) => { window.requests.push(JSON.parse(options.body)); return { ok: true, json: async () => ({ success: true }) } } })
+  await changed.evaluate(() => { window.holdSignIn = true; window.requests = []; window.fetch = async (_url, options) => { const body = JSON.parse(options.body); if (body.action === 'preview') return { ok: true, json: async () => ({ success: true, state: 'pending', clubName: 'Fixture United' }) }; window.requests.push(body); return { ok: true, json: async () => ({ success: true }) } } })
   await changed.addScriptTag({ content: built.outputFiles[0].text })
   await changed.getByRole('button', { name: 'I already have an account' }).click()
   await changed.getByLabel('Player email').fill('player@example.test')
@@ -94,5 +118,5 @@ try {
   await changed.getByRole('button', { name: 'Sign in and accept' }).waitFor({ state: 'visible' })
   assert.deepEqual(await changed.evaluate(() => window.requests), [])
   assert.equal(await changed.evaluate(() => window.persistedSession || null), null)
-  console.log('PASS existing-account invitation signs in and accepts using the same invite')
+  console.log('PASS new-account creation and existing-account acceptance preserve the invite and select Player access')
 } finally { await browser.close() }

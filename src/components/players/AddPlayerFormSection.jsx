@@ -192,11 +192,11 @@ export function AddPlayerFormSection({
             </div>
           </div>
 
-          {normalizedContactType === 'self' ? (
+          {['self', 'both'].includes(normalizedContactType) ? (
             <label className="block xl:col-span-2">
               <span className={labelClass}>Player date of birth</span>
               <input type="date" name="dateOfBirth" value={playerForm.dateOfBirth} onChange={onChange} className={fieldClass} />
-              <span className="mt-1 block text-xs text-[#4b5f55]">Required to email the player an invitation to their own login.</span>
+              <span className="mt-1 block text-xs text-[#4b5f55]">Player access requires a date of birth confirming they are 18 or over. Parent access is unchanged.</span>
             </label>
           ) : null}
 
