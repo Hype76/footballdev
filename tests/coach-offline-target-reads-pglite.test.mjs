@@ -4,10 +4,11 @@ import test from 'node:test'
 import { PGlite } from '@electric-sql/pglite'
 
 const migration = await readFile(new URL('../supabase/migrations/20261118125500_coach_account_offline_scoped_reads.sql', import.meta.url), 'utf8')
+const compatibilityMigration = await readFile(new URL('../supabase/migrations/20261118155211_coach_offline_live_schema_compatibility.sql', import.meta.url), 'utf8')
 const id = value => `10000000-0000-4000-8000-${String(value).padStart(12, '0')}`
 const actor=id(1), other=id(2), home=id(10), away=id(11), homeTeam=id(20), awayTeam=id(21), unassigned=id(22)
 
-async function createDatabase() {
+async function createDatabase({ applyCompatibility = true } = {}) {
   const db = new PGlite()
   await db.exec(`
     create role anon; create role authenticated; create role service_role;
@@ -52,9 +53,11 @@ async function createDatabase() {
     create table public.match_day_scorer_assignments(id uuid,match_day_id uuid);
     create table public.match_day_final_reports(id uuid,match_day_id uuid);
     create table public.match_day_starting_squads(id uuid,club_id uuid,team_id uuid,match_day_id uuid,player_ids jsonb);
-    create table public.resource_library_items(id uuid,club_id uuid,team_id uuid,archived_at timestamptz,expires_at timestamptz,storage_bucket text,storage_path text,resource_type text,mime_type text,file_size_bytes integer,updated_at timestamptz);
-    create table public.resource_library_links(id uuid,resource_id uuid,removed_at timestamptz);
-    create table public.resource_library_external_links(id uuid,resource_id uuid,external_url text);
+    -- Column names and types checked against production information_schema on 18-11-2026.
+    -- Resource Library has no expiry or resource_type column; external links have no id.
+    create table public.resource_library_external_links(club_id uuid,team_id uuid,created_at timestamptz,updated_at timestamptz,resource_id uuid,external_url text,created_by_profile_id uuid);
+    create table public.resource_library_items(id uuid,title text,club_id uuid,team_id uuid,category text,mime_type text,created_at timestamptz,updated_at timestamptz,archived_at timestamptz,description text,storage_path text,storage_bucket text,file_size_bytes int4,archived_by_name text,uploaded_by_name text,archived_by_email text,original_filename text,uploaded_by_email text,archived_by_profile_id uuid,uploaded_by_profile_id uuid);
+    create table public.resource_library_links(id uuid,club_id uuid,team_id uuid,linked_id uuid,removed_at timestamptz,assigned_at timestamptz,linked_type text,resource_id uuid,parent_visible bool,removed_by_name text,assigned_by_name text,removed_by_email text,assigned_by_email text,share_description text,removed_by_profile_id uuid,assigned_by_profile_id uuid,calendar_occurrence_date date);
     create table public.parent_chat_rooms(id uuid,club_id uuid,team_id uuid,status text,room_type text);
     create table public.parent_chat_messages(id uuid,room_id uuid,body text,deleted_at timestamptz);
     create table public.parent_chat_memberships(id uuid,room_id uuid,auth_user_id uuid);
@@ -100,6 +103,7 @@ async function createDatabase() {
     await db.exec(formations.slice(start,formations.indexOf('$$;',start)+3))
   }
   await db.exec(migration)
+  if (applyCompatibility) await db.exec(compatibilityMigration)
   await db.exec(`set request.jwt.claim.sub='${actor}'`)
   return db
 }
@@ -229,15 +233,91 @@ test('anonymous votes, Parent room assignment, hidden attendance and clubwide fe
   }finally{await db.close()}
 })
 
-test('actual service-only file source revalidates target authority, expiry, archived state and exact authoritative object scope',async()=>{
+test('compatibility migration changes only optional resource expiry predicates and preserves complete function bodies and ACLs',async()=>{
+  const names=['get_own_coach_offline_resource','get_coach_offline_file_source']
+  assert.equal([...compatibilityMigration.matchAll(/create or replace function /g)].length,2)
+  for(const name of names) {
+    const extract=source=>{
+      const start=source.search(new RegExp('create (?:or replace )?function public\\.'+name+'\\('))
+      const end=source.indexOf('$$;',start)
+      assert.ok(start>=0 && end>start)
+      return source.slice(start,end+3)
+    }
+    const corrected=extract(compatibilityMigration).replace('create or replace function','create function')
+      .replaceAll("((to_jsonb(t)->>'expires_at') is null or (to_jsonb(t)->>'expires_at')::timestamptz>now())",'(t.expires_at is null or t.expires_at>now())')
+      .replaceAll("((to_jsonb(r)->>'expires_at') is null or (to_jsonb(r)->>'expires_at')::timestamptz>now())",'(r.expires_at is null or r.expires_at>now())')
+    assert.equal(corrected,extract(migration),name)
+  }
+  const db=await createDatabase({applyCompatibility:false})
+  try {
+    const definitions=()=>db.query("select proname,prosecdef,provolatile,proconfig,proacl::text from pg_proc where proname in ('get_own_coach_offline_resource','get_coach_offline_file_source') order by proname")
+    const before=(await definitions()).rows
+    await db.exec(compatibilityMigration)
+    assert.deepEqual((await definitions()).rows,before,'Replacement preserves security mode, volatility, search_path and every role grant')
+  }finally{await db.close()}
+})
+
+test('production Resource Library without expires_at, resource_type or external-link id reproduces the deployed failure and reads after correction',async()=>{
+  const db=await createDatabase({applyCompatibility:false})
+  try {
+    const columns=(await db.query("select table_name,column_name from information_schema.columns where table_schema='public' and table_name in ('resource_library_items','resource_library_external_links')")).rows
+    assert.equal(columns.some(row=>row.table_name==='resource_library_items' && ['expires_at','resource_type'].includes(row.column_name)),false)
+    assert.equal(columns.some(row=>row.table_name==='resource_library_external_links' && row.column_name==='id'),false)
+    await db.exec(`insert into public.resource_library_items(id,club_id,team_id,title,storage_bucket,storage_path,mime_type,file_size_bytes) values
+      ('${id(500)}','${away}','${awayTeam}','File','resource-library','${away}/${awayTeam}/file.pdf','application/pdf',100),
+      ('${id(501)}','${away}','${awayTeam}','External','resource-library','${away}/${awayTeam}/external','text/uri-list',0),
+      ('${id(502)}','${home}','${homeTeam}','Foreign','resource-library','${home}/${homeTeam}/foreign.pdf','application/pdf',100);
+      insert into public.resource_library_links(id,resource_id,club_id,team_id) values ('${id(503)}','${id(500)}','${away}','${awayTeam}');
+      insert into public.resource_library_external_links(resource_id,club_id,team_id,external_url) values ('${id(501)}','${away}','${awayTeam}','https://external.test');`)
+    const load=()=>db.query('select public.get_own_coach_offline_resource($1,$2,$3) as value',[away,awayTeam,'resources'])
+    const file=()=>db.query('select public.get_coach_offline_file_source($1,$2,$3,$4) as value',[actor,away,awayTeam,id(500)])
+    await assert.rejects(load(),/column t\.expires_at does not exist/)
+    await db.exec("set request.jwt.claim.role='service_role'")
+    await assert.rejects(file(),/column r\.expires_at does not exist/)
+    await db.exec(compatibilityMigration)
+    const page=(await load()).rows[0].value
+    assert.equal(page.complete,true)
+    assert.equal(page.nextCursor,null)
+    assert.equal(page.totalCount,4)
+    assert.deepEqual(page.items.filter(row=>row.kind==='resources').map(row=>row.data.title),['File','External'])
+    assert.equal(page.items.find(row=>row.kind==='resourceExternalLinks').data.external_url,'https://external.test')
+    assert.doesNotMatch(JSON.stringify(page),/Foreign|expires_at|resource_type/)
+    assert.equal((await file()).rows[0].value.storage_path,`${away}/${awayTeam}/file.pdf`)
+    assert.equal((await db.query('select club_id from public.users where id=$1',[actor])).rows[0].club_id,home)
+  }finally{await db.close()}
+})
+
+test('optional future expiry columns retain null and future resources while excluding expired files and linked metadata',async()=>{
+  const db=await createDatabase()
+  try {
+    // This extension is deliberately absent from the production-shaped default fixture.
+    await db.exec(`alter table public.resource_library_items add column expires_at timestamptz;
+      insert into public.resource_library_items(id,club_id,team_id,storage_bucket,storage_path,mime_type,file_size_bytes,expires_at) values
+      ('${id(510)}','${away}','${awayTeam}','resource-library','${away}/${awayTeam}/null.pdf','application/pdf',100,null),
+      ('${id(511)}','${away}','${awayTeam}','resource-library','${away}/${awayTeam}/expired.pdf','application/pdf',100,now()-interval '1 day'),
+      ('${id(512)}','${away}','${awayTeam}','resource-library','${away}/${awayTeam}/future.pdf','application/pdf',100,now()+interval '1 day');
+      insert into public.resource_library_links(id,resource_id,club_id,team_id) values ('${id(513)}','${id(511)}','${away}','${awayTeam}'),('${id(514)}','${id(512)}','${away}','${awayTeam}');
+      insert into public.resource_library_external_links(resource_id,club_id,team_id,external_url) values ('${id(511)}','${away}','${awayTeam}','https://expired.test');
+      set request.jwt.claim.role='service_role';`)
+    const page=(await db.query('select public.get_own_coach_offline_resource($1,$2,$3) as value',[away,awayTeam,'resources'])).rows[0].value
+    assert.deepEqual(page.items.filter(row=>row.kind==='resources').map(row=>row.id),[id(510),id(512)])
+    assert.deepEqual(page.items.filter(row=>row.kind==='resourceLinks').map(row=>row.id),[id(514)])
+    assert.equal(page.items.filter(row=>row.kind==='resourceExternalLinks').length,0)
+    const file=value=>db.query('select public.get_coach_offline_file_source($1,$2,$3,$4) as value',[actor,away,awayTeam,value])
+    for(const value of [id(510),id(512)]) assert.equal((await file(value)).rows[0].value.id,value)
+    await assert.rejects(file(id(511)),/file_denied/)
+  }finally{await db.close()}
+})
+
+test('actual service-only file source revalidates target authority, archived state and exact authoritative object scope',async()=>{
   const db=await createDatabase()
   try {
     await db.exec(`insert into public.resource_library_items(id,club_id,team_id,storage_bucket,storage_path,mime_type,file_size_bytes) values ('${id(300)}','${away}','${awayTeam}','resource-library','${away}/${awayTeam}/file.pdf','application/pdf',100);
       set request.jwt.claim.role='service_role';`)
     const load=()=>db.query('select public.get_coach_offline_file_source($1,$2,$3,$4) as value',[actor,away,awayTeam,id(300)])
     assert.equal((await load()).rows[0].value.storage_path,`${away}/${awayTeam}/file.pdf`)
-    for(const change of [`update public.resource_library_items set archived_at=now()`,`update public.resource_library_items set expires_at=now()-interval '1 day'`,`update public.resource_library_items set storage_path='${home}/${homeTeam}/foreign.pdf'`,
-      `insert into public.resource_library_external_links values ('${id(301)}','${id(300)}','https://external.test')`,`delete from public.team_staff where user_id='${actor}' and team_id='${awayTeam}'`]) {
+    for(const change of [`update public.resource_library_items set archived_at=now()`,`update public.resource_library_items set storage_path='${home}/${homeTeam}/foreign.pdf'`,
+      `insert into public.resource_library_external_links(resource_id,club_id,team_id,external_url) values ('${id(300)}','${away}','${awayTeam}','https://external.test')`,`delete from public.team_staff where user_id='${actor}' and team_id='${awayTeam}'`]) {
       await db.exec('begin');await db.exec(change)
       await assert.rejects(load(),/file_denied/)
       await db.exec('rollback')
