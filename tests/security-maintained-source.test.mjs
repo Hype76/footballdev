@@ -131,6 +131,26 @@ test('changed advisory, upstream patch, published version or registry integrity 
     await assert.rejects(() => verifyUpstream(record, payload, async key => ({ ok: true, json: async () => map.get(key) })))
   }
 })
+
+test('reviewed picomatch withdrawal still requires its exact meaning and fresh successful lookup', async () => {
+  const snapshot = payload.advisories.find(value => value.ghsaId === 'GHSA-fc5q-39xc-vjpf')
+  const semantic = Object.fromEntries(['ghsaId', 'cveId', 'severity', 'summary', 'description', 'vulnerabilities', 'references', 'withdrawnAt'].map(key => [key, snapshot[key]]))
+  assert.equal(hash(Buffer.from(JSON.stringify(semantic))), '0b6ed26990894fb0991bbe7325ab3a98cec30abf46b04c1aac371771512cbe4a')
+  const url = 'https://api.github.com/advisories/' + snapshot.ghsaId
+  const requestFor = map => async target => ({ ok: true, json: async () => clone(map.get(target)) })
+  assert.ok((await verifyUpstream(record, payload, requestFor(responses()))).receipts.some(receipt => receipt.id === snapshot.ghsaId))
+  for (const mutate of [
+    value => { value.summary += ' changed' }, value => { value.description += ' changed' },
+    value => { value.withdrawn_at = null }, value => { value.severity = 'low' },
+    value => { value.vulnerabilities[0].vulnerable_version_range = '<= 99.0.0' },
+    value => { value.references.push('https://example.invalid/new-advisory-meaning') },
+  ]) {
+    const map = responses(), changed = clone(map.get(url)); mutate(changed); map.set(url, changed)
+    await assert.rejects(() => verifyUpstream(record, payload, requestFor(map)), /Advisory meaning changed: GHSA-fc5q-39xc-vjpf/)
+  }
+  const map = responses()
+  await assert.rejects(() => verifyUpstream(record, payload, async target => target === url ? { ok: false, status: 503 } : requestFor(map)(target)), /Official upstream lookup failed/)
+})
 test('unavailable, malformed or failed official lookup never grants standing acceptance', async () => {
   for (const request of [
     async () => { throw new Error('network unavailable') },
