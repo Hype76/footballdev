@@ -1831,8 +1831,14 @@ function NotificationStatusButton({ notificationState, notificationStateStatus, 
 
 function ContextOptionBadge({ logoUrl, styles }) {
   const [failed, setFailed] = useState(false)
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', state => {
+      if (state === 'active') setFailed(false)
+    })
+    return () => subscription.remove()
+  }, [logoUrl])
   const showLogo = logoUrl && !failed
-  return <Image accessible={false} resizeMode="contain" onError={showLogo ? () => setFailed(true) : undefined}
+  return <Image key={showLogo ? logoUrl : 'football-player'} accessible={false} resizeMode="contain" onError={showLogo ? () => setFailed(true) : undefined}
     source={showLogo ? { uri: logoUrl } : require('./assets/football-player-logo.png')} style={styles.contextBadge} />
 }
 
@@ -1888,7 +1894,7 @@ function ContextSwitcher({ contexts, initial = false, onSelect, selectedContextI
           <Text accessibilityRole="header" style={[styles.screenTitle, styles.contextPickerCopy]}>Change team or club</Text>
           <Pressable accessibilityRole="button" onPress={() => setOpen(false)} style={styles.contextPickerClose}><Text style={styles.contextPickerSelectedText}>Close</Text></Pressable>
         </View>
-        {options}
+        {open ? options : null}
       </SafeAreaView>
       </SafeAreaProvider>
     </Modal>

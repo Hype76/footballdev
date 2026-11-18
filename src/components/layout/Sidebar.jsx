@@ -608,7 +608,7 @@ export function Sidebar({ isOpen, onClose }) {
                   {hasPlatformAdminAccess ? <option value="__platform_admin__">Platform admin</option> : null}
                   {hasParentPortalAccess ? <option value="__parent_portal__">Family portal</option> : null}
                   {shouldShowCurrentTeamAccessOption || (isParentPortal && hasTeamAccessOption) ? <option value="__team_access__">Team access</option> : null}
-                  {isPlatformAdminView
+                  {isPlatformAdminView || (!isParentPortal && clubOptions.length > 1)
                     ? clubOptions.map((club) => (
                         <option key={club.clubId} value={`__club__:${club.clubId}`}>
                           Club: {club.clubName || 'Unnamed club'}

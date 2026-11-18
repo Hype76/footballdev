@@ -885,6 +885,7 @@ function RuntimeAuthProvider({ children }) {
       window.sessionStorage.setItem(SELECTED_CLUB_STORAGE_KEY, profile.clubId)
       window.sessionStorage.removeItem(SELECTED_TEAM_STORAGE_KEY)
       const profileWithTeam = await applyTeamSelection(profile)
+      setClubOptions(profile.clubOptions ?? [])
       setUser(applyDemoRolePreview(profileWithTeam))
       setAccessRouteMismatch(null)
       setAuthError('')
