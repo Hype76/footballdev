@@ -45,8 +45,9 @@ async function waitForPort(timeoutMs = 30000) {
 
 function startServer() {
   const child = spawn(
-    process.env.ComSpec || 'cmd.exe',
-    ['/d', '/s', '/c', `npm.cmd run dev -- --mode production --host 0.0.0.0 --port ${port} --strictPort`],
+    process.execPath,
+    ['node_modules/vite/bin/vite.js', '--mode', 'production', '--host', '0.0.0.0', '--port', String(port), '--strictPort',
+      ...(process.env.ADULT_PLAYER_BROWSER_FORCE_OPTIMIZE === 'true' ? ['--force'] : [])],
     {
       cwd: process.cwd(),
       env: {
@@ -211,6 +212,26 @@ async function signIn(page) {
   await page.getByRole('heading', { name: 'Adult Player Fixture' }).waitFor({ state: 'visible' })
 }
 
+async function warmServer(browser) {
+  const context = await browser.newContext()
+  try {
+    const page = await context.newPage()
+    await page.goto(`${baseUrl}/player`, { waitUntil: 'domcontentloaded', timeout: 60000 })
+    await page.waitForURL('**/sign-in?access=player', { timeout: 60000 })
+    // The production-mode dev server discovers workbox-window only when the PWA
+    // module loads. Let its dependency reload and worker activation finish before
+    // starting a fresh context whose sign-in must survive without a reload.
+    await page.waitForFunction(async () => {
+      const registration = await navigator.serviceWorker.getRegistration()
+      return registration?.active?.state === 'activated'
+    }, undefined, { timeout: 60000 })
+    await page.waitForLoadState('networkidle', { timeout: 60000 })
+    await page.getByRole('heading', { name: 'Player sign in', exact: true }).waitFor({ state: 'visible' })
+  } finally {
+    await context.close()
+  }
+}
+
 async function runJourney(browser, name, contextOptions) {
   const context = await browser.newContext(contextOptions)
   const page = await context.newPage()
@@ -260,7 +281,8 @@ let browser
 
 try {
   await waitForPort()
-  browser = await chromium.launch({ channel: 'chrome', headless: true })
+  browser = await chromium.launch({ headless: true })
+  await warmServer(browser)
 
   await runJourney(browser, 'desktop-1440x1000', {
     viewport: { width: 1440, height: 1000 },
