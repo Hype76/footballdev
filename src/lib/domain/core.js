@@ -869,6 +869,7 @@ export async function fetchUserProfile(authUser, options = {}) {
       clubs: clubData,
       email: data.email || authUser.email,
       parentPortalLinks: parentLinks,
+      clubOptions: memberships,
     })
   })
 }

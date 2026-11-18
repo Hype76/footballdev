@@ -2583,6 +2583,23 @@ try {
     await page.reload()
     await assertVisibleText(page, 'Fixture Rovers')
     assert.equal(await picker.count(), 0)
+
+    const accessView = page.locator('aside').getByLabel('Access view')
+    assert.deepEqual(await accessView.locator('option[value^="__club__:"]').allTextContents(), [
+      'Club: Fixture United',
+      'Club: Fixture Rovers',
+    ])
+    await accessView.selectOption('__club__:club-fixture')
+    await assertVisibleText(page, 'Fixture United')
+    assert.equal(await page.evaluate(() => window.sessionStorage.getItem('selected-club-id')), 'club-fixture')
+    await accessView.selectOption('team-u12')
+    assert.equal(await accessView.inputValue(), 'team-u12')
+    await accessView.selectOption('__club__:club-fixture-second')
+    await assertVisibleText(page, 'Fixture Rovers')
+    assert.equal(await page.evaluate(() => window.sessionStorage.getItem('selected-team-id')), null)
+    await page.reload()
+    await assertVisibleText(page, 'Fixture Rovers')
+    assert.equal(await accessView.locator('option[value^="__club__:"]').count(), 2)
     await context.close()
   })
 
