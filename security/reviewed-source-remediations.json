@@ -771,7 +771,7 @@
   "implementationHashes": {
     "scripts/security-supply-chain-gate.mjs": "9ef3c2fa9949a270eba3b8d7eefc2f9e303e8fbb2fda3921b2e6e42280e733fc",
     "scripts/security-apply-reviewed-backports.mjs": "ba146641cebf4a835337602d942d3fe9e432dfb44cd178e64e7e5bcabe2cb7b1",
-    "scripts/security-verify-reviewed-backports.mjs": "27f5a4846120c6daece8e4775534d9a4c51f67592711b8cb2cadbb5fd92e854e",
+    "scripts/security-verify-reviewed-backports.mjs": "f694947611ec55dba7bbfe1bd04b4a533eeb43c58447d10dca86ee215cc11428",
     "security/patches/braces-3.0.3.patch": "e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699",
     "security/patches/node-forge-1.4.0.patch": "2de065ac998bf58917a14d0935112d97ec2957ac41b5f06958d500934f188ed4",
     "security/patches/reviewed-source-manifest.json": "b66d36d6c28f481e9664503a641f23e1d8f5ee20b7b4f75de34edabcc89ee3ab",
@@ -1928,7 +1928,7 @@
       "tests/coach-app-handoff.test.mjs": "31dbe2aaa157aa248d726f1c6796a8e30a184255f4dda90a1628f2f28579622f",
       "tests/coach-availability-counts.test.mjs": "523077dbe5ed768bb397c86d9b42f0bce531716a120db428b2028d185b15045c",
       "tests/coach-branding-return-browser.mjs": "1eadf951c1d2c9c60dc7827fd285f293be9fc778282299a2e89b68f7e6e07008",
-      "tests/coach-cache-memory.test.mjs": "b501748f4d0b6f21785f77c168da3b0984d670b9981891a0829385132507b356",
+      "tests/coach-cache-memory.test.mjs": "ca669e76b6dde0a92884e3860ec19b0cccb325bbbcbae13380042808e184a5d1",
       "tests/coach-calendar-markers-browser.mjs": "6a40ddf52512b98e72678536e5eba2351c88ddfa93e1d4019c799cda0ade2484",
       "tests/coach-club-promotion-browser.mjs": "9b00a45e908e1e52a15263ef4d773058aa335ef10ead6940fcad3d30c526f38c",
       "tests/coach-club-promotion-mobile-browser.mjs": "c803b6eb6d2f3df1b3176d3b1b0fe5af986b11d299cbf539356751f42319ac10",
@@ -4162,7 +4162,7 @@
     },
     "toolingRequalification20261117": "Qualify official minimatch 11.0.9 JavaScript tooling across all three scopes. Lock changes are limited to minimatch; direct and native dependencies, Expo runtime, reviewed package patches and audit rules are retained."
   },
-  "releasePreparationSha256": "08936f43865e8e310d024402f59cb2b2ebc916c63296dca2ffa7138930c78f3b",
+  "releasePreparationSha256": "25965e723efc7e4f48ee82fedf015f5f068905c16302a979545d07bb979529b7",
   "rootOnlyProposalSha256": "45c3b7352c7328c84982e114b7e87e09cf79514d02d102297ae75ec0925812eb",
   "remediationMode": "maintained-source-fixes",
   "officialCompatibilityDependencies": [
