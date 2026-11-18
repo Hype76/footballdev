@@ -322,21 +322,45 @@ export async function reviewParentScorerSavedActions(user, link, latest, expecte
   try { return await review } finally { activeScorerSyncs.delete(user.id) }
 }
 
-export async function refreshParentScorerOutboxes(user, link, matches) {
-  const updated = await updateParentDocument(user, document => {
-    const outboxes = document.parentScorerOutboxes || {}
-    const scoped = { ...outboxes[link.id] }
-    for (const match of matches) {
-      if (!match.isScorer || !match.updatedAt) continue
-      assertParentScorerScope(document, user, link, match)
-      const current = scoped[match.id]
-      if (current && !current.pending?.length && Date.parse(match.updatedAt) >= Date.parse(current.baseMatch.updatedAt)) {
-        scoped[match.id] = { baseMatch: match, pending: [], verifiedAt: new Date().toISOString(), error: '' }
-      }
+function updateScorerSnapshots(document, user, link, matches) {
+  const outboxes = document.parentScorerOutboxes || {}
+  const currentOutboxes = outboxes[link.id] || {}
+  let scoped = currentOutboxes
+  for (const match of matches) {
+    if (!match.isScorer || !match.updatedAt) continue
+    assertParentScorerScope(document, user, link, match)
+    const current = scoped[match.id]
+    if (current && !current.pending?.length && Date.parse(match.updatedAt) >= Date.parse(current.baseMatch.updatedAt)) {
+      if (scoped === currentOutboxes) scoped = { ...currentOutboxes }
+      scoped[match.id] = { baseMatch: match, pending: [], verifiedAt: new Date().toISOString(), error: '' }
     }
-    return { ...document, parentScorerOutboxes: { ...outboxes, [link.id]: scoped } }
-  })
+  }
+  return scoped === currentOutboxes ? document : { ...document, parentScorerOutboxes: { ...outboxes, [link.id]: scoped } }
+}
+
+export async function refreshParentScorerOutboxes(user, link, matches) {
+  const updated = await updateParentDocument(user, document => updateScorerSnapshots(document, user, link, matches))
   return updated.parentScorerOutboxes?.[link.id] || {}
+}
+
+export async function commitParentRefresh(user, link, resources, { matches, reconcile, isCurrent }) {
+  const profile = sanitizeParentOfflineProfile(user)
+  const authorizedLink = profile.parentPortalLinks.find(item => item.id === normalize(link.id))
+  if (!authorizedLink) throw new Error('offline_child_scope_invalid')
+  const expectedAuthority = parentOfflineResourceAuthority(profile, authorizedLink)
+  const updated = await updateParentDocument(user, document => {
+    if (!isCurrent()) return document
+    let next = setParentOfflineResources(document, link.id, resources, { expectedAuthority })
+    if (matches) next = updateScorerSnapshots(next, user, link, matches)
+    if (reconcile) next = reconcileParentSyncAttention(next, {
+      childScope: link.id, messages: resources.messages, polls: resources.polls,
+    })
+    return next
+  })
+  return {
+    outboxes: updated.parentScorerOutboxes?.[link.id] || {},
+    sync: reconcile ? { ...getParentSyncSummary(updated, link.id), attentionItems: getParentSyncAttentionItems(updated, link.id) } : null,
+  }
 }
 
 const activeScorerSyncs = new Map()
@@ -384,13 +408,6 @@ export function syncParentScorerOutboxes(user, { explicitRetry = false } = {}) {
   })().finally(() => activeScorerSyncs.delete(user.id))
   activeScorerSyncs.set(user.id, run)
   return run
-}
-
-export async function reconcileParentOfflineAttention(user, linkId, resources) {
-  const reconciled = await updateDocument(user.id, (document) => document && reconcileParentSyncAttention(document, {
-    childScope: linkId, messages: resources?.messages, polls: resources?.polls,
-  }))
-  return { ...getParentSyncSummary(reconciled, linkId), attentionItems: getParentSyncAttentionItems(reconciled, linkId) }
 }
 
 async function queueParentCommand(user, command) {

@@ -563,13 +563,22 @@ export function CalendarScreen({ activeActionId, invitations = [], isOffline, li
     [invitations],
   )
   const visibleEvents = useMemo(
-    () => getParentCalendarWindow(filteredEvents, windowKey),
-    [filteredEvents, windowKey],
+    () => viewMode === 'agenda' ? getParentCalendarWindow(filteredEvents, windowKey) : [],
+    [filteredEvents, viewMode, windowKey],
   )
   const groups = useMemo(() => groupParentCalendarEvents(visibleEvents), [visibleEvents])
-  const monthDays = useMemo(() => getParentCalendarMonthGrid(filteredEvents, monthCursor), [filteredEvents, monthCursor])
-  const selectedDayEvents = useMemo(() => filteredEvents.filter((event) => event.calendarDate === selectedDate), [filteredEvents, selectedDate])
-  const monthLabel = new Intl.DateTimeFormat('en-GB', { month: 'long', year: 'numeric' }).format(monthCursor)
+  const monthDays = useMemo(
+    () => viewMode === 'month' ? getParentCalendarMonthGrid(filteredEvents, monthCursor) : [],
+    [filteredEvents, monthCursor, viewMode],
+  )
+  const selectedDayEvents = useMemo(
+    () => viewMode === 'month' && selectedDate ? filteredEvents.filter((event) => event.calendarDate === selectedDate) : [],
+    [filteredEvents, selectedDate, viewMode],
+  )
+  const monthLabel = useMemo(
+    () => viewMode === 'month' ? new Intl.DateTimeFormat('en-GB', { month: 'long', year: 'numeric' }).format(monthCursor) : '',
+    [monthCursor, viewMode],
+  )
   const moveMonth = (offset) => setMonthCursor((current) => new Date(current.getFullYear(), current.getMonth() + offset, 1, 12))
   const markerPresentation = (tone) => ({
     cancelled: { color: colors.danger, iconKey: 'attendance.unavailable' },

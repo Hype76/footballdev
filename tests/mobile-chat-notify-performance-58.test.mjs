@@ -117,7 +117,7 @@ test('mobile sources protect notification recovery, chat retries, and keyboard-s
   assert.match(migration, /unique index if not exists staff_chat_messages_sender_request_key/)
 
   assert.doesNotMatch(parentApp, /getParentChatHistory/)
-  assert.match(parentApp, /chatHistory: \(\) => Promise\.resolve/)
+  assert.match(parentApp, /resultByName\.chatHistory = \{\s*status: .fulfilled.,\s*value: previousResources\?\.chatHistory\?\.items \|\| cachedView\?\.cache\?\.resources\.chatHistory/)
   assert.match(parentScreens, /invitation=\{invitationById\.get\(event\.invitationId\)\}/)
   assert.match(parentScreens, /onRespond=\{onRespond\}/)
   assert.match(coachScreens, /<Modal[\s\S]*<KeyboardAvoidingView/)

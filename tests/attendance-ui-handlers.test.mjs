@@ -269,6 +269,7 @@ test('actual Parent load reconciles only successful current invitation reads',()
  const run=bind(extracted('../apps/parent-mobile/App.js','onSettled'),'onSettled',{
    requestId:1,requestIdRef,reconcileAttendance:items=>{reconciled.push(items);return Promise.resolve()},
    calendarDependencies:['calendar','invitations','matches'],setResources:()=>{},
+   liveSettlements:{},preparedItems:{},selectedLink:{id:'child'},prepareParentResourceItems:(_name,items)=>items,
    isParentAccessDenied,shouldClearParentChatOnSettlement,deniedResourceScopesRef:{current:new Set()},cacheScopeKey:'test',
  })
  run('invitations',{status:'fulfilled',value:[{attendancePreparation:preparation}]},{})

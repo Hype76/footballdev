@@ -112,3 +112,18 @@ test('shared Parent sync returns each caller only its own player attention summa
   assert.equal(secondResult.needsAttention, 0)
   assert.equal(secondResult.attentionItems.length, 0)
 })
+
+test('Parent refresh commits fresh resources and preserves queued actions and stale-work fences', async () => {
+  const f = fixture('parent')
+  const link = f.profile.parentPortalLinks[0]
+  await f.profileStore.read('user')
+  await f.profileStore.write(f.profile)
+  await f.api.queueParentMessageRead(f.profile, link.id, { id: 'pending', createdAt: '2026-11-18' })
+  const options = { matches: [], reconcile: true, isCurrent: () => true }
+  await f.api.commitParentRefresh(f.profile, link, { calendar: [{ id: 'fresh' }], messages: [{ id: 'pending' }], polls: [] }, options)
+  await f.api.commitParentRefresh(f.profile, link, { calendar: [{ id: 'stale' }] }, { ...options, isCurrent: () => false })
+  const view = await f.api.readParentOfflineView('user', link.id)
+  assert.equal(view.cache.resources.calendar[0].id, 'fresh')
+  assert.equal(view.document.journal.length, 1)
+  assert.equal(view.document.journal[0].status, 'pending')
+})
