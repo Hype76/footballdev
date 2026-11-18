@@ -1,12 +1,27 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { readCoachOfflineFamily, loadCoachOfflineContext, authorizeCoachOfflineMedia, COACH_OFFLINE_RESOURCE_KEYS } from '../apps/mobile-core/src/coachOfflineReadData.js'
+import { buildCoachCalendarEvents } from '../apps/mobile-core/src/coachCalendarCore.js'
 
 const id=n=>`10000000-0000-4000-8000-${String(n).padStart(12,'0')}`
 const context={id:`team:${id(3)}`,clubId:id(2),teamId:id(3),clubName:'Secondary',teamName:'Secondary team'}
 const user={id:id(1),clubId:id(2),activeTeamId:id(3),role:'coach',roleRank:30,coachContexts:[context]}
 const envelope=(key,items,extra={})=>({schemaVersion:1,userId:user.id,clubId:context.clubId,teamId:context.teamId,resourceKey:key,revision:'revision',totalCount:items.length,complete:true,nextCursor:null,items,...extra})
 const item=(kind,n,data)=>({kind,id:id(n),data:{id:id(n),club_id:context.clubId,team_id:context.teamId,...data}})
+
+test('account preparation keeps the complete Calendar cache while deriving current Home occurrences',async()=>{
+  const now=new Date(),year=now.getUTCFullYear(),emitted={}
+  const series=item('calendarEvents',22,{title:'Long-running training',event_type:'training',
+    starts_at:`${year-2}-01-03T18:00:00Z`,ends_at:`${year-2}-01-03T19:00:00Z`,
+    recurrence_frequency:'weekly',recurrence_until:`${year+1}-12-31`})
+  await loadCoachOfflineContext(user,context,{
+    rpc:async(_name,params)=>({data:envelope(params.resource_key,params.resource_key==='calendar'?[series]:[])}),
+    onResource:async entry=>{emitted[entry.cacheKey]=entry.value},
+  })
+  assert.ok(Date.parse(emitted.home.nextCalendar.endsAt)>=now.getTime())
+  assert.ok(Date.parse(emitted.home.nextSession.endsAt)>=now.getTime())
+  assert.deepEqual(emitted.calendar,buildCoachCalendarEvents({calendarEvents:[{...series.data,canEdit:true,isInheritedClubEvent:false,involvedPlayerIds:[]}],matches:[],sessions:[],availabilityByEventId:{}}))
+})
 
 test('actual family adapter follows every page and rejects incomplete, repeated or wrong-context responses',async()=>{
   const records=Array.from({length:405},(_,n)=>item('players',100+n,{player_name:`Player ${n}`}))

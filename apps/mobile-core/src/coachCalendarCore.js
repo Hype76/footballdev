@@ -417,6 +417,42 @@ export function buildCoachCalendarEvents({ calendarEvents = [], matches = [], se
     ))
 }
 
+// Home needs the nearest usable occurrence of each series, rather than a full
+// Calendar expansion. Date-only batches retain the existing recurrence rules;
+// only candidate occurrences receive the more expensive London conversion.
+export function buildCoachHomeCalendarEvents({ calendarEvents = [], now = new Date() } = {}) {
+  const nowTime = new Date(now).getTime()
+  const currentDate = getDateInTimeZone(new Date(nowTime))
+  const events = []
+  for (const row of calendarEvents) {
+    const event = normalizeCoachCalendarEvent(row)
+    if (['cancelled', 'completed'].includes(event.status)) continue
+    const deleted = new Set((Array.isArray(row.deleted_occurrence_dates) ? row.deleted_occurrence_dates : []).map(normalizeCoachCalendarFormDate))
+    if (event.recurrenceFrequency === 'none') {
+      if (!deleted.has(event.calendarDate) && Date.parse(event.endsAt || event.startsAt) >= nowTime) events.push(event)
+      continue
+    }
+    const endDate = Number.isFinite(Date.parse(event.endsAt)) ? getDateInTimeZone(new Date(event.endsAt)) : event.calendarDate
+    const durationDays = Math.max(1, Math.round((Date.parse(endDate) - Date.parse(event.calendarDate)) / 86400000) || 1)
+    let windowStart = addUtcDays(currentDate, -durationDays)
+    const windowEnd = normalizeCoachCalendarFormDate(event.recurrenceUntil) || event.calendarDate
+    let selected = null
+    while (!selected && windowStart <= windowEnd) {
+      const dates = buildCoachCalendarOccurrenceDates({ date: event.calendarDate, recurrenceFrequency: event.recurrenceFrequency,
+        recurrenceUntil: event.recurrenceUntil, windowStart, windowEnd })
+      if (!dates.length) break
+      for (const date of dates) {
+        if (deleted.has(date)) continue
+        const candidate = expandCoachCalendarEventOccurrences(event, {}, { windowStart: date, windowEnd: date })[0]
+        if (candidate && Date.parse(candidate.endsAt || candidate.startsAt) >= nowTime) { selected = candidate; break }
+      }
+      windowStart = addUtcDays(dates[dates.length - 1], 1)
+    }
+    if (selected) events.push(selected)
+  }
+  return events.sort((left, right) => (`${left.calendarDate}T${left.calendarTime || '23:59'}`.localeCompare(`${right.calendarDate}T${right.calendarTime || '23:59'}`) || left.title.localeCompare(right.title)))
+}
+
 export function filterCoachCalendarEvents(events = [], windowKey = 'upcoming', now = new Date()) {
   const today = getDateInTimeZone(now)
   const nowTimestamp = now.getTime()

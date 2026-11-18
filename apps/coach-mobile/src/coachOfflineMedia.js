@@ -106,12 +106,11 @@ export function createCoachOfflineMedia({ remainingBudget, fetchAuthorized, fetc
   const adapter = createCoachOfflineMediaAdapter({ storage, keyStore, crypto: cipher,
     fingerprint: value => Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, value),
     remainingBudget, fetchAuthorized, fetchImpl, tempFiles, sharing: nativeSharing, appState: AppState,
-    allowedOrigin: config.supabaseUrl })
+    allowedOrigin: config.supabaseUrl, withCommitLock: withCoachOfflineStorageLock })
   const checkScope = scope => {
     if (scope?.environment !== environment || scope?.projectRef !== expectedRef) throw new Error('offline_media_scope_invalidated')
   }
   return { ...adapter, activate: scope => { checkScope(scope); return adapter.activate(scope) },
     clearAccountScope: scope => { checkScope(scope); return adapter.clearAccountScope(scope) },
-    save: input => withCoachOfflineStorageLock(() => adapter.save(input)),
     startup: () => withCoachOfflineStorageLock(async () => { await adapter.clearTransient(); await storage.clearPending() }) }
 }

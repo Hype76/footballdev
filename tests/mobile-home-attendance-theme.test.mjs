@@ -7,8 +7,40 @@ import { getParentAnnouncementMessages, prepareParentChatRooms } from '../apps/p
 import { readFileSync } from 'node:fs'
 import { parse } from '@babel/parser'
 import { isMobileRouteAllowed } from '../apps/mobile-core/src/matchdayPolicyCore.js'
+import { createMobileResourceCache } from '../apps/mobile-core/src/mobileResourceCache.js'
 
 const invite = (date, extra = {}) => ({ invitationId: `training:${date}`, invitationType: 'training_attendance', eventId: 'training', eventStart: `${date}T18:00:00Z`, ...extra })
+
+test('Home summary reads leave full Chat membership and Poll votes in their separate caches', async () => {
+  const source = readFileSync(new URL('../apps/mobile-core/src/coachPhase31GData.js', import.meta.url), 'utf8')
+  const nodes = parse(source, { sourceType: 'module' }).program.body.map(node => node.type === 'ExportNamedDeclaration' ? node.declaration : node)
+  const body = ['sourceError', 'getCoachPhase31GAttentionSnapshot'].map(name => {
+    const node = nodes.find(node => node?.id?.name === name)
+    return source.slice(node.start, node.end)
+  }).join('\n')
+  const cache = createMobileResourceCache(), keys = []
+  const fullChat = { staff: [{ id: 'room', members: [{ id: 'member' }], title: 'Staff' }], parent: [] }
+  const fullPolls = [{ id: 'poll', options: ['yes', 'no'], votes: [{ id: 'vote' }] }]
+  await cache.read('coach:phase31e:chat', async () => fullChat)
+  await cache.read('coach:phase31e:polls', async () => fullPolls)
+  const dependencies = {
+    isMobileRouteAllowed, buildCoachHomeOperationalSnapshot: value => value,
+    readMobileResource: (_user, key, loader, options) => { keys.push(key); return cache.read(key, loader, options) },
+    getCoachDevelopmentSummary: async () => ({ drafts: [] }),
+    getCoachHomeChatSummary: async () => ({ staff: [{ id: 'room', unreadCount: 1 }], parent: [] }),
+    getCoachHomePollSummary: async () => [{ id: 'poll', status: 'open' }],
+    getCoachInvitesAndAvailability: async () => ({ all: [] }),
+  }
+  const load = new Function(...Object.keys(dependencies), `${body}; return getCoachPhase31GAttentionSnapshot`)(...Object.values(dependencies))
+  const summary = await load({ planKey: 'club' })
+  assert.deepEqual(summary.errors, [])
+  assert.ok(keys.includes('coach:home-chat-summary'))
+  assert.ok(keys.includes('coach:home-poll-summary'))
+  assert.equal(keys.includes('coach:phase31e:chat'), false)
+  assert.equal(keys.includes('coach:phase31e:polls'), false)
+  assert.deepEqual(cache.peek('coach:phase31e:chat'), fullChat)
+  assert.deepEqual(cache.peek('coach:phase31e:polls'), fullPolls)
+})
 
 test('event details select this occurrence, including an already answered invitation', () => {
   const invitations = [invite('2099-09-17'), invite('2099-09-10', { responseState: 'available', canChangeResponse: true })]
@@ -100,7 +132,7 @@ test('Matchday Home does not request disabled sources and respects changed flags
     buildCoachHomeOperationalSnapshot: input => input,
     readMobileResource: (_user, _key, load) => load(),
     getCoachMatchDays: loader('matchday'), getCoachSessions: loader('sessions'), getCoachCalendarResources: loader('calendar'),
-    getCoachDevelopmentSummary: loader('development'), getCoachChatRooms: loader('chat'), getCoachPolls: loader('polls'), getCoachInvitesAndAvailability: loader('invites'),
+    getCoachDevelopmentSummary: loader('development'), getCoachHomeChatSummary: loader('chat'), getCoachHomePollSummary: loader('polls'), getCoachInvitesAndAvailability: loader('invites'),
   }
   const [primary, attention] = new Function(...Object.keys(dependencies), `${body}; return [getCoachPhase31GPrimaryHomeSnapshot,getCoachPhase31GAttentionSnapshot]`)(...Object.values(dependencies))
   const user = { planKey: 'matchday', matchdayPolicy: { flags: { teamCalendar: true, fixtures: true, matchDay: true, parentPortal: true, parentInvitations: true } } }

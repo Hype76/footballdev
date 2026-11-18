@@ -132,7 +132,7 @@ test('Home tolerates partial response shapes and exposes the degraded state', ()
 })
 
 test('Home data composes current authoritative adapters with partial failure containment', () => {
-  for (const symbol of ['getCoachMatchDays', 'getCoachSessions', 'getCoachCalendarResources', 'getCoachDevelopmentSummary', 'getCoachChatRooms', 'getCoachPolls', 'getCoachInvitesAndAvailability']) {
+  for (const symbol of ['getCoachMatchDays', 'getCoachSessions', 'getCoachCalendarResources', 'getCoachDevelopmentSummary', 'getCoachHomeChatSummary', 'getCoachHomePollSummary', 'getCoachInvitesAndAvailability']) {
     assert.match(homeData, new RegExp(symbol))
   }
   assert.doesNotMatch(homeData, /getCoachMessages/)

@@ -143,3 +143,12 @@ test('actual account service waits for resumed authority before capturing genera
  generation=2;authority.resolve();assert.equal((await pending).complete,true);assert.equal(started,1)
  invalidateCoachOfflineAccount()
 })
+
+test('file progress is periodically durable without one full document status write per file',async()=>{
+ const context={id:'team',clubId:'club',teamId:'team'},user={id:'user'},statuses=[],cache={resourceMetadata:{}}
+ const result=await prepareCoachAccountOffline({user,contexts:[context],selectedContextId:context.id,
+  createSaver:()=>async resources=>{for(const key of Object.keys(resources))cache.resourceMetadata[key]={fingerprint:key};return cache},
+  saveStatus:async(_id,_context,status)=>statuses.push(structuredClone(status)),saveMatches:async()=>{},readBackResources:async()=>cache,
+  prepareMedia:async()=>({bytes:6}),loadContext:async(_user,_context,{onMedia})=>{for(let i=0;i<24;i++)await onMedia({id:String(i)});return{complete:true}}})
+ assert.deepEqual(statuses.map(item=>item.filesSaved),[0,8,16,24,24]);assert.equal(result.results[0].filesSaved,24);assert.equal(result.complete,true)
+})

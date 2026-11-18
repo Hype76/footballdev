@@ -1,5 +1,5 @@
 import { getCoachCalendarResources } from './coachCalendarData'
-import { getCoachChatRooms, getCoachDevelopmentSummary, getCoachInvitesAndAvailability, getCoachPolls } from './coachPhase31EData'
+import { getCoachHomeChatSummary, getCoachDevelopmentSummary, getCoachInvitesAndAvailability, getCoachHomePollSummary } from './coachPhase31EData'
 import { readMobileResource } from './mobileResourceCache'
 import { buildCoachHomeOperationalSnapshot, mergeCoachHomeOperationalSnapshots } from './coachPhase31GCore'
 import { getCoachMatchDays, getCoachSessions } from './data'
@@ -80,8 +80,8 @@ export async function getCoachPhase31GAttentionSnapshot(user, { force = true, on
       ])
       return { ...development, localDevelopmentDrafts: Object.values(localDevelopmentDrafts || {}) }
     },
-    () => readMobileResource(user, 'coach:phase31e:chat', () => getCoachChatRooms(user), { force }),
-    () => readMobileResource(user, 'coach:phase31e:polls', () => getCoachPolls(user), { force }),
+    () => readMobileResource(user, 'coach:home-chat-summary', () => getCoachHomeChatSummary(user), { force }),
+    () => readMobileResource(user, 'coach:home-poll-summary', () => getCoachHomePollSummary(user), { force }),
     () => readMobileResource(user, 'coach:home-availability-summary', () => getCoachInvitesAndAvailability(user, { summaryOnly: true }), { force, maxAgeMs: 180_000 }),
   ].map((loader, index) => isMobileRouteAllowed(user, routes[index], user?.matchdayPolicy) ? timed(names[index], loader) : null))
   const values = Object.fromEntries(results.map((result, index) => [names[index], result.status === 'fulfilled' ? result.value : null]))

@@ -37,6 +37,13 @@ export async function prepareCoachAccountOffline({ user, contexts, selectedConte
     const status = { schemaVersion: COACH_ACCOUNT_OFFLINE_SCHEMA, scope: context.teamId ? 'team' : 'club', state: 'saving', startedAt: now(), savedAt: '', resources: {}, matchIds: [], filesSaved: 0, fileBytesSaved: 0, filesFailed: 0, onlineOnly: [], error: '' }
     const inventory = []
     let pendingResources = {}
+    let progressItems = 0, progressAt = Date.now()
+    const saveProgress = async () => {
+      if (!isCurrent()) return
+      if (++progressItems < 8 && Date.now() - progressAt < 5000) return
+      await saveStatus(user.id, context, status, isCurrent)
+      progressItems = 0; progressAt = Date.now()
+    }
     const matches = new Map()
     const flushResources = async () => {
       const entries = Object.entries(pendingResources)
@@ -50,7 +57,7 @@ export async function prepareCoachAccountOffline({ user, contexts, selectedConte
         status.resources[key] = fingerprint
       }
       pendingResources = {}
-      await saveStatus(user.id, context, status, isCurrent)
+      await saveProgress()
     }
     const flushMatches = async () => {
       if (!matches.size) return
@@ -84,8 +91,12 @@ export async function prepareCoachAccountOffline({ user, contexts, selectedConte
           if (!isCurrent()) throw new Error('offline_preparation_cancelled')
           inventory.push(resource)
           try { const saved = await prepareMedia(user, context, resource, isCurrent); status.filesSaved += 1; status.fileBytesSaved += Number(saved?.bytes || 0) }
-          catch (error) { status.filesFailed += 1; status.error = getCoachFriendlyError(error, 'A file could not be saved. Connect and try downloading again.') }
-          if (isCurrent()) await saveStatus(user.id, context, status, isCurrent)
+          catch (error) {
+            status.filesFailed += 1; status.error = getCoachFriendlyError(error, 'A file could not be saved. Connect and try downloading again.')
+            if (isCurrent()) { await saveStatus(user.id, context, status, isCurrent); progressItems = 0; progressAt = Date.now() }
+            return
+          }
+          await saveProgress()
         },
       })
       if (!isCurrent()) return { cancelled: true, results }

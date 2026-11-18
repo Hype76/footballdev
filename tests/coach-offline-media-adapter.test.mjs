@@ -107,3 +107,17 @@ test('saved kit artwork is scoped to its board version and image path',async()=>
  assert.equal(await f.media.has({...f,resource:{...resource,id:'kit:other',sourceId:'other'}}),false)
  assert.equal(await f.media.has({...f,resource:{...resource,storagePath:'club/other.png',updatedAt:'club/other.png'}}),false)
 })
+
+test('slow media download does not hold the document lock and commit checks fresh budget and account',async()=>{
+ const {withCoachOfflineStorageLock}=await import('../apps/coach-mobile/src/coachOfflineStorageBudget.js')
+ for(const mode of ['budget','account']) {
+  const f=fixture();let release,started;const downloadStarted=new Promise(resolve=>{started=resolve}), gate=new Promise(resolve=>{release=resolve})
+  f.params.withCommitLock=withCoachOfflineStorageLock
+  f.params.fetchImpl=async()=>{started();await gate;return new Response('secret',{headers:{'content-length':'6'}})}
+  const media=f.make();media.activate({environment:'live',projectRef:'storage',userId:'user-a'})
+  const save=media.save(f);await downloadStarted
+  let foreground=false;await withCoachOfflineStorageLock(async()=>{foreground=true;if(mode==='budget')f.limit(0);else media.activate({environment:'live',projectRef:'storage',userId:'user-b'})})
+  assert.equal(foreground,true,'Foreground write completes before the stalled download')
+  release();await assert.rejects(save,mode==='budget'?/budget_exceeded/:/scope_invalidated/);assert.equal(f.files.size,0)
+ }
+})

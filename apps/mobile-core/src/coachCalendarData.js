@@ -1,9 +1,11 @@
 import * as Crypto from 'expo-crypto'
 import { readAllPages } from './coachAvailabilityData.js'
 import { isMatchdayPlan } from './matchdayPolicyCore.js'
+import { getDateInTimeZone } from './parentCalendarCore.js'
 import { CAPABILITIES } from '../../../src/lib/paywall-access.js'
 import {
   buildCoachCalendarEvents,
+  buildCoachHomeCalendarEvents,
   buildCoachCalendarOccurrenceDates,
   buildCoachCalendarPayload,
   normalizeCoachCalendarEvent,
@@ -110,11 +112,12 @@ async function getInvolvedPlayerIdsByEventId(user, eventIds) {
 export async function getCoachCalendarResources(user, { homeSummary = false, includeDetails = true } = {}) {
   assertCoachOperationalRead(user)
   if (homeSummary) {
-    const earliest = new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString()
-    const today = new Date().toISOString().slice(0, 10)
+    const now = new Date()
+    const earliest = new Date(now.getTime() - 12 * 60 * 60 * 1000).toISOString()
+    const recurringFromDate = getDateInTimeZone(new Date(now.getTime() - 24 * 60 * 60 * 1000))
     const createHomeQuery = () => scopeCoachQuery(supabase
       .from('calendar_events')
-      .select('id,team_id,title,event_type,starts_at,ends_at,location,cancelled_at,parent_audience,recurrence_frequency,recurrence_until')
+      .select('id,team_id,title,event_type,starts_at,ends_at,location,cancelled_at,parent_audience,recurrence_frequency,recurrence_until,deleted_occurrence_dates')
       .eq('club_id', user.clubId)
       .is('cancelled_at', null), user, { includeClubWide: true })
     const upcomingQuery = createHomeQuery()
@@ -125,21 +128,19 @@ export async function getCoachCalendarResources(user, { homeSummary = false, inc
       upcomingQuery,
       readAllPages(() => createHomeQuery()
         .neq('recurrence_frequency', 'none')
-        .gte('recurrence_until', today)
+        .gte('recurrence_until', recurringFromDate)
         .lt('starts_at', earliest)),
     ])
     if (upcomingResult.error) throw upcomingResult.error
     const rows = [...new Map([...(upcomingResult.data || []), ...recurringRows].map(row => [row.id, row])).values()]
-    return buildCoachCalendarEvents({
-      availabilityByEventId: {},
+    return buildCoachHomeCalendarEvents({
+      now,
       calendarEvents: rows.map((row) => ({
         ...row,
         canEdit: user.role === 'admin' || Boolean(row.team_id),
         involvedPlayerIds: [],
         isInheritedClubEvent: Boolean(user.activeTeamId && !row.team_id),
       })),
-      matches: [],
-      sessions: [],
     })
   }
   let calendarQuery = supabase
