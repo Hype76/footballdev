@@ -124,7 +124,8 @@ ${keyboardLifecycle}
 ${boundsLifecycle}
 useLayoutEffect(()=>{window.afterPageCommit?.(scrollBounds)},[scrollBounds]);
 ${callbacks}
-const navigate=route=>{setActiveRoute(route);scrollContentToTop()},selectContext=id=>{setSelected(id);scrollContentToTop()},openNotificationSettings=()=>{setActiveRoute('settings');requestAnimationFrame(()=>focusNotificationSettings(0))},loadHome=()=>setRefreshing(true);
+const currentTabTiming={screen:()=>{window.timingLayouts=(window.timingLayouts||0)+1}};
+const navigate=route=>{setActiveRoute(route);scrollContentToTop()},navigateFromTab=navigate,selectContext=id=>{setSelected(id);scrollContentToTop()},openNotificationSettings=()=>{setActiveRoute('settings');requestAnimationFrame(()=>focusNotificationSettings(0))},loadHome=()=>setRefreshing(true);
 window.bounds=scrollBounds;window.focusSettings=()=>focusNotificationSettings(0);window.queueTop=scrollContentToTop;window.restoreScroll=restoreContentScrollPosition;window.pendingScroll=()=>pendingScrollRestoreRef.current;window.contentScrollable=contentScrollable;
 window.nativeScrollRef=()=>contentScrollRef.current;
 window.beginDrag=${dragSource};
@@ -149,6 +150,7 @@ try {
       await page.setContent('<meta name="viewport" content="width=device-width,initial-scale=1"><style>body{margin:0}input{max-width:100%;box-sizing:border-box}</style><div id="root"></div>')
       await page.evaluate(count => { window.contextCount = count }, contextCount)
       await page.addScriptTag({ content: result.outputFiles[0].text })
+      await page.waitForFunction(() => window.timingLayouts > 0)
       const scroll = page.getByTestId('coach-content-scroll'), header = page.getByTestId('mobile-header-activity')
       await header.waitFor()
       for (const mode of ['light', 'dark']) {

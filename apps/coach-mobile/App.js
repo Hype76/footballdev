@@ -1258,7 +1258,7 @@ function CoachHome() {
             )}
             ref={contentScrollRef}
           >
-            <View collapsable={false} onLayout={(event) => { scrollBounds.onPageLayout(event); currentTabTiming?.screen() }} testID="coach-page-content">
+            <View collapsable={false} onLayout={scrollBounds.onPageLayout} testID="coach-page-content">
             <CoachTeamBrandingSetup
               context={activeContext} user={selectedMobileUser} apiBaseUrl={config.apiBaseUrl}
               palette={palette} prompt={activeRoute === 'home'} refreshUserProfile={refreshUserProfile}
@@ -1273,7 +1273,7 @@ function CoachHome() {
                 switching={isSwitchingContext}
               />
             </View> : null}
-            <View onLayout={(event) => { contentOriginRef.current = event.nativeEvent.layout.y }} style={[styles.content, isMatchInvitesRoute && { paddingHorizontal: 8, paddingTop: 4 }]}>
+            <View onLayout={(event) => { contentOriginRef.current = event.nativeEvent.layout.y; currentTabTiming?.screen() }} style={[styles.content, isMatchInvitesRoute && { paddingHorizontal: 8, paddingTop: 4 }]}>
             <CoachKeyboardFocusContext.Provider value={keyboardViewport.ensureFocusedField}>
             <CoachRoute
               activeRoute={activeRoute}
