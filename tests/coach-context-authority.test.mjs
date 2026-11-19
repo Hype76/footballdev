@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import test from 'node:test'
+import { withMobileAsyncTimeout } from '../apps/mobile-core/src/http.js'
 import { createCoachContextAuthority } from '../apps/coach-mobile/src/coachContextAuthorityCore.js'
 import { createMobileResourceCache, mobileResourceCache, readMobileResource } from '../apps/mobile-core/src/mobileResourceCache.js'
 
@@ -142,11 +143,11 @@ test('actual offline preparation waits for activation and fences an older prepar
  const linkedContexts=[context,{...context,id:'linked-team',clubId:'linked-club',teamId:'linked-team'}]
  const scopedUser = { ...user, clubId: context.clubId, waitForCoachAuthority: () => activation.promise, getCoachAuthorityGeneration: () => generation }
  const serviceDependencies = {
-  preparationCoordinator: createCoachAccountPreparationCoordinator(), coachPreparationScopeKey,
+  withMobileAsyncTimeout, preparationCoordinator: createCoachAccountPreparationCoordinator(), coachPreparationScopeKey,
   captureCoachOfflineAccount: () => () => {}, getMedia: () => ({}), startup: Promise.resolve(),
   prepareCoachAccountOffline: options => { preparations++; assert.equal(options.user,scopedUser); assert.equal(options.user.clubId,context.clubId,'Server-selected club remains unchanged'); assert.deepEqual(options.contexts,linkedContexts,'Every own linked context reaches the account preparer'); assert.equal(options.selectedContextId,context.id); return prepareCoachAccountOffline(options) },
   createCoachOfflineResourceSaver: (_profile,team) => async resources => { writes++; const cache=caches.get(team.id)||{resourceMetadata:{}}; for(const key of Object.keys(resources)) cache.resourceMetadata[key]={fingerprint:key}; caches.set(team.id,cache); return cache },
-  readCoachAccountPreparation: async (_id, teams, options) => { assert.equal(teams.length, 1); assert.equal(options.verifyMedia, false); return {} },
+  readCoachAccountPreparation: async (_id, teams, options) => { assert.equal(teams.length, 1); assert.equal(options?.verifyMedia ?? true, true); return {} },
   saveCoachAccountPreparation: async () => {}, readCoachOfflineResources: async (_id,team) => caches.get(team.id), saveCoachPreparedMatchDays: async () => {},
   applyCoachContext: profile => profile, getScopedTeamBranding: () => null,
   loadCoachOfflineContext: async (_profile,_context,options) => { started.resolve(); await work.promise; await options.onResource({cacheKey:'home',value:{},complete:true}); return {complete:true} },
