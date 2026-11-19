@@ -152,15 +152,18 @@ test('Calendar change copy keeps UK local times and date-only changes free of in
 })
 
 test('Goal, Yellow, Red, and Substitution all use compact detailed copy and the shared sender route', async () => {
-  const [copy, page, coach] = await Promise.all([
-    source('netlify/functions/lib/_match-day-notification-copy.js'),
+  const [{ buildParentMatchDayNotificationCopy }, page, coach] = await Promise.all([
+    import('../netlify/functions/lib/_match-day-notification-copy.js'),
     source('src/pages/MatchDayPage.jsx'),
     source('apps/mobile-core/src/coachMatchDayData.js'),
   ])
-  assert.match(copy, /Goal: \$\{scorer\}/)
-  assert.match(copy, /Yellow: \$\{formatPerson/)
-  assert.match(copy, /Red: \$\{formatPerson/)
-  assert.match(copy, /Sub: \$\{formatPerson/)
+  const match = { teamName: 'U16 Green', opponent: 'Visitors', home_away: 'home', home_score: 2, away_score: 1 }
+  const event = { team_side: 'club', scorer_name: 'Casey Jones', scorer_shirt_number: '4', minute: 71 }
+  const detailedBody = (type) => buildParentMatchDayNotificationCopy({ match, type, event }).detailedBody
+  assert.match(detailedBody('goal'), /^Goal: Casey Jones #4 at 71'/)
+  assert.match(detailedBody('yellow_card'), /^Yellow card for U16 Green: Casey Jones #4 at 71'/)
+  assert.match(detailedBody('red_card'), /^Red card for U16 Green: Casey Jones #4 at 71'/)
+  assert.match(detailedBody('substitution'), /^Sub: Casey Jones #4 off, /)
   assert.match(page, /\['yellow_card', 'red_card', 'substitution'\]\.includes/)
   assert.match(coach, /type === 'goal' \|\| type === 'yellow_card' \|\| type === 'red_card' \|\| type === 'substitution'/)
 })
