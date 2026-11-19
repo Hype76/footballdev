@@ -397,9 +397,33 @@ test('an uncertain timeout cannot rebase a command that might already have been 
   assert.equal(h.get().pending[0].expectedUpdatedAt, match.updatedAt)
 })
 
-test('Coach can conclude a parent-scored full time match only after saved actions are resolved', () => {
+test('Coach can conclude a parent-scored full time match with prepared offline authority', () => {
   const context = { role: 'coach', roleRank: 30, paymentAccess: { canMutate: true } }
   const finished = { ...match, status: 'full_time', timerStatus: 'full_time', currentMatchPhase: 'full_time', isScorer: false }
   assert.ok(getCoachMatchDayActions({ context, match: finished }).timerActions.some(item => item.action === 'conclude'))
-  assert.ok(!getCoachMatchDayActions({ context, match: finished, stale: true, offlineReady: true }).timerActions.some(item => item.action === 'conclude'))
+  assert.ok(getCoachMatchDayActions({ context, match: finished, stale: true, offlineReady: true }).timerActions.some(item => item.action === 'conclude'))
+  assert.ok(!getCoachMatchDayActions({ context, match: finished, stale: true, offlineReady: false }).timerActions.some(item => item.action === 'conclude'))
+  assert.ok(!getCoachMatchDayActions({ context: { ...context, roleRank: 0 }, match: finished, stale: true, offlineReady: true }).timerActions.some(item => item.action === 'conclude'))
+})
+
+
+test('queued conclusion survives relaunch after earlier actions and closes local writes', async () => {
+  let journal = appendMatchDayCommand(initial(), { id: 'score', kind: 'score', payload: { homeScore: 2, awayScore: 1 }, capturedAt: iso(1) })
+  journal = appendMatchDayCommand(journal, { id: 'full', kind: 'timer', payload: { action: 'full_time' }, capturedAt: iso(2) })
+  journal = appendMatchDayCommand(journal, { id: 'conclude', kind: 'timer', payload: { action: 'conclude' }, capturedAt: iso(3) })
+  const projected = projectMatchDayOutbox(journal)
+  assert.equal(projected.concludedAt, iso(3))
+  assert.equal(projected.homeScore, 2)
+  assert.throws(() => appendMatchDayCommand(journal, { id: 'after', kind: 'score', payload: { homeScore: 3, awayScore: 1 }, capturedAt: iso(4) }), /closed/)
+  journal = JSON.parse(JSON.stringify(journal))
+  const sent = []
+  const box = createMatchDayOutbox({ read: async () => journal, update: async fn => (journal = fn(journal)), send: async (command, base) => {
+    sent.push(command.id)
+    return { ...projectMatchDayOutbox({ baseMatch: base, pending: [command] }), updatedAt: command.capturedAt }
+  } })
+  await box.sync()
+  assert.deepEqual(sent, ['score', 'full', 'conclude'])
+  assert.equal(journal.pending.length, 0)
+  assert.equal(journal.baseMatch.homeScore, 2)
+  assert.equal(journal.baseMatch.concludedAt, iso(3))
 })

@@ -99,7 +99,7 @@ const mocks = [
     export async function saveCoachOfflineResources(user,context,resources){localStorage.setItem('resources',JSON.stringify({resources}));}
     export async function readCoachMatchDayOutbox(){if(window.performanceTest&&window.delayJournal)await new Promise(resolve=>window.finishJournal=resolve);return window.readJournal()}
     export async function getPendingCoachMatchDays(){return window.readJournal()?.pending.length?[{contextId:'context',matchId:'fixture'}]:[]}
-    export async function updateCoachMatchDayOutbox(user,context,match,change){if(window.failJournalWrites) throw new Error('Device storage is unavailable');const value=change(window.readJournal());localStorage.setItem('journal',JSON.stringify(value));return value;}`],
+    export async function updateCoachMatchDayOutbox(user,context,match,change){if(window.failJournalWrites) throw new Error('Device storage is unavailable');const value=change(window.readJournal());if(value && localStorage.getItem('unprepared')==='1')value.verifiedAt='2000-01-01T00:00:00.000Z';localStorage.setItem('journal',JSON.stringify(value));return value;}`],
   [/\/config$/, 'export const getMobileRuntimeConfig=()=>({isProduction:true,isUsable:true});'],
   [/BrandLoader$/, 'export const BrandLoader=()=>null;'],
   [/CoachFormationBoard$/, 'export const CoachFormationBoard=()=>null;'],
@@ -266,11 +266,34 @@ try {
     assert.equal(await page.evaluate(()=>window.shootoutExitCalls||0),0,'Opening saved-action recovery must not end the match');
     assert.deepEqual(errors,[]);
     console.log('PASS Coach finish controls end normal time and end an unresolved shootout with confirmation.');
+  } else if(process.argv.includes('--offline-conclude-only')) {
+    await page.evaluate(()=>{
+      localStorage.clear(); const now=Date.now(), t=new Date(now-60000).toISOString();
+      const base={...window.server,status:'live',timerStatus:'running',currentMatchPhase:'first_half',timerStartedAt:t,updatedAt:t,homeScore:0,awayScore:0,events:[]};
+      const pending=[{id:'saved-score',matchId:'fixture',kind:'score',payload:{homeScore:2,awayScore:1},capturedAt:new Date(now-40000).toISOString(),expectedUpdatedAt:t,previousCommandId:null},
+        {id:'saved-full',matchId:'fixture',kind:'timer',payload:{action:'full_time'},capturedAt:new Date(now-30000).toISOString(),expectedUpdatedAt:null,previousCommandId:'saved-score'}];
+      localStorage.setItem('server',JSON.stringify(base));localStorage.setItem('resources',JSON.stringify({resources:{matchDayList:[base],matchDayPlayers:[],matchDayDetail:base}}));localStorage.setItem('journal',JSON.stringify({baseMatch:base,pending,verifiedAt:t,error:''}));localStorage.setItem('offline','1');
+    });
+    await mount();
+    await page.getByRole('button',{name:'Review and conclude',exact:true}).click();
+    await page.getByRole('button',{name:'Conclude match',exact:true}).click();
+    await page.getByRole('button',{name:'Confirm',exact:true}).click();
+    await page.waitForFunction(()=>window.readJournal()?.pending.length===3);
+    await page.getByText('Match concluded',{exact:true}).waitFor();
+    const ids=await page.evaluate(()=>window.readJournal().pending.map(item=>item.id));
+    await mount();
+    await page.waitForFunction(()=>window.readJournal()?.pending.length===3);
+    assert.deepEqual(await page.evaluate(()=>window.readJournal().pending.map(item=>item.id)),ids);
+    await page.evaluate(()=>window.setSignal(true));
+    await page.waitForFunction(()=>window.readJournal()?.pending.length===0,{timeout:25000});
+    const synced=await page.evaluate(()=>({calls:window.calls,server:window.server}));
+    assert.deepEqual(synced.calls,ids);assert.equal(synced.server.homeScore,2);assert.ok(synced.server.concludedAt);
+    assert.deepEqual(errors,[]);console.log('PASS Offline full time and conclusion survive relaunch and sync in order.');
   } else if(process.argv.includes('--conclude-only')) {
     for (const failure of ['none','cache-failure','response-lost','response-lost-and-refresh-failed','rejected']) {
       await page.evaluate(()=>{
         const fullTime={...window.server,status:'full_time',timerStatus:'full_time',currentMatchPhase:'full_time',updatedAt:new Date(Date.now()-60000).toISOString(),concludedAt:'',homeScore:1,awayScore:0,events:[],finalReport:null};
-        localStorage.clear();localStorage.setItem('server',JSON.stringify(fullTime));
+        localStorage.clear();localStorage.setItem('unprepared','1');localStorage.setItem('server',JSON.stringify(fullTime));
       });
       await mount();
       await page.waitForFunction(()=>window.readJournal()?.baseMatch?.status==='full_time');
@@ -505,8 +528,8 @@ try {
   });
   await mount();
   await page.getByRole('button',{name:'Correct saved event',exact:true}).click();
-  await page.getByText('Full time is saved on this device. Sync the remaining actions before concluding the match.',{exact:true}).waitFor();
-  assert.equal(await page.getByRole('button',{name:'Review and conclude',exact:true}).count(),0);
+  await page.getByText('Full time is saved on this device. Saved actions will sync when your connection returns.',{exact:true}).waitFor();
+  assert.equal(await page.getByRole('button',{name:'Review and conclude',exact:true}).count(),1);
   for(const mode of ['light','dark']) for(const width of [320,390]) {
     await page.evaluate(value=>window.setMode(value),mode);await page.setViewportSize({width,height:844});
     await page.screenshot({path:`output/playwright/club-match-name/recovery-${mode}-${width}.png`,fullPage:true});

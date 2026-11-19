@@ -230,7 +230,7 @@ export function getCoachMatchDayActions({ context, match, reconciling = false, s
     canSetSquad: !reconciling && !stale && hasTeamAuthority && context?.paymentAccess?.canMutate === true && ['scheduled', 'scorer_request'].includes(match?.status),
     canSelectVolunteers: !reconciling && !stale && hasTeamAuthority && context?.paymentAccess?.canMutate === true && ['scheduled', 'scorer_request'].includes(match?.status),
     startBlockedReason: startBlockedByFixtureDate ? 'This match can only be started on its fixture date.' : '',
-    timerActions: captureActions ? captureActions.timerActions.filter(item => ['start', 'pause', 'hydration', 'half_time', 'resume', 'full_time'].includes(item.action)) : timerActions,
+    timerActions: captureActions ? captureActions.timerActions.filter(item => ['start', 'pause', 'hydration', 'half_time', 'resume', 'full_time', 'conclude'].includes(item.action)) : timerActions,
   })
 }
 

@@ -41,6 +41,7 @@ test('database sync preserves offline times, command identity, authority and con
     await db.exec(sqlFunction(await read('../supabase/migrations/20260903162403_guest_scorer_events_and_branding.sql'), 'record_match_day_scorer_event_v1'))
     await db.exec(await read('../supabase/migrations/20260907112202_coach_match_day_offline_commands.sql'))
     await db.exec(await read('../supabase/migrations/20261107193737_coach_match_day_command_no_wait.sql'))
+    await db.exec(await read('../supabase/migrations/20261119162428_coach_offline_conclude.sql'))
     await db.exec(await read('../supabase/migrations/20260922054949_matchday_participant_recovery.sql'))
     await db.exec(`alter table public.players add column player_name text, add column shirt_number text, add column archived_at timestamptz;
       create table public.match_day_player_squad_decisions(match_day_id uuid,club_id uuid,team_id uuid,player_id uuid,status text);`)
@@ -121,7 +122,15 @@ test('database sync preserves offline times, command identity, authority and con
     assert.equal(full.timer_status,'full_time')
     assert.equal(full.status,'full_time')
     previousId = fullId
-    await db.query('update public.match_days set home_score=2,updated_at=now() where id=$1', [match])
+    const concludeId = randomUUID()
+    await db.query("select set_config('request.jwt.claim.sub',$1,false)", [parent])
+    await assert.rejects(call(concludeId,'timer',{action:'conclude'},at(56)), /Coach or manager/)
+    await db.query("select set_config('request.jwt.claim.sub',$1,false)", [coach])
+    const concluded = (await call(concludeId,'timer',{action:'conclude'},at(56))).rows[0].value
+    assert.ok(concluded.concluded_at)
+    assert.deepEqual((await call(concludeId,'timer',{action:'conclude'},at(56))).rows[0].value, concluded)
+    await assert.rejects(call(randomUUID(),'score',{homeScore:9,awayScore:0},at(57)), /closed/)
+    await db.query('update public.match_days set concluded_at=null, home_score=2,updated_at=now() where id=$1', [match])
     await assert.rejects(call(randomUUID(),'timer',{action:'resume'},at(56)), /another device/)
     assert.equal((await current()).home_score,2)
     await db.query("select set_config('request.jwt.claim.sub',$1,false)", [parent])
