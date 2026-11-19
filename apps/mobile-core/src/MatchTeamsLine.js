@@ -24,7 +24,7 @@ export function MatchTeamsLine({ match, clubLogoUrl = '', textStyle, compact = f
   const secondLogo = clubIsHome ? '' : clubLogoUrl
   if (hero) {
     const labelStyle = [textStyle, { backgroundColor: heroLabelBackground, borderRadius: 4, overflow: 'hidden', paddingHorizontal: 4, textAlign: 'center' }]
-    return <View accessibilityRole="header" accessibilityLabel={`${parts.firstTeam} v ${parts.secondTeam}`} style={{ alignItems: 'center', flexDirection: 'row', gap: 8 }}>
+    return <View accessibilityRole="header" accessibilityLabel={`${parts.firstTeam} v ${parts.secondTeam}`} style={{ alignItems: 'flex-start', flexDirection: 'row', gap: 8 }}>
       {[[parts.firstTeam, firstLogo], [parts.secondTeam, secondLogo]].map(([name, logo], index) => (
         <View key={index} style={{ alignItems: 'center', flex: 1, gap: 6, minWidth: 0 }}>
           <View style={{ alignItems: 'center', backgroundColor: '#ffffff', borderRadius: 26, height: 52, justifyContent: 'center', width: 52 }}>
@@ -32,7 +32,7 @@ export function MatchTeamsLine({ match, clubLogoUrl = '', textStyle, compact = f
           </View>
           <Text style={labelStyle}>{name}</Text>
         </View>
-      )).flatMap((team, index) => index === 0 ? [team, <Text key="versus" style={labelStyle}>v</Text>] : [team])}
+      )).flatMap((team, index) => index === 0 ? [team, <Text key="versus" style={[labelStyle, { alignSelf: 'center' }]}>v</Text>] : [team])}
     </View>
   }
   if (singleLine) {

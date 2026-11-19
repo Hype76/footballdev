@@ -3,7 +3,7 @@ import { Pressable, Text, View } from 'react-native'
 import { getLinkedParentPlayerStats } from './parentPortalData'
 
 function StatRow({ label, value, tokens }) {
-  return <View style={{ borderBottomColor: tokens.border, borderBottomWidth: 1, flexDirection: 'row', minHeight: 52, alignItems: 'center', gap: 12 }}>
+  return <View style={{ borderBottomColor: tokens.border, borderBottomWidth: 1, flexDirection: 'row', minHeight: 45, alignItems: 'center', gap: 12 }}>
     <Text style={{ color: tokens.textPrimary, flex: 1, fontSize: 16 }}>{label}</Text>
     <Text style={{ color: tokens.textPrimary, fontSize: 18, fontWeight: '700' }}>{value}</Text>
   </View>
@@ -12,19 +12,26 @@ function StatRow({ label, value, tokens }) {
 export function PlayerStatsScreen({ connection, stats, themeTokens }) {
   const record = stats?.matches || {}
   const personal = stats?.personal || {}
+  const group = { backgroundColor: themeTokens.portalSurface, borderColor: themeTokens.border, borderRadius: 15,
+    borderWidth: 1, paddingHorizontal: 12, paddingVertical: 8 }
+  const groupTitle = { color: themeTokens.textPrimary, fontSize: 18, fontWeight: '800', paddingVertical: 6 }
   return <View style={{ gap: 12 }}>
     <Text accessibilityRole="header" style={{ color: themeTokens.textPrimary, fontSize: 25, fontWeight: '800' }}>Stats</Text>
     <Text style={{ color: themeTokens.textSecondary }}>{connection?.player_name || 'Player'} | {stats?.period || 'Last 12 months'}</Text>
-    <Text accessibilityRole="header" style={{ color: themeTokens.textPrimary, fontSize: 19, fontWeight: '700', marginTop: 10 }}>Team matches</Text>
-    <StatRow label="Won" value={record.won ?? 0} tokens={themeTokens} />
-    <StatRow label="Lost" value={record.lost ?? 0} tokens={themeTokens} />
-    <StatRow label="Drawn" value={record.drawn ?? 0} tokens={themeTokens} />
-    <Text accessibilityRole="header" style={{ color: themeTokens.textPrimary, fontSize: 19, fontWeight: '700', marginTop: 14 }}>Player stats</Text>
-    <StatRow label="Matches selected" value={personal.matches ?? 0} tokens={themeTokens} />
-    {personal.playingTimeMatches > 0 ? <StatRow label={`Recorded playing time (${personal.playingTimeMatches} matches)`} value={`${personal.playingMinutes ?? 0} min`} tokens={themeTokens} /> : null}
-    <StatRow label="Goals" value={personal.goals ?? 0} tokens={themeTokens} />
-    <StatRow label="Assists" value={personal.assists ?? 0} tokens={themeTokens} />
-    <StatRow label="Player of the Match (POM)" value={personal.playerOfTheMatch ?? 0} tokens={themeTokens} />
+    <View style={group}>
+      <Text accessibilityRole="header" style={groupTitle}>Team matches</Text>
+      <StatRow label="Won" value={record.won ?? 0} tokens={themeTokens} />
+      <StatRow label="Lost" value={record.lost ?? 0} tokens={themeTokens} />
+      <StatRow label="Drawn" value={record.drawn ?? 0} tokens={themeTokens} />
+    </View>
+    <View style={group}>
+      <Text accessibilityRole="header" style={groupTitle}>Player stats</Text>
+      <StatRow label="Matches selected" value={personal.matches ?? 0} tokens={themeTokens} />
+      {personal.playingTimeMatches > 0 ? <StatRow label={`Recorded playing time (${personal.playingTimeMatches} matches)`} value={`${personal.playingMinutes ?? 0} min`} tokens={themeTokens} /> : null}
+      <StatRow label="Goals" value={personal.goals ?? 0} tokens={themeTokens} />
+      <StatRow label="Assists" value={personal.assists ?? 0} tokens={themeTokens} />
+      <StatRow label="Player of the Match (POM)" value={personal.playerOfTheMatch ?? 0} tokens={themeTokens} />
+    </View>
   </View>
 }
 

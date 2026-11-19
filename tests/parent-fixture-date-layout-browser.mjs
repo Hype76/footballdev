@@ -28,7 +28,9 @@ const entry = `import {getParentBadgeColours,getParentStatusColours,PARENT_FAN_S
 
 import React,{useState,useMemo} from 'react';import{createRoot}from'react-dom/client';
 import{View,Text,Pressable,StyleSheet,Platform}from'react-native';
-import{createParentMobileTheme,DEFAULT_PARENT_MOBILE_THEME}from'./apps/mobile-core/src/parentThemeCore.js';
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import{MatchTeamsLine}from'./apps/mobile-core/src/MatchTeamsLine.js';
+import{createParentMobileTheme,DEFAULT_PARENT_MOBILE_THEME,resolveParentMobileBranding}from'./apps/mobile-core/src/parentThemeCore.js';
 import{getParentMatchStatusLabel}from'./apps/parent-mobile/src/parentExperience.js';
 import{getParentMatchAvailability,getParentMatchSquadStatus}from'./apps/parent-mobile/src/parentMatchAvailability.js';
 import{formatParentProductDateTime,formatParentProductTime}from'./apps/mobile-core/src/parentDateTimeCore.js';
@@ -45,7 +47,7 @@ ${extract(app, ['MatchPreviewCard', 'Badge', 'createParentAppPalette', 'createPa
 ${extract(portal, ['MatchCard', 'MatchStatusBadge', 'scoreVisible', 'colorsFor', 'usePortalStyles', 'formatDate'])}
 const fixture={id:'fixture',matchDate:'2026-10-24',teamName:'Synthetic U14',opponent:'Synthetic opposition',homeAway:'away',kickoffTime:'10:30',shirtChoice:'home',homeScore:0,awayScore:0};
 const variants=[['scheduled','scheduled',false],['request','scorer_request',false],['live','live',false],['cancelled','cancelled',false],['finished','full_time',false],['fan','scheduled',true]];
-function App(){const[mode,setMode]=useState('light');window.mode=setMode;const theme=createParentMobileTheme({mode});
+function App(){const[mode,setMode]=useState('light');window.mode=setMode;const theme=createParentMobileTheme({mode,polished:true});
 currentTheme={palette:createParentAppPalette(theme.tokens),styles:createParentAppStyles(theme.tokens)};
 const{colors,styles}=usePortalStyles(theme.tokens);
 return <View style={{padding:16,backgroundColor:theme.tokens.background}}>{variants.map(([id,status,isFanView])=>{
@@ -57,9 +59,11 @@ createRoot(document.getElementById('root')).render(<App/>);
 `
 const result = await build({
   stdin: { contents: entry, resolveDir: root, loader: 'jsx' }, bundle: true, write: false,
-  jsx: 'automatic', loader: { '.js': 'jsx' }, platform: 'browser', conditions: ['browser'],
+  jsx: 'automatic', loader: { '.js': 'jsx', '.ttf': 'dataurl', '.png': 'dataurl' }, platform: 'browser', conditions: ['browser'],
+  resolveExtensions: ['.web.tsx', '.web.ts', '.web.js', '.tsx', '.ts', '.jsx', '.js', '.json'],
   mainFields: ['browser', 'module', 'main'], nodePaths: [modules],
   alias: { react: path.join(modules, 'react'), 'react-dom': path.join(modules, 'react-dom'), 'react-native': path.join(modules, 'react-native-web') },
+  banner: { js: 'globalThis.process={env:{NODE_ENV:"production"}};' },
   define: { 'process.env.NODE_ENV': '"production"', __DEV__: 'false', global: 'globalThis' },
 })
 const browser = await chromium.launch({ headless: true })
@@ -85,17 +89,19 @@ try {
         const box = await date.boundingBox()
         assert.ok(box, `Date visible: ${surface} ${variant}`)
         const bounds = await date.evaluate(element => {
-          const row = element.parentElement.getBoundingClientRect()
+          const row = element.parentElement
+          const next = element.nextElementSibling?.getBoundingClientRect()
+          const right = next ? next.left - Number.parseFloat(getComputedStyle(row).columnGap || '0') : row.getBoundingClientRect().right
           const range = document.createRange(); range.selectNodeContents(element)
           const text = range.getBoundingClientRect()
-          return { rowRight: row.right, textRight: text.right }
+          return { rowRight: right, textRight: text.right }
         })
         assert.ok(Math.abs(bounds.rowRight - bounds.textRight) < 2, `Date aligned right: ${surface} ${variant} ${mode} ${width}`)
         if (['scheduled', 'request', 'fan'].includes(variant)) rightEdges.push(bounds.textRight)
         checks++
       }
       assert.ok(Math.max(...rightEdges) - Math.min(...rightEdges) < 2, `Consistent dates: ${surface} ${mode} ${width}`)
-      assert.equal(await page.getByTestId(`${surface}-scheduled`).getByText('Scheduled', { exact: true }).count(), 0)
+      assert.equal(await page.getByTestId(`${surface}-scheduled`).getByText('Scheduled', { exact: true }).count(), surface === 'list' ? 1 : 0)
       assert.equal(await page.getByTestId(`${surface}-request`).getByText('Scheduled', { exact: true }).count(), surface === 'list' ? 1 : 0)
     }
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `No overflow: ${mode} ${width}`)

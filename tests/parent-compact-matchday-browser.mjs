@@ -91,7 +91,7 @@ ${handlers}\n${childChange}
 window.suppressFormation=setSuppressFormation;window.match=patch=>setMatch({...initial,...patch});window.mode=setMode;window.accent=setAccent;window.offline=setOffline;window.warning=setWarning;window.linkType=setLinkType;window.switchChild=handleChildChange;window.list=setShowList;window.fixtures=patches=>setFixtures(patches.map(p=>({...initial,...p})));window.invitation=patch=>setInvitation({...initialInvitation,...patch});window.refresh=loadParentData;window.current={activeActionId,notice,selectedLinkId,warning,offline};
 window.screen=setScreen;window.target=setTarget;
 window.extraInvitations=rows=>{window.serverExtraInvitations=rows.map(patch=>({...initialInvitation,...patch}));setInvitationRows(([first])=>[first,...window.serverExtraInvitations])};
-const tokens=createParentMobileTheme({mode,selectedLink:{themeAccent:accent}}).tokens,palette=createParentAppPalette(tokens);theme={palette,styles:createParentAppStyles(palette)};
+const tokens=createParentMobileTheme({mode,polished:true,selectedLink:{themeAccent:accent}}).tokens,palette=createParentAppPalette(tokens);theme={palette,styles:createParentAppStyles(tokens)};
 return <ScrollView testID="response-scroll" ref={scrollViewRef} style={{height:420}}><View ref={contentColumnRef} style={{padding:16,backgroundColor:palette.background,minHeight:'100vh'}}>
 <SyncStatus cacheState={{source:'cache',stale:true}} isOffline={offline} summary={{waiting:0,needsAttention:0}}/>
 {warning?<Notice compact tone="warning" message="Could not refresh. Showing saved information." onDismiss={()=>setWarning(false)}/>:null}
@@ -145,9 +145,9 @@ try {
     for (const name of ['Peterborough Junior Blues U14', 'Cambourne Town FC']) {
       const textStyle = await detailNames.getByText(name, { exact: true }).evaluate(element => {
         const style = getComputedStyle(element)
-        return { fontSize: style.fontSize, whiteSpace: style.whiteSpace, background: style.backgroundColor }
+        return { color: style.color, whiteSpace: style.whiteSpace, background: style.backgroundColor }
       })
-      assert.deepEqual(textStyle, { fontSize: '15px', whiteSpace: 'pre-wrap', background: 'rgb(7, 82, 147)' }, `Fixture banner wraps long team names at ${width}px`)
+      assert.deepEqual(textStyle, { color: 'rgb(255, 255, 255)', whiteSpace: 'pre-wrap', background: 'rgba(0, 0, 0, 0)' }, `Fixture banner wraps long team names at ${width}px`)
     }
     const defender = await page.getByText('Centre Defender', { exact: true }).boundingBox()
     const goalkeeper = await page.getByLabel('Goalkeeper, shirt 1, goalkeeper', { exact: true }).locator('img').boundingBox()
@@ -192,18 +192,22 @@ try {
   await page.getByText('Linesman', { exact: true }).waitFor()
   await page.getByRole('button', { name: 'Volunteer to help', exact: true }).click()
   await page.evaluate(() => window.extraInvitations([]))
-  const waitForOpaqueFixtureLabels = (colour) => page.waitForFunction(expected => {
-    const hero = document.querySelector('[aria-label="Peterborough Junior Blues U14 v Cambourne Town FC"]')
-    if (!hero) return false
-    const labels = [...hero.querySelectorAll('*')]
-    return ['Peterborough Junior Blues U14', 'Cambourne Town FC', 'v'].every(name =>
-      labels.some(label => label.textContent === name && getComputedStyle(label).backgroundColor === expected))
-  }, colour)
+  const stadium = page.getByTestId('matchday-stadium-art')
+  const checkStadium = async () => {
+    await stadium.waitFor()
+    assert.equal(await stadium.evaluate(element => getComputedStyle(element).opacity), '1')
+    const image = stadium.locator('img')
+    await image.waitFor({ state: 'attached' })
+    await page.waitForFunction(() => {
+      const img = document.querySelector('[data-testid="matchday-stadium-art"] img')
+      return img?.complete && img.naturalWidth > 0
+    })
+  }
   await page.evaluate(() => window.accent('#777777'))
-  await waitForOpaqueFixtureLabels('rgb(119, 119, 119)')
+  await checkStadium()
   await assertRenderedTextContrast(page, 'Parent fixture with a mid-grey club colour')
   await page.evaluate(() => window.accent('#075293'))
-  await waitForOpaqueFixtureLabels('rgb(7, 82, 147)')
+  await checkStadium()
   await page.getByTestId('response-scroll').evaluate(element => { element.style.height = '820px'; element.scrollTop = 0 })
   await page.screenshot({ path: 'output/playwright/parent-compact/fixture-redesign.png' })
   await page.getByTestId('response-scroll').evaluate(element => { element.style.height = '420px' })
@@ -308,8 +312,16 @@ try {
     assert.equal(fontSizes[0], fontSizes[1], 'Both team names use the same font size')
     assert.ok(fontSizes[0] >= 16, 'Fixture names remain readable')
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth))
-    const longBadges = await Promise.all(['Availability: Needs response', 'Match squad: Not announced yet'].map(label => page.getByLabel(label,{exact:true}).first().boundingBox()))
-    assert.ok(Math.abs(longBadges[0].y-longBadges[1].y)<2, 'long status chips remain beside each other')
+    // Reserve extra room for browser scrollbars and platform font differences.
+    if (width === 320) await page.setViewportSize({ width: 304, height: 844 })
+    const availabilityBadge = page.getByLabel('Availability: Needs response', { exact: true }).first()
+    const pairedSquadBadge = availabilityBadge.locator('..').getByLabel('Match squad: Not announced yet', { exact: true })
+    await pairedSquadBadge.waitFor()
+    const [availabilityBounds, squadBounds] = await Promise.all([availabilityBadge.boundingBox(), pairedSquadBadge.boundingBox()])
+    assert.ok(availabilityBounds && squadBounds && Math.abs(availabilityBounds.y - squadBounds.y) < 2, `Long status chips share a row in ${mode} mode: ${JSON.stringify({ availabilityBounds, squadBounds })}`)
+    assert.ok(availabilityBounds.x + availabilityBounds.width <= squadBounds.x, 'The status chips do not overlap')
+    assert.ok(squadBounds.x + squadBounds.width <= (width === 320 ? 304 : width), 'The squad chip fits inside the viewport')
+    if (width === 320) await page.setViewportSize({ width, height: 844 })
     const expectedStatusColors = mode === 'dark'
       ? {
         'Availability: Available': ['rgb(134, 239, 172)', 'rgb(20, 83, 45)', 'Available'],

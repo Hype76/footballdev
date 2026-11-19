@@ -658,7 +658,7 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
   chatMessagesRef.current = chatMessages
   chatRequestScopeRef.current = parentChatScope(selectedMobileUser, selectedLink, selectedRoomId || '')
   const themeModel = useMemo(
-    () => createParentMobileTheme({ mode: displayTheme, selectedLink: selectedLink ? { ...selectedLink, matchdayPolicy: matchdayPlanConfig } : selectedLink }),
+    () => createParentMobileTheme({ mode: displayTheme, polished: true, selectedLink: selectedLink ? { ...selectedLink, matchdayPolicy: matchdayPlanConfig } : selectedLink }),
     [displayTheme, matchdayPlanConfig, selectedLink],
   )
   const themeContext = useMemo(() => ({
@@ -2585,7 +2585,6 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
         style={styles.keyboardShell}
       >
         {!focusedChatRoom && !focusedScorer ? <AppHeader
-          featured={renderedActiveTab === 'matchday' && Boolean(selectedMatch) || renderedActiveTab === 'more' && ['invites', 'profile', 'resources'].includes(renderedMoreSection)}
           childCount={parentLinks.length}
           childSwitcherOpen={childSwitcherOpen}
           childNotificationBadges={childNotificationBadges}
@@ -2738,9 +2737,9 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
               />
             ) : null}
             {renderedActiveTab === 'more' && renderedMoreSection ? <BackButton featured={['invites', 'profile', 'resources'].includes(renderedMoreSection)} label="Back to More" onPress={() => { setMoreSection(''); setSelectedInvitationId(''); setSelectedMessageId(''); setSelectedPollId('') }} /> : null}
-            {renderedActiveTab === 'more' && ['feedback', 'bug'].includes(renderedMoreSection) ? <UserFeedbackScreen key={renderedMoreSection} type={renderedMoreSection} appRole="parent" headingStyle={styles.detailTitle} textStyle={{ color: palette.text, fontSize: 16 }} /> : null}
+            {renderedActiveTab === 'more' && ['feedback', 'bug'].includes(renderedMoreSection) ? <View style={styles.listSurface}><UserFeedbackScreen key={renderedMoreSection} type={renderedMoreSection} appRole="parent" headingStyle={styles.detailTitle} textStyle={{ color: palette.text, fontSize: 16 }} /></View> : null}
             {renderedActiveTab === 'more' && renderedMoreSection === 'profile' ? <ParentProfileScreen key={`profile-${user.id}-${user.displayName || user.name || ''}`} activeActionId={activeActionId} isOffline={isOffline} isSyncing={isSyncing} onDisplayNameChange={handleDisplayNameChange} user={user} /> : null}
-            {renderedActiveTab === 'more' && renderedMoreSection === 'partners' ? <PartnersScreen appRole="parent" headingStyle={styles.detailTitle} textStyle={{ color: palette.text, fontSize: 15, lineHeight: 22 }} /> : null}
+            {renderedActiveTab === 'more' && renderedMoreSection === 'partners' ? <View style={styles.listSurface}><PartnersScreen appRole="parent" headingStyle={styles.detailTitle} textStyle={{ color: palette.text, fontSize: 15, lineHeight: 22 }} /></View> : null}
             {renderedActiveTab === 'more' && renderedMoreSection === 'updates' ? <NotificationsScreen busy={Boolean(activeActionId)} isOffline={isOffline} matches={visibleMatches} onAction={handleNotificationAction} onOpenNotification={handleOpenNotification} onRetry={handleRefresh} resource={resources.notifications} /> : null}
             {renderedActiveTab === 'more' && renderedMoreSection === 'invites' ? (
               <InvitationsScreen activeActionId={activeActionId} isOffline={isOffline} link={selectedLink} onAddToCalendar={handleAddToCalendar} onBackTarget={() => setSelectedInvitationId('')} onOpenResource={handleOpenCalendarResource} onRespond={handleInvitationResponse} onTransport={handleMatchTransport} resource={{ ...resources.invitations, items: visibleInvitationsWithMatchTimes }} targetInvitationId={selectedInvitationId} theme={displayTheme} themeTokens={themeModel.tokens} />
@@ -2858,7 +2857,7 @@ function ClubBrandLogo({ link }) {
   )
 }
 
-function AppHeader({ featured = false, childCount, childSwitcherOpen, childNotificationBadges, childNotificationBadgeError, links, notificationState, notificationStateStatus, onChildChange, onOpenNotificationSettings, onToggleChildSwitcher, selectedLink, theme }) {
+function AppHeader({ childCount, childSwitcherOpen, childNotificationBadges, childNotificationBadgeError, links, notificationState, notificationStateStatus, onChildChange, onOpenNotificationSettings, onToggleChildSwitcher, selectedLink, theme }) {
   const { palette, styles } = useParentTheme()
   const isLight = theme === 'light'
   return (
@@ -2885,15 +2884,15 @@ function AppHeader({ featured = false, childCount, childSwitcherOpen, childNotif
             accessibilityRole="button"
             disabled={childCount <= 1}
             onPress={onToggleChildSwitcher}
-            style={({ pressed }) => [styles.childButton, isLight && styles.surfaceLight, featured && styles.featuredChildButton, pressed && styles.pressed]}
+            style={({ pressed }) => [styles.childButton, isLight && styles.surfaceLight, pressed && styles.pressed]}
           >
-            <ParentIcon color={palette.accentText} iconKey="child" size={30} />
+            <View style={styles.playerIcon}><ParentIcon color={palette.ink} iconKey="child" size={25} /></View>
             <View style={styles.childButtonCopy}>
               <Text style={[styles.childButtonEyebrow, isLight && styles.textMutedLight]}>Active player</Text>
               <Text numberOfLines={1} style={[styles.childButtonName, isLight && styles.textLight]}>{selectedLink?.playerName || 'Choose a player'}</Text>
               <Text numberOfLines={1} style={[styles.childButtonTeam, isLight && styles.textMutedLight]}>{selectedLink?.teamName || 'No Team assigned'}</Text>
             </View>
-            {childCount > 1 ? <Text style={[styles.childButtonAction, featured && styles.featuredChildAction]}>{childSwitcherOpen ? 'Close' : 'Change'}</Text> : null}
+            {childCount > 1 ? <Text style={styles.childButtonAction}>{childSwitcherOpen ? 'Close' : 'Change'}</Text> : null}
           </Pressable>
           {childSwitcherOpen ? (
             <ScrollView
@@ -2942,7 +2941,7 @@ function NotificationStatusButton({ notificationState, notificationStateStatus, 
       onPress={onPress}
       style={({ pressed }) => [styles.notificationStatusButton, pressed && styles.pressed]}
     >
-      <ParentIcon color={indicator.enabled ? palette.accentText : palette.textMuted} iconKey={indicator.iconKey} size={27} />
+      <ParentIcon color={indicator.enabled ? palette.accentText : palette.textMuted} iconKey={indicator.iconKey} size={23} />
     </Pressable>
   )
 }
@@ -3036,7 +3035,7 @@ function NotificationsScreen({ busy, isOffline, matches, onAction, onOpenNotific
     {!resource.loading && !visible.length ? <EmptyPanel title={unreadOnly ? 'All caught up' : 'No notifications'} message={unreadOnly ? 'Read notifications are still available under All.' : 'Squad decisions, match scores and club news will appear here.'} /> : null}
     {visible.map((notification) => {
       const presentation = getParentNotificationPresentation(notification, matches)
-      return <View key={notification.id} style={[styles.card, !notification.isRead && styles.cardProminent]}>
+      return <View key={notification.id} style={[styles.card, styles.listSurface, !notification.isRead && styles.cardProminent]}>
       <Pressable accessibilityRole="button" accessibilityLabel={`${notification.isRead ? 'Read' : 'Unread'}: ${presentation.displayTitle}`} onPress={() => onOpenNotification(notification)} style={({ pressed }) => [pressed && styles.pressed]}>
         <View style={styles.notificationRow}>
           <View style={styles.notificationIcon}><ParentIcon color={palette.accentText} iconKey={getNotificationTypeIcon(notification.intentType)} size={23} /></View>
@@ -3103,7 +3102,7 @@ function HomeScreen({ userId, leagueUser, activeActionId, calendar, homeModel, i
       ))}
       {!isInitialLoading ? (
         <>
-          <SectionHeading copy="The nearest Parent-visible fixture or event." title="Next up" />
+          <SectionHeading copy="Your next fixture or event." title="Next up" />
           {homeModel.nextActivity?.type === 'match' ? (
             <MatchPreviewCard invitations={invitations} link={link} match={homeModel.nextActivity.item} onPress={onOpenMatch} prominent scorerGuide={isParentScorerGuideMatch(homeModel.nextActivity.item, scorerGuideDate)} />
           ) : homeModel.nextActivity?.type === 'calendar' ? (
@@ -3117,7 +3116,7 @@ function HomeScreen({ userId, leagueUser, activeActionId, calendar, homeModel, i
       {homeSections.error ? <Text style={styles.helperText}>{homeSections.error}</Text> : null}
 
       {homeFixtures.length > 0 ? (
-        <HomeCollapsibleSection copy="Upcoming Parent-visible Matchday items." title="Fixtures" expanded={homeSections.sections.fixtures} disabled={!homeSections.ready} onToggle={() => homeSections.toggle('fixtures')}>
+        <HomeCollapsibleSection copy="Upcoming fixtures for your player." title="Fixtures" expanded={homeSections.sections.fixtures} disabled={!homeSections.ready} onToggle={() => homeSections.toggle('fixtures')}>
           {homeFixtures.map((match) => (
             <MatchPreviewCard invitations={invitations} link={link} key={match.id} match={match} onPress={onOpenMatch} scorerGuide={isParentScorerGuideMatch(match, scorerGuideDate)} />
           ))}
@@ -3133,7 +3132,7 @@ function HomeScreen({ userId, leagueUser, activeActionId, calendar, homeModel, i
       ) : null}
 
       {homeModel.recentMatches.length > 0 ? (
-        <HomeCollapsibleSection copy="Recent Parent-visible results." title="Recent Matchday" expanded={homeSections.sections.recentMatches} disabled={!homeSections.ready} onToggle={() => homeSections.toggle('recentMatches')}>
+        <HomeCollapsibleSection copy="Completed matches for your player." title="Recent Matchday" expanded={homeSections.sections.recentMatches} disabled={!homeSections.ready} onToggle={() => homeSections.toggle('recentMatches')}>
           {homeModel.recentMatches.slice(0, 3).map((match) => (
             <MatchPreviewCard invitations={invitations} link={link} key={match.id} match={match} onPress={onOpenMatch} />
           ))}
@@ -3177,7 +3176,7 @@ function MatchPreviewCard({ match, onPress, prominent = false, invitations = [],
       style={({ pressed }) => [styles.card, styles.homeCard, prominent && styles.cardProminent, pressed && styles.pressed]}
     >
       <View style={styles.compactRow}>
-        {getParentMatchResult(match) ? <MatchResultIcon match={match} textStyle={styles.cardMeta} /> : <ParentIcon color={palette.text} iconKey="football" size={35} />}
+        <View style={styles.homeItemIcon}>{getParentMatchResult(match) ? <MatchResultIcon match={match} textStyle={styles.cardMeta} /> : <ParentIcon color={palette.accentText} iconKey="football" size={25} />}</View>
         <View style={styles.compactCopy}><View style={styles.cardTopRow}>{status.toLowerCase() !== 'scheduled' ? <Badge label={status} tone={match.status === 'cancelled' ? 'danger' : match.status === 'live' ? 'accent' : 'neutral'} /> : null}<Text style={styles.cardDate}>{formatDateOnly(match.matchDate)}</Text></View><Text style={styles.cardTitle}>{getMatchDayDisplayName(match)}</Text>{!isFinished && !match.isFanView ? <HomeStatusBadges badges={getParentMatchStatusBadges(match, invitations, link)} /> : null}<Text style={styles.cardMeta}>{match.arrivalTime ? `Arrive ${formatTime(match.arrivalTime)}` : `Kick-off ${formatTime(match.kickoffTime, match.kickoffTimeTbc)}`} | {getMatchDayShirtChoiceLabel(match.shirtChoice)}</Text></View>
         {score ? <Text style={styles.score}>{score}</Text> : <ParentIcon color={palette.accentText} iconKey="action.open" size={22} />}
       </View>
@@ -3251,12 +3250,12 @@ function CalendarCard({ event, onPress, prominent = false, invitations = [], mat
   return (
     <Pressable accessibilityRole="button" accessibilityLabel={event.title} accessibilityHint="Opens event details" onPress={() => onPress(event)} style={({ pressed }) => [styles.card, styles.homeCard, prominent && styles.cardProminent, pressed && styles.pressed]}>
       <View style={styles.compactRow}>
-        <ParentIcon color={eventColor} iconKey={presentation.iconKey} size={31} />
+        <View style={[styles.homeItemIcon, presentation.tone === 'success' && styles.trainingItemIcon]}><ParentIcon color={eventColor} iconKey={presentation.iconKey} size={25} /></View>
         <View style={styles.compactCopy}>
           <View style={styles.cardTopRow}><Text style={[styles.eventLabel, { color: eventColor }]}>{presentation.label}</Text><Text style={styles.cardDate}>{getParentEventDateTimeLabel(event)}</Text></View>
           <Text style={styles.cardTitle}>{event.title}</Text>
           <HomeStatusBadges badges={responseBadges} />
-          {event.location ? <Text numberOfLines={1} style={styles.cardMeta}>{event.location}</Text> : null}
+          {event.location ? <View style={styles.locationLine}><ParentIcon color={palette.textMuted} iconKey="location" size={14} /><Text numberOfLines={1} style={[styles.cardMeta, { flex: 1 }]}>{event.location}</Text></View> : null}
         </View>
         <ParentIcon color={palette.accentText} iconKey="action.open" size={22} />
       </View>
@@ -3327,7 +3326,7 @@ function MessagesScreen({ activeActionId, development = { items: [] }, isOffline
           accessibilityRole="button"
           key={message.id}
           onPress={() => onOpen(message)}
-          style={({ pressed }) => [styles.card, !message.readAt && styles.unreadCard, pressed && styles.pressed]}
+          style={({ pressed }) => [styles.card, styles.listSurface, !message.readAt && styles.unreadCard, pressed && styles.pressed]}
         >
           <View style={styles.compactRow}><ParentIcon color={message.readAt ? palette.textMuted : palette.accentText} iconKey="message" size={29} /><View style={styles.compactCopy}><View style={styles.cardTopRow}><Badge label={message.readAt ? 'Read' : 'Unread'} tone={message.readAt ? 'neutral' : 'accent'} /><Text style={styles.cardDate}>{formatDateTime(message.createdAt)}</Text></View><Text style={styles.cardTitle}>{message.subject}</Text><Text style={styles.cardMeta}>From {message.senderName || 'Your club'}</Text></View><ParentIcon color={palette.accentText} iconKey="action.open" size={22} /></View>
         </Pressable>
@@ -3374,7 +3373,7 @@ function PollsScreen({ activeActionId, drafts, link, onDismiss, onDraftChange, o
         const rankedResults = rankParentPollResults(poll.options, poll.votes).filter(option => option.count > 0)
 
         return (
-          <View key={poll.id} style={{ gap: 12, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: PARENT_POLL_SEPARATOR_COLOUR }}>
+          <View key={poll.id} style={[styles.listSurface, { gap: 12, borderBottomColor: PARENT_POLL_SEPARATOR_COLOUR }]}>
             <View style={styles.cardTopRow}>
               <Badge label={poll.status === 'open' && !poll.isExpired ? 'Open' : 'Closed'} tone={poll.status === 'open' && !poll.isExpired ? 'accent' : 'neutral'} />
               {poll.closesAt ? <Text style={styles.cardDate}>Closes {formatDateTime(poll.closesAt)}</Text> : null}
@@ -3870,7 +3869,7 @@ function SummaryButton({ count = null, disabled = false, iconKey, label, onPress
 function InfoPanel({ children, iconKey, onLayout, title }) {
   const { palette, styles } = useParentTheme()
   return (
-    <View onLayout={onLayout} style={styles.card}>
+    <View onLayout={onLayout} style={[styles.card, styles.listSurface]}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>{iconKey ? <ParentIcon iconKey={iconKey} color={palette.accentText} size={26} /> : null}<Text accessibilityRole="header" style={[styles.cardTitle, { flex: 1 }]}>{title}</Text></View>
       <View style={styles.infoStack}>{children}</View>
     </View>
@@ -4088,7 +4087,7 @@ function createParentAppPalette(tokens) {
     accent: tokens.buttonPrimary,
     accentMuted: tokens.accentMuted,
     accentText: tokens.accentText,
-    background: tokens.background,
+    background: tokens.portalBackground,
     border: tokens.border,
     borderStrong: tokens.borderStrong,
     card: tokens.surface,
@@ -4099,8 +4098,8 @@ function createParentAppPalette(tokens) {
     notificationFill: tokens.notificationFill,
     notificationForeground: tokens.notificationForeground,
     selectedSurface: tokens.selectedSurface,
-    successBackground: tokens.successSurface,
     success: tokens.success,
+    successBackground: tokens.successSurface,
     text: tokens.textPrimary,
     textMuted: tokens.textSecondary,
     warning: tokens.warning,
@@ -4110,11 +4109,13 @@ function createParentAppPalette(tokens) {
 
 function createParentAppStyles(tokens) {
   const palette = createParentAppPalette(tokens)
+  const surface = { backgroundColor: palette.card, borderColor: palette.border, borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 15, shadowColor: palette.accentText, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.1, shadowRadius: 7, elevation: 2 }
   return StyleSheet.create({
   featuredBackButton: { alignItems: 'center', backgroundColor: palette.selectedSurface, borderRadius: 22, flexDirection: 'row', gap: 7, minHeight: 44, paddingHorizontal: 12 },
-  featuredChildButton: { backgroundColor: palette.card, borderColor: palette.border, borderRadius: 14, borderWidth: 1, paddingHorizontal: 12 },
-  featuredChildAction: { borderColor: palette.accentText, borderRadius: 10, borderWidth: 1, overflow: 'hidden', paddingHorizontal: 8, paddingVertical: 4 },
-  profileCard: { backgroundColor: palette.card, borderColor: palette.border, borderRadius: 14, borderWidth: 1, gap: 8, padding: 13 },
+
+  playerIcon: { alignItems: 'center', backgroundColor: palette.accent, borderRadius: 18, height: 36, justifyContent: 'center', width: 36 },
+  profileCard: { ...surface, gap: 8, padding: 13 },
   profileHeading: { alignItems: 'center', flexDirection: 'row', gap: 10 },
   profileIcon: { alignItems: 'center', backgroundColor: palette.selectedSurface, borderRadius: 12, height: 42, justifyContent: 'center', width: 42 },
   profileLabel: { color: palette.accentText, fontSize: 15, fontWeight: '800' },
@@ -4130,16 +4131,21 @@ function createParentAppStyles(tokens) {
   brandCopy: { flex: 1, minWidth: 0 },
   brandMeta: { color: palette.textMuted, fontSize: 12, fontWeight: '700', marginTop: 2 },
   brandName: { color: palette.text, fontSize: 17, fontWeight: '900' },
-  brandRow: { alignItems: 'center', flexDirection: 'row', gap: 12 },
+  brandRow: { alignItems: 'center', flexDirection: 'row', gap: 8 },
   card: { backgroundColor: 'transparent', borderBottomColor: palette.border, borderBottomWidth: 1, gap: 8, paddingHorizontal: 0, paddingVertical: 11 },
   cardDate: { color: palette.textMuted, flexShrink: 1, fontSize: 12, fontWeight: '700', marginLeft: 'auto', textAlign: 'right' },
   cardFooter: { alignItems: 'center', flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'space-between', marginTop: 4 },
   cardLink: { color: palette.accentText, fontSize: 13, fontWeight: '900' },
   cardMeta: { color: palette.textMuted, fontSize: 14, fontWeight: '700', lineHeight: 20 },
-  cardProminent: { backgroundColor: 'transparent', borderBottomColor: palette.accentMuted },
+  cardProminent: { borderColor: palette.accentMuted },
   cardTitle: { color: palette.text, flexShrink: 1, fontSize: 18, fontWeight: '900', lineHeight: 23 },
   cardTopRow: { alignItems: 'center', flexDirection: 'row', gap: 12, justifyContent: 'space-between' },
-  homeCard: { gap: 6, paddingHorizontal: 0, paddingVertical: 14 },
+  homeCard: { ...surface, gap: 6, paddingHorizontal: 11, paddingVertical: 10 },
+  homeItemIcon: { alignItems: 'center', backgroundColor: palette.selectedSurface, borderRadius: 12, height: 42, justifyContent: 'center', width: 42 },
+  trainingItemIcon: { backgroundColor: palette.successBackground },
+  listSurface: { ...surface, paddingHorizontal: 12, paddingVertical: 11 },
+  locationLine: { alignItems: 'center', flexDirection: 'row', gap: 4 },
+  leagueRow: { ...surface, minHeight: 62, padding: 10 },
   eventLabel: { fontSize: 11, fontWeight: '800' },
   homeCardTitleRow: { alignItems: 'center', flexDirection: 'row', gap: 8 },
   homeInlineAction: { alignItems: 'center', alignSelf: 'flex-start', flexDirection: 'row', gap: 6, justifyContent: 'center', minHeight: 44, minWidth: 44 },
@@ -4147,13 +4153,13 @@ function createParentAppStyles(tokens) {
   notificationContent: { flex: 1, gap: 8 },
   notificationIcon: { alignItems: 'center', height: 44, justifyContent: 'center', width: 44 },
   notificationRow: { alignItems: 'flex-start', flexDirection: 'row', gap: 12 },
-  childButton: { alignItems: 'center', borderBottomColor: palette.border, borderBottomWidth: 1, flexDirection: 'row', gap: 10, justifyContent: 'space-between', marginTop: 8, minHeight: 58, paddingHorizontal: 2, paddingVertical: 8 },
-  childButtonAction: { color: palette.accentText, fontSize: 13, fontWeight: '900' },
+  childButton: { ...surface, alignItems: 'center', flexDirection: 'row', gap: 10, justifyContent: 'space-between', marginTop: 8, minHeight: 60, paddingHorizontal: 11, paddingVertical: 7 },
+  childButtonAction: { backgroundColor: palette.selectedSurface, borderRadius: 20, color: palette.accentText, fontSize: 13, fontWeight: '900', overflow: 'hidden', paddingHorizontal: 12, paddingVertical: 6 },
   childButtonCopy: { flex: 1, minWidth: 0 },
   childButtonEyebrow: { color: palette.textMuted, fontSize: 10, fontWeight: '900', textTransform: 'uppercase' },
   childButtonName: { color: palette.text, fontSize: 15, fontWeight: '900', marginTop: 2 },
   childButtonTeam: { color: palette.textMuted, fontSize: 12, fontWeight: '700', marginTop: 1 },
-  childOption: { borderBottomColor: palette.border, borderBottomWidth: 1, justifyContent: 'center', minHeight: 58, minWidth: 160, paddingHorizontal: 10, paddingVertical: 9 },
+  childOption: { ...surface, justifyContent: 'center', minHeight: 58, minWidth: 160, paddingHorizontal: 10, paddingVertical: 9 },
   childOptionActive: { borderBottomColor: palette.accentText, borderBottomWidth: 2 },
   childOptionName: { color: palette.text, fontSize: 14, fontWeight: '900' },
   childOptionNameActive: { color: palette.accentText },
@@ -4170,11 +4176,11 @@ function createParentAppStyles(tokens) {
   detailScore: { color: palette.accentText, fontSize: 40, fontWeight: '900', letterSpacing: -1 },
   detailTitle: { color: palette.text, fontSize: 28, fontWeight: '900', letterSpacing: -0.5, lineHeight: 34 },
   disabled: { opacity: 0.45 },
-  emptyPanel: { borderBottomColor: palette.border, borderBottomWidth: 1, gap: 8, paddingHorizontal: 0, paddingVertical: 16 },
+  emptyPanel: { ...surface, gap: 8, padding: 14 },
   errorPanel: { backgroundColor: palette.dangerBackground, borderColor: palette.danger, borderRadius: 16, borderWidth: 1, gap: 6, padding: 14 },
   errorTitle: { color: palette.danger, fontSize: 15, fontWeight: '900' },
   eyebrow: { color: palette.accentText, fontSize: 12, fontWeight: '900', letterSpacing: 0.8, textTransform: 'uppercase' },
-  header: { backgroundColor: palette.background, borderBottomColor: palette.border, borderBottomWidth: 1, paddingBottom: 9, paddingHorizontal: 16, paddingTop: 8 },
+  header: { backgroundColor: palette.background, paddingBottom: 10, paddingHorizontal: 14, paddingTop: 8 },
   headerLight: { backgroundColor: palette.background, borderBottomColor: palette.border },
   headerLogo: { height: 42, width: 42 },
   helperText: { color: palette.textMuted, fontSize: 12, fontWeight: '700', lineHeight: 18 },
@@ -4203,7 +4209,7 @@ function createParentAppStyles(tokens) {
   notificationChoices: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   notificationChoiceTitle: { color: palette.text, fontSize: 15, fontWeight: '900', textAlign: 'center' },
   notificationChoiceTitleSelected: { color: palette.accentText },
-  notificationStatusButton: { alignItems: 'center', height: 44, justifyContent: 'center', width: 44 },
+  notificationStatusButton: { alignItems: 'center', backgroundColor: palette.selectedSurface, borderRadius: 13, height: 44, justifyContent: 'center', width: 44 },
   notificationTestActions: { gap: 9 },
   optionButton: { alignItems: 'center', borderBottomColor: palette.border, borderBottomWidth: 1, flexDirection: 'row', gap: 12, minHeight: 52, paddingHorizontal: 2, paddingVertical: 10 },
   optionButtonDisabled: { opacity: 0.55 },
@@ -4244,15 +4250,15 @@ function createParentAppStyles(tokens) {
   childOptionNameRow: { alignItems: 'center', flexDirection: 'row', gap: 7 },
   childUnreadDot: { backgroundColor: palette.notificationFill, borderRadius: 5, height: 10, width: 10 },
   summaryDetail: { color: palette.textMuted, fontSize: 12, lineHeight: 17 },
-  summaryGrid: { borderBottomColor: palette.border, borderBottomWidth: 1, borderTopColor: palette.border, borderTopWidth: 1, flexDirection: 'row', gap: 2, justifyContent: 'space-between', paddingVertical: 3 },
-  summaryIconWrap: { position: 'relative' },
+  summaryGrid: { ...surface, flexDirection: 'row', gap: 2, justifyContent: 'space-between', paddingHorizontal: 5, paddingVertical: 3 },
+  summaryIconWrap: { alignItems: 'center', backgroundColor: palette.selectedSurface, borderRadius: 12, height: 37, justifyContent: 'center', position: 'relative', width: 47 },
   summaryLabel: { color: palette.text, fontSize: 10, fontWeight: '900', textAlign: 'center' },
   syncStatus: { alignItems: 'center', borderBottomColor: palette.borderStrong, borderBottomWidth: 1, flexDirection: 'row', gap: 10, marginBottom: 12, minHeight: 48, paddingHorizontal: 2, paddingVertical: 10 },
   syncStatusAction: { alignItems: 'center', borderColor: palette.warning, borderRadius: 10, borderWidth: 1, justifyContent: 'center', minHeight: 34, paddingHorizontal: 10 },
   syncStatusActionText: { color: palette.text, fontSize: 12, fontWeight: '900' },
   syncStatusText: { color: palette.text, flex: 1, fontSize: 13, fontWeight: '800', lineHeight: 18 },
   syncStatusWarning: { backgroundColor: palette.warningBackground, borderColor: palette.warning },
-  tabBar: { backgroundColor: palette.card, borderTopColor: palette.border, borderTopWidth: 1, flexDirection: 'row', gap: 4, paddingBottom: 4, paddingHorizontal: 8, paddingTop: 8 },
+  tabBar: { ...surface, alignSelf: 'center', borderBottomLeftRadius: 0, borderBottomRightRadius: 0, flexDirection: 'row', gap: 2, maxWidth: 680, paddingBottom: 4, paddingHorizontal: 4, paddingTop: 4, width: '100%' },
   tabBarLight: { backgroundColor: palette.card, borderTopColor: palette.border },
   tabButton: { alignItems: 'center', borderTopColor: 'transparent', borderTopWidth: 2, flex: 1, gap: 3, justifyContent: 'center', minHeight: 52, minWidth: 0, paddingHorizontal: 2, paddingVertical: 7 },
   tabButtonActive: { borderTopColor: palette.accentText },

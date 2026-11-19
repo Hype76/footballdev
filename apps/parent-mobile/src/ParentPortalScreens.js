@@ -123,6 +123,8 @@ function colorsFor(themeTokens) {
 function usePortalStyles(themeTokens) {
   return useMemo(() => {
     const colors = colorsFor(themeTokens)
+    const surface = { backgroundColor: colors.card, borderColor: colors.border, borderWidth: StyleSheet.hairlineWidth,
+      borderRadius: 15, shadowColor: colors.accentText, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.1, shadowRadius: 7, elevation: 2 }
     return { colors, styles: StyleSheet.create({
       action: { alignItems: 'center', backgroundColor: colors.accent, borderColor: colors.accentText, borderWidth: 1, borderRadius: 12, minHeight: 46, justifyContent: 'center', paddingHorizontal: 16, paddingVertical: 10 },
       actionDanger: { backgroundColor: colors.danger },
@@ -134,15 +136,31 @@ function usePortalStyles(themeTokens) {
       featureHeading: { alignItems: 'center', flexDirection: 'row', gap: 12 },
       featureCopy: { flex: 1, gap: 4, minWidth: 0 },
       featureIcon: { alignItems: 'center', backgroundColor: colors.accentSoft, borderRadius: 12, height: 42, justifyContent: 'center', width: 42 },
-      featureCard: { backgroundColor: colors.card, borderColor: colors.border, borderRadius: 14, borderWidth: 1, gap: 8, padding: 12 },
+      featureCard: { ...surface, gap: 8, padding: 12 },
       featureTile: { backgroundColor: colors.card, borderColor: colors.border, borderRadius: 14, borderWidth: 1, flexBasis: '47%', flexGrow: 1, gap: 5, minHeight: 72, padding: 11 },
       featureTileSelected: { backgroundColor: colors.accentSoft, borderColor: colors.accentText },
       featureLink: { alignItems: 'center', backgroundColor: colors.accentSoft, borderColor: colors.border, borderRadius: 13, borderWidth: 1, flexDirection: 'row', gap: 9, minHeight: 46, paddingHorizontal: 11, paddingVertical: 7 },
       featureLinkText: { color: colors.accentText, flex: 1, fontSize: 14, fontWeight: '800' },
       fixtureMeta: { alignItems: 'center', flexDirection: 'row', gap: 8 },
-      fixtureBanner: { backgroundColor: colors.accent, marginHorizontal: -12, marginTop: -12, padding: 15 },
-      fixtureStadium: { ...StyleSheet.absoluteFillObject, height: '100%', opacity: 0.23, width: '100%' },
-      fixtureTeam: { color: colors.accentForeground, fontSize: 15, fontWeight: '900' },
+      fixtureMetaText: { color: colors.text, flex: 1, fontSize: 13, lineHeight: 18 },
+      fixtureResponseRow: { alignItems: 'center', flexDirection: 'row', flexWrap: 'wrap', gap: 4 },
+      fixtureResponseColumns: { alignItems: 'flex-start', borderTopColor: colors.border, borderTopWidth: StyleSheet.hairlineWidth, flexDirection: 'row', gap: 8, paddingTop: 8 },
+      fixtureResponseColumn: { flex: 1, gap: 4, minWidth: 0 },
+      fixtureResponseSquad: { borderLeftColor: colors.border, borderLeftWidth: StyleSheet.hairlineWidth, paddingLeft: 8 },
+      fixtureBanner: { backgroundColor: '#092637', marginHorizontal: -12, marginTop: -12, minHeight: 94, paddingHorizontal: 10, paddingTop: 8, paddingBottom: 14 },
+      fixtureStadium: { ...StyleSheet.absoluteFillObject, height: '100%', width: '100%' },
+      fixtureTeam: { color: '#ffffff', fontSize: 13, fontWeight: '900', textShadowColor: '#07151f', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 4 },
+      listSurface: { ...surface, gap: 7, paddingHorizontal: 11, paddingVertical: 9 },
+      fixtureBadges: { alignItems: 'flex-start', flexDirection: 'row', gap: 6 },
+      fixtureCompactBadge: { flexShrink: 1, minWidth: 0 },
+      fixtureCompactBadgeText: { flexShrink: 1, fontSize: 11, lineHeight: 16, minWidth: 0 },
+      fixtureListFooter: { alignItems: 'center', borderTopColor: colors.border, borderTopWidth: StyleSheet.hairlineWidth, flexDirection: 'row', flexWrap: 'wrap', gap: 9, paddingTop: 6 },
+      fixtureFooterItem: { alignItems: 'center', flexDirection: 'row', gap: 5 },
+      fixtureStatus: { alignItems: 'center', backgroundColor: colors.accentSoft, borderRadius: 20, flexDirection: 'row', gap: 5, paddingHorizontal: 7, paddingVertical: 3 },
+      fixtureStatusText: { color: colors.accentText, fontSize: 11, fontWeight: '800' },
+      fixtureFilterRow: { flexDirection: 'row', gap: 8 },
+      fixtureFilter: { flex: 1, minHeight: 44, paddingHorizontal: 6, paddingVertical: 6 },
+      fixtureFilterText: { fontSize: 13, textAlign: 'center' },
       actionGridItem: { flexBasis: '47%', flexGrow: 1 },
       actionText: { color: colors.accentForeground, fontSize: 14, fontWeight: '800' },
       actionTextDanger: { color: colors.dangerForeground },
@@ -191,6 +209,7 @@ function usePortalStyles(themeTokens) {
       resourceFilterSelected: { backgroundColor: colors.accent },
       resourceFilterText: { color: colors.muted, fontSize: 12, fontWeight: '800' },
       resourceFilterTextSelected: { color: colors.accentForeground },
+      resourceLinkRow: { ...surface, marginBottom: 5, paddingHorizontal: 10, paddingVertical: 5 },
       resourceGroup: { gap: 2 },
       gameDayHero: { gap: 12, overflow: 'hidden' },
       gameDayHeroLive: { borderColor: colors.accentText },
@@ -233,10 +252,10 @@ function usePortalStyles(themeTokens) {
       seatChoiceText: { color: colors.muted, fontSize: 13, fontWeight: '900' },
       meta: { color: colors.muted, fontSize: 13, lineHeight: 18 },
       fixtureDate: { flexShrink: 1, marginLeft: 'auto', textAlign: 'right' },
-      moreGrid: { borderBottomColor: colors.border, borderBottomWidth: 1, borderTopColor: colors.border, borderTopWidth: 1, flexDirection: 'row', flexWrap: 'wrap', paddingVertical: 5 },
+      moreGrid: { ...surface, borderBottomColor: colors.border, borderBottomWidth: 1, borderTopColor: colors.border, borderTopWidth: 1, flexDirection: 'row', flexWrap: 'wrap', paddingVertical: 5 },
       moreIconBadge: { alignItems: 'center', backgroundColor: colors.danger, borderColor: colors.card, borderRadius: 999, borderWidth: 2, justifyContent: 'center', minHeight: 19, minWidth: 19, paddingHorizontal: 4, position: 'absolute', right: 0, top: -4 },
       moreIconBadgeText: { color: colors.dangerForeground, fontSize: 10, fontWeight: '900', lineHeight: 13 },
-      moreIconWrap: { alignItems: 'center', height: 36, justifyContent: 'center', position: 'relative', width: 48 },
+      moreIconWrap: { alignItems: 'center', backgroundColor: colors.accentSoft, borderRadius: 12, height: 39, justifyContent: 'center', position: 'relative', width: 48 },
       moreItem: { alignItems: 'center', gap: 4, justifyContent: 'center', minHeight: 88, paddingHorizontal: 5, width: '33.333%' },
       moreItemCopy: { color: colors.muted, fontSize: 10, lineHeight: 14, textAlign: 'center' },
       moreItemTitle: { color: colors.text, fontSize: 12, fontWeight: '900', textAlign: 'center' },
@@ -282,7 +301,7 @@ function usePortalStyles(themeTokens) {
   }, [themeTokens])
 }
 
-function Button({ compact = false, danger = false, disabled = false, expanded, iconKey, iconColor, label, onPress, outline = false, scorerGuide = false, selected = false, styles }) {
+function Button({ compact = false, danger = false, disabled = false, expanded, iconKey, iconColor, label, onPress, outline = false, scorerGuide = false, selected = false, styles, buttonStyle, labelStyle }) {
   return (
     <Pressable
       accessibilityLabel={label}
@@ -290,10 +309,10 @@ function Button({ compact = false, danger = false, disabled = false, expanded, i
       accessibilityState={{ disabled, selected, ...(typeof expanded === 'boolean' ? { expanded } : {}) }}
       disabled={disabled}
       onPress={onPress}
-      style={({ pressed }) => [compact ? styles.compactAction : styles.action, !compact && outline && styles.actionOutline, !compact && selected && styles.actionSelected, compact && selected && styles.compactActionSelected, danger && styles.actionDanger, disabled && styles.actionDisabled, pressed && { opacity: 0.78 }]}
+      style={({ pressed }) => [compact ? styles.compactAction : styles.action, !compact && outline && styles.actionOutline, !compact && selected && styles.actionSelected, compact && selected && styles.compactActionSelected, danger && styles.actionDanger, disabled && styles.actionDisabled, buttonStyle, pressed && { opacity: 0.78 }]}
     >
       {compact && iconKey ? <ParentIcon color={iconColor || styles.compactActionText.color} iconKey={iconKey} size={18} /> : null}
-      <Text style={[compact ? styles.compactActionText : styles.actionText, !compact && outline && styles.actionTextOutline, !compact && selected && styles.actionTextSelected, danger && styles.actionTextDanger]}>{label}</Text>
+      <Text style={[compact ? styles.compactActionText : styles.actionText, !compact && outline && styles.actionTextOutline, !compact && selected && styles.actionTextSelected, danger && styles.actionTextDanger, labelStyle]}>{label}</Text>
       {scorerGuide && !disabled ? <ScorerGuidePulse color={styles.actionText.color} rounded /> : null}
     </Pressable>
   )
@@ -484,7 +503,7 @@ function CalendarEventCard({ activeActionId, colors, event, invitation, isOfflin
   const arrivalTime = event.arrivalTime || invitation?.arrivalTime || ''
   const kickoffTime = event.calendarTime || invitation?.kickoffTime || invitation?.eventStart || ''
   return (
-    <View style={styles.calendarEventCard}>
+    <View style={[styles.calendarEventCard, styles.listSurface]}>
       <Pressable
         accessibilityHint="Opens event details"
         accessibilityLabel={`${event.title}${actionable ? ', response needed' : ''}`}
@@ -600,7 +619,7 @@ export function CalendarScreen({ activeActionId, invitations = [], isOffline, li
   if (selectedEvent) return <CalendarEventDetail activeActionId={activeActionId} event={selectedEvent} invitations={invitations} isOffline={isOffline} onBack={() => setSelectedEventKey('')} onOpenLink={onOpenLink} onOpenResource={onOpenResource} onRespond={onRespond} themeTokens={themeTokens} />
   return (
     <View style={styles.stack}>
-      <View><Text accessibilityRole="header" style={styles.header}>Calendar</Text><Text style={styles.helper}>Training, matches and club events for {link?.playerName || 'your player'}.</Text></View>
+      <View style={styles.featureHeading}><View style={styles.featureIcon}><ParentIcon color={colors.accentText} iconKey="parent.calendar" size={25} /></View><View style={styles.featureCopy}><Text accessibilityRole="header" style={styles.header}>Calendar</Text><Text style={styles.helper}>Training, matches and club events for {link?.playerName || 'your player'}.</Text></View></View>
       <View accessibilityLabel="Calendar view" style={styles.actionRow}>
         <Button compact iconColor={colors.accentText} iconKey="event" label="Agenda" onPress={() => chooseView('agenda')} selected={viewMode === 'agenda'} styles={styles} />
         <Button compact iconColor={colors.accentText} iconKey="action.calendar" label="Month" onPress={() => chooseView('month')} selected={viewMode === 'month'} styles={styles} />
@@ -782,25 +801,25 @@ function MatchStatusBadge({ colors, status, prefix, styles, compact = false }) {
         : tone === 'selected'
           ? { backgroundColor: colors.statusSelectedSurface, color: colors.statusSelected }
           : { backgroundColor: colors.statusMutedSurface, color: colors.statusMuted }
-  return <View accessibilityLabel={`${prefix}: ${status.label}`} style={{ alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 5, borderRadius: 999, paddingHorizontal: compact ? 9 : 11, paddingVertical: compact ? 5 : 7, backgroundColor: badge.backgroundColor }}><ParentIcon color={badge.color} iconKey={status.icon} size={compact ? 14 : 18} /><Text style={[styles.meta, { color: badge.color, fontWeight: '700', ...(compact ? { fontSize: 11, lineHeight: 16 } : {}) }]}>{status.label}</Text></View>
+  return <View accessibilityLabel={`${prefix}: ${status.label}`} style={[{ alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: compact ? 4 : 5, borderRadius: 999, paddingHorizontal: compact ? 6 : 11, paddingVertical: compact ? 5 : 7, backgroundColor: badge.backgroundColor }, compact && styles.fixtureCompactBadge]}><ParentIcon color={badge.color} iconKey={status.icon} size={compact ? 14 : 18} /><Text style={[styles.meta, { color: badge.color, fontWeight: '700' }, compact && styles.fixtureCompactBadgeText]}>{status.label}</Text></View>
 }
 
 function MatchCard({ colors, invitations, link, match, onOpen, scorerGuide, styles }) {
   const invitation = getParentMatchAttendanceInvitation(match, invitations, link)
   const isCompleted = match.status === 'full_time'
   return (
-    <View style={styles.card}>
-      {!match.isFanView && !isCompleted ? <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}><MatchStatusBadge compact colors={colors} status={getParentMatchAvailability(match, invitation, link)} prefix="Availability" styles={styles} /><MatchStatusBadge compact colors={colors} status={getParentMatchSquadStatus(match)} prefix="Match squad" styles={styles} /></View> : null}
+    <View style={styles.listSurface}>
+      {!match.isFanView && !isCompleted ? <View style={styles.fixtureBadges}><MatchStatusBadge compact colors={colors} status={getParentMatchAvailability(match, invitation, link)} prefix="Availability" styles={styles} /><MatchStatusBadge compact colors={colors} status={getParentMatchSquadStatus(match)} prefix="Match squad" styles={styles} /></View> : null}
       <Pressable accessibilityHint={scorerGuide ? 'Opens the scoring controls' : 'Opens Match Day'} accessibilityRole="button" onPress={() => onOpen(match)} style={{ minHeight: 48, gap: 5, paddingVertical: 3 }}>
         <View style={styles.row}>
-          <ParentIcon color={colors.text} iconKey="football" size={20} />
-          {match.status !== 'scheduled' || match.isFanView ? <Text style={styles.pill}>{getParentMatchStatusLabel(match)}</Text> : null}
-          <Text style={[styles.meta, styles.fixtureDate]}>{formatDate(match.matchDate)}</Text>
+          <View style={styles.fixtureStatus}><MaterialIcons accessible={false} color={colors.accentText} name="event" size={14} /><Text style={styles.fixtureStatusText}>{getParentMatchStatusLabel(match)}</Text></View>
+          <Text style={[styles.meta, styles.fixtureDate]}>{formatDateOnly(match.matchDate, 'Date TBC')}</Text>
           <ParentIcon color={colors.accentText} iconKey="action.open" size={22} />
         </View>
         <MatchTeamsLine match={match} clubLogoUrl={resolveParentMobileBranding(link).clubLogoUrl} compact singleLine textStyle={styles.cardTitle} />
-        <View style={styles.row}>
-          <Text style={styles.meta}>{match.kickoffTimeTbc ? 'Time TBC' : formatParentProductTime(match.kickoffTime)} | {getMatchDayShirtChoiceLabel(match.shirtChoice)}</Text>
+        <View style={styles.fixtureListFooter}>
+          <View style={styles.fixtureFooterItem}><MaterialIcons accessible={false} color={colors.accentText} name="schedule" size={14} /><Text style={styles.meta}>{match.kickoffTimeTbc ? 'Time TBC' : formatParentProductTime(match.kickoffTime) || 'Time TBC'}</Text></View>
+          <View style={styles.fixtureFooterItem}><MaterialIcons accessible={false} color={colors.accentText} name="checkroom" size={14} /><Text style={styles.meta}>{getMatchDayShirtChoiceLabel(match.shirtChoice)}</Text></View>
           {scoreVisible(match) ? <Text style={styles.score}>{match.homeScore} - {match.awayScore}</Text> : null}
         </View>
         {scorerGuide ? <ScorerGuidePulse color={colors.accentText} /> : null}
@@ -1357,8 +1376,8 @@ export function MatchdayScreen({ suppressParentFormation = false, activeActionId
         {selectedMatch.isScorer ? <MatchdayAction accessibilityLabel="Back to Matchday" label="Back" iconKey="action.back" onPress={onBack} colors={colors} styles={styles} back /> : null}
         <View style={[styles.featureCard, styles.gameDayHero, selectedMatchIsLive && styles.gameDayHeroLive]}>
           <View style={styles.fixtureBanner}>
-            <Image accessible={false} resizeMode="cover" source={MATCHDAY_STADIUM} style={styles.fixtureStadium} />
-            <MatchTeamsLine match={selectedMatch} clubLogoUrl={resolveParentMobileBranding(link).clubLogoUrl} hero heroLabelBackground={colors.accent} textStyle={styles.fixtureTeam} />
+            <Image accessible={false} resizeMode="cover" source={MATCHDAY_STADIUM} style={styles.fixtureStadium} testID="matchday-stadium-art" />
+            <MatchTeamsLine match={selectedMatch} clubLogoUrl={resolveParentMobileBranding(link).clubLogoUrl} hero textStyle={styles.fixtureTeam} />
           </View>
           {['cancelled', 'postponed'].includes(selectedMatch.status) ? <Text style={styles.pill}>{getParentMatchStatusLabel(selectedMatch)}</Text> : null}
           <View accessibilityLabel="Match information" style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 6 }}>
@@ -1375,7 +1394,7 @@ export function MatchdayScreen({ suppressParentFormation = false, activeActionId
             ['location-on', fixtureVenue || 'Location not shared'],
           ].map(([icon, label]) => <View key={icon} style={styles.fixtureMeta}>
             <MaterialIcons color={colors.accentText} name={icon} size={18} />
-            <Text selectable={icon === 'location-on'} style={[styles.body, { flex: 1 }]}>{label}</Text>
+            <Text selectable={icon === 'location-on'} style={styles.fixtureMetaText}>{label}</Text>
           </View>)}
           {selectedMatchIsLive ? <Text style={styles.liveSync}>Live sync on</Text> : null}
           {matchStarted ? <View style={styles.card}>
@@ -1389,19 +1408,21 @@ export function MatchdayScreen({ suppressParentFormation = false, activeActionId
           {selectedMatchIsLive && !selectedMatch.isFanView ? <LiveMatchFollowAction role="parent" matchId={selectedMatch.id} parentLinkId={link?.id} textStyle={styles.body} /> : null}
           {selectedMatchIsLive && selectedMatch.isFanView ? <LiveMatchFollowAction role="parent" matchId={selectedMatch.id} stopOnly textStyle={styles.body} /> : null}
           {!selectedMatch.isFanView && !isCompleted ? <View style={styles.section}>
-            <View style={[styles.row, { alignItems: 'flex-start', gap: 12 }]}>
-              <View style={{ gap: 6, flexBasis: 130, flexGrow: 1 }}>
+            <View style={styles.fixtureResponseColumns}>
+              <View style={styles.fixtureResponseColumn}>
                 <Text style={styles.fieldLabel}>Availability</Text>
-                <MatchStatusBadge colors={colors} status={getParentMatchAvailability(selectedMatch, attendanceInvitation, link, now)} prefix="Availability" styles={styles} />
-                {canChangeAvailability && onRespond ? <Pressable accessibilityLabel={availabilityOpen ? 'Close availability response' : 'Change availability'} accessibilityRole="button"
-                  accessibilityState={{ expanded: availabilityOpen, disabled: isOffline || Boolean(activeActionId) }}
-                  disabled={isOffline || Boolean(activeActionId)} onPress={() => setAvailabilityOpenKey(availabilityOpen ? '' : availabilityKey)}
-                  style={{ minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-                  <Text style={[styles.body, { color: colors.accentText, fontWeight: '700' }]}>{availabilityOpen ? 'Done' : 'Change'}</Text>
-                  <ParentIcon color={colors.accentText} iconKey="action.open" size={20} />
-                </Pressable> : null}
+                <View style={styles.fixtureResponseRow}>
+                  <MatchStatusBadge colors={colors} status={getParentMatchAvailability(selectedMatch, attendanceInvitation, link, now)} prefix="Availability" styles={styles} />
+                  {canChangeAvailability && onRespond ? <Pressable accessibilityLabel={availabilityOpen ? 'Close availability response' : 'Change availability'} accessibilityRole="button"
+                    accessibilityState={{ expanded: availabilityOpen, disabled: isOffline || Boolean(activeActionId) }}
+                    disabled={isOffline || Boolean(activeActionId)} onPress={() => setAvailabilityOpenKey(availabilityOpen ? '' : availabilityKey)}
+                    style={{ minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+                    <Text style={styles.fixtureStatusText}>{availabilityOpen ? 'Done' : 'Change'}</Text>
+                    <ParentIcon color={colors.accentText} iconKey="action.open" size={20} />
+                  </Pressable> : null}
+                </View>
               </View>
-              <View style={{ flexBasis: 130, flexGrow: 1, gap: 6 }}>
+              <View style={[styles.fixtureResponseColumn, styles.fixtureResponseSquad]}>
                 <Text style={styles.fieldLabel}>Match squad</Text>
                 <MatchStatusBadge colors={colors} status={getParentMatchSquadStatus(selectedMatch)} prefix="Match squad" styles={styles} />
               </View>
@@ -1479,9 +1500,13 @@ export function MatchdayScreen({ suppressParentFormation = false, activeActionId
   }
   return (
     <View style={styles.stack}>
-      <View><Text accessibilityRole="header" style={styles.header}>Matchday</Text><Text style={styles.helper}>Shared fixtures and Game Day for {link?.playerName || 'your player'}.</Text></View>
+      <View style={styles.section}>
+        <ClubFeatureWave color={colors.accentText} />
+        <View style={styles.featureHeading}><View style={styles.featureIcon}><ParentIcon color={colors.accentText} iconKey="football" size={26} /></View><Text accessibilityRole="header" style={styles.header}>Matchday</Text></View>
+        <Text style={styles.helper}>Shared fixtures and game day updates for {link?.playerName || 'your player'}.</Text>
+      </View>
       {getParentScorerMatches(resource.items).map((match) => <View key={`scoring:${match.id}`} style={styles.section}><Text style={styles.cardTitle}>{getMatchDayDisplayName(match)}</Text><Button label={getParentScorerActionLabel(match)} onPress={() => onOpen(match)} scorerGuide={isParentScorerGuideMatch(match, scorerGuideDate)} styles={styles} /></View>)}
-      <View style={styles.actionRow}><Button label={`Coming up (${matchGroups.upcoming.length})`} onPress={() => setMatchSection('upcoming')} outline={matchSection !== 'upcoming'} styles={styles} /><Button label={`History (${matchGroups.recent.length})`} onPress={() => setMatchSection('recent')} outline={matchSection !== 'recent'} styles={styles} /></View>
+      <View style={styles.fixtureFilterRow}><Button buttonStyle={styles.fixtureFilter} labelStyle={styles.fixtureFilterText} label={`Coming up (${matchGroups.upcoming.length})`} onPress={() => setMatchSection('upcoming')} outline={matchSection !== 'upcoming'} styles={styles} /><Button buttonStyle={styles.fixtureFilter} labelStyle={styles.fixtureFilterText} label={`History (${matchGroups.recent.length})`} onPress={() => setMatchSection('recent')} outline={matchSection !== 'recent'} styles={styles} /></View>
       <ResourceState emptyCopy="There are no Parent-visible match cards for this player." {...resource} styles={styles} />
       {!resource.loading && resource.items.length > 0 && visibleMatches.length === 0 ? <Text style={styles.empty}>No matches are in this section.</Text> : null}
       {visibleMatches.map((match) => <MatchCard colors={colors} invitations={invitations} link={link} key={match.id} match={match} onDismiss={onDismiss} onOpen={onOpen} scorerGuide={isParentScorerGuideMatch(match, scorerGuideDate)} styles={styles} />)}
@@ -1507,7 +1532,7 @@ function ParentMatchReportCard({ colors, isDownloading = false, match, onDownloa
   const goalScorerLines = useMemo(() => buildCompletedMatchGoalScorerLines(match, report.activeGoals), [match, report.activeGoals])
   const activeEvents = getParentMatchTimeline(match)
   return (
-    <View style={styles.card}>
+    <View style={styles.listSurface}>
       <Pressable accessibilityLabel={expanded ? 'Hide match report' : 'View match report'} accessibilityRole="button" accessibilityState={{ expanded }} onPress={() => setExpanded((current) => !current)} style={styles.compactRow}><ParentIcon color={colors.text} iconKey="football" size={34} /><View style={styles.compactCopy}><View style={styles.row}><Text style={styles.pill}>Full time</Text><Text style={styles.meta}>{formatDate(match.matchDate)}</Text></View><Text style={styles.cardTitle}>{getMatchDayDisplayName(match)}</Text></View><Text style={styles.score}>{report.result.finalScore}</Text><ParentIcon color={colors.accentText} iconKey={expanded ? 'keyboard-arrow-up' : 'keyboard-arrow-down'} size={22} /></Pressable>
       {goalScorerLines.length ? <View accessibilityLabel="Goal scorers" style={{ gap: 3, paddingTop: 2 }}>{goalScorerLines.map((line) => <Text key={`${line.teamName}:${line.label}`} style={styles.meta}>{line.teamLabel ? `${line.teamLabel}: ` : ''}{line.label} {line.minutes.join(', ')}</Text>)}</View> : null}
       {report.result.shootoutScore ? <Text style={styles.meta}>Shootout: {report.result.shootoutScore}{report.result.shootoutWinner ? ` | ${report.result.shootoutWinner} won` : ''}</Text> : null}
@@ -1598,7 +1623,7 @@ export function DevelopmentScreen({ isOffline, onDismiss, onOpen, onPrepare, pen
       <View><Text accessibilityRole="header" style={styles.header}>Development</Text><Text style={styles.helper}>Development history shared for the selected player.</Text></View>
       {isOffline ? <Text style={styles.warning}>Report details are saved for reading. Sharing a PDF needs a connection.</Text> : null}
       <ResourceState emptyCopy="No delivered Development reports are available for this player." {...resource} styles={styles} />
-      {resource.items.map((report) => <View key={report.id} style={styles.card}><Pressable accessibilityLabel="View Development report" accessibilityRole="button" onPress={() => setSelectedReportId(report.id)} style={styles.compactRow}><ParentIcon color={colors.accentText} iconKey="development" size={30} /><View style={styles.compactCopy}><View style={styles.row}><Text style={styles.pill}>{report.deliveryLabel || 'Shared'}</Text><Text style={styles.meta}>{formatDate(report.recordDate || report.finalizedAt)}</Text></View><Text style={styles.cardTitle}>{report.form?.name || 'Development report'}</Text>{report.overallScore == null ? null : <Text style={styles.meta}>Overall {report.overallScore} / {report.overallMaxScore || 10}</Text>}</View><ParentIcon color={colors.accentText} iconKey="action.open" size={22} /></Pressable><View style={styles.row}><Text style={styles.meta}>Open report</Text>{onDismiss ? <IconAction accessibilityLabel="Hide Development report" colors={colors} iconKey="action.hide" onPress={() => onDismiss(report)} styles={styles} /> : null}</View></View>)}
+      {resource.items.map((report) => <View key={report.id} style={styles.listSurface}><Pressable accessibilityLabel="View Development report" accessibilityRole="button" onPress={() => setSelectedReportId(report.id)} style={styles.compactRow}><ParentIcon color={colors.accentText} iconKey="development" size={30} /><View style={styles.compactCopy}><View style={styles.row}><Text style={styles.pill}>{report.deliveryLabel || 'Shared'}</Text><Text style={styles.meta}>{formatDate(report.recordDate || report.finalizedAt)}</Text></View><Text style={styles.cardTitle}>{report.form?.name || 'Development report'}</Text>{report.overallScore == null ? null : <Text style={styles.meta}>Overall {report.overallScore} / {report.overallMaxScore || 10}</Text>}</View><ParentIcon color={colors.accentText} iconKey="action.open" size={22} /></Pressable><View style={styles.row}><Text style={styles.meta}>Open report</Text>{onDismiss ? <IconAction accessibilityLabel="Hide Development report" colors={colors} iconKey="action.hide" onPress={() => onDismiss(report)} styles={styles} /> : null}</View></View>)}
     </View>
   )
 }
@@ -1667,7 +1692,7 @@ export function ResourcesScreen({ suppressParentFormation = false, formationBoar
       {resourceGroups.map(group => <View key={group.category} style={styles.resourceGroup}>
         <Text accessibilityRole="header" style={styles.cardTitle}>{group.label}</Text>
         {group.resources.map(item => <View key={item.id} style={styles.featureCard}>
-          <Pressable accessibilityRole="button" accessibilityState={{ disabled: isOffline }} disabled={isOffline} onPress={() => onOpen(item)} style={styles.compactRow}>
+          <Pressable accessibilityRole="button" accessibilityState={{ disabled: isOffline }} disabled={isOffline} onPress={() => onOpen(item)} style={[styles.compactRow, styles.resourceLinkRow]}>
             <View style={styles.featureIcon}><ParentIcon color={colors.accentText} iconKey={item.category === 'training' ? 'parent.training' : item.category === 'match_day' ? 'football' : item.category === 'development' ? 'development' : 'resource'} size={25} /></View>
             <View style={styles.compactCopy}><Text style={styles.cardTitle}>{getResourceDisplayTitle(item)}</Text><Text style={styles.meta}>{group.label}</Text></View>
             <ParentIcon color={colors.accentText} iconKey="action.open" size={22} />
@@ -1745,14 +1770,14 @@ export function ChatScreen({ activeActionId, connectionUnverified = false, invit
   }
   return (
     <View style={styles.chatScreen}>
-      <View style={styles.chatHeader}><Text accessibilityRole="header" style={styles.header}>Chat</Text><Text style={styles.helper}>Conversations for {link?.playerName || 'your player'}.</Text>{isOffline ? <Text style={styles.warning}>{connectionUnverified ? 'Connection or Chat access could not be confirmed. Sending and deleting are unavailable.' : 'Saved conversations remain readable. Sending and deleting need a connection.'}</Text> : null}</View>
+      <View style={styles.chatHeader}><View style={styles.featureHeading}><View style={styles.featureIcon}><ParentIcon color={colors.accentText} iconKey="message" size={25} /></View><View style={styles.featureCopy}><Text accessibilityRole="header" style={styles.header}>Chat</Text><Text style={styles.helper}>Conversations for {link?.playerName || 'your player'}.</Text></View></View>{isOffline ? <Text style={styles.warning}>{connectionUnverified ? 'Connection or Chat access could not be confirmed. Sending and deleting are unavailable.' : 'Saved conversations remain readable. Sending and deleting need a connection.'}</Text> : null}</View>
       <ResourceState emptyCopy="No Parent Chat rooms are available for this player." error={rooms.error} items={sortedRooms} loading={rooms.loading} styles={styles} />
       <FlatList
         contentContainerStyle={styles.chatRoomContent}
         data={sortedRooms}
         keyExtractor={(room) => String(room.id)}
         renderItem={({ item: room }) => (
-          <View style={styles.card}>
+          <View style={styles.listSurface}>
             <Pressable accessibilityRole="button" onPress={() => onOpenRoom(room)} style={styles.compactRow}>
               <ParentIcon color={room.unreadCount ? colors.accentText : colors.muted} iconKey="message" size={30} />
               <View style={styles.compactCopy}><View style={styles.row}><Text style={styles.pill}>{getParentChatRoomTypeLabel(room.type)}</Text>{room.unreadCount ? <Text style={styles.stat}>{room.unreadCount}</Text> : null}</View><Text style={styles.cardTitle}>{room.title}</Text>{getParentChatRoomContext(room) ? <Text numberOfLines={1} style={styles.meta}>{getParentChatRoomContext(room)}</Text> : null}<Text numberOfLines={1} style={styles.body}>{room.latestMessage || 'No messages yet'}</Text></View>
@@ -1795,7 +1820,7 @@ export function MoreScreen({ onOpen, themeTokens, unansweredInvites, unansweredP
   return <View style={styles.stack}>
     <Text accessibilityRole="header" style={styles.header}>More</Text>
     {allowed.has('partners') ? <PartnersBanner onPress={() => onOpen('partners')} /> : null}
-    {allowed.has('profile') ? <Pressable accessibilityLabel="Profile, your name and account" accessibilityRole="button" onPress={() => onOpen('profile')} style={({ pressed }) => [styles.compactRow, { borderBottomColor: colors.border, borderBottomWidth: 1, paddingHorizontal: 8 }, pressed && { opacity: 0.72 }]}><ParentIcon color={colors.accentText} iconKey="settings.account" size={26} /><View style={styles.compactCopy}><Text style={styles.cardTitle}>Profile</Text><Text style={styles.helper}>Your name and account</Text></View><ParentIcon color={colors.accentText} iconKey="action.open" size={22} /></Pressable> : null}
+    {allowed.has('profile') ? <Pressable accessibilityLabel="Profile, your name and account" accessibilityRole="button" onPress={() => onOpen('profile')} style={({ pressed }) => [styles.listSurface, styles.compactRow, pressed && { opacity: 0.72 }]}><ParentIcon color={colors.accentText} iconKey="settings.account" size={26} /><View style={styles.compactCopy}><Text style={styles.cardTitle}>Profile</Text><Text style={styles.helper}>Your name and account</Text></View><ParentIcon color={colors.accentText} iconKey="action.open" size={22} /></Pressable> : null}
     <View style={styles.moreGrid}>{items.filter(([key]) => allowed.has(key)).map(([key, iconKey, title, copy, count]) => <Pressable accessibilityLabel={`${title}, ${copy}`} accessibilityRole="button" key={key} onPress={() => onOpen(key)} style={({ pressed }) => [styles.moreItem, pressed && { opacity: 0.72 }]}><View style={styles.moreIconWrap}><ParentIcon color={colors.accentText} iconKey={iconKey} size={31} />{count ? <View accessibilityLabel={`${count} new`} style={styles.moreIconBadge}><Text style={styles.moreIconBadgeText}>{count > 99 ? '99+' : count}</Text></View> : null}</View><Text style={styles.moreItemTitle}>{title}</Text><Text style={styles.moreItemCopy}>{copy}</Text></Pressable>)}</View>
   </View>
 }
