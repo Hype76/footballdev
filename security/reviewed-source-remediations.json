@@ -771,7 +771,7 @@
   "implementationHashes": {
     "scripts/security-supply-chain-gate.mjs": "9ef3c2fa9949a270eba3b8d7eefc2f9e303e8fbb2fda3921b2e6e42280e733fc",
     "scripts/security-apply-reviewed-backports.mjs": "ba146641cebf4a835337602d942d3fe9e432dfb44cd178e64e7e5bcabe2cb7b1",
-    "scripts/security-verify-reviewed-backports.mjs": "a290f639ad33927d18485e140e43c45265ac99b5583d0b21eafe97a23546577c",
+    "scripts/security-verify-reviewed-backports.mjs": "c52da33b8baa21e47f35d6dc818b04b0c3d9c265ac7fab4811ece706284072a4",
     "security/patches/braces-3.0.3.patch": "e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699",
     "security/patches/node-forge-1.4.0.patch": "2de065ac998bf58917a14d0935112d97ec2957ac41b5f06958d500934f188ed4",
     "security/patches/reviewed-source-manifest.json": "0507b50c4ce7a772508ed3a0d18290548bb1fd48802db4599a5ec8e47e2eed49",
@@ -2420,7 +2420,7 @@
       "supabase/migrations/20261104152209_optional_match_starting_squad_playtime.sql": "a7e700343ff20113f22480a3a4e98c14867e9cf6d91ccb193fbdff2a4a43040a",
       "tests/fan-player-stats.test.mjs": "5ae7465a3a459f43770f973256dd77bd9150716ea61aa766da271aa81442fff6",
       "tests/formation-board-foundation-25a-pglite.test.mjs": "7e7fff69a76539a79295742d68c86d465ad69bbbac327112887d72d5c094a558",
-      "apps/coach-mobile/src/useCoachOfflinePreparation.js": "fc6d6ffc5964b4c74f591cc542d53e9067aa3f14c96bc2e68357c8deb5f9b5b3",
+      "apps/coach-mobile/src/useCoachOfflinePreparation.js": "206dc0abbfd2a3646a2f63afce9128b6739c92e5728775d6e332cfea21d03d3b",
       "netlify/functions/lib/_match-day-native-message.js": "7b25c47095de495c750e1f1982c515a7ceaebc5548dbb6d73dd98b2299da595c",
       "src/lib/matchday-lifecycle.js": "78ab56bad1487f038ed8a7c40ca290cb142eea899e9b1632679299dd0a46c64b",
       "supabase/migrations/20261106102318_end_unfinished_shootout.sql": "0afa163f9a0a05fed49bf6c810ca4539e9625f8705fa392727cb0b2e38b1a9a1",
@@ -2650,7 +2650,7 @@
       "tests/adult-player-both-contact.test.mjs": "d32a6b09e2a25f00dd3861b1d5ea05851971624374fa53763b199dd6faf14a46",
       "apps/coach-mobile/src/CoachOfflineReadiness.js": "9bdb091af22c5edc504ca01643a35d25b042b89e5783f01f9c78d1b85ed80971",
       "tests/coach-manual-sync-browser.mjs": "5502c5703ef415b009cd2557f4884cddca4b3e3d7a5ef4c715816b699e6855b1",
-      "apps/coach-mobile/src/coachAccountOfflinePreparation.js": "cd9a422120673f33ac8a5dc3c30a504a863d94e6d65c791eb098edd6a1f04122",
+      "apps/coach-mobile/src/coachAccountOfflinePreparation.js": "1c8d249058474227854cd97a4c1f3d2ecae9aa1e74d8c8eb1f8c02288f732ce2",
       "apps/coach-mobile/src/coachAccountOfflineService.js": "0e0e38bdb3e0213efc775956854adda80a8383d045a5494ac325b5bd867960f5",
       "apps/coach-mobile/src/coachOfflineAccountSession.js": "954ab2eb5290c753bf6d2bbc2ad0928a191fd1d4a9eb599627b7d3dfa2cfc811",
       "apps/coach-mobile/src/coachOfflineFormationView.js": "ddf4fde40f57eab9a7fd393f90b494af4951fc23262a69513831c8dbfd58bfc3",
@@ -4178,7 +4178,7 @@
     },
     "toolingRequalification20261117": "Qualify official minimatch 11.0.9 JavaScript tooling across all three scopes. Lock changes are limited to minimatch; direct and native dependencies, Expo runtime, reviewed package patches and audit rules are retained."
   },
-  "releasePreparationSha256": "e39bed000d53911c571d89810c3acb4690641e85ecb5897afac5e687ecb1c064",
+  "releasePreparationSha256": "f7da774e5a283759243cfcdfada7c08a05bffc62fb4ebe75cb4a198f5c9c6dae",
   "rootOnlyProposalSha256": "45c3b7352c7328c84982e114b7e87e09cf79514d02d102297ae75ec0925812eb",
   "remediationMode": "maintained-source-fixes",
   "officialCompatibilityDependencies": [

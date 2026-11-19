@@ -13,7 +13,8 @@ export function useCoachOfflinePreparation({ user, contexts = null, context = nu
   const availableContexts = useMemo(() => contexts || (context ? [context] : []), [contexts, context])
   const latest = useRef({ user, contexts: availableContexts })
   useEffect(() => { latest.current = { user, contexts: availableContexts } }, [user, availableContexts])
-  const scopeKey = coachPreparationScopeKey(user?.id, user?.isOfflineProfile ? 'offline' : 'online', availableContexts)
+  const userId = user?.id
+  const scopeKey = coachPreparationScopeKey(userId, user?.isOfflineProfile ? 'offline' : 'online', availableContexts)
   const eligible = Boolean(enabled && user?.id && !user.isOfflineProfile && availableContexts.some(item => item.clubId))
   const selectedId = useRef('')
   const refreshHomeRef = useRef(refreshActiveHome)
@@ -47,10 +48,10 @@ export function useCoachOfflinePreparation({ user, contexts = null, context = nu
     const interval = setInterval(refreshWhenIdle, 30_000)
     const subscription = AppState.addEventListener('change', state => {
       if (state === 'active') schedule()
-      else { runner.pause(); notifyCoachOfflinePreparation(user.id) }
+      else { runner.pause(); notifyCoachOfflinePreparation(userId) }
     })
     return () => { runner.stop(); clearTimeout(idleTimer); clearInterval(interval); subscription.remove() }
-  }, [scopeKey, eligible])
+  }, [scopeKey, eligible, userId])
 }
 
 export async function syncCoachOfflineNow(user, context) {
