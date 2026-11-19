@@ -2,7 +2,7 @@ import { getMatchTimerElapsedSeconds } from '../../../src/lib/matchday-timer.js'
 
 export const MATCH_DAY_OUTBOX_LIMIT = 200
 export const MATCH_DAY_OFFLINE_MAX_AGE = 24 * 60 * 60 * 1000
-export const OFFLINE_MATCH_TIMER_ACTIONS = new Set(['start', 'pause', 'hydration', 'half_time', 'resume', 'full_time'])
+export const OFFLINE_MATCH_TIMER_ACTIONS = new Set(['start', 'pause', 'hydration', 'half_time', 'resume', 'full_time', 'conclude'])
 const activeSyncs = new Set()
 const goalValidationErrors = new Set([
   'Choose a linked scorer or explicitly choose Other.',
@@ -48,7 +48,8 @@ export function projectMatchDayCommand(match, command) {
     const action = payload.action
     const at = Date.parse(capturedAt)
     const elapsed = getMatchTimerElapsedSeconds(match, at)
-    if (action === 'start') Object.assign(next, { status: 'live', currentMatchPhase: 'first_half', timerStatus: 'running', timerElapsedSeconds: 0, timerStartedAt: capturedAt, phaseStartedAt: capturedAt, timerPausedAt: '' })
+    if (action === 'conclude') Object.assign(next, { concludedAt: capturedAt })
+    else if (action === 'start') Object.assign(next, { status: 'live', currentMatchPhase: 'first_half', timerStatus: 'running', timerElapsedSeconds: 0, timerStartedAt: capturedAt, phaseStartedAt: capturedAt, timerPausedAt: '' })
     else if (action === 'resume') {
       const halfTime = match.status === 'half_time' || match.timerStatus === 'half_time'
       const fromFullTime = match.timerStatus === 'full_time'
@@ -86,6 +87,9 @@ export function appendMatchDayCommand(journal, { id, kind, payload, capturedAt =
   if (journal.pending.length >= MATCH_DAY_OUTBOX_LIMIT) throw new Error('The saved action queue is full. Reconnect to sync before recording more.')
   if (!['event', 'score', 'timer'].includes(kind) || kind === 'timer' && !OFFLINE_MATCH_TIMER_ACTIONS.has(payload.action)) throw new Error('This action needs an online connection.')
   if (kind === 'score' && ![payload.homeScore, payload.awayScore].every(value => Number.isInteger(value) && value >= 0 && value <= 999)) throw new Error('Enter valid whole-number scores.')
+  const projected = projectMatchDayOutbox(journal)
+  if (projected.concludedAt) throw new Error('This fixture is closed.')
+  if (kind === 'timer' && payload.action === 'conclude' && projected.status !== 'full_time') throw new Error('Record full time before concluding this match.')
   const previous = journal.pending.at(-1)
   if (previous && time < Date.parse(previous.capturedAt)) throw new Error('The device clock changed. Check its time before recording another action.')
   const command = { id, matchId: journal.baseMatch.id, kind, payload: JSON.parse(JSON.stringify(payload)), capturedAt,
