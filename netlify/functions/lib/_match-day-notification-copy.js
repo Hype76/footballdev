@@ -119,7 +119,7 @@ function getEventCopy({ match, notificationType, event }) {
   }
 }
 
-function getCompactEventDetail(notificationType, event) {
+function getCompactEventDetail(notificationType, event, copy) {
   const playerName = normalizeText(event?.scorer_name || event?.scorerName || event?.player_name || event?.playerName)
   const playerShirt = normalizeText(event?.scorer_shirt_number || event?.scorerShirtNumber || event?.player_shirt_number || event?.playerShirtNumber)
   const relatedName = normalizeText(event?.assist_name || event?.assistName || event?.player_on_name || event?.playerOnName)
@@ -130,6 +130,11 @@ function getCompactEventDetail(notificationType, event) {
     if (event?.is_own_goal === true || event?.isOwnGoal === true) return `Own goal${playerName || playerShirt ? `: ${scorer}` : ''}${minute}.`
     const assist = relatedName || relatedShirt ? ` Assist: ${formatPerson(relatedName, relatedShirt)}.` : ''
     return `Goal: ${scorer}${minute}.${assist}`
+  }
+  if (['yellow_card', 'red_card'].includes(notificationType) && (playerName || playerShirt)) {
+    const colour = notificationType === 'yellow_card' ? 'Yellow' : 'Red'
+    const heading = copy.category === copy.title ? colour : copy.category
+    return `${heading}: ${formatPerson(playerName, playerShirt)}${formatEventMinute(event)}.`
   }
   if (notificationType === 'substitution') {
     return `Sub: ${formatPerson(playerName, playerShirt)} off, ${formatPerson(relatedName, relatedShirt)} on.`
@@ -143,14 +148,15 @@ export function buildParentMatchDayNotificationCopy({ match, type, event = null 
   const score = getMatchDayDisplayScore(match)
   const notificationType = resolveNotificationType(type, event, match)
   const copy = getEventCopy({ match, notificationType, event })
-  const compactEventDetail = getCompactEventDetail(notificationType, event)
+  const compactEventDetail = getCompactEventDetail(notificationType, event, copy)
   const opponentName = getOpponentName(match)
   const compactScore = `${score} v ${opponentName}`
   const matchId = normalizeText(match?.id) || 'unknown'
   const eventId = normalizeText(event?.id)
   const isCard = ['yellow_card', 'red_card'].includes(notificationType)
+  const detailedScore = isCard && copy.category !== copy.title ? `${matchName}. Score ${score}` : compactScore
   const detailedBody = compactEventDetail
-    ? `${compactEventDetail} ${compactScore}.`
+    ? `${compactEventDetail} ${detailedScore}.`
     : isCard
       ? `${copy.detail}. ${matchName}. Score ${score}.`
     : notificationType === 'full_time'

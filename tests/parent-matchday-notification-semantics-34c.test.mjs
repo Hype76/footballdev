@@ -84,7 +84,7 @@ test('goal copy names recorded players at every detail level while other minimal
   }
 })
 
-test('card notifications identify the recorded side regardless of venue without player details', () => {
+test('card notifications identify the recorded side while minimal alerts stay private', () => {
   for (const homeAway of ['home', 'away']) {
     for (const [side, team] of [['club', 'FP TEST U16'], ['opponent', 'Riverside Juniors']]) {
       for (const colour of ['yellow', 'red']) {
@@ -93,10 +93,12 @@ test('card notifications identify the recorded side regardless of venue without 
           type: 'event',
           event: { event_type: `${colour}_card`, team_side: side, player_name: 'Private Player Name', player_shirt_number: 7 },
         })
+        const teamLabel = `${colour === 'yellow' ? 'Yellow' : 'Red'} card for ${team}`
+        assert.ok(copy.minimalBody.startsWith(`${teamLabel}.`))
+        assert.ok(copy.detailedBody.startsWith(`${teamLabel}: Private Player Name #7`))
+        assert.doesNotMatch(copy.minimalBody, /Private Player Name|#7/)
         for (const body of [copy.minimalBody, copy.detailedBody]) {
-          assert.ok(body.includes(`${colour === 'yellow' ? 'Yellow' : 'Red'} card for ${team}.`))
           assert.ok(body.includes('FP TEST U16') && body.includes('Riverside Juniors'))
-          assert.doesNotMatch(body, /Private Player Name|#7/)
         }
       }
     }

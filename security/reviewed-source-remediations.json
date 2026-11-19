@@ -771,7 +771,7 @@
   "implementationHashes": {
     "scripts/security-supply-chain-gate.mjs": "9ef3c2fa9949a270eba3b8d7eefc2f9e303e8fbb2fda3921b2e6e42280e733fc",
     "scripts/security-apply-reviewed-backports.mjs": "ba146641cebf4a835337602d942d3fe9e432dfb44cd178e64e7e5bcabe2cb7b1",
-    "scripts/security-verify-reviewed-backports.mjs": "81b82c3ac7d44c8afda83bb86421107bc1c10b1c0f01a015094fb83c968c4808",
+    "scripts/security-verify-reviewed-backports.mjs": "b608126f0a5a3e0e2eb3cbc5579029ee85ac09268f19a92e0c3035c0f8f78ea6",
     "security/patches/braces-3.0.3.patch": "e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699",
     "security/patches/node-forge-1.4.0.patch": "2de065ac998bf58917a14d0935112d97ec2957ac41b5f06958d500934f188ed4",
     "security/patches/reviewed-source-manifest.json": "0507b50c4ce7a772508ed3a0d18290548bb1fd48802db4599a5ec8e47e2eed49",
@@ -2425,7 +2425,7 @@
       "src/lib/matchday-lifecycle.js": "78ab56bad1487f038ed8a7c40ca290cb142eea899e9b1632679299dd0a46c64b",
       "supabase/migrations/20261106102318_end_unfinished_shootout.sql": "0afa163f9a0a05fed49bf6c810ca4539e9625f8705fa392727cb0b2e38b1a9a1",
       "tests/matchday-parent-scorer-hardening.test.mjs": "59868a3d8a4a75b74827e3fd7fb3f66764830dd9c75ca53d9ab39a61ec92e2e8",
-      "tests/parent-matchday-notification-semantics-34c.test.mjs": "29f12a55693c749ef37ffc81c2a2b87664d33bfc7d7afdb3dc2556ee060a9a67",
+      "tests/parent-matchday-notification-semantics-34c.test.mjs": "4f7f86a21dd0ab876d20f16dbbd77e4a52283019403a6520c69a0672badaf198",
       "tests/mobile-convenience-browser.mjs": "f6fdcb9cb8f060afe7e0bc3bff7b5607e49d357ee5f7f515a500c5ef169ab639",
       "tests/mobile-offline-readiness-browser.mjs": "9da4dd92d49a4f37fbd24abc7ba35d2addb73d00242260080cf5724cee9e96a4",
       "supabase/migrations/20261107112041_bound_coach_match_day_command_lock_wait.sql": "d350ba584c4a0a4800d96b75ad69a760f5a9edc91cc677c06802dcc5153883b5",
@@ -2691,7 +2691,7 @@
       "tests/event-invite-status-staff-acceptance-browser.mjs": "dc6cc1283c96ed29814efcdbb508c1039aaac11e1e5f7dd27b1e8512a0367dc4",
       "tests/more-partners-banner-order.test.mjs": "83e16f8e356213c386a267b5ba5e2fac62498aa1bf2ed25666665bc74f60a097",
       "tests/coach-speed-diagnostics-browser.mjs": "35e327fce1960a5096e4f71db5a768072621ba16c00e20e6b15e88adde202133",
-      "netlify/functions/lib/_match-day-notification-copy.js": "432647a3f2a706380ba005266f341180982b2cc262eb4e129a9be3719773819c",
+      "netlify/functions/lib/_match-day-notification-copy.js": "7f140fdc8829ce946d31482aaf4fdbeff1c9eba8961c56ad4d9bdce9517299ff",
       "supabase/migrations/20261119155655_matchday_active_scoring_roster.sql": "9ff5c48654846d5eb51dcd945cd2d7de671015b3796443180c5769172348aee0"
     },
     "externalTrustInputs": [
@@ -4177,7 +4177,7 @@
     },
     "toolingRequalification20261117": "Qualify official minimatch 11.0.9 JavaScript tooling across all three scopes. Lock changes are limited to minimatch; direct and native dependencies, Expo runtime, reviewed package patches and audit rules are retained."
   },
-  "releasePreparationSha256": "7c33f23d212cfde723bda5ea08c737adfec0c4c2e6ccad078b5de5a5b3ef60dd",
+  "releasePreparationSha256": "db0a4ff80fb69862f9746d4914493ea88fd82f11909b1704e9bf6f40fe7a5fb2",
   "rootOnlyProposalSha256": "45c3b7352c7328c84982e114b7e87e09cf79514d02d102297ae75ec0925812eb",
   "remediationMode": "maintained-source-fixes",
   "officialCompatibilityDependencies": [
