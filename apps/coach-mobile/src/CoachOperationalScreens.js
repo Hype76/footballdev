@@ -326,7 +326,7 @@ export function CoachCalendarScreen(props) {
   return <CoachCalendarScoped key={operationalAuthorityScope(props.user, props.context)} {...props} />
 }
 
-function CoachCalendarScoped({ calendarTarget, context, contexts, onNavigate, onQuickActionHandled, onSelectContext, palette, quickAction, user }) {
+function CoachCalendarScoped({ calendarTarget, context, contexts, onNavigate, onQuickActionHandled, onSelectContext, onTabData, palette, quickAction, user }) {
   const styles = useDomainStyles(palette)
   const [resourceEditor, setResourceEditor] = useState(null)
   const [resourceQuery, setResourceQuery] = useState('')
@@ -345,6 +345,8 @@ function CoachCalendarScoped({ calendarTarget, context, contexts, onNavigate, on
   const [form, setForm] = useState(null)
   const [formError, setFormError] = useState('')
   const [loading, setLoading] = useState(true)
+  const [tabDataStatus, setTabDataStatus] = useState('')
+  useEffect(() => { if (tabDataStatus) onTabData?.(tabDataStatus) }, [onTabData, tabDataStatus])
   const [players, setPlayers] = useState([])
   const [resources, setResources] = useState([])
   const [saving, setSaving] = useState(false)
@@ -413,7 +415,7 @@ function CoachCalendarScoped({ calendarTarget, context, contexts, onNavigate, on
     setError(''); setCacheWarning('')
     const recent = reuseFresh && !revalidate && !calendarDenied.current ? peekMobileResource(user, 'coach:calendar') : undefined
     if (recent !== undefined) {
-      hasCalendarSnapshot.current = true; setEvents(recent); setLoading(false)
+      hasCalendarSnapshot.current = true; setEvents(recent); setLoading(false); setTabDataStatus('saved')
     }
     else setLoading(!hasCalendarSnapshot.current)
     setStale(true)
@@ -432,6 +434,7 @@ function CoachCalendarScoped({ calendarTarget, context, contexts, onNavigate, on
       if (Array.isArray(saved?.resources?.calendar)) {
         hasCalendarSnapshot.current = true
         setEvents(saved.resources.calendar)
+        setTabDataStatus('saved')
         setPlayers(Array.isArray(saved.resources.calendarPlayers) ? saved.resources.calendarPlayers : [])
         setResources(Array.isArray(saved.resources.calendarResourceOptions) ? saved.resources.calendarResourceOptions : [])
         setLoading(false)
@@ -444,6 +447,7 @@ function CoachCalendarScoped({ calendarTarget, context, contexts, onNavigate, on
       calendarDenied.current = false
       hasCalendarSnapshot.current = true
       setEvents(rows)
+      setTabDataStatus(recent === undefined ? 'success' : 'saved')
       setLoading(false)
       const [playerResult, resourceResult] = await optionalResults
       if (!isCurrent()) return
@@ -472,6 +476,7 @@ function CoachCalendarScoped({ calendarTarget, context, contexts, onNavigate, on
         resourceRequest.current += 1
         hasCalendarSnapshot.current = false; setEvents([]); setPlayers([]); setResources([]); setSelected(null); setForm(null); setResourceEditor(null); setStale(true)
       }
+      if (!hasCalendarSnapshot.current) setTabDataStatus('error')
       setError(message(loadError, 'Calendar could not be loaded.'))
     } finally {
       if (isCurrent()) setLoading(false)
@@ -974,7 +979,7 @@ export function CoachPlayersScreen(props) {
   return <CoachPlayersScoped key={operationalAuthorityScope(props.user, props.context)} {...props} />
 }
 
-function CoachPlayersScoped({ context, onNavigate, onQuickActionHandled, onRequestScrollTop, palette, quickAction, user }) {
+function CoachPlayersScoped({ context, onNavigate, onQuickActionHandled, onRequestScrollTop, onTabData, palette, quickAction, user }) {
   const styles = useDomainStyles(palette)
   const [players, setPlayers] = useState([])
   const [playerTypeNames, setPlayerTypeNames] = useState(PLAYER_SECTIONS)
@@ -1001,6 +1006,8 @@ function CoachPlayersScoped({ context, onNavigate, onQuickActionHandled, onReque
   const [cacheWarning, setCacheWarning] = useState('')
   const [form, setForm] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [tabDataStatus, setTabDataStatus] = useState('')
+  useEffect(() => { if (tabDataStatus) onTabData?.(tabDataStatus) }, [onTabData, tabDataStatus])
   const [query, setQuery] = useState('')
   const [section, setSection] = useState('all')
   const [saving, setSaving] = useState(false)
@@ -1047,7 +1054,7 @@ function CoachPlayersScoped({ context, onNavigate, onQuickActionHandled, onReque
     const request = ++playersLoadSequence.current
     const isCurrent = () => request === playersLoadSequence.current
     const recent = reuseFresh && !playersDenied.current ? peekMobileResource(user, 'coach:players') : undefined
-    if (recent !== undefined) { hasPlayersSnapshot.current = true; setPlayers(recent); setStale(false); setLoading(false); setError(''); return }
+    if (recent !== undefined) { hasPlayersSnapshot.current = true; setPlayers(recent); setStale(false); setLoading(false); setError(''); setTabDataStatus('saved'); return }
     setError(''); setCacheWarning(''); setLoading(!hasPlayersSnapshot.current); setStale(true)
     const network = readMobileResource(user, 'coach:players', () => getCoachPlayerList(user), { force: !reuseFresh || playersDenied.current })
       .then(value => ({ value }), error => ({ error }))
@@ -1055,7 +1062,7 @@ function CoachPlayersScoped({ context, onNavigate, onQuickActionHandled, onReque
     const { result } = await resolveWithOffline(network, offline, cached => {
       if (!isCurrent()) return
       if (Array.isArray(cached?.resources?.players)) {
-        hasPlayersSnapshot.current = true; setPlayers(cached.resources.players); setLoading(false)
+        hasPlayersSnapshot.current = true; setPlayers(cached.resources.players); setLoading(false); setTabDataStatus('saved')
       }
     })
     if (!isCurrent()) return
@@ -1064,7 +1071,7 @@ function CoachPlayersScoped({ context, onNavigate, onQuickActionHandled, onReque
       const rows = result.value
       playersDenied.current = false
       hasPlayersSnapshot.current = true
-      setPlayers(rows); setStale(false)
+      setPlayers(rows); setStale(false); setTabDataStatus('success')
       await saveCoachOfflineResources(user.id, context, { players: rows }).catch(() => { if (isCurrent()) setCacheWarning('Players are up to date, but this phone could not save an offline copy.') })
     } catch (loadError) {
       if (!isCurrent()) return
@@ -1073,6 +1080,7 @@ function CoachPlayersScoped({ context, onNavigate, onQuickActionHandled, onReque
         playerRequest.current += 1
         hasPlayersSnapshot.current = false; setPlayers([]); setFocusedPlayer(null); setDetail(null); setForm(null); setStale(true)
       }
+      if (!hasPlayersSnapshot.current) setTabDataStatus('error')
       setError(message(loadError, 'Players could not be loaded.'))
     } finally { if (isCurrent()) setLoading(false) }
   }, [context, user])

@@ -1,6 +1,62 @@
 export const COACH_PERFORMANCE_STORAGE_KEY = 'fp.mobile.performance.v1.coach'
 const MAX_SAMPLES = 60
-const ALLOWED_NAMES = new Set(['home', 'home.matches', 'home.sessions', 'home.calendar', 'home.development', 'home.chatRooms', 'home.polls', 'home.invites'])
+export const COACH_TIMED_TABS = Object.freeze({ home: 'Home', calendar: 'Calendar', players: 'Players', matchday: 'Match Day', more: 'More' })
+export const coachTimingClock = () => typeof globalThis.performance?.now === 'function' ? globalThis.performance.now() : Date.now()
+
+export function createCoachTabTiming({ record, now = coachTimingClock, afterFrame = callback => requestAnimationFrame(callback) }) {
+  let current
+  return {
+    begin(route, startedAt = now()) {
+      if (!Object.hasOwn(COACH_TIMED_TABS, route)) return null
+      current?.leave()
+      const hasData = route !== 'more'
+      let screenAt, dataAt, dataStatus
+      let screenQueued = false, dataQueued = false, dataRecorded = false
+      const log = (stage, at, status, since = startedAt) => record({ name: `tab.${route}.${stage}`, durationMs: at - since, status, source: 'tap' })
+      const finishData = () => {
+        if (dataRecorded || screenAt === undefined || dataAt === undefined) return
+        dataRecorded = true
+        log('data', Math.max(screenAt, dataAt), dataStatus, screenAt)
+      }
+      const visit = {
+        screen() {
+          if (current !== visit || screenQueued) return
+          screenQueued = true
+          afterFrame(() => {
+            if (current !== visit) return
+            screenAt = now()
+            log('screen', screenAt, 'success')
+            finishData()
+          })
+        },
+        data(status) {
+          if (current !== visit || !hasData || dataQueued) return
+          dataQueued = true
+          afterFrame(() => {
+            if (current !== visit) return
+            dataAt = now()
+            dataStatus = status
+            finishData()
+          })
+        },
+        leave() {
+          if (current !== visit) return
+          current = null
+          if (screenAt === undefined) log('screen', now(), 'left')
+          if (hasData && !dataRecorded) {
+            const leftAt = now()
+            log('data', leftAt, 'left', screenAt ?? leftAt)
+          }
+        },
+      }
+      current = visit
+      return visit
+    },
+  }
+}
+
+const TAB_NAMES = Object.keys(COACH_TIMED_TABS).flatMap(route => route === 'more' ? [`tab.${route}.screen`] : [`tab.${route}.screen`, `tab.${route}.data`])
+const ALLOWED_NAMES = new Set([...TAB_NAMES, 'home', 'home.matches', 'home.sessions', 'home.calendar', 'home.development', 'home.chatRooms', 'home.polls', 'home.invites'])
 
 export function createCoachPerformanceDiagnostics({ storage, schedule = setTimeout, cancel = clearTimeout, now = () => new Date() }) {
   let samples = []
@@ -17,8 +73,8 @@ export function createCoachPerformanceDiagnostics({ storage, schedule = setTimeo
       durationMs,
       id: String(sample?.id || `${now().getTime()}:${sequence++}`),
       name,
-      source: sample?.source === 'manual' ? 'manual' : 'automatic',
-      status: sample?.status === 'error' ? 'error' : 'success',
+      source: sample?.source === 'manual' || sample?.source === 'tap' ? sample.source : 'automatic',
+      status: ['error', 'saved', 'left'].includes(sample?.status) ? sample.status : 'success',
     })
   }
   const trim = values => values.slice(-MAX_SAMPLES)

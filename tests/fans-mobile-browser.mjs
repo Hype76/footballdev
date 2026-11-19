@@ -85,7 +85,7 @@ window.emailRequests=0;window.fetch=async(_url,options)=>{
  if(body.action==='device_status')return {ok:true,status:200,json:async()=>({registered:window.phoneRegistered===true&&window.registeredPhoneToken===body.token&&window.registeredPhoneAccount===window.user.id})};
  if(body.action==='register_device'){if(window.failPhoneRegistration)return {ok:false,status:503,json:async()=>({message:'Phone registration failed. Try again.'})};window.phoneRegistered=true;window.registeredPhoneToken=body.token;window.registeredPhoneAccount=window.user.id;return {ok:true,status:200,json:async()=>({success:true})}}
  if(body.action==='unregister_device'){if(window.registeredPhoneToken===body.token&&window.registeredPhoneAccount===window.user.id)window.phoneRegistered=false;return {ok:true,status:200,json:async()=>({success:true})}}
- window.readRequests.push(body);const payload=window.responses[body.action]||{};const fail=window.failRead;
+ window.readRequests.push(body);const payload=structuredClone(window.responses[body.action]||{});const fail=window.failRead;
  if(window.delayRead)await new Promise(resolve=>{window.finishRead=resolve});
  return {ok:!fail,status:fail?503:200,json:async()=>fail?{message:'Could not load shared items. Try again.'}:payload};
 };
@@ -94,6 +94,8 @@ window.phoneRequests=[];const appListeners=new Set();AppState.addEventListener=(
 Share.share=async()=>{window.background();return {action:'sharedAction'}};
 function App(){
  const [selectedLinkId,setSelectedLinkId]=useState('first'),[activeTab,setActiveTab]=useState('more'),[moreSection,setMoreSection]=useState('fans'),[key,setKey]=useState(0),[mode,setMode]=useState(ownerPreview?'light':'dark');
+ const [, refreshAuth] = useState(0);
+ window.swapViewerAccount = () => { window.user={...window.user,id:'viewer-second'}; window.rows[0].player_name='Second account player'; refreshAuth(value=>value+1) };
  const [activeActionId,setActiveActionId]=useState('invite:stale'),[notice,setNotice]=useState({message:'stale notice'});
  const parentSyncScopeRef=useRef('parent-test:first'),parentActionScopeRef=useRef(0),requestIdRef=useRef(0);
  const parentLinks=window.user.parentPortalLinks,selectedMobileUser=window.user;
@@ -420,7 +422,9 @@ try {
           await page.getByLabel('Match type: League',{exact:true}).waitFor();
           await page.getByLabel('Surface: 3G',{exact:true}).waitFor();
           await page.getByText('Match timer',{exact:true}).waitFor();
-          assert.equal(await page.getByText('36:00',{exact:true}).count(),1,'Fan detail uses the Parent clock from saved elapsed and start');
+          await page.getByRole('progressbar',{name:'Updating',exact:true}).waitFor({state:'hidden'});
+          await page.getByText('Goal Alex Scorer',{exact:true}).waitFor();
+          assert.equal(await page.getByText(/^(35:59|36:0[0-5])$/).count(),1,'Fan detail uses the Parent clock from saved elapsed and start');
           assert.equal(await page.getByText('Goal Alex Scorer',{exact:true}).locator('..').getByText('Assist: Jamie Assist',{exact:true}).count(),1,'Recorded assist appears on its own line below the Fan goal')
           assert.equal(await page.getByText('Goal Sam Solo',{exact:true}).locator('..').getByText(/^Assist:/).count(),0,'Goals without a recorded assist have no assist line')
           if(mode==='light' && choice==='home') {
@@ -457,8 +461,10 @@ try {
   await button('Back to Fans').click();
   await page.evaluate(()=>{window.delayRead=true});
   await button('Schedule').click();
-  await page.getByRole('progressbar',{name:'Updating',exact:true}).waitFor();
-  assert.equal(await page.getByText('Loading schedule...').count(),0,'Routine loading text stays out of the content layout');
+  await page.getByRole('heading',{name:'Calendar',exact:true}).waitFor();
+  await page.getByText('There are no shared calendar events for this player.').waitFor();
+  await page.waitForFunction(()=>typeof window.finishRead==='function');
+  assert.equal(await page.getByText('Loading schedule...').count(),0,'Cached schedule remains visible while it refreshes');
   await button('Back to Fans').click();
   await page.evaluate(()=>{window.delayRead=false;window.finishRead()});
   await button('Game Day').click();
@@ -736,10 +742,21 @@ try {
       await player.waitFor()
       const corners = await player.evaluate(element => parseFloat(getComputedStyle(element).borderTopLeftRadius))
       assert.ok(corners >= 14, 'Shared active-player styling')
+      const holdRead = () => phone.evaluate(() => { window.finishRead = null; window.delayRead = true })
+      const releaseRead = () => phone.evaluate(() => { window.delayRead = false; window.finishRead() })
+      await holdRead()
       await tab('Calendar').click()
+      await phone.getByRole('heading', { name: 'Calendar', exact: true }).waitFor()
+      await phone.waitForFunction(() => typeof window.finishRead === 'function')
+      assert.equal(await phone.getByText('Shared Tuesday training', { exact: true }).count(), 0)
+      await releaseRead()
       await phone.getByText('Shared Tuesday training', { exact: true }).waitFor()
+      await holdRead()
       await tab('Matchday').click()
       await phone.getByRole('heading', { name: 'Matchday', exact: true }).waitFor()
+      await phone.waitForFunction(() => typeof window.finishRead === 'function')
+      assert.equal(await phone.getByRole('button', { name: /Open Demo FC v Live visitors/ }).count(), 0)
+      await releaseRead()
       await phone.getByRole('button', { name: /Open Demo FC v Live visitors/ }).waitFor()
       assert.equal(await phone.getByRole('button', { name: /Open Demo FC v Next visitors/ }).count(), relationship === 'player' ? 1 : 0)
       await phone.getByRole('button', { name: relationship === 'player' ? /^History/ : /^Results/ }).click()
@@ -751,9 +768,25 @@ try {
       assert.ok(await phone.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'Phone layout stays within the viewport')
       assert.deepEqual(errors, [])
       await phone.screenshot({ path: `${out}/${label}-${relationship}-more.png` })
+      if (relationship === 'player') {
+        await holdRead()
+        await tab('Calendar').click()
+        await phone.getByText('Shared Tuesday training', { exact: true }).waitFor()
+        await phone.waitForFunction(() => typeof window.finishRead === 'function')
+        await phone.evaluate(() => {
+          window.delayRead = false
+          window.swapViewerAccount()
+          window.responses.schedule.schedule[0].title = 'Second account training'
+          window.finishRead()
+        })
+        await phone.getByRole('button', { name: 'Active player Second account player' }).waitFor()
+        await tab('Calendar').click()
+        await phone.getByText('Second account training', { exact: true }).waitFor()
+        assert.equal(await phone.getByText('Shared Tuesday training', { exact: true }).count(), 0, 'Old account data is fenced even when the synthetic connection ID is reused')
+      }
       await phone.close()
     }
-    console.log(`PASS ${label} ${engine.browserType().name()} phone profile: Fan and Player Home, Calendar, Matchday, More and role boundaries.`)
+    console.log(`PASS ${label} ${engine.browserType().name()} phone profile: immediate shells, delayed refresh, account fence, navigation and role boundaries.`)
   }
 } finally {
   if (iosBrowser !== browser) await iosBrowser.close()

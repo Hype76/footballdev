@@ -130,6 +130,7 @@ import { coachTeamLeagueScope, teamLeagueScopeKey } from '../../src/lib/team-lea
 import { useCoachOfflinePreparation } from './src/useCoachOfflinePreparation'
 import { CoachSpeedDiagnostics } from './src/CoachSpeedDiagnostics'
 import { recordCoachPerformanceSample } from './src/coachPerformanceDiagnostics'
+import { coachTimingClock, createCoachTabTiming } from './src/coachPerformanceDiagnosticsCore'
 import { countPendingCoachDevelopmentDrafts, readCoachDevelopmentDrafts } from './src/offline'
 import { subscribeDevelopmentSync } from './src/coachDevelopmentSync'
 import {
@@ -253,7 +254,21 @@ function CoachHome() {
   const [matchdayPlanConfig, setMatchdayPlanConfig] = useState(null)
   const contentScrollRef = useRef(null)
   const [contentScrollable, setContentScrollable] = useState(true)
+  const [tabVisit, setTabVisit] = useState(null)
+  const tabTracker = useMemo(() => createCoachTabTiming({ record: recordCoachPerformanceSample }), [])
   const scrollPageKey = `${user?.id || ''}:${activeContext?.id || ''}:${activeRoute}:${moreRoute}`
+  const currentTabTiming = tabVisit?.key === scrollPageKey ? tabVisit.timing : null
+  useEffect(() => { if (tabVisit && !currentTabTiming) tabVisit.timing.leave() }, [currentTabTiming, tabVisit])
+  useEffect(() => {
+    if (!currentTabTiming) return undefined
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state !== 'active') currentTabTiming.leave()
+    })
+    return () => { subscription.remove(); currentTabTiming.leave() }
+  }, [currentTabTiming])
+  useEffect(() => {
+    if (activeRoute === 'home' && !homeState.loading) currentTabTiming?.data(homeState.error && !homeState.hasSnapshot ? 'error' : homeState.stale ? 'saved' : 'success')
+  }, [activeRoute, currentTabTiming, homeState.error, homeState.hasSnapshot, homeState.loading, homeState.stale])
   const scrollBounds = useMemo(() => ({ ...createCoachScrollBounds((options) => contentScrollRef.current?.scrollTo(options), undefined, setContentScrollable), pageKey: scrollPageKey }), [scrollPageKey])
   const [keyboardVisible, setKeyboardVisible] = useState(Boolean(Keyboard.isVisible?.()))
   const keyboardViewport = useMemo(() => createCoachKeyboardViewport({
@@ -804,6 +819,13 @@ function CoachHome() {
     return true
   }, [activeContext, activeRoute, matchdayPlanConfig, moreRoute, scrollContentToTop])
 
+  const navigateFromTab = useCallback((route) => {
+    const start = coachTimingClock()
+    if (!navigate(route) || (route === activeRoute && !moreRoute)) return
+    const timing = tabTracker.begin(route, start)
+    if (timing) setTabVisit({ key: `${user?.id || ''}:${activeContext?.id || ''}:${route}:`, timing })
+  }, [activeContext?.id, activeRoute, moreRoute, navigate, tabTracker, user?.id])
+
   const closeFormationWorkspace = useCallback(() => {
     const target = formationReturnRef.current
     navigate(target.moreRoute || target.activeRoute || 'home')
@@ -1236,7 +1258,7 @@ function CoachHome() {
             )}
             ref={contentScrollRef}
           >
-            <View collapsable={false} onLayout={scrollBounds.onPageLayout} testID="coach-page-content">
+            <View collapsable={false} onLayout={(event) => { scrollBounds.onPageLayout(event); currentTabTiming?.screen() }} testID="coach-page-content">
             <CoachTeamBrandingSetup
               context={activeContext} user={selectedMobileUser} apiBaseUrl={config.apiBaseUrl}
               palette={palette} prompt={activeRoute === 'home'} refreshUserProfile={refreshUserProfile}
@@ -1291,6 +1313,7 @@ function CoachHome() {
               onSelectContext={selectContext}
               onSelectMore={navigate}
               onSignOut={signOutWithPendingCheck}
+              onTabData={currentTabTiming?.data}
               onToggleBiometrics={toggleBiometrics}
               onToggleAppBadge={toggleAppBadgeEnabled}
               onToggleTheme={toggleTheme}
@@ -1304,7 +1327,7 @@ function CoachHome() {
             </View>
             </View>
           </ScrollView>
-          {!keyboardVisible ? <PrimaryNavigation activeRoute={activeRoute} bottomInset={safeAreaInsets.bottom} navigation={navigation.primary} onNavigate={navigate} platform={Platform.OS} /> : null}
+          {!keyboardVisible ? <PrimaryNavigation activeRoute={activeRoute} bottomInset={safeAreaInsets.bottom} navigation={navigation.primary} onNavigate={navigateFromTab} platform={Platform.OS} /> : null}
           {!keyboardVisible && quickActionVisibility.ready && quickActionVisibility.enabled && !(activeRoute === 'more' && ['invites', 'feedback', 'bug'].includes(moreRoute)) ? <CoachQuickActions actions={quickActions} bottomInset={safeAreaInsets.bottom} onAction={launchQuickAction} palette={palette} userId={user.id} /> : null}
         </KeyboardAvoidingView>
       </SafeAreaView>

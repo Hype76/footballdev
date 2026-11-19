@@ -120,7 +120,7 @@ function FansScreenContent({ embedded = false, themeTokens, themeMode, onBack, s
   const systemTheme = useColorScheme()
   useEffect(() => { let active = true; parentThemePreference.read().then(() => { if (active) setSavedMode(parentThemePreference.peek()) }).catch(() => {}); return () => { active = false } }, [])
   const { user, signOut, refreshUserProfile } = useMobileAuth()
-  const state = useFans({ rpc, request })
+  const state = useFans({ rpc, request, cacheContent: true })
   const { clearView, reload, open } = state
   const parents = (user?.parentPortalLinks || []).filter((p) => p.linkType !== 'fan' && p.linkType !== 'family')
   const [parentId, setParentId] = useState(user?.selectedParentLinkId || parents[0]?.id || '')
@@ -144,7 +144,7 @@ function FansScreenContent({ embedded = false, themeTokens, themeMode, onBack, s
   const [confirm, setConfirm] = useState(null)
   const [ready, setReady] = useState(null)
   const [busy, setBusy] = useState(false)
-  useMobileActivity(state.loading || busy || Boolean(state.view && !state.content && !state.contentError), 'Updating')
+  useMobileActivity(state.loading || busy || state.contentLoading, 'Updating')
   const [convertAccount, setConvertAccount] = useState(null)
   const [formation, setFormation] = useState(null)
   const [section, setSection] = useState('home')
@@ -318,7 +318,7 @@ function FansScreenContent({ embedded = false, themeTokens, themeMode, onBack, s
       <Action label="Back to Fans" icon="action.back" onPress={closeContent} />
       {!viewerShell ? <Text style={styles.label}>{brandSource?.player_name}</Text> : null}
       {state.error && !isTransientConnectionMessage(state.error) ? <Text accessibilityRole="alert" style={styles.error}>{state.error}</Text> : null}
-      {state.contentError && !state.content ? <View><Text accessibilityRole="alert" style={styles.error}>{state.contentError}</Text><Action label="Try again" onPress={() => state.open(state.view.connectionId, state.view.action, state.view.matchId ? { matchId: state.view.matchId } : {})} /></View> : !state.content ? <MobileLoadingStatus message="Loading shared items" /> : <FanContent suppressParentFormation={parents.length > 0} key={`${state.view.connectionId}:${state.view.action}`} connection={brandSource} matchdayPolicy={matchdayPolicy} view={state.view} content={state.content} formation={formation} onCloseFormation={() => setFormation(null)} onOpenResource={openResource} onOpenLink={(url) => run(() => Linking.openURL(url))} onOpen={(action, details) => state.open(state.view.connectionId, action, details)} themeTokens={tokens} />}
+      {state.contentError && !state.content ? <View><Text accessibilityRole="alert" style={styles.error}>{state.contentError}</Text><Action label="Try again" onPress={() => state.open(state.view.connectionId, state.view.action, state.view.matchId ? { matchId: state.view.matchId } : {})} /></View> : !state.content && state.view.matchId ? <View><Action label="Back to Matchday" icon="action.back" onPress={() => state.open(state.view.connectionId, 'matches')} /><Text accessibilityRole="header" style={styles.heading}>Matchday</Text><MobileLoadingStatus message="Loading match" /></View> : !state.content && !['schedule', 'matches'].includes(state.view.action) ? <MobileLoadingStatus message="Loading shared items" /> : <FanContent suppressParentFormation={parents.length > 0} key={`${state.view.connectionId}:${state.view.action}`} connection={brandSource} matchdayPolicy={matchdayPolicy} view={state.view} content={state.content || {}} loading={!state.content} formation={formation} onCloseFormation={() => setFormation(null)} onOpenResource={openResource} onOpenLink={(url) => run(() => Linking.openURL(url))} onOpen={(action, details) => state.open(state.view.connectionId, action, details)} themeTokens={tokens} />}
       <MobileFailureNotice message={state.content && state.contentError ? state.contentError : ''} scopeKey={`${user.id}:${state.view.connectionId}:${state.view.action}`} onRetry={() => state.open(state.view.connectionId, state.view.action, state.view.matchId ? { matchId: state.view.matchId } : {})} />
     </> : <>
     {onBack ? <Action label="Back to Parent app" icon="action.back" onPress={onBack} /> : null}
@@ -444,5 +444,5 @@ function createStyles(tokens) {
 export function FansScreen(props) {
   const activity = useMobileActivity()
   const { user } = useMobileAuth()
-  return activity ? <FansScreenContent {...props} /> : <MobileActivityProvider key={user?.id || 'viewer'}><FansScreenContent {...props} /></MobileActivityProvider>
+  return activity ? <FansScreenContent key={user?.id || 'viewer'} {...props} /> : <MobileActivityProvider key={user?.id || 'viewer'}><FansScreenContent key={user?.id || 'viewer'} {...props} /></MobileActivityProvider>
 }
