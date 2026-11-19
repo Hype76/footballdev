@@ -87,7 +87,7 @@ import { getParentAppBadgeUpdate } from '../mobile-core/src/parentNotificationsC
 import { getParentCalendarEvents, getParentMessages, getParentPolls } from '../mobile-core/src/data'
 import { getParentPortalLinks, getSelectedParentLink, withSelectedParentLink } from '../mobile-core/src/parentLinks'
 import { buildParentCalendarEvents } from '../mobile-core/src/parentCalendarCore'
-import { createParentChatRequestGate, filterDeniedParentChatHistory, isParentAccessDenied, parentCalendarDependencies, resolveParentCalendarRefresh, resolveParentResourceFailure, shouldClearParentChatOnSettlement } from './src/parentRefreshCore'
+import { createParentChatRequestGate, filterDeniedParentChatHistory, isParentAccessDenied, loadParentCalendarAttachments, parentCalendarDependencies, resolveParentCalendarRefresh, resolveParentResourceFailure, shouldClearParentChatOnSettlement } from './src/parentRefreshCore'
 import {
   formatParentProductDateTime,
   formatParentProductTime,
@@ -798,7 +798,7 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
       return { cached: Boolean(cachedView?.cache), failed: cachedView?.cache ? 0 : resourceNames.length }
     }
 
-    const calendarEventResourcesPromise = getParentCalendarEventResources(selectedMobileUser)
+    const calendarEventResourcesPromise = loadParentCalendarAttachments(() => getParentCalendarEventResources(selectedMobileUser))
     const resourcesByOccurrencePromise = calendarEventResourcesPromise.then(buildCalendarResourcesByOccurrence)
     const calendarEventDetailsPromise = getParentCalendarEventDetails(selectedMobileUser)
     const calendarEventDetailsByIdPromise = calendarEventDetailsPromise.then((events) => new Map(

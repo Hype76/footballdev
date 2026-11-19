@@ -6,6 +6,18 @@ export function isParentAccessDenied(error) {
     || /permission denied|not authori[sz]ed|access denied/i.test(String(error?.message || ''))
 }
 
+export async function loadParentCalendarAttachments(load) {
+  try {
+    return await load()
+  } catch (error) {
+    // The Resource Library is optional for Calendar. A missing plan entitlement
+    // is distinct from a denied child link, which must still clear cached data.
+    if (Number(error?.status || error?.statusCode) === 403
+      && String(error?.message || '').trim() === 'Resource library is not included in your current plan.') return []
+    throw error
+  }
+}
+
 export function resolveParentResourceFailure(current, error, fallback) {
   const denied = isParentAccessDenied(error)
   return { error: denied ? 'Your current access does not allow this information to be shown.' : fallback, items: denied ? [] : current.items, loading: false }

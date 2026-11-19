@@ -2,11 +2,19 @@ import { readFileSync } from 'node:fs'
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { runPrioritizedMobileLoads } from '../apps/mobile-core/src/mobileLoadCoordinator.js'
-import { createParentChatRequestGate, discardDeniedParentCache, filterDeniedParentChatHistory, isParentAccessDenied, parentCalendarDependencies, resolveParentCalendarRefresh, resolveParentResourceFailure, shouldClearParentChatOnSettlement } from '../apps/parent-mobile/src/parentRefreshCore.js'
+import { createParentChatRequestGate, discardDeniedParentCache, filterDeniedParentChatHistory, isParentAccessDenied, loadParentCalendarAttachments, parentCalendarDependencies, resolveParentCalendarRefresh, resolveParentResourceFailure, shouldClearParentChatOnSettlement } from '../apps/parent-mobile/src/parentRefreshCore.js'
 
 const ok = (value) => ({ status: 'fulfilled', value })
 const failed = { status: 'rejected', reason: new Error('offline') }
 const build = (results) => [...results.calendar.value, ...results.invitations.value, ...results.matches.value]
+
+test('optional Calendar attachments tolerate only the explicit plan exclusion', async () => {
+  const denial = (message, status = 403) => Object.assign(new Error(message), { status })
+  assert.deepEqual(await loadParentCalendarAttachments(async () => { throw denial('Resource library is not included in your current plan.') }), [])
+  for (const error of [denial('Access denied'), denial('Parent plan access could not be verified.'), denial('Resource library is not included in your current plan.', 500)]) {
+    await assert.rejects(loadParentCalendarAttachments(async () => { throw error }), (caught) => caught === error)
+  }
+})
 
 test('Calendar retains its previous view until all dependencies settle', () => {
   const previous = { items: ['saved'], error: '', loading: true }
@@ -147,7 +155,7 @@ function deferred() {
   return { promise, resolve }
 }
 
-function loadFixture({ denyChat = false, isOffline = false, warm = false } = {}) {
+function loadFixture({ denyChat = false, attachmentError = null, isOffline = false, warm = false } = {}) {
   const cache = deferred()
   const details = deferred()
   const notifications = deferred()
@@ -173,14 +181,14 @@ function loadFixture({ denyChat = false, isOffline = false, warm = false } = {})
     deniedResourceScopesRef: { current: new Set() }, deniedChatScopesRef: { current: new Set() },
     chatRequestGateRef: { current: { invalidate: noop } }, setChatMessages: noop, parentChatScope: (...args) => args.at(-1),
     readParentOfflineView: () => { requests.push('cache'); return cache.promise },
-    getParentCalendarEventResources: read('attachments'), buildCalendarResourcesByOccurrence: () => new Map(),
+    getParentCalendarEventResources: attachmentError ? async () => { throw attachmentError } : read('attachments'), buildCalendarResourcesByOccurrence: () => new Map(),
     getParentCalendarEventDetails: read('details', details.promise), normalizeText: String,
     getParentCalendarEvents: read('calendar'), getParentDevelopmentHistory: read('development'),
     getParentChatRooms: denyChat ? async () => { throw { status: 403 } } : read('chat', ['live chat']),
     getParentInvitations: read('invites'), getParentPortalMatchDays: read('matches'), getParentPortalMatchDayPlayers: read('players'),
     getParentMessages: read('messages', ['live message']), getParentNotificationInbox: read('notifications', notifications.promise),
     getParentPolls: read('polls'), getParentResources: read('resources'),
-    parentCalendarDependencies, runPrioritizedMobileLoads, isParentAccessDenied, shouldClearParentChatOnSettlement,
+    parentCalendarDependencies, runPrioritizedMobileLoads, isParentAccessDenied, loadParentCalendarAttachments, shouldClearParentChatOnSettlement,
     discardParentOfflineResources: async () => {}, filterDeniedParentChatHistory,
     prepareParentResourceItems: (_name, items) => items || [], resolveParentResourceFailure, resolveParentCalendarRefresh,
     buildParentCalendarEvents: ({ calendarEvents, matches, invitations }) => [...calendarEvents, ...matches, ...invitations],
@@ -211,6 +219,27 @@ test('actual Parent refresh displays live messages and Chat while disk and calen
   f.notifications.resolve([])
   f.details.resolve([])
   assert.equal((await pending).failed, 0)
+})
+
+test('actual Parent refresh shows Calendar when the plan excludes optional attachments', async () => {
+  const f = loadFixture({ attachmentError: Object.assign(new Error('Resource library is not included in your current plan.'), { status: 403 }) })
+  const pending = f.load()
+  f.resolveCache()
+  f.notifications.resolve([])
+  f.details.resolve([])
+  assert.equal((await pending).failed, 0)
+  assert.deepEqual(f.resourcesRef.current.calendar, { error: '', items: [], loading: false })
+})
+
+test('actual Parent refresh still clears Calendar on a denied attachment scope', async () => {
+  const f = loadFixture({ attachmentError: Object.assign(new Error('Access denied'), { status: 403 }) })
+  const pending = f.load()
+  f.resolveCache()
+  f.notifications.resolve([])
+  f.details.resolve([])
+  await pending
+  assert.deepEqual(f.resourcesRef.current.calendar.items, [])
+  assert.match(f.resourcesRef.current.calendar.error, /access/)
 })
 
 test('actual Parent refresh cannot restore denied chat from late disk data', async () => {

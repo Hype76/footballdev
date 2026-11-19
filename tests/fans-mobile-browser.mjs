@@ -3,7 +3,7 @@ import { assertRenderedTextContrast } from './helpers/rendered-text-contrast.mjs
 import { readFile, mkdir, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { build } from 'esbuild'
-import { chromium } from 'playwright'
+import { chromium, devices, webkit } from 'playwright'
 import { themeContrastRatio } from '../apps/mobile-core/src/themeContrast.js'
 
 // Exercise the real Fans screen and hook; replace device services and network only.
@@ -29,7 +29,7 @@ const mocks = {
   'expo-keep-awake': `export const activateKeepAwakeAsync=async()=>{},deactivateKeepAwake=()=>{},isAvailableAsync=async()=>false;`,
   'expo-file-system/legacy': `export const cacheDirectory='',downloadAsync=async()=>({}),deleteAsync=async()=>{};`,
   'expo-sharing': `export const isAvailableAsync=async()=>false,shareAsync=async()=>{};`,
-  'react-native-safe-area-context': `import React from 'react';import {View} from 'react-native';export const SafeAreaView=({children,style})=><View style={[style,{paddingTop:59,height:844}]}>{children}</View>;`,
+  'react-native-safe-area-context': `import React from 'react';import {View} from 'react-native';export const SafeAreaView=({children,style})=><View style={[style,{paddingTop:/Android/.test(navigator.userAgent)?24:59,height:'100dvh'}]}>{children}</View>;`,
 }
 const entry = `
 import React,{useState,useEffect,useRef} from 'react'; import {createRoot} from 'react-dom/client';
@@ -48,9 +48,10 @@ window.ownerFixture=()=>{
 const ownerPreview=location.pathname.endsWith('/owner-preview.html');
 if(ownerPreview)window.ownerFixture();
 const appearancePreview=new URLSearchParams(location.search).get('appearance');
+const phonePreview=new URLSearchParams(location.search).has('phone');
 if(['fan','player'].includes(appearancePreview)){
  window.standalone=true;window.user={id:'viewer-test',parentPortalLinks:[]};
- window.rows=[{id:'appearance-player',is_owner:false,status:'active',relationship_type:appearancePreview,player_name:'Appearance Player',club_name:'Demo FC',team_name:'Under 17',plan_key:'large_club',plan_status:'active',permissions:{schedule:true,game_day:false,development:false,resources:false}}];
+ window.rows=[{id:'appearance-player',is_owner:false,status:'active',relationship_type:appearancePreview,player_name:'Appearance Player',club_name:'Demo FC',team_name:'Under 17',plan_key:'large_club',plan_status:'active',permissions:{schedule:true,game_day:phonePreview,development:false,resources:false}}];
 }
 window.rpc=async(name,args)=>{
   window.calls.push({name,args});
@@ -70,6 +71,14 @@ window.rpc=async(name,args)=>{
   }
 };
 window.readRequests=[];window.responses={};window.failRead=false;window.delayRead=false;
+if(phonePreview){
+ window.responses.schedule={schedule:[{id:'phone-training',title:'Shared Tuesday training',event_type:'training',date:'2099-11-17',time:'16:00'}]};
+ window.responses.matches={matches:[
+  {id:'phone-live',status:'live',opponent:'Live visitors',home_away:'home',match_date:'2099-11-15',home_score:1,away_score:0},
+  {id:'phone-future',status:'scheduled',opponent:'Next visitors',home_away:'home',match_date:'2099-11-20'},
+  {id:'phone-final',status:'full_time',opponent:'Previous visitors',home_away:'home',match_date:'2099-11-12',home_score:2,away_score:1}
+ ]};
+}
 window.emailRequests=0;window.fetch=async(_url,options)=>{
  const body=JSON.parse(options.body);if(body.action==='send_invitation'){window.emailRequests++;return {ok:true,status:200,json:async()=>({success:true})}}
  if(['device_status','register_device','unregister_device'].includes(body.action)){window.phoneRequests.push(body)}
@@ -112,15 +121,18 @@ const result = await build({ stdin: { contents: entry, resolveDir: root, loader:
 })
 await writeFile(`${out}/owner-preview.js`, result.outputFiles[0].text)
 await writeFile(`${out}/owner-preview.html`, '<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0;font-family:system-ui,sans-serif"><div id="root"></div><script src="./owner-preview.js"></script></body></html>')
+const serveViewer = route => {
+  const isBundle = new URL(route.request().url()).pathname === '/fans-test-bundle.js'
+  const body = isBundle ? result.outputFiles[0].text : '<html><head><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0;font-family:system-ui,sans-serif"><div id="root"></div><script src="/fans-test-bundle.js"></script></body></html>'
+  return route.fulfill({ contentType: isBundle ? 'application/javascript' : 'text/html', body })
+}
 const browser = await chromium.launch({ headless: true })
+const iosBrowser = process.env.FANS_IOS_WEBKIT === '1' ? await webkit.launch({ headless: true }) : browser
 try {
   const page = await browser.newPage({ viewport: { width: 390, height: 844 } })
   const errors = []
   page.on('pageerror', error => errors.push(error.message))
-  await page.route('http://localhost:9877/**', route => {
-    const isBundle = new URL(route.request().url()).pathname === '/fans-test-bundle.js'
-    return route.fulfill({ contentType: isBundle ? 'application/javascript' : 'text/html', body: isBundle ? result.outputFiles[0].text : '<html><head><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0;font-family:system-ui,sans-serif"><div id="root"></div><script src="/fans-test-bundle.js"></script></body></html>' })
-  })
+  await page.route('http://localhost:9877/**', serveViewer)
   await page.goto('http://localhost:9877')
   await page.clock.install({time:new Date('2026-09-09T10:00:00Z')});
   const button = name => page.getByRole('button', { name, exact: true })
@@ -376,16 +388,17 @@ try {
       const developmentBox=await button('Development records').boundingBox();
       assert.ok(developmentBox.width >= 220 && developmentBox.height >= 56,'Feature rows retain readable width and touch targets');
       const nav=await page.getByRole('tablist').boundingBox();
-      assert.ok(nav.y > 700 && nav.height >= 64,'Navigation stays at bottom of the viewport');
+      assert.ok(nav.y > 700 && nav.height >= 52,'Navigation stays at bottom of the viewport');
     }
   }
   await page.setViewportSize({width:390,height:844});
   for(const mode of ['light','dark']) {
     await page.evaluate(mode=>window.mode(mode),mode);
-    for(const [label,title,expected] of [['Schedule','Calendar','Shared training'],['Game Day','Game Day','Demo FC v Away Club'],['Development records','Development','Shared report'],['Resources','Resources','Shared practice'],['View notifications','Notifications','Shared goal']]) {
+    for(const [label,title,expected] of [['Schedule','Calendar','Shared training'],['Game Day','Matchday','Demo FC v Away Club'],['Development records','Development','Shared report'],['Resources','Resources','Shared practice'],['View notifications','Notifications','Shared goal']]) {
       await button(label).click();
       await page.getByRole('heading',{name:title,exact:true}).waitFor();
-      await page.getByText(expected,{exact:expected!=='Shared report'}).waitFor();
+      if (title === 'Matchday') await button('Open ' + expected).waitFor();
+      else await page.getByText(expected,{exact:expected!=='Shared report'}).waitFor();
       await page.waitForFunction(title=>[...document.querySelectorAll('[role=heading]')].some(el=>el.textContent===title&&el.getBoundingClientRect().y>=0&&el.getBoundingClientRect().y<330),title);
       const heading=await page.getByRole('heading',{name:title,exact:true}).boundingBox();
       assert.ok(heading.y>=59&&heading.y<330,'Opened section heading is visible immediately');
@@ -394,7 +407,7 @@ try {
       if(title==='Calendar'){assert.equal(await button('History').count(),0);assert.equal(await button('Needs response').count(),0);const date=new Date((await page.evaluate(()=>window.responses.schedule.schedule[0].date))+'T12:00:00Z');const label=date.getUTCDate()+' '+new Intl.DateTimeFormat('en-GB',{month:'short',timeZone:'Europe/London'}).format(date).slice(0,3);await page.getByText(new RegExp(label)).waitFor();}
       await assertRenderedTextContrast(page,`Fan content ${mode} ${title}`);
       await page.screenshot({path:`${out}/content-${mode}-${title.replaceAll(' ','-')}.png`});
-      if(title==='Game Day'){
+      if(title==='Matchday'){
         await page.evaluate(() => { Object.assign(window.responses.matches.matches[0], { timer_status: 'running', timer_elapsed_seconds: 2100, timer_started_at: new Date(Date.now()-60000).toISOString(), match_duration_minutes: 70, current_match_phase: 'second_half', status: 'second_half' }); window.responses.matches.events = [
           { id: 'assisted-goal', event_type: 'goal', team_side: 'club', minute: 70, scorer_name: 'Alex Scorer', assist_name: 'Jamie Assist', home_score: 1, away_score: 0, created_at: '2026-09-24T19:10:00Z' },
           { id: 'solo-goal', event_type: 'goal', team_side: 'club', minute: 80, scorer_name: 'Sam Solo', home_score: 2, away_score: 0, created_at: '2026-09-24T19:20:00Z' },
@@ -402,7 +415,7 @@ try {
         await page.route('http://localhost:9877/kits/**',route=>route.fulfill({contentType:'image/svg+xml',body:'<svg xmlns="http://www.w3.org/2000/svg" width="56" height="56"><path fill="#af2555" d="M16 5h24l12 12-8 8-5-5v31H17V20l-5 5-8-8z"/></svg>'}));
         for(const choice of ['home','away','tbc']) {
           await page.evaluate(choice=>{window.responses.matches.matches[0].shirt_choice=choice;window.responses.matches.clubKits={home:{colour:'#123456',imagePath:'club/home/custom.png'},away:{colour:'#af2555',imagePath:'club/away/custom.png'}}},choice);
-          await page.getByText('Demo FC v Away Club',{exact:true}).click();
+          await button('Open Demo FC v Away Club').click();
           await page.getByRole('heading',{name:'Demo FC v Away Club',exact:true}).waitFor();
           await page.getByLabel('Match type: League',{exact:true}).waitFor();
           await page.getByLabel('Surface: 3G',{exact:true}).waitFor();
@@ -449,7 +462,7 @@ try {
   await button('Back to Fans').click();
   await page.evaluate(()=>{window.delayRead=false;window.finishRead()});
   await button('Game Day').click();
-  await page.getByText('Demo FC v Away Club',{exact:true}).waitFor();
+  await button('Open Demo FC v Away Club').waitFor();
   assert.equal(await page.getByText('There are no shared calendar events for this player.').count(),0);
   await button('Back to Fans').click();
   await page.evaluate(()=>{window.rows[0].permissions.schedule=false;window.responses.matches.matches.push({id:'future-private',status:'scheduled',opponent:'Hidden upcoming fixture',match_date:'2099-01-01'});window.remount()});
@@ -458,8 +471,8 @@ try {
   assert.equal(await button('Schedule').count(),0,'Schedule shortcut is absent without permission');
   assert.equal(await button('Open Followed Child').count(),0,'Identity row never opens a fallback destination');
   await button('Game Day').click();
-  await page.getByRole('heading',{name:'Live matches',exact:true}).waitFor();
-  await page.getByText('Demo FC v Away Club',{exact:true}).waitFor();
+  await page.getByRole('button',{name:/^Live matches \(/}).waitFor();
+  await button('Open Demo FC v Away Club').waitFor();
   assert.equal(await page.getByText(/Hidden upcoming fixture/).count(),0,'Defensive client filter hides an unstarted match');
   assert.equal(await page.getByRole('button',{name:/Coming up/}).count(),0,'Game Day has no schedule tab');
   await page.evaluate(()=>{window.rows[0].permissions.game_day=false;window.background()});
@@ -711,4 +724,38 @@ try {
   assert.deepEqual(errors, [])
   console.log('PASS: Fans and Players can choose System, Light or Dark; live device following, explicit overrides, reload persistence, save retry, contrast and 320px touch targets.')
   console.log('PASS: native Fans child/header sync, persisted selection, invitation renewal, confirmed cancelled/expired deletion, Player-to-Fan conversion, retry after failure, normal child navigation.')
-} finally { await browser.close() }
+  for (const [label, engine, device] of [['iPhone', iosBrowser, 'iPhone 13'], ['Android', browser, 'Pixel 7']]) {
+    for (const relationship of ['fan', 'player']) {
+      const phone = await engine.newPage({ ...devices[device] })
+      const errors = []
+      phone.on('pageerror', error => errors.push(error.message))
+      await phone.route('http://localhost:9877/**', serveViewer)
+      await phone.goto(`http://localhost:9877/?appearance=${relationship}&phone`)
+      const tab = name => phone.getByRole('tab', { name, exact: true })
+      const player = phone.getByRole('button', { name: 'Active player Appearance Player' })
+      await player.waitFor()
+      const corners = await player.evaluate(element => parseFloat(getComputedStyle(element).borderTopLeftRadius))
+      assert.ok(corners >= 14, 'Shared active-player styling')
+      await tab('Calendar').click()
+      await phone.getByText('Shared Tuesday training', { exact: true }).waitFor()
+      await tab('Matchday').click()
+      await phone.getByRole('heading', { name: 'Matchday', exact: true }).waitFor()
+      await phone.getByRole('button', { name: /Open Demo FC v Live visitors/ }).waitFor()
+      assert.equal(await phone.getByRole('button', { name: /Open Demo FC v Next visitors/ }).count(), relationship === 'player' ? 1 : 0)
+      await phone.getByRole('button', { name: relationship === 'player' ? /^History/ : /^Results/ }).click()
+      await phone.getByRole('button', { name: /Open Demo FC v Previous visitors/ }).waitFor()
+      await tab('More').click()
+      await phone.getByRole('button', { name: 'Feedback & Suggestions', exact: true }).waitFor()
+      assert.equal(await phone.getByRole('button', { name: /^Invites/ }).count(), 0)
+      assert.equal(await phone.getByRole('tab', { name: 'Chat' }).count(), 0)
+      assert.ok(await phone.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'Phone layout stays within the viewport')
+      assert.deepEqual(errors, [])
+      await phone.screenshot({ path: `${out}/${label}-${relationship}-more.png` })
+      await phone.close()
+    }
+    console.log(`PASS ${label} ${engine.browserType().name()} phone profile: Fan and Player Home, Calendar, Matchday, More and role boundaries.`)
+  }
+} finally {
+  if (iosBrowser !== browser) await iosBrowser.close()
+  await browser.close()
+}

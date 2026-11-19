@@ -28,7 +28,12 @@ try {
  const page=await browser.newPage({viewport:{width:320,height:800}}),errors=[]
  page.on('pageerror',error=>errors.push(error.message))
  await page.setContent('<meta name="viewport" content="width=device-width, initial-scale=1"><div id="root"></div>')
+ await page.clock.install()
  await page.addScriptTag({content:result.outputFiles[0].text})
+ await page.waitForFunction(()=>typeof window.offline==='function')
+ await page.clock.runFor(10_000)
+ assert.equal(await page.evaluate(()=>window.fetches.length),0,'Automatic downloads leave the first ten seconds clear for startup')
+ await page.clock.runFor(6_000)
  await page.waitForFunction(()=>window.statuses['team:a']?.state==='ready'&&window.statuses['team:b']?.state==='partial',{timeout:15000})
  assert.equal(await page.evaluate(()=>window.fetches.filter(id=>id.startsWith('team:a:')).length),10)
  assert.equal(await page.evaluate(()=>window.fetches.filter(id=>id.startsWith('team:b:')).length),4)

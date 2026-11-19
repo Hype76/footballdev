@@ -254,7 +254,7 @@ export async function saveCoachAccountPreparation(userId, context, status, isCur
   })
 }
 
-export async function readCoachAccountPreparation(userId, contexts) {
+export async function readCoachAccountPreparation(userId, contexts, { verifyMedia = true } = {}) {
   const { document } = await (store.readSnapshot ? store.readSnapshot(userId) : store.read(userId))
   const guard = store.captureScopeGuard(userId)
   const results = []
@@ -270,7 +270,7 @@ export async function readCoachAccountPreparation(userId, contexts) {
         || journal.baseMatch.clubId !== context.clubId || journal.baseMatch.teamId !== context.teamId
     })) status = { ...status, state: 'partial', error: 'Some saved fixtures need downloading again.' }
     const inventory = cache?.resources?.offlineMediaInventory || []
-    if (status?.savedAt && !status.filesFailed && ['ready', 'partial'].includes(status.state) && inventory.length) {
+    if (verifyMedia && status?.savedAt && !status.filesFailed && ['ready', 'partial'].includes(status.state) && inventory.length) {
       let verified = false
       try { verified = status.filesSaved === inventory.length && await mediaHooks.verifyInventory(userId, context, inventory, document.profile.value) } catch { /* Missing or unverifiable copies are incomplete. */ }
       guard()

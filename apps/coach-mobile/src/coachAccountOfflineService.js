@@ -67,7 +67,7 @@ function captureAuthority(user, context, isCurrent = () => true) {
 }
 
 const preparationCoordinator = createCoachAccountPreparationCoordinator()
-export async function prepareCoachAccount(user, contexts, selectedContextId, callerIsCurrent = () => true) {
+export async function prepareCoachAccount(user, contexts, selectedContextId, callerIsCurrent = () => true, { yieldControl } = {}) {
   const accountGuard = captureCoachOfflineAccount(user.id)
   await user.waitForCoachAuthority?.()
   try { accountGuard() } catch { return { cancelled: true } }
@@ -82,9 +82,10 @@ export async function prepareCoachAccount(user, contexts, selectedContextId, cal
     // failed media item is retained in the incomplete status for an honest retry.
     let nativeMedia
     try { nativeMedia = getMedia(user); await startup } catch { /* Per-file preparation reports unavailable capability below. */ }
-    return prepareCoachAccountOffline({ user, contexts, selectedContextId, isCurrent,
+    return prepareCoachAccountOffline({ user, contexts, selectedContextId, isCurrent, yieldControl,
       createSaver: createCoachOfflineResourceSaver, saveStatus: saveCoachAccountPreparation,
       readBackResources: readCoachOfflineResources,
+      readPreviousStatus: async (userId, context) => (await readCoachAccountPreparation(userId, [context], { verifyMedia: false }).catch(() => ({})))[context.id],
       saveMatches: (profile, context, details) => saveCoachPreparedMatchDays(profile.id, context, details, isCurrent),
       prepareMedia: async (profile, context, resource, current) => {
         if (!nativeMedia) throw new Error('File downloads are unavailable on this device. Records can still be saved.')

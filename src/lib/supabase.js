@@ -409,6 +409,7 @@ export {
   createMatchDayEventLogEntry,
   createMatchDay,
   deletePreviousMatchDay,
+  deleteMatchDayFixture,
   expressMatchDayScorerInterest,
   getTodayMatchDayDateValue,
   getMatchDay,

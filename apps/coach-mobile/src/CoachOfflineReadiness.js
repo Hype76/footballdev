@@ -32,6 +32,7 @@ export function CoachOfflineReadiness({ user, context, styles }) {
         const statuses = await readCoachAccountPreparation(user.id, contexts)
         if (!active) return
         setTeams(contexts.map(item => ({ ...item, status: statuses[item.id] })))
+        if (contexts.some(item => statuses[item.id]?.state === 'saving')) setNotice('')
         const count = journals.filter(journal => journal?.baseMatch).length
         setSummary(`${resources.players?.length || 0} Players and ${count} fixtures saved on this phone. ${pending ? `${pending} saved changes will sync when connected.` : 'No changes waiting to sync.'}`)
       } catch { if (active) setSummary('Saved information could not be checked. Coach will retry automatically.') }
