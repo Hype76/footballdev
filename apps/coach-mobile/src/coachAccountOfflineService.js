@@ -1,7 +1,8 @@
 import { createCoachAccountPreparationCoordinator, coachPreparationScopeKey } from './coachAccountPreparationCoordinator'
+import { withMobileAsyncTimeout } from '../../mobile-core/src/http'
 import { getMobileRuntimeConfig } from '../../mobile-core/src/config'
 import { COACH_PHASE_31F_MAX_CACHE_BYTES } from '../../mobile-core/src/coachPhase31FCore'
-import { authorizeCoachOfflineMedia, loadCoachOfflineContext } from '../../mobile-core/src/coachOfflineReadData'
+import { authorizeCoachOfflineMedia, loadCoachOfflineContext, readCoachOfflineFamily } from '../../mobile-core/src/coachOfflineReadData'
 import { getScopedTeamBranding } from '../../../src/lib/team-branding-display.js'
 import { createCoachOfflineMedia } from './coachOfflineMedia'
 import { createCoachOfflineResourceSaver, measureCoachOfflineDocumentBytes, readCoachAccountPreparation, readCoachOfflineResources, registerCoachOfflineMediaHooks, saveCoachAccountPreparation, saveCoachPreparedMatchDays } from './offline'
@@ -67,9 +68,11 @@ function captureAuthority(user, context, isCurrent = () => true) {
 }
 
 const preparationCoordinator = createCoachAccountPreparationCoordinator()
+export const subscribeCoachOfflinePreparation = (userId, listener) => preparationCoordinator.subscribe(userId, listener)
+export const notifyCoachOfflinePreparation = userId => preparationCoordinator.notify(userId)
 export async function prepareCoachAccount(user, contexts, selectedContextId, callerIsCurrent = () => true, { yieldControl } = {}) {
   const accountGuard = captureCoachOfflineAccount(user.id)
-  await user.waitForCoachAuthority?.()
+  if (user.waitForCoachAuthority) await withMobileAsyncTimeout(() => user.waitForCoachAuthority(), { timeoutMs: 20000 })
   try { accountGuard() } catch { return { cancelled: true } }
   if (!callerIsCurrent()) return { cancelled: true }
   const generation = user.getCoachAuthorityGeneration?.()
@@ -77,43 +80,53 @@ export async function prepareCoachAccount(user, contexts, selectedContextId, cal
     try { accountGuard(); return callerIsCurrent() && generation === user.getCoachAuthorityGeneration?.() } catch { return false }
   }
   const key = coachPreparationScopeKey(user.id, generation, contexts)
-  return preparationCoordinator.run(key, caller, async isCurrent => {
-    // Records remain useful when a native media capability is unavailable. Every
-    // failed media item is retained in the incomplete status for an honest retry.
+  return preparationCoordinator.run(key, caller, async (isCurrent, report) => {
     let nativeMedia
-    try { nativeMedia = getMedia(user); await startup } catch { /* Per-file preparation reports unavailable capability below. */ }
-    return prepareCoachAccountOffline({ user, contexts, selectedContextId, isCurrent, yieldControl,
+    try { nativeMedia = getMedia(user); await withMobileAsyncTimeout(() => startup, { timeoutMs: 20000 }) } catch { nativeMedia = null }
+    return prepareCoachAccountOffline({ user, contexts, selectedContextId, isCurrent, report, yieldControl,
       createSaver: createCoachOfflineResourceSaver, saveStatus: saveCoachAccountPreparation,
       readBackResources: readCoachOfflineResources,
-      readPreviousStatus: async (userId, context) => (await readCoachAccountPreparation(userId, [context], { verifyMedia: false }).catch(() => ({})))[context.id],
+      readPreviousStatus: async (userId, context) => (await readCoachAccountPreparation(userId, [context]).catch(() => ({})))[context.id],
+      verifyCheckpoint: async (profile, context, current) => {
+        if (context.teamId) await readCoachOfflineFamily(applyCoachContext(profile, context), context, 'notifications', { isCurrent: current })
+      },
       saveMatches: (profile, context, details) => saveCoachPreparedMatchDays(profile.id, context, details, isCurrent),
+      hasMedia: async (profile, context, resource, current) => Boolean(nativeMedia
+        && await nativeMedia.has({ context, resource, guard: captureAuthority(profile, context, current) })),
       prepareMedia: async (profile, context, resource, current) => {
         if (!nativeMedia) throw new Error('File downloads are unavailable on this device. Records can still be saved.')
-        return nativeMedia.save({ context, resource, guard: captureAuthority(profile, context, current) })
+        let expired = false
+        const guard = captureAuthority(profile, context, () => !expired && current())
+        try {
+          return await withMobileAsyncTimeout(async () => {
+            guard()
+            const authorized = await authorizeCoachOfflineMedia(applyCoachContext(profile, context), context, resource)
+            guard()
+            if (resource.expectedStoragePath && authorized.resource.storagePath !== resource.expectedStoragePath) {
+              throw Object.assign(new Error('A kit image changed during download. Refresh the team and try again.'), { code: 'coach_offline_kit_revision_changed' })
+            }
+            const saved = await nativeMedia.save({ context, resource: authorized.resource, guard })
+            return { ...saved, resource: authorized.resource }
+          }, { timeoutMs: 60000, timeoutMessage: 'A file took too long to save. Retry while connected.' })
+        } finally { expired = true }
       },
       loadContext: async (profile, context, options) => {
         if (!context.teamId) return prepareClubOverview(profile, context, options)
         const scopedProfile = applyCoachContext(profile, context)
-        const display = getScopedTeamBranding(context)
-        if (display?.logoUrl) {
-          try {
-            const badge = await authorizeCoachOfflineMedia(scopedProfile, context, { kind: 'badge' })
-            if (!isCurrent()) throw new Error('offline_preparation_cancelled')
-            await options.onMedia({ ...badge.resource, kind: 'badge' })
-          } catch (error) { options.onIncomplete(error) }
+        if (getScopedTeamBranding(context)?.logoUrl) {
+          await options.onMedia({ id: 'badge:' + context.teamId, kind: 'badge', title: 'Club badge' })
         }
-        return loadCoachOfflineContext(scopedProfile, context, { ...options,
-          onMedia: async resource => {
-            try {
-              const authorized = await authorizeCoachOfflineMedia(scopedProfile, context, resource)
-              if (!isCurrent()) throw new Error('offline_preparation_cancelled')
-              await options.onMedia(authorized.resource)
-            } catch (error) { options.onIncomplete(error) }
-          },
+        return loadCoachOfflineContext(scopedProfile, context, {
+          ...options, deferMediaAuthorization: true,
+          onMedia: resource => options.onMedia({
+            id: resource.id, kind: resource.kind, sourceId: resource.sourceId,
+            clubId: resource.clubId, teamId: resource.teamId,
+            title: resource.title, expectedStoragePath: resource.expectedStoragePath,
+          }),
         })
       },
     })
-  })
+  }, user.id)
 }
 
 async function prepareClubOverview(user, context, options) {

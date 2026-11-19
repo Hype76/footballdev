@@ -109,3 +109,19 @@ test('saved formation kit preflight supplies canonical verified metadata before 
   assert.equal(seen[0].fileSizeBytes,100)
   assert.equal(seen[0].storagePath,path)
 })
+
+
+test('a stalled records request expires without marking its team ready', async t => {
+  t.mock.timers.enable({ apis: ['setTimeout'] })
+  let started = false
+  const pending = assert.rejects(readCoachOfflineFamily(user, context, 'players', {
+    rpc: () => {
+      started = true
+      return new Promise(() => {})
+    },
+  }), /Team records took too long/)
+  await Promise.resolve()
+  assert.equal(started, true)
+  t.mock.timers.tick(20000)
+  await pending
+})

@@ -5,7 +5,7 @@ import { createCoachPreparationRunner } from './coachOfflinePreparation'
 import { createMatchDayOutbox } from '../../mobile-core/src/matchDayOutboxCore'
 import { syncCoachMatchDayCommand } from '../../mobile-core/src/coachMatchDayData'
 import { getPendingCoachMatchDays, readCoachMatchDayOutbox, readCoachOfflineReadiness, readCoachAccountPreparation, updateCoachMatchDayOutbox } from './offline'
-import { prepareCoachAccount } from './coachAccountOfflineService'
+import { notifyCoachOfflinePreparation, prepareCoachAccount } from './coachAccountOfflineService'
 import { assertCoachAccountPreparationFinished } from './coachAccountOfflinePreparation'
 import { coachPreparationScopeKey } from './coachAccountPreparationCoordinator'
 
@@ -45,7 +45,10 @@ export function useCoachOfflinePreparation({ user, contexts = null, context = nu
     }
     schedule()
     const interval = setInterval(refreshWhenIdle, 30_000)
-    const subscription = AppState.addEventListener('change', state => { if (state === 'active') schedule() })
+    const subscription = AppState.addEventListener('change', state => {
+      if (state === 'active') schedule()
+      else { runner.pause(); notifyCoachOfflinePreparation(user.id) }
+    })
     return () => { runner.stop(); clearTimeout(idleTimer); clearInterval(interval); subscription.remove() }
   }, [scopeKey, eligible])
 }
@@ -63,7 +66,17 @@ export async function syncCoachOfflineNow(user, context) {
     await controller.sync()
   }
   const contexts = user.coachContexts || [context]
-  const result = await prepareCoachAccount(user, contexts, context.id)
+  let foreground = AppState.currentState === 'active'
+  const subscription = AppState.addEventListener('change', state => {
+    if (state !== 'active') {
+      foreground = false
+      notifyCoachOfflinePreparation(user.id)
+    }
+  })
+  let result
+  try {
+    result = await prepareCoachAccount(user, contexts, context.id, () => foreground)
+  } finally { subscription.remove() }
   assertCoachAccountPreparationFinished(result, contexts)
   const statuses = await readCoachAccountPreparation(user.id, contexts)
   const confirmed = assertCoachAccountPreparationFinished(result, contexts, statuses)

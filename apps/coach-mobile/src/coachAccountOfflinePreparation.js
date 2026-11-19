@@ -25,34 +25,83 @@ export function assertCoachAccountPreparationFinished(result, contexts, statuses
   return { complete, onlineOnlyCount }
 }
 
-// Preparation never changes the server's selected workspace. Each loader must
-// prove authority for its explicit target before returning viewable data.
-export async function prepareCoachAccountOffline({ user, contexts, selectedContextId, loadContext, createSaver, saveStatus, saveMatch, saveMatches, readBackResources, readPreviousStatus, prepareMedia, yieldControl = async () => {}, isCurrent = () => true, now = () => new Date().toISOString() }) {
-  const targets = [...contexts].filter(context => context.id && context.clubId)
+const RESUME_MAX_AGE_MS = 24 * 60 * 60 * 1000
+const COMPLETE_REFRESH_MS = 5 * 60 * 1000
+
+// A checkpoint holds only locally verified records and file metadata. Signed URLs
+// are never saved, and each unfinished file is authorised when it is downloaded.
+export async function prepareCoachAccountOffline({ user, contexts, selectedContextId, loadContext, createSaver, saveStatus, saveMatch, saveMatches, readBackResources, readPreviousStatus, verifyCheckpoint, prepareMedia, hasMedia, report = () => {}, yieldControl = async () => {}, isCurrent = () => true, now = () => new Date().toISOString() }) {
+  const targets = [...new Map(contexts.filter(context => context.id && context.clubId).map(context => [context.id, context])).values()]
     .sort((left, right) => Number(Boolean(right.teamId)) - Number(Boolean(left.teamId)) || Number(right.id === selectedContextId) - Number(left.id === selectedContextId))
   const results = []
+  const previous = new Map(await Promise.all(targets.map(async context => [context.id,
+    readPreviousStatus ? await readPreviousStatus(user.id, context) : null,
+  ])))
+  const incomplete = targets.some(context => !isFinished(previous.get(context.id)))
+  const age = time => Date.parse(now()) - Date.parse(time)
+
   for (const context of targets) {
     if (!isCurrent()) return { cancelled: true, results }
-    const save = createSaver(user, context, { isCurrent })
-    const previousStatus = readPreviousStatus ? await readPreviousStatus(user.id, context) : null
-    if (!isCurrent()) return { cancelled: true, results }
-    const status = { previousFilesSaved: previousStatus?.savedAt ? previousStatus.filesSaved : previousStatus?.previousFilesSaved, schemaVersion: COACH_ACCOUNT_OFFLINE_SCHEMA, scope: context.teamId ? 'team' : 'club', state: 'saving', startedAt: now(), savedAt: '', resources: {}, matchIds: [], filesSaved: 0, fileBytesSaved: 0, filesFailed: 0, onlineOnly: [], error: '' }
-    const inventory = []
-    let pendingResources = {}
-    let progressItems = 0, progressAt = Date.now()
-    const saveProgress = async () => {
-      if (!isCurrent()) return
-      if (++progressItems < 8 && Date.now() - progressAt < 5000) return
-      await saveStatus(user.id, context, status, isCurrent)
-      progressItems = 0; progressAt = Date.now()
+    const prior = previous.get(context.id)
+    const reuse = isFinished(prior) && age(prior.savedAt) >= 0 && age(prior.savedAt) < (incomplete ? RESUME_MAX_AGE_MS : COMPLETE_REFRESH_MS)
+    const resume = Array.isArray(prior?.checkpoint?.plan) && prior.checkpoint.saved && Array.isArray(prior.matchIds)
+      && age(prior.startedAt) >= 0 && age(prior.startedAt) < RESUME_MAX_AGE_MS
+    if ((reuse || resume) && verifyCheckpoint) {
+      try { await verifyCheckpoint(user, context, isCurrent) }
+      catch (error) {
+        if (!isCurrent()) return { cancelled: true, results }
+        const denied = error?.code === '42501' || Number(error?.status) === 403
+        const status = {
+          ...prior, state: 'partial', ...(denied ? { checkpoint: undefined, savedAt: '' } : {}),
+          error: getCoachFriendlyError(error, 'This team could not be checked. Retry while connected.'),
+        }
+        if (denied) await saveStatus(user.id, context, status, isCurrent).catch(() => {})
+        report(context.id, { ...status, checkpoint: undefined, resources: undefined, matchIds: undefined })
+        results.push({ contextId: context.id, ...status })
+        continue
+      }
     }
-    const matches = new Map()
+    if (!isCurrent()) return { cancelled: true, results }
+    if (reuse) {
+      report(context.id, prior)
+      results.push({ contextId: context.id, ...prior })
+      continue
+    }
+    const status = {
+      schemaVersion: COACH_ACCOUNT_OFFLINE_SCHEMA, scope: context.teamId ? 'team' : 'club',
+      state: 'saving', phase: resume ? 'files' : 'records', startedAt: resume ? prior.startedAt : now(), savedAt: '',
+      previousFilesSaved: prior?.savedAt || prior?.state === 'saving' ? prior.filesSaved : prior?.previousFilesSaved,
+      resources: resume ? { ...prior.resources } : {}, matchIds: resume ? [...prior.matchIds] : [],
+      filesSaved: resume ? prior.filesSaved : 0, fileBytesSaved: resume ? prior.fileBytesSaved : 0,
+      filesFailed: 0, onlineOnly: resume ? prior.onlineOnly : [], error: '',
+      ...(resume ? { filesTotal: prior.filesTotal, checkpoint: prior.checkpoint } : {}),
+    }
+    const save = createSaver(user, context, { isCurrent })
+    let pendingResources = {}, progressItems = 0, progressAt = Date.now(), restartRecords = false
+    const matches = new Map(), media = new Map()
+    const notify = () => {
+      const { checkpoint, resources, matchIds, ...progress } = status
+      if (isCurrent()) report(context.id, progress)
+    }
+    const persist = async () => {
+      if (!isCurrent()) return
+      await saveStatus(user.id, context, status, isCurrent)
+      progressItems = 0
+      progressAt = Date.now()
+    }
+    const saveProgress = async () => {
+      notify()
+      if (++progressItems >= 8 || Date.now() - progressAt >= 5000) await persist()
+    }
+    const assertCurrent = () => {
+      if (!isCurrent()) throw new Error('offline_preparation_cancelled')
+    }
     const flushResources = async () => {
       const entries = Object.entries(pendingResources)
       if (!entries.length) return
-      if (!isCurrent()) throw new Error('offline_preparation_cancelled')
+      assertCurrent()
       const saved = await save(pendingResources)
-      if (!isCurrent()) throw new Error('offline_preparation_cancelled')
+      assertCurrent()
       for (const [key] of entries) {
         const fingerprint = saved?.resourceMetadata?.[key]?.fingerprint
         if (!fingerprint) throw new Error('offline_preparation_resource_not_saved')
@@ -63,74 +112,131 @@ export async function prepareCoachAccountOffline({ user, contexts, selectedConte
     }
     const flushMatches = async () => {
       if (!matches.size) return
-      if (!isCurrent()) throw new Error('offline_preparation_cancelled')
+      assertCurrent()
       const details = [...matches.values()]
       if (saveMatches) await saveMatches(user, context, details)
       else for (const detail of details) await saveMatch(user, context, detail)
-      if (!isCurrent()) throw new Error('offline_preparation_cancelled')
+      assertCurrent()
       status.matchIds = details.map(detail => detail.id)
       matches.clear()
     }
-    await saveStatus(user.id, context, status, isCurrent)
+
+    notify()
     try {
-      const result = await loadContext(user, context, {
-        isCurrent,
-        onIncomplete: error => { status.filesFailed += 1; status.error = getCoachFriendlyError(error, 'A file could not be saved. Connect and try downloading again.') },
-        onDependencyIncomplete: () => { status.error = 'Some teams in this club still need downloading.' },
-        onMatch: async detail => {
-          if (!isCurrent()) throw new Error('offline_preparation_cancelled')
-          matches.set(detail.id, detail)
-          await yieldControl()
-        },
-        onResource: async entry => {
-          if (!isCurrent()) throw new Error('offline_preparation_cancelled')
-          if (entry?.complete !== true || !entry.cacheKey) throw new Error('offline_preparation_incomplete_resource')
-          pendingResources[entry.cacheKey] = entry.value
-          // Bound background disk work rather than rewriting the entire
-          // encrypted account for every individual Player or Session detail.
-          if (Object.keys(pendingResources).length >= 16 || entry.cacheKey === 'home') await flushResources()
-          await yieldControl()
-        },
-        onMedia: async resource => {
-          if (!isCurrent()) throw new Error('offline_preparation_cancelled')
-          inventory.push(resource)
-          try { const saved = await prepareMedia(user, context, resource, isCurrent); status.filesSaved += 1; status.fileBytesSaved += Number(saved?.bytes || 0) }
-          catch (error) {
-            status.filesFailed += 1; status.error = getCoachFriendlyError(error, 'A file could not be saved. Connect and try downloading again.')
-            if (isCurrent()) { await saveStatus(user.id, context, status, isCurrent); progressItems = 0; progressAt = Date.now() }
-            return
+      await persist()
+      if (!resume) {
+        const result = await loadContext(user, context, {
+          isCurrent,
+          onStage: resourceKey => { status.resourceKey = resourceKey; notify() },
+          onIncomplete: error => { status.filesFailed += 1; status.error = getCoachFriendlyError(error, 'A file could not be saved. Connect and try downloading again.') },
+          onDependencyIncomplete: () => { status.error = 'Some teams in this club still need downloading.' },
+          onMatch: async detail => { assertCurrent(); matches.set(detail.id, detail); await yieldControl() },
+          onResource: async entry => {
+            assertCurrent()
+            if (entry?.complete !== true || !entry.cacheKey) throw new Error('offline_preparation_incomplete_resource')
+            pendingResources[entry.cacheKey] = entry.value
+            if (Object.keys(pendingResources).length >= 16 || entry.cacheKey === 'home') await flushResources()
+            await yieldControl()
+          },
+          onMedia: async resource => {
+            assertCurrent()
+            media.set(mediaKey(resource), resource)
+          },
+        })
+        assertCurrent()
+        if (result?.complete !== true) throw new Error('offline_preparation_incomplete_context')
+        await flushResources()
+        await flushMatches()
+        status.onlineOnly = Array.isArray(result.onlineOnly) ? result.onlineOnly : []
+        if (!status.error) status.checkpoint = { plan: [...media.values()], saved: {} }
+      }
+      const plan = status.checkpoint?.plan || [...media.values()]
+      const savedMedia = { ...status.checkpoint?.saved }
+      status.phase = 'files'
+      status.resourceKey = ''
+      status.filesTotal = plan.length
+      notify()
+      if (plan.length) await persist()
+
+      if (plan.length) await yieldControl()
+      for (const resource of plan) {
+        assertCurrent()
+        const key = mediaKey(resource)
+        status.currentFile = resource.title || ''
+        notify()
+        try {
+          const retained = savedMedia[key]
+          if (retained && hasMedia && await hasMedia(user, context, retained.resource, isCurrent).catch(() => false)) {
+            assertCurrent()
+            continue
           }
-          await saveProgress()
-          await yieldControl()
-        },
-      })
-      if (!isCurrent()) return { cancelled: true, results }
-      if (result?.complete !== true) throw new Error('offline_preparation_incomplete_context')
-      await flushResources()
-      await flushMatches()
-      const saved = await save({ offlineMediaInventory: inventory })
+          if (retained) {
+            status.filesSaved -= 1
+            status.fileBytesSaved -= retained.bytes
+            delete savedMedia[key]
+          }
+          const saved = await prepareMedia(user, context, resource, isCurrent)
+          assertCurrent()
+          const bytes = Number(saved?.bytes || 0)
+          savedMedia[key] = { resource: saved?.resource || resource, bytes }
+          status.filesSaved += 1
+          status.fileBytesSaved += bytes
+        } catch (error) {
+          assertCurrent()
+          status.filesFailed += 1
+          restartRecords ||= [403, 404].includes(Number(error?.status)) || ['offline_media_revision_mismatch', 'coach_offline_kit_revision_changed'].includes(error?.code)
+          status.error = getCoachFriendlyError(error, 'A file could not be saved. Connect and try downloading again.')
+        }
+        if (status.checkpoint) status.checkpoint = { plan, saved: { ...savedMedia } }
+        await saveProgress()
+        await yieldControl()
+      }
+
+      status.currentFile = ''
+      status.phase = 'verifying'
+      notify()
+      const saved = await save({ offlineMediaInventory: plan.map(resource => savedMedia[mediaKey(resource)]?.resource).filter(Boolean) })
+      assertCurrent()
       const fingerprint = saved?.resourceMetadata?.offlineMediaInventory?.fingerprint
       if (!fingerprint) throw new Error('offline_preparation_resource_not_saved')
       status.resources.offlineMediaInventory = fingerprint
       if (readBackResources) {
         const cache = await readBackResources(user.id, context)
-        if (!isCurrent()) return { cancelled: true, results }
+        assertCurrent()
         if (Object.entries(status.resources).some(([key, expected]) => cache?.resourceMetadata?.[key]?.fingerprint !== expected)) throw new Error('There is not enough offline storage to retain all information. Your saved changes remain on this phone.')
       }
-      status.onlineOnly = Array.isArray(result.onlineOnly) ? result.onlineOnly : []
       status.state = status.filesFailed || status.onlineOnly.length || status.error ? 'partial' : 'ready'
       status.savedAt = now()
+      if (isFinished(status) || restartRecords) delete status.checkpoint
     } catch (error) {
       if (!isCurrent()) return { cancelled: true, results }
-      try { await flushResources(); await flushMatches() } catch { /* Prior committed batches remain intact. */ }
+      try { await flushResources(); await flushMatches() } catch { /* Keep already committed batches. */ }
       status.state = 'partial'
+      if (restartRecords) delete status.checkpoint
       status.error = getCoachFriendlyError(error, 'Some information could not be saved. Connect and try downloading again.')
     }
-    await saveStatus(user.id, context, status, isCurrent)
+    notify()
+    try { await persist() }
+    catch (error) {
+      if (!isCurrent()) return { cancelled: true, results }
+      status.state = 'partial'
+      status.error = getCoachFriendlyError(error, 'Download progress could not be saved on this phone.')
+      notify()
+    }
+    if (!isCurrent()) return { cancelled: true, results }
     results.push({ contextId: context.id, ...status })
   }
   return { complete: results.length === targets.length && results.every(result => result.state === 'ready'),
     retryNeeded: results.some(result => result.filesFailed || result.error), results }
+}
+
+function isFinished(status) {
+  return Boolean(status?.savedAt && !status.error && !status.filesFailed
+    && (status.state === 'ready' || status.state === 'partial' && status.onlineOnly?.length))
+}
+
+function mediaKey(resource) {
+  return (resource.kind || 'file') + ':' + resource.id
 }
 
 export function coachAccountOfflineLabel(status) {
@@ -152,5 +258,6 @@ export function validateCoachAccountOfflineStatus(status, cache) {
   const retained = Object.entries(status.resources || {}).every(([key, fingerprint]) =>
     cache?.resourceMetadata?.[key]?.fingerprint === fingerprint && cache?.resources?.[key] !== undefined)
   return { ...status, state: status.state === 'ready' && !retained ? 'partial' : status.state,
+    checkpoint: retained ? status.checkpoint : undefined,
     error: retained ? status.error : 'Some saved information needs downloading again.' }
 }

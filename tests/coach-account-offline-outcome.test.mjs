@@ -73,7 +73,8 @@ test('automatic preparation yields between resource, match and file processing',
   const result = await prepareCoachAccountOffline({
     user: { id: 'coach' }, contexts: [context], selectedContextId: context.id,
     createSaver: () => async values => ({ resourceMetadata: Object.fromEntries(Object.keys(values).map(key => [key, { fingerprint: key }])) }),
-    saveStatus: async () => {}, saveMatches: async () => {}, prepareMedia: async () => ({ bytes: 1 }),
+    saveStatus: async () => {}, saveMatches: async () => { events.push('fixtures saved') },
+    prepareMedia: async () => { events.push('file transfer'); return { bytes: 1 } },
     yieldControl: async () => { events.push('yield') },
     loadContext: async (_user, _context, options) => {
       await options.onResource({ cacheKey: 'players', value: [], complete: true }); events.push('resource')
@@ -82,6 +83,6 @@ test('automatic preparation yields between resource, match and file processing',
       return { complete: true }
     },
   })
-  assert.deepEqual(events, ['yield', 'resource', 'yield', 'match', 'yield', 'file'])
+  assert.deepEqual(events, ['yield', 'resource', 'yield', 'match', 'file', 'fixtures saved', 'yield', 'file transfer', 'yield'])
   assert.equal(result.complete, true)
 })

@@ -1,6 +1,7 @@
 import {createCoachAccountPreparationCoordinator,coachPreparationScopeKey} from '../apps/coach-mobile/src/coachAccountPreparationCoordinator.js'
 import assert from 'node:assert/strict'
 import {readFileSync} from 'node:fs'
+import {withMobileAsyncTimeout} from '../apps/mobile-core/src/http.js'
 import test from 'node:test'
 import {prepareCoachAccountOffline,validateCoachAccountOfflineStatus} from '../apps/coach-mobile/src/coachAccountOfflinePreparation.js'
 import {activateCoachOfflineAccount,invalidateCoachOfflineAccount,captureCoachOfflineAccount} from '../apps/coach-mobile/src/coachOfflineAccountSession.js'
@@ -16,7 +17,7 @@ test('actual account service fences a manual run across logout and same-account 
  const loading=deferred(),release=deferred(),writes=[]
  const user={id:'same-user'},context={id:'team',clubId:'club',teamId:'team'}
  activateCoachOfflineAccount(user.id)
- const dependencies={preparationCoordinator:createCoachAccountPreparationCoordinator(),coachPreparationScopeKey,captureCoachOfflineAccount,getMedia:()=>({}),startup:Promise.resolve(),prepareCoachAccountOffline,applyCoachContext:profile=>profile,
+ const dependencies={withMobileAsyncTimeout,preparationCoordinator:createCoachAccountPreparationCoordinator(),coachPreparationScopeKey,captureCoachOfflineAccount,getMedia:()=>({}),startup:Promise.resolve(),prepareCoachAccountOffline,applyCoachContext:profile=>profile,
   createCoachOfflineResourceSaver:profile=>{const guard=captureCoachOfflineAccount(profile.id);return async()=>{guard();return{resourceMetadata:{}}}},
   saveCoachAccountPreparation:async()=>{},readCoachAccountPreparation:async()=>({}),readCoachOfflineResources:async()=>({}),saveCoachPreparedMatchDays:async(id,_context,matches)=>{captureCoachOfflineAccount(id)();writes.push(...matches)},
   captureAuthority:()=>()=>{},getScopedTeamBranding:()=>null,authorizeCoachOfflineMedia:()=>{},
@@ -136,7 +137,7 @@ test('actual account service waits for resumed authority before capturing genera
  const authority=deferred();let generation=1,started=0
  const user={id:'authority-user',getCoachAuthorityGeneration:()=>generation,waitForCoachAuthority:()=>authority.promise},context={id:'team',clubId:'club',teamId:'team'}
  activateCoachOfflineAccount(user.id)
- const dependencies={preparationCoordinator:createCoachAccountPreparationCoordinator(),coachPreparationScopeKey,captureCoachOfflineAccount,getMedia:()=>({}),startup:Promise.resolve(),
+ const dependencies={withMobileAsyncTimeout,preparationCoordinator:createCoachAccountPreparationCoordinator(),coachPreparationScopeKey,captureCoachOfflineAccount,getMedia:()=>({}),startup:Promise.resolve(),
   prepareCoachAccountOffline:async({isCurrent})=>{started++;return{complete:isCurrent()}},createCoachOfflineResourceSaver:()=>{},saveCoachAccountPreparation:()=>{},readCoachOfflineResources:()=>{},saveCoachPreparedMatchDays:()=>{}}
  const prepare=new Function(...Object.keys(dependencies),source.slice(start,end).replace('export ','')+';return prepareCoachAccount')(...Object.values(dependencies))
  const pending=prepare(user,[context],context.id);await Promise.resolve();assert.equal(started,0)
@@ -150,5 +151,113 @@ test('file progress is periodically durable without one full document status wri
   createSaver:()=>async resources=>{for(const key of Object.keys(resources))cache.resourceMetadata[key]={fingerprint:key};return cache},
   saveStatus:async(_id,_context,status)=>statuses.push(structuredClone(status)),saveMatches:async()=>{},readBackResources:async()=>cache,
   prepareMedia:async()=>({bytes:6}),loadContext:async(_user,_context,{onMedia})=>{for(let i=0;i<24;i++)await onMedia({id:String(i)});return{complete:true}}})
- assert.deepEqual(statuses.map(item=>item.filesSaved),[0,8,16,24,24]);assert.equal(result.results[0].filesSaved,24);assert.equal(result.complete,true)
+ assert.deepEqual(statuses.map(item=>item.filesSaved),[0,0,8,16,24,24]);assert.equal(result.results[0].filesSaved,24);assert.equal(result.complete,true)
+})
+
+
+test('an interrupted five-team download resumes verified records and media without reopening completed teams', async () => {
+  const targets = Array.from({ length: 5 }, (_, index) => ({ id: 'team-' + index, teamId: 'team-' + index, clubId: 'club-' + index }))
+  const user = { id: 'coach' }
+  const checkpoints = new Map(), caches = new Map(), files = new Set()
+  const recordLoads = [], transfers = [], verified = [], progress = []
+  let current = true, interrupt = true
+  let time = '2026-11-19T18:00:00Z'
+
+  const run = () => prepareCoachAccountOffline({
+    user, contexts: [...targets, targets[4]], selectedContextId: targets[0].id,
+    now: () => time, isCurrent: () => current,
+    readPreviousStatus: async (_userId, team) => validateCoachAccountOfflineStatus(checkpoints.get(team.id), caches.get(team.id)),
+    verifyCheckpoint: async (_user, team) => { verified.push(team.id) },
+    createSaver: (_user, team) => async resources => {
+      const cache = caches.get(team.id) || { resources: {}, resourceMetadata: {} }
+      for (const [key, value] of Object.entries(resources)) {
+        cache.resources[key] = value
+        cache.resourceMetadata[key] = { fingerprint: JSON.stringify(value) }
+      }
+      caches.set(team.id, cache)
+      return cache
+    },
+    readBackResources: async (_userId, team) => caches.get(team.id),
+    saveStatus: async (_userId, team, status) => checkpoints.set(team.id, structuredClone(status)),
+    saveMatches: async () => {},
+    report: (team, status) => progress.push([team, status.phase, status.filesSaved]),
+    loadContext: async (_user, team, callbacks) => {
+      recordLoads.push(team.id)
+      callbacks.onStage('players')
+      await callbacks.onResource({ cacheKey: 'players', value: [{ id: team.id }], complete: true })
+      await callbacks.onMatch({ id: 'fixture-' + team.id })
+      for (let index = 1; index <= (team.id === 'team-1' ? 10 : 1); index++) {
+        await callbacks.onMedia({ id: team.id + '/file-' + index, kind: 'file' })
+      }
+      return { complete: true }
+    },
+    hasMedia: async (_user, _team, resource) => files.has(resource.id),
+    prepareMedia: async (_user, team, resource) => {
+      assert.ok(caches.get(team.id).resources.players.length, 'Records are committed before downloading files')
+      if (interrupt && resource.id === 'team-1/file-9') {
+        current = false
+        throw new Error('Foreground download stopped')
+      }
+      transfers.push(resource.id)
+      files.add(resource.id)
+      return { bytes: 12, resource }
+    },
+  })
+
+  const paused = await run()
+  assert.equal(paused.cancelled, true)
+  assert.deepEqual(recordLoads, ['team-0', 'team-1'])
+  assert.equal(checkpoints.get('team-0').state, 'ready')
+  assert.equal(checkpoints.get('team-1').phase, 'files')
+  assert.equal(checkpoints.get('team-1').filesSaved, 8)
+  assert.equal(checkpoints.get('team-1').filesTotal, 10)
+  assert.equal(checkpoints.has('team-2'), false)
+
+  // A previously saved local copy goes missing before the fresh process resumes.
+  files.delete('team-1/file-2')
+  current = true
+  interrupt = false
+  time = '2026-11-19T18:06:00Z'
+  const resumed = await run()
+  assert.equal(resumed.complete, true)
+  assert.deepEqual(verified, ['team-0', 'team-1'])
+  assert.deepEqual(recordLoads, targets.map(team => team.id))
+  assert.deepEqual(transfers.slice(9), [
+    'team-1/file-2', 'team-1/file-9', 'team-1/file-10', 'team-2/file-1', 'team-3/file-1', 'team-4/file-1',
+  ])
+  assert.ok(progress.some(([id, phase, saved]) => id === 'team-1' && phase === 'files' && saved === 8))
+  assert.ok(resumed.results.every(status => status.state === 'ready' && !status.checkpoint))
+})
+
+test('a failed team continues the account queue and a retry checks its scope before reusing records', async () => {
+  const one = { id: 'one', clubId: 'club-one', teamId: 'one' }
+  const two = { id: 'two', clubId: 'club-two', teamId: 'two' }
+  const states = new Map()
+  let denied = false, fetched = 0
+  const options = {
+    user: { id: 'coach' }, contexts: [one, two], selectedContextId: one.id,
+    readPreviousStatus: async (_id, team) => states.get(team.id),
+    verifyCheckpoint: async (_user, team) => {
+      if (denied && team.id === one.id) throw Object.assign(new Error('Team access was removed.'), { code: '42501' })
+    },
+    createSaver: () => async values => ({ resourceMetadata: Object.fromEntries(Object.keys(values).map(key => [key, { fingerprint: key }])) }),
+    saveStatus: async (_id, team, state) => states.set(team.id, structuredClone(state)),
+    loadContext: async (_user, team, { onMedia }) => {
+      fetched += 1
+      if (team.id === one.id) await onMedia({ id: 'first-file' })
+      return { complete: true }
+    },
+    prepareMedia: async () => { throw new Error('File failed temporarily.') },
+  }
+  const first = await prepareCoachAccountOffline(options)
+  assert.equal(first.complete, false)
+  assert.equal(first.retryNeeded, true)
+  assert.deepEqual(first.results.map(item => item.state), ['partial', 'ready'])
+  assert.equal(fetched, 2)
+
+  denied = true
+  const second = await prepareCoachAccountOffline(options)
+  assert.deepEqual(second.results.map(item => item.state), ['partial', 'ready'])
+  assert.equal(states.get(one.id).checkpoint, undefined)
+  assert.equal(fetched, 2)
 })
