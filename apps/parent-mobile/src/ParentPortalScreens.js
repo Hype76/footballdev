@@ -151,6 +151,9 @@ function usePortalStyles(themeTokens) {
       fixtureStadium: { ...StyleSheet.absoluteFillObject, height: '100%', width: '100%' },
       fixtureTeam: { color: '#ffffff', fontSize: 13, fontWeight: '900', textShadowColor: '#07151f', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 4 },
       listSurface: { ...surface, gap: 7, paddingHorizontal: 11, paddingVertical: 9 },
+      fixtureBadges: { alignItems: 'flex-start', flexDirection: 'row', gap: 6 },
+      fixtureCompactBadge: { flexShrink: 1, minWidth: 0 },
+      fixtureCompactBadgeText: { flexShrink: 1, fontSize: 11, lineHeight: 16, minWidth: 0 },
       fixtureListFooter: { alignItems: 'center', borderTopColor: colors.border, borderTopWidth: StyleSheet.hairlineWidth, flexDirection: 'row', flexWrap: 'wrap', gap: 9, paddingTop: 6 },
       fixtureFooterItem: { alignItems: 'center', flexDirection: 'row', gap: 5 },
       fixtureStatus: { alignItems: 'center', backgroundColor: colors.accentSoft, borderRadius: 20, flexDirection: 'row', gap: 5, paddingHorizontal: 7, paddingVertical: 3 },
@@ -798,7 +801,7 @@ function MatchStatusBadge({ colors, status, prefix, styles, compact = false }) {
         : tone === 'selected'
           ? { backgroundColor: colors.statusSelectedSurface, color: colors.statusSelected }
           : { backgroundColor: colors.statusMutedSurface, color: colors.statusMuted }
-  return <View accessibilityLabel={`${prefix}: ${status.label}`} style={{ alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: compact ? 4 : 5, borderRadius: 999, paddingHorizontal: compact ? 6 : 11, paddingVertical: compact ? 5 : 7, backgroundColor: badge.backgroundColor }}><ParentIcon color={badge.color} iconKey={status.icon} size={compact ? 14 : 18} /><Text style={[styles.meta, { color: badge.color, fontWeight: '700', ...(compact ? { fontSize: 11, lineHeight: 16 } : {}) }]}>{status.label}</Text></View>
+  return <View accessibilityLabel={`${prefix}: ${status.label}`} style={[{ alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: compact ? 4 : 5, borderRadius: 999, paddingHorizontal: compact ? 6 : 11, paddingVertical: compact ? 5 : 7, backgroundColor: badge.backgroundColor }, compact && styles.fixtureCompactBadge]}><ParentIcon color={badge.color} iconKey={status.icon} size={compact ? 14 : 18} /><Text style={[styles.meta, { color: badge.color, fontWeight: '700' }, compact && styles.fixtureCompactBadgeText]}>{status.label}</Text></View>
 }
 
 function MatchCard({ colors, invitations, link, match, onOpen, scorerGuide, styles }) {
@@ -806,7 +809,7 @@ function MatchCard({ colors, invitations, link, match, onOpen, scorerGuide, styl
   const isCompleted = match.status === 'full_time'
   return (
     <View style={styles.listSurface}>
-      {!match.isFanView && !isCompleted ? <View style={{ flexDirection: 'row', flexWrap: 'wrap', columnGap: 6, rowGap: 4 }}><MatchStatusBadge compact colors={colors} status={getParentMatchAvailability(match, invitation, link)} prefix="Availability" styles={styles} /><MatchStatusBadge compact colors={colors} status={getParentMatchSquadStatus(match)} prefix="Match squad" styles={styles} /></View> : null}
+      {!match.isFanView && !isCompleted ? <View style={styles.fixtureBadges}><MatchStatusBadge compact colors={colors} status={getParentMatchAvailability(match, invitation, link)} prefix="Availability" styles={styles} /><MatchStatusBadge compact colors={colors} status={getParentMatchSquadStatus(match)} prefix="Match squad" styles={styles} /></View> : null}
       <Pressable accessibilityHint={scorerGuide ? 'Opens the scoring controls' : 'Opens Match Day'} accessibilityRole="button" onPress={() => onOpen(match)} style={{ minHeight: 48, gap: 5, paddingVertical: 3 }}>
         <View style={styles.row}>
           <View style={styles.fixtureStatus}><MaterialIcons accessible={false} color={colors.accentText} name="event" size={14} /><Text style={styles.fixtureStatusText}>{getParentMatchStatusLabel(match)}</Text></View>

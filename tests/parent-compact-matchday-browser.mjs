@@ -316,8 +316,10 @@ try {
     if (width === 320) await page.setViewportSize({ width: 304, height: 844 })
     const availabilityBadge = page.getByLabel('Availability: Needs response', { exact: true }).first()
     const pairedSquadBadge = availabilityBadge.locator('..').getByLabel('Match squad: Not announced yet', { exact: true })
+    await pairedSquadBadge.waitFor()
     const [availabilityBounds, squadBounds] = await Promise.all([availabilityBadge.boundingBox(), pairedSquadBadge.boundingBox()])
-    assert.ok(availabilityBounds && squadBounds && Math.abs(availabilityBounds.y - squadBounds.y) < 2, `Long status chips share one row at ${width}px in ${mode} mode`)
+    assert.ok(availabilityBounds && squadBounds && Math.abs(availabilityBounds.y - squadBounds.y) < 2, `Long status chips share a row in ${mode} mode: ${JSON.stringify({ availabilityBounds, squadBounds })}`)
+    assert.ok(availabilityBounds.x + availabilityBounds.width <= squadBounds.x, 'The status chips do not overlap')
     assert.ok(squadBounds.x + squadBounds.width <= (width === 320 ? 304 : width), 'The squad chip fits inside the viewport')
     if (width === 320) await page.setViewportSize({ width, height: 844 })
     const expectedStatusColors = mode === 'dark'
