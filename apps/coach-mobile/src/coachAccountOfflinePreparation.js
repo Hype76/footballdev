@@ -39,6 +39,10 @@ export async function prepareCoachAccountOffline({ user, contexts, selectedConte
   ])))
   const incomplete = targets.some(context => !isFinished(previous.get(context.id)))
   const age = time => Date.parse(now()) - Date.parse(time)
+  const publishProgress = (id, status) => {
+    const { checkpoint: _checkpoint, resources: _resources, matchIds: _matchIds, ...progress } = status
+    if (isCurrent()) report(id, progress)
+  }
 
   for (const context of targets) {
     if (!isCurrent()) return { cancelled: true, results }
@@ -56,14 +60,14 @@ export async function prepareCoachAccountOffline({ user, contexts, selectedConte
           error: getCoachFriendlyError(error, 'This team could not be checked. Retry while connected.'),
         }
         if (denied) await saveStatus(user.id, context, status, isCurrent).catch(() => {})
-        report(context.id, { ...status, checkpoint: undefined, resources: undefined, matchIds: undefined })
+        publishProgress(context.id, status)
         results.push({ contextId: context.id, ...status })
         continue
       }
     }
     if (!isCurrent()) return { cancelled: true, results }
     if (reuse) {
-      report(context.id, prior)
+      publishProgress(context.id, prior)
       results.push({ contextId: context.id, ...prior })
       continue
     }
@@ -79,10 +83,7 @@ export async function prepareCoachAccountOffline({ user, contexts, selectedConte
     const save = createSaver(user, context, { isCurrent })
     let pendingResources = {}, progressItems = 0, progressAt = Date.now(), restartRecords = false
     const matches = new Map(), media = new Map()
-    const notify = () => {
-      const { checkpoint, resources, matchIds, ...progress } = status
-      if (isCurrent()) report(context.id, progress)
-    }
+    const notify = () => publishProgress(context.id, status)
     const persist = async () => {
       if (!isCurrent()) return
       await saveStatus(user.id, context, status, isCurrent)
