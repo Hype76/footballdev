@@ -85,3 +85,14 @@ test('corrected saved cards/substitutions validate new identity and reject stale
   form=pickCoachMatchDayLinkedPlayer(form,'player',players[1])
   assert.equal(validateCoachMatchDayEventParticipants(validateCoachMatchDayEventForm(form),players).playerName,'Renamed')
 })
+
+test('trial players follow the other Goal picker choices after a roster is saved offline', () => {
+  const players = normalizeMatchDayParticipantRoster({
+    ...raw,
+    players: [{ ...raw.players[0], is_trial: true }, { ...raw.players[1], is_trial: false }],
+  }, match)
+  const snapshot = JSON.parse(JSON.stringify({ ...match, eventParticipants: players }))
+  assert.deepEqual(getCoachMatchDaySelectedPlayers([], snapshot).map(player => [player.id, Boolean(player.isTrial)]), [
+    ['two', false], ['one', true],
+  ])
+})

@@ -73,6 +73,8 @@ function resolveNotificationType(type, event, match) {
 function getEventCopy({ match, notificationType, event }) {
   const teamName = getTeamName(match)
   const isOpponentGoal = normalizeType(event?.team_side || event?.teamSide) === 'opponent'
+  const cardSide = normalizeType(event?.team_side || event?.teamSide)
+  const cardTeam = cardSide === 'club' ? teamName : cardSide === 'opponent' ? getOpponentName(match) : ''
 
   switch (notificationType) {
     case 'match_started':
@@ -82,9 +84,9 @@ function getEventCopy({ match, notificationType, event }) {
         ? { title: 'Opposition goal', category: 'Opposition goal', detail: 'The opposition scored' }
         : { title: 'Goal update', category: `Goal for ${teamName}`, detail: `${teamName} scored` }
     case 'yellow_card':
-      return { title: 'Yellow card update', category: 'Yellow card update', detail: 'A yellow card was recorded' }
+      return { title: 'Yellow card update', category: cardTeam ? `Yellow card for ${cardTeam}` : 'Yellow card update', detail: cardTeam ? `Yellow card for ${cardTeam}` : 'A yellow card was recorded' }
     case 'red_card':
-      return { title: 'Red card update', category: 'Red card update', detail: 'A red card was recorded' }
+      return { title: 'Red card update', category: cardTeam ? `Red card for ${cardTeam}` : 'Red card update', detail: cardTeam ? `Red card for ${cardTeam}` : 'A red card was recorded' }
     case 'substitution':
       return { title: 'Substitution update', category: 'Substitution update', detail: 'A substitution was recorded' }
     case 'water_break':
@@ -129,8 +131,6 @@ function getCompactEventDetail(notificationType, event) {
     const assist = relatedName || relatedShirt ? ` Assist: ${formatPerson(relatedName, relatedShirt)}.` : ''
     return `Goal: ${scorer}${minute}.${assist}`
   }
-  if (notificationType === 'yellow_card') return `Yellow: ${formatPerson(playerName, playerShirt)}${formatEventMinute(event)}.`
-  if (notificationType === 'red_card') return `Red: ${formatPerson(playerName, playerShirt)}${formatEventMinute(event)}.`
   if (notificationType === 'substitution') {
     return `Sub: ${formatPerson(playerName, playerShirt)} off, ${formatPerson(relatedName, relatedShirt)} on.`
   }
@@ -148,8 +148,11 @@ export function buildParentMatchDayNotificationCopy({ match, type, event = null 
   const compactScore = `${score} v ${opponentName}`
   const matchId = normalizeText(match?.id) || 'unknown'
   const eventId = normalizeText(event?.id)
+  const isCard = ['yellow_card', 'red_card'].includes(notificationType)
   const detailedBody = compactEventDetail
     ? `${compactEventDetail} ${compactScore}.`
+    : isCard
+      ? `${copy.detail}. ${matchName}. Score ${score}.`
     : notificationType === 'full_time'
       ? `Full time: ${teamName} ${score} ${opponentName}.`
     : copy.includeScore === false
@@ -161,7 +164,9 @@ export function buildParentMatchDayNotificationCopy({ match, type, event = null 
   return {
     title: copy.title,
     matchTitle: matchName,
-    minimalBody: notificationType === 'goal' && compactEventDetail && event
+    minimalBody: isCard
+      ? `${copy.category}. ${matchName}.`
+      : notificationType === 'goal' && compactEventDetail && event
       ? detailedBody
       : `${copy.category} for ${matchName}.`,
     detailedBody,

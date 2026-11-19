@@ -33,4 +33,5 @@ test('assigned coaches can delete a scheduled or historical match, with active a
   ]) assert.equal(canDeleteCoachFixture({ context, fixture: { ...fixture, ...state }, today }), false)
   assert.equal(canDeleteCoachFixture({ context, fixture, stale: true }), false)
   assert.equal(canDeleteCoachFixture({ context: { ...context, role: 'assistant_coach', roleRank: 20 }, fixture }), false)
+  assert.equal(canDeleteCoachFixture({ context: { ...context, role: 'admin', clubId: 'club' }, fixture: { ...fixture, clubId: 'club' } }), false)
 })

@@ -433,3 +433,38 @@ test('actual Parent queued correction adapter routes IDs to v2 journal, returns 
     assert.ok(rpcNames.length>=4)
   } finally {await db.close()}
 })
+
+test('current Matchday scorers can link any active player on the fixture team, with trials last', async () => {
+  const db = await database()
+  try {
+    await db.exec(await readFile(new URL('../supabase/migrations/20261119155655_matchday_active_scoring_roster.sql', import.meta.url), 'utf8'))
+    const unselected = uuid(4, 3)
+    const archived = uuid(4, 4)
+    const otherTeamPlayer = uuid(4, 5)
+    const inactive = uuid(4, 6)
+    const otherTeam = uuid(2, 2)
+    await db.exec(`
+      insert into teams values('${otherTeam}','${club}','Other Team');
+      insert into players(id,club_id,team_id,player_name,section,status,archived_at) values
+        ('${unselected}','${club}','${team}','Zed Player','Squad','active',null),
+        ('${archived}','${club}','${team}','Archived','Squad','active',now()),
+        ('${otherTeamPlayer}','${club}','${otherTeam}','Other Team Player','Trial','active',null),
+        ('${inactive}','${club}','${team}','Inactive','Squad','inactive',null);
+      update players set player_name='A Trial' where id='${p2}';
+      insert into match_day_player_squad_decisions values
+        ('${fixture}','${club}','${team}','${p1}','selected'),
+        ('${fixture}','${club}','${team}','${p2}','waiting');
+    `)
+    assert.deepEqual((await read(db)).map(player => [player.id, player.is_trial]), [
+      [p1, false], [unselected, false], [p2, true],
+    ])
+    const event = await goal(db, p2, unselected)
+    assert.equal(event.scorer_player_id, p2)
+    assert.equal(event.assist_player_id, unselected)
+    for (const player of [archived, otherTeamPlayer, inactive]) {
+      await assert.rejects(goal(db, player, null, uuid(7, 2)), /no longer eligible/)
+    }
+    await db.exec(`update parent_player_links set status='revoked' where id='${link}'`)
+    await assert.rejects(read(db), /Current selected Parent scorer access/)
+  } finally { await db.close() }
+})

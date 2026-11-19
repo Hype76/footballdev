@@ -839,7 +839,7 @@ function GoalPlayerPicker({ allowClear = false, disabled, flat = false, label, o
       <Button
         disabled={disabled}
         expanded={open}
-        label={otherSelected ? (value || 'Other assist') : selected ? `${selected.playerName}${selected.shirtNumber ? ` | Shirt ${selected.shirtNumber}` : ''}` : `Choose ${label.toLowerCase()}`}
+        label={otherSelected ? (value || 'Other assist') : selected ? `${selected.playerName}${selected.shirtNumber ? ` | Shirt ${selected.shirtNumber}` : ''}${selected.isTrial ? ' | Trial player' : ''}` : `Choose ${label.toLowerCase()}`}
         onPress={() => setOpen((current) => !current)}
         outline
         styles={styles}
@@ -851,13 +851,13 @@ function GoalPlayerPicker({ allowClear = false, disabled, flat = false, label, o
           {players.map((player) => (
             <Button
               key={player.id || `${player.playerName}:${player.shirtNumber}`}
-              label={`${player.playerName}${player.shirtNumber ? ` | Shirt ${player.shirtNumber}` : ''}`}
+              label={`${player.playerName}${player.shirtNumber ? ` | Shirt ${player.shirtNumber}` : ''}${player.isTrial ? ' | Trial player' : ''}`}
               onPress={() => { onSelect(player); setOpen(false) }}
               selected={!otherSelected && selected?.id === player.id}
               styles={styles}
             />
           ))}
-          {players.length === 0 ? <Text style={styles.helper}>No eligible match Players are available.</Text> : null}
+          {players.length === 0 ? <Text style={styles.helper}>No players are available in this match roster.</Text> : null}
         </View>
       ) : null}
     </View>
