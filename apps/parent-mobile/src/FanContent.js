@@ -9,9 +9,9 @@ import { fanBrandingLink } from '../../../src/lib/fan-branding'
 import { FanAttendanceScreen } from './FanAttendanceScreen'
 import { PlayerStatsScreen } from './PlayerStatsScreen'
 
-export function FanContent({ suppressParentFormation = false, connection, view, content, formation, matchdayPolicy, onCloseFormation, onOpenResource, onOpenLink, onOpen, themeTokens }) {
+export function FanContent({ suppressParentFormation = false, connection, view, content, loading = false, formation, matchdayPolicy, onCloseFormation, onOpenResource, onOpenLink, onOpen, themeTokens }) {
   const link = { ...fanBrandingLink(connection, matchdayPolicy), playerName: connection?.player_name, teamName: connection?.team_name }
-  const resource = (items) => ({ items, loading: false, error: '' })
+  const resource = (items) => ({ items, loading, error: '' })
   const addToCalendar = (item) => onOpenLink(getParentGoogleCalendarUrl(item))
   if (view.action === 'attendance') return <FanAttendanceScreen items={content.attendance || []} themeTokens={themeTokens} />
   if (view.action === 'stats' && connection?.relationship_type === 'player') return <PlayerStatsScreen connection={connection} stats={content.stats} themeTokens={themeTokens} />

@@ -820,7 +820,7 @@ function isMatchDayAccessDenied(error) {
   return error?.code === '42501' || error?.status === 403 || error?.statusCode === 403 || /permission denied|row.level security|not authori[sz]ed/i.test(String(error?.message || ''))
 }
 
-function CoachMatchDayScoped({ context, matchDayTarget, onMatchDayTargetHandled, onNavigate, onQuickActionHandled, onRequestScrollTo, onRequestScrollTop, palette, quickAction, user }) {
+function CoachMatchDayScoped({ context, matchDayTarget, onMatchDayTargetHandled, onNavigate, onQuickActionHandled, onRequestScrollTo, onRequestScrollTop, onTabData, palette, quickAction, user }) {
   const templateStore = useMemo(() => createCoachSquadTemplateStore(user), [user])
   const styles = useMemo(() => createStyles(palette), [palette])
   const [busy, setBusy] = useState(false)
@@ -833,6 +833,8 @@ function CoachMatchDayScoped({ context, matchDayTarget, onMatchDayTargetHandled,
   const [fixtureFormDate, setFixtureFormDate] = useState('')
   const [fixtureReturnTarget, setFixtureReturnTarget] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [tabDataStatus, setTabDataStatus] = useState('')
+  useEffect(() => { if (tabDataStatus) onTabData?.(tabDataStatus) }, [onTabData, tabDataStatus])
   const [refreshing, setRefreshing] = useState(false)
   const [serverMatch, setMatch] = useState(null)
   const [matches, setMatches] = useState([])
@@ -953,6 +955,7 @@ function CoachMatchDayScoped({ context, matchDayTarget, onMatchDayTargetHandled,
     if (hasCachedMatches) {
       hasMatchListSnapshot.current = true
       setMatches(normalizeCachedMatches(saved.resources.matchDayList))
+      setTabDataStatus('saved')
       setPlayers(Array.isArray(saved.resources.matchDayPlayers) ? saved.resources.matchDayPlayers : [])
       if (cachedMatch && !matchRef.current && (!selectionBeforeLoad || selectionBeforeLoad === cachedMatch.id)) {
         selectedMatchId.current = cachedMatch.id
@@ -967,7 +970,10 @@ function CoachMatchDayScoped({ context, matchDayTarget, onMatchDayTargetHandled,
     if (currentUser.isOfflineProfile) {
       setFixtureStale(true)
       setStale(true); setLoading(false); setRefreshing(false); loadInFlight.current = false
-      if (!hasCachedMatches) setError('Connect and download fixtures on Home before recording on this phone.')
+      if (!hasCachedMatches) {
+        setTabDataStatus('error')
+        setError('Connect and download fixtures on Home before recording on this phone.')
+      }
       return
     }
     try {
@@ -980,7 +986,7 @@ function CoachMatchDayScoped({ context, matchDayTarget, onMatchDayTargetHandled,
       // The list is independently authorised, but edits must wait for the roster.
       playersStaleRef.current = true
       setStale(true)
-      setMatches(nextMatches); setLoading(false)
+      setMatches(nextMatches); setLoading(false); setTabDataStatus('success')
       const playersResult = await remotePlayers
       if (!isCurrentScope()) return
       if (playersResult.status === 'rejected' && isMatchDayAccessDenied(playersResult.reason)) throw playersResult.reason
@@ -1038,7 +1044,10 @@ function CoachMatchDayScoped({ context, matchDayTarget, onMatchDayTargetHandled,
     } catch (loadError) {
       if (isCurrentScope() && isMatchDayAccessDenied(loadError)) clearDenied()
       if (isCurrentScope()) { setStale(true); setFixtureStale(true) }
-      if (isCurrentScope()) setError(errorMessage(loadError, 'Match Day could not be loaded.'))
+      if (isCurrentScope()) {
+        if (!hasMatchListSnapshot.current) setTabDataStatus('error')
+        setError(errorMessage(loadError, 'Match Day could not be loaded.'))
+      }
     } finally {
       loadInFlight.current = false
       if (isCurrentScope()) setRefreshing(false)

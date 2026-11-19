@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import test from 'node:test'
-import { COACH_PERFORMANCE_STORAGE_KEY, createCoachPerformanceDiagnostics, getCoachConnectionLabel } from '../apps/coach-mobile/src/coachPerformanceDiagnosticsCore.js'
+import { COACH_PERFORMANCE_STORAGE_KEY, createCoachPerformanceDiagnostics, createCoachTabTiming, getCoachConnectionLabel } from '../apps/coach-mobile/src/coachPerformanceDiagnosticsCore.js'
 import { readAllPages } from '../apps/mobile-core/src/coachAvailabilityData.js'
 import { buildCoachCalendarEvents } from '../apps/mobile-core/src/coachCalendarCore.js'
 import { normalizeCoachInvite } from '../apps/mobile-core/src/coachPhase31ECore.js'
@@ -27,6 +27,52 @@ test('Coach speed diagnostics retain only bounded local timing fields', async ()
   assert.equal(JSON.parse(stored).length, 60)
   await diagnostics.clear()
   assert.equal(stored, null)
+})
+
+test('Coach tab diagnostics separate layout time from first data and fence old visits', () => {
+  let time = 100
+  const frames = [], samples = []
+  const tracker = createCoachTabTiming({ record: sample => samples.push(sample), now: () => time, afterFrame: callback => frames.push(callback) })
+  const flush = (nextTime) => { time = nextTime; for (const frame of frames.splice(0)) frame() }
+  const calendar = tracker.begin('calendar')
+  calendar.screen()
+  calendar.screen()
+  flush(140)
+  calendar.data('success')
+  flush(1800)
+  assert.deepEqual(samples.map(({name, durationMs}) => [name, durationMs]), [['tab.calendar.screen', 40], ['tab.calendar.data', 1660]])
+
+  const players = tracker.begin('players')
+  players.data('saved')
+  flush(1810)
+  players.screen()
+  flush(1825)
+  assert.deepEqual(samples.slice(-2).map(({name, durationMs, status}) => [name, durationMs, status]), [['tab.players.screen', 25, 'success'], ['tab.players.data', 0, 'saved']])
+
+  const abandoned = tracker.begin('matchday')
+  abandoned.screen()
+  flush(1850)
+  abandoned.data('error')
+  time = 2000
+  const more = tracker.begin('more')
+  more.screen()
+  more.data('success')
+  flush(2010)
+  abandoned.data('success')
+  assert.deepEqual(samples.slice(-2).map(({name, status, durationMs}) => [name, status, durationMs]), [['tab.matchday.data', 'left', 150], ['tab.more.screen', 'success', 10]])
+  assert.equal(samples.every(sample => sample.source === 'tap'), true)
+  assert.equal(tracker.begin('settings'), null)
+})
+
+test('Coach tab results retain tap source and failed duration without account content', async () => {
+  const diagnostics = createCoachPerformanceDiagnostics({ storage: { getItem: async () => '[]' }, schedule: () => 1 })
+  diagnostics.record({ name: 'tab.home.data', status: 'error', source: 'tap', durationMs: 17_700, player: 'private' })
+  const [sample] = await diagnostics.read()
+  assert.equal(sample.source, 'tap')
+  assert.equal(sample.durationMs, 17_700)
+  assert.equal(sample.status, 'error')
+  assert.equal(Object.hasOwn(sample, 'player'), false)
+  assert.equal(diagnostics.record({ name: 'tab.more.data' }), false)
 })
 
 test('Coach connection diagnostics report available browser hints and an honest native fallback', () => {
