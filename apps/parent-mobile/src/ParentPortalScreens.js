@@ -798,7 +798,7 @@ function MatchStatusBadge({ colors, status, prefix, styles, compact = false }) {
         : tone === 'selected'
           ? { backgroundColor: colors.statusSelectedSurface, color: colors.statusSelected }
           : { backgroundColor: colors.statusMutedSurface, color: colors.statusMuted }
-  return <View accessibilityLabel={`${prefix}: ${status.label}`} style={{ alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 5, borderRadius: 999, paddingHorizontal: compact ? 9 : 11, paddingVertical: compact ? 5 : 7, backgroundColor: badge.backgroundColor }}><ParentIcon color={badge.color} iconKey={status.icon} size={compact ? 14 : 18} /><Text style={[styles.meta, { color: badge.color, fontWeight: '700', ...(compact ? { fontSize: 11, lineHeight: 16 } : {}) }]}>{status.label}</Text></View>
+  return <View accessibilityLabel={`${prefix}: ${status.label}`} style={{ alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: compact ? 4 : 5, borderRadius: 999, paddingHorizontal: compact ? 6 : 11, paddingVertical: compact ? 5 : 7, backgroundColor: badge.backgroundColor }}><ParentIcon color={badge.color} iconKey={status.icon} size={compact ? 14 : 18} /><Text style={[styles.meta, { color: badge.color, fontWeight: '700', ...(compact ? { fontSize: 11, lineHeight: 16 } : {}) }]}>{status.label}</Text></View>
 }
 
 function MatchCard({ colors, invitations, link, match, onOpen, scorerGuide, styles }) {
@@ -806,7 +806,7 @@ function MatchCard({ colors, invitations, link, match, onOpen, scorerGuide, styl
   const isCompleted = match.status === 'full_time'
   return (
     <View style={styles.listSurface}>
-      {!match.isFanView && !isCompleted ? <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}><MatchStatusBadge compact colors={colors} status={getParentMatchAvailability(match, invitation, link)} prefix="Availability" styles={styles} /><MatchStatusBadge compact colors={colors} status={getParentMatchSquadStatus(match)} prefix="Match squad" styles={styles} /></View> : null}
+      {!match.isFanView && !isCompleted ? <View style={{ flexDirection: 'row', flexWrap: 'wrap', columnGap: 6, rowGap: 4 }}><MatchStatusBadge compact colors={colors} status={getParentMatchAvailability(match, invitation, link)} prefix="Availability" styles={styles} /><MatchStatusBadge compact colors={colors} status={getParentMatchSquadStatus(match)} prefix="Match squad" styles={styles} /></View> : null}
       <Pressable accessibilityHint={scorerGuide ? 'Opens the scoring controls' : 'Opens Match Day'} accessibilityRole="button" onPress={() => onOpen(match)} style={{ minHeight: 48, gap: 5, paddingVertical: 3 }}>
         <View style={styles.row}>
           <View style={styles.fixtureStatus}><MaterialIcons accessible={false} color={colors.accentText} name="event" size={14} /><Text style={styles.fixtureStatusText}>{getParentMatchStatusLabel(match)}</Text></View>

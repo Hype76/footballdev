@@ -312,8 +312,14 @@ try {
     assert.equal(fontSizes[0], fontSizes[1], 'Both team names use the same font size')
     assert.ok(fontSizes[0] >= 16, 'Fixture names remain readable')
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth))
-    const longBadges = await Promise.all(['Availability: Needs response', 'Match squad: Not announced yet'].map(label => page.getByLabel(label,{exact:true}).first().boundingBox()))
-    assert.ok(Math.abs(longBadges[0].y-longBadges[1].y)<2, 'long status chips remain beside each other')
+    // Reserve extra room for browser scrollbars and platform font differences.
+    if (width === 320) await page.setViewportSize({ width: 304, height: 844 })
+    const availabilityBadge = page.getByLabel('Availability: Needs response', { exact: true }).first()
+    const pairedSquadBadge = availabilityBadge.locator('..').getByLabel('Match squad: Not announced yet', { exact: true })
+    const [availabilityBounds, squadBounds] = await Promise.all([availabilityBadge.boundingBox(), pairedSquadBadge.boundingBox()])
+    assert.ok(availabilityBounds && squadBounds && Math.abs(availabilityBounds.y - squadBounds.y) < 2, `Long status chips share one row at ${width}px in ${mode} mode`)
+    assert.ok(squadBounds.x + squadBounds.width <= (width === 320 ? 304 : width), 'The squad chip fits inside the viewport')
+    if (width === 320) await page.setViewportSize({ width, height: 844 })
     const expectedStatusColors = mode === 'dark'
       ? {
         'Availability: Available': ['rgb(134, 239, 172)', 'rgb(20, 83, 45)', 'Available'],
