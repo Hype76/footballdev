@@ -268,7 +268,7 @@ export async function readCoachAccountPreparation(userId, contexts, { verifyMedi
       const journal = document.matchDayOutboxes?.[context.id]?.[id]
       return journal?.authority !== outboxAuthority(context) || journal?.baseMatch?.id !== id
         || journal.baseMatch.clubId !== context.clubId || journal.baseMatch.teamId !== context.teamId
-    })) status = { ...status, state: 'partial', error: 'Some saved fixtures need downloading again.' }
+    })) status = { ...status, checkpoint: undefined, state: 'partial', error: 'Some saved fixtures need downloading again.' }
     const inventory = cache?.resources?.offlineMediaInventory || []
     if (verifyMedia && status?.savedAt && !status.filesFailed && ['ready', 'partial'].includes(status.state) && inventory.length) {
       let verified = false

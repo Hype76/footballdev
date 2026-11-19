@@ -1,3 +1,4 @@
+import { withMobileAsyncTimeout } from './http.js'
 import { normalizeCoachPlayer, normalizeCoachPlayerEvaluation, normalizeCoachPlayerField } from './coachPlayersCore.js'
 import { normalizeCoachSession, normalizeCoachSessionPlayer } from './coachSessionsCore.js'
 import { normalizeCoachMatchDay } from './coachMatchDayNormalization.js'
@@ -40,7 +41,9 @@ export async function readCoachOfflineFamily(user,context,key,{rpc=defaultRpc,is
   let cursor=null, revision=null, total=null
   do {
     if(!isCurrent()) throw new Error('coach_offline_cancelled')
-    const {data,error}=await rpc('get_own_coach_offline_resource',{club_value:context.clubId,team_value:context.teamId,resource_key:key,cursor_value:cursor})
+    const {data,error}=await withMobileAsyncTimeout(() => rpc('get_own_coach_offline_resource', {
+      club_value:context.clubId,team_value:context.teamId,resource_key:key,cursor_value:cursor,
+    }), { timeoutMs: 20000, timeoutMessage: 'Team records took too long to respond. Retry while connected.' })
     if(error) throw error
     if(!isCurrent()) throw new Error('coach_offline_cancelled')
     if(!data || data.schemaVersion!==1 || data.userId!==user.id || data.clubId!==context.clubId || data.teamId!==context.teamId || data.resourceKey!==key
@@ -96,7 +99,7 @@ function developmentWorkspace(records) {
       clientSaveVersion:Number(item.client_save_version || item.draft_data?.draftMeta?.clientSaveVersion || 0),lastSavedAt:item.last_saved_at || '',status:item.status}))}
 }
 
-export async function loadCoachOfflineContext(user,context,{isCurrent=()=>true,onResource=async()=>{},onMedia=async()=>{},onMatch=async()=>{},rpc=defaultRpc,authorizeMedia=authorizeCoachOfflineMedia}={}) {
+export async function loadCoachOfflineContext(user,context,{isCurrent=()=>true,onResource=async()=>{},onMedia=async()=>{},onMatch=async()=>{},onStage=()=>{},deferMediaAuthorization=false,rpc=defaultRpc,authorizeMedia=authorizeCoachOfflineMedia}={}) {
   assertContext(user,context)
   const records={},onlineOnly=[]
   let resourceCount=0
@@ -105,6 +108,7 @@ export async function loadCoachOfflineContext(user,context,{isCurrent=()=>true,o
     assertCurrent();await onResource({cacheKey,value,complete:true,count});assertCurrent();resourceCount++
   }
   for(const key of COACH_OFFLINE_RESOURCE_KEYS) {
+    assertCurrent();onStage(key)
     const rows=await readCoachOfflineFamily(user,context,key,{rpc,isCurrent})
     for(const item of rows) (records[item.kind] ||= []).push(item.data)
     if(key==='players') {
@@ -157,7 +161,12 @@ export async function loadCoachOfflineContext(user,context,{isCurrent=()=>true,o
       for(const row of records.formationPublications || []) if(row.shirt_kit?.imagePath) kits.set(row.board_version_id,row.shirt_kit.imagePath)
       for(const [sourceId,path] of kits) {
         assertCurrent()
-        const authorization=await authorizeMedia(user,context,{id:`kit:${sourceId}`,sourceId,kind:'kit',clubId:context.clubId,teamId:context.teamId})
+        const resource = {id:`kit:${sourceId}`,sourceId,kind:'kit',clubId:context.clubId,teamId:context.teamId}
+        if (deferMediaAuthorization) {
+          await onMedia({...resource, expectedStoragePath:path, title:'Kit image'})
+          continue
+        }
+        const authorization=await authorizeMedia(user,context,resource)
         assertCurrent()
         if(authorization.resource.storagePath!==path) throw new Error('coach_offline_kit_revision_changed')
         await onMedia({...authorization.resource,kind:'kit',type:'file'});assertCurrent()
