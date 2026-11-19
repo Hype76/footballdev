@@ -28,7 +28,7 @@ const entry = `
   const contexts=[context];
   window.navigations=[];
   if(window.startListOnly)localStorage.setItem('resources',JSON.stringify({resources:{matchDayList:[window.server],matchDayPlayers:[],matchDayDetail:null}}));
-  function App(){const [mode,setMode]=React.useState('dark');window.setMode=setMode;const [show,setShow]=React.useState(true);const [target,setTarget]=React.useState(window.startListOnly?null:JSON.parse(localStorage.getItem('entryTarget')||'null')||{fixtureId:'fixture',requestId:'one'});window.leaveMatch=()=>setShow(false);
+  function App(){const [mode,setMode]=React.useState('dark');window.setMode=setMode;const [show,setShow]=React.useState(true);const [target,setTarget]=React.useState((window.startListOnly||window.performanceTest)?null:JSON.parse(localStorage.getItem('entryTarget')||'null')||{fixtureId:'fixture',requestId:'one'});window.leaveMatch=()=>setShow(false);
     useCoachMatchDayBackgroundSync({user,contexts,enabled:!show});
     return show?<View style={{padding:16,backgroundColor:createCoachTheme({mode,context:{clubAccent:'#1d4079'}}).tokens.background,minHeight:'100vh'}}><CoachMatchDayScreen user={user} context={context} palette={createCoachTheme({mode,context:{clubAccent:'#1d4079'}}).tokens}
       matchDayTarget={target} onMatchDayTargetHandled={()=>setTarget(null)} onNavigate={(route,target)=>{window.navigations.push({route,target});setShow(false)}}/></View>:<div>Home</div>;}
@@ -41,7 +41,7 @@ const dataMock = `
   export const normalizeCoachMatchDay=value=>value;
   const requireSignal=()=>{if(!window.online){window.failedRefresh=(window.failedRefresh||0)+1;throw new Error('Waiting for a connection.');}};
   export async function getCoachMatchDayList(){requireSignal();if(window.startListOnly)await new Promise(resolve=>window.finishList=resolve);return [window.server]}
-  export async function getCoachMatchDayDetail(){requireSignal();await new Promise(resolve=>setTimeout(resolve,50));if(window.detailDelay)await new Promise(resolve=>window.finishDetail=resolve);if(window.detailFailure)throw new Error(window.detailFailureMessage||'Could not connect');return window.server}
+  export async function getCoachMatchDayDetail(){window.detailStarted=true;requireSignal();await new Promise(resolve=>setTimeout(resolve,50));if(window.detailDelay)await new Promise(resolve=>window.finishDetail=resolve);if(window.detailFailure)throw new Error(window.detailFailureMessage||'Could not connect');return window.server}
   export async function runCoachMatchDayTimerAction(user,match,action){
     if(window.endControlsTest && ['normal_time_complete','full_time','start_penalties'].includes(action)){
       window.timerCalls=[...(window.timerCalls||[]),action];
@@ -94,10 +94,10 @@ const mocks = [
   [/ClubKitDisplay(?:\.js)?$/, 'export const ClubKitDisplay=()=>null;'],
   [/coachSquadTemplateData$/, 'export const createCoachSquadTemplateStore=()=>async()=>[];'],
   [/coachMatchDayData(?:\.js)?$/, dataMock],
-  [/coachPlayersData$/, `export async function getCoachPlayerList(){return [{id:'squad-a',playerName:'Squad Alex'},{id:'squad-b',playerName:'Squad Bailey'}]}`],
+  [/coachPlayersData$/, `export async function getCoachPlayerList(){if(window.performanceTest)await new Promise(resolve=>window.finishPlayers=resolve);return [{id:'squad-a',playerName:'Squad Alex'},{id:'squad-b',playerName:'Squad Bailey'}]}`],
   [/\/offline$/, `export async function readCoachOfflineResources(){return JSON.parse(localStorage.getItem('resources')||'null')}
     export async function saveCoachOfflineResources(user,context,resources){localStorage.setItem('resources',JSON.stringify({resources}));}
-    export async function readCoachMatchDayOutbox(){return window.readJournal()}
+    export async function readCoachMatchDayOutbox(){if(window.performanceTest&&window.delayJournal)await new Promise(resolve=>window.finishJournal=resolve);return window.readJournal()}
     export async function getPendingCoachMatchDays(){return window.readJournal()?.pending.length?[{contextId:'context',matchId:'fixture'}]:[]}
     export async function updateCoachMatchDayOutbox(user,context,match,change){if(window.failJournalWrites) throw new Error('Device storage is unavailable');const value=change(window.readJournal());localStorage.setItem('journal',JSON.stringify(value));return value;}`],
   [/\/config$/, 'export const getMobileRuntimeConfig=()=>({isProduction:true,isUsable:true});'],
@@ -121,9 +121,23 @@ try {
   const page = await browser.newPage({viewport:{width:390,height:844}})
   const errors=[];page.on('pageerror',error=>{errors.push(error.message);console.error(error.message)})
   await page.route('http://localhost:9876/**',route=>route.fulfill({contentType:'text/html',body:'<html style="scrollbar-gutter:stable"><head><meta name="viewport" content="width=device-width,initial-scale=1"></head><body><div id="root"></div></body></html>'}))
-  const mount = async()=>{await page.goto('http://localhost:9876/');if(process.argv.includes('--layout-only'))await page.evaluate(()=>window.startListOnly=true);if(process.argv.includes('--denial-only'))await page.evaluate(()=>{if(localStorage.getItem('denyFixture')==='1'){window.detailFailure=true;window.detailFailureMessage='permission denied'}});await page.addScriptTag({content:result.outputFiles[0].text})}
+  const mount = async()=>{await page.goto('http://localhost:9876/');if(process.argv.includes('--layout-only'))await page.evaluate(()=>window.startListOnly=true);if(process.argv.includes('--performance-only'))await page.evaluate(()=>window.performanceTest=true);if(process.argv.includes('--denial-only'))await page.evaluate(()=>{if(localStorage.getItem('denyFixture')==='1'){window.detailFailure=true;window.detailFailureMessage='permission denied'}});await page.addScriptTag({content:result.outputFiles[0].text})}
   await mount()
-  if(process.argv.includes('--layout-only')) {
+  if(process.argv.includes('--performance-only')) {
+    await page.waitForFunction(()=>Boolean(window.finishPlayers))
+    await page.getByText(/Visitors/).first().waitFor()
+    const create=page.getByRole('button',{name:'Create match',exact:true})
+    assert.equal(await create.isDisabled(),true,'Editing must wait for the roster')
+    await page.evaluate(()=>window.finishPlayers())
+    await page.waitForFunction(()=>!document.querySelector('[aria-label="Create match"]').disabled)
+    await page.evaluate(()=>window.delayJournal=true)
+    await page.getByText(/Visitors/).first().click()
+    await page.waitForFunction(()=>Boolean(window.finishJournal))
+    await page.waitForFunction(()=>window.detailStarted===true)
+    await page.evaluate(()=>window.finishJournal())
+    assert.deepEqual(errors,[])
+    console.log('PASS fixtures appear before roster and detail starts before local storage finishes.')
+  } else if(process.argv.includes('--layout-only')) {
     await page.waitForFunction(()=>Boolean(window.finishList))
     const create=page.getByRole('button',{name:'Create match',exact:true})
     assert.equal(await create.isVisible(),true)

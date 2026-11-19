@@ -768,7 +768,7 @@ function CoachHome() {
     enabled: Boolean(user?.id && contextReady && contextOwnerUserId === user.id && activeRoute !== 'matchday'),
     activeInvites: isMatchInvitesRoute,
     refreshActiveHome: () => {
-      if (Date.now() - lastHomeRefreshAtRef.current >= HOME_REFRESH_MIN_INTERVAL_MS) void loadHome()
+      if (activeRoute === 'home' && Date.now() - lastHomeRefreshAtRef.current >= HOME_REFRESH_MIN_INTERVAL_MS) void loadHome()
     },
   })
 

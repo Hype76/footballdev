@@ -21,10 +21,13 @@ import { fetchFansJson } from '../../../src/lib/fans-fetch'
 import ParentIcon from './ParentIcon'
 import { DEFAULT_PARENT_MOBILE_THEME } from '../../mobile-core/src/parentThemeCore'
 const FansTheme = createContext(DEFAULT_PARENT_MOBILE_THEME.tokens)
+const polishedAppearance = { polished: true }
+const viewerMoreKeys = ['partners', 'settings', 'feedback', 'bug']
 import { FanContent } from './FanContent'
 import { FanPlayerCard } from './FanPlayerCard'
 import { UserFeedbackScreen } from '../../mobile-core/src/UserFeedbackScreen'
-import { PartnersBanner, PartnersScreen } from './PartnersScreen'
+import { PartnersScreen } from './PartnersScreen'
+import { MoreScreen } from './ParentPortalScreens'
 import { disableFanDeviceNotifications } from './fanDeviceNotifications'
 import { useFanDeviceNotifications } from './useFanDeviceNotifications'
 import { formatParentProductDateTime } from '../../mobile-core/src/parentDateTimeCore'
@@ -95,9 +98,9 @@ function ClubBrand({ source, matchdayPolicy }) {
   const tokens = useContext(FansTheme)
   const [failedUrl, setFailedUrl] = useState('')
   if (!brand.clubName) return null
-  return <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, borderBottomWidth: 3, borderBottomColor: tokens.accent }}>
-    {brand.clubLogoUrl && failedUrl !== brand.clubLogoUrl ? <Image accessibilityLabel={`${brand.clubName} logo`} source={{ uri: brand.clubLogoUrl }} onError={() => setFailedUrl(brand.clubLogoUrl)} resizeMode="contain" style={{ width: 56, height: 56, backgroundColor: '#fff', borderRadius: 8 }} /> : <Text style={{ color: tokens.accentText, fontSize: 28, fontWeight: '800' }}>{brand.clubName.slice(0, 1)}</Text>}
-    <Text style={{ color: tokens.textPrimary, fontSize: 18, fontWeight: '800', flex: 1 }}>{brand.clubName}</Text>
+  return <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 50 }}>
+    {brand.clubLogoUrl && failedUrl !== brand.clubLogoUrl ? <Image accessibilityLabel={`${brand.clubName} logo`} source={{ uri: brand.clubLogoUrl }} onError={() => setFailedUrl(brand.clubLogoUrl)} resizeMode="contain" style={{ width: 43, height: 43 }} /> : <Text style={{ color: tokens.accentText, fontSize: 28, fontWeight: '800' }}>{brand.clubName.slice(0, 1)}</Text>}
+    <Text numberOfLines={2} style={{ color: tokens.textPrimary, fontSize: 17, fontWeight: '900', flex: 1 }}>{brand.clubName}</Text>
   </View>
 }
 function Qr({ value }) {
@@ -135,7 +138,7 @@ function FansScreenContent({ embedded = false, themeTokens, themeMode, onBack, s
     .map(connection => ({ type: 'fan_connection', id: connection.id,
       logoUrl: fanBrandingLink(connection).clubLogoUrl || '' })), user?.isOfflineProfile ? '' : user?.id)
   const displayMode = resolveDeviceThemeMode(themeMode || savedMode, systemTheme)
-  const tokens = useMemo(() => brandSource ? fanBrandTheme(brandSource, displayMode, matchdayPolicy).tokens : themeTokens || fanBrandTheme({}, displayMode, matchdayPolicy).tokens, [brandSource, displayMode, matchdayPolicy, themeTokens])
+  const tokens = useMemo(() => brandSource ? fanBrandTheme(brandSource, displayMode, matchdayPolicy, polishedAppearance).tokens : themeTokens || fanBrandTheme({}, displayMode, matchdayPolicy, polishedAppearance).tokens, [brandSource, displayMode, matchdayPolicy, themeTokens])
   const styles = useMemo(() => createStyles(tokens), [tokens])
   const [form, setForm] = useState(null)
   const [confirm, setConfirm] = useState(null)
@@ -281,13 +284,9 @@ function FansScreenContent({ embedded = false, themeTokens, themeMode, onBack, s
   const followed = state.connections.filter(c => !c.is_owner && c.status === 'active')
   const ownedFans = state.connections.filter(c => c.is_owner && c.parent_link_id === parent?.id)
   const showSection = next => { setSection(next); closeContent(); localScrollRef.current?.scrollTo({ y: 0, animated: false }) }
-  const content = <FansTheme.Provider value={tokens}><View style={[styles.container, embedded && { padding: 0 }, { backgroundColor: state.view ? tokens.portalSurface : displayMode === 'light' ? '#f7f8fa' : tokens.portalBackground }]}>{!embedded && !viewerShell && brandSource ? <ClubBrand source={brandSource} matchdayPolicy={matchdayPolicy} /> : null}<MobileFailureNotice message={isTransientConnectionMessage(state.error) ? state.error : ''} scopeKey={user.id} onRetry={state.reload} />
+  const content = <FansTheme.Provider value={tokens}><View style={[styles.container, embedded && styles.embedded]}>{!embedded && !viewerShell && brandSource ? <ClubBrand source={brandSource} matchdayPolicy={matchdayPolicy} /> : null}<MobileFailureNotice message={isTransientConnectionMessage(state.error) ? state.error : ''} scopeKey={user.id} onRetry={state.reload} />
     {section === 'more' && !state.view ? <>
-      <Text accessibilityRole="header" style={styles.title}>More</Text>
-      <PartnersBanner onPress={() => showSection('partners')} />
-      <Action icon="settings" label="Settings" onPress={() => showSection('settings')} />
-      <Action icon="more.feedback" label="Feedback & Suggestions" onPress={() => showSection('feedback')} />
-      <Action icon="more.bug" label="Report a Bug" onPress={() => showSection('bug')} />
+      <MoreScreen conciseLabels onOpen={showSection} themeTokens={tokens} visibleKeys={viewerMoreKeys} />
       {embedded ? <Action label="Back to players" icon="action.back" onPress={() => showSection('home')} /> : null}
     </> : ['feedback', 'bug'].includes(section) && !state.view ? <>
       <Action label="Back to More" icon="action.back" onPress={() => showSection('more')} />
@@ -317,9 +316,9 @@ function FansScreenContent({ embedded = false, themeTokens, themeMode, onBack, s
       {!embedded ? <View style={styles.account}><Text accessibilityRole="header" style={styles.heading}>Account</Text><Text style={styles.helper}>{user?.email}</Text><Action icon="logout" label="Sign out" disabled={busy} onPress={() => setSignOutConfirm(true)} /></View> : <Action label="Back to players" icon="action.back" onPress={() => showSection('home')} />}
     </> : state.view ? <>
       <Action label="Back to Fans" icon="action.back" onPress={closeContent} />
-      <Text style={styles.label}>{brandSource?.player_name}</Text>
+      {!viewerShell ? <Text style={styles.label}>{brandSource?.player_name}</Text> : null}
       {state.error && !isTransientConnectionMessage(state.error) ? <Text accessibilityRole="alert" style={styles.error}>{state.error}</Text> : null}
-      {state.contentError && !state.content ? <View><Text accessibilityRole="alert" style={styles.error}>{state.contentError}</Text><Action label="Try again" onPress={() => state.open(state.view.connectionId, state.view.action, state.view.matchId ? { matchId: state.view.matchId } : {})} /></View> : !state.content ? <MobileLoadingStatus message="Loading shared items" /> : <FanContent suppressParentFormation={parents.length > 0} key={`${state.view.connectionId}:${state.view.action}`} connection={brandSource} view={state.view} content={state.content} formation={formation} onCloseFormation={() => setFormation(null)} onOpenResource={openResource} onOpenLink={(url) => run(() => Linking.openURL(url))} onOpen={(action, details) => state.open(state.view.connectionId, action, details)} themeTokens={tokens} />}
+      {state.contentError && !state.content ? <View><Text accessibilityRole="alert" style={styles.error}>{state.contentError}</Text><Action label="Try again" onPress={() => state.open(state.view.connectionId, state.view.action, state.view.matchId ? { matchId: state.view.matchId } : {})} /></View> : !state.content ? <MobileLoadingStatus message="Loading shared items" /> : <FanContent suppressParentFormation={parents.length > 0} key={`${state.view.connectionId}:${state.view.action}`} connection={brandSource} matchdayPolicy={matchdayPolicy} view={state.view} content={state.content} formation={formation} onCloseFormation={() => setFormation(null)} onOpenResource={openResource} onOpenLink={(url) => run(() => Linking.openURL(url))} onOpen={(action, details) => state.open(state.view.connectionId, action, details)} themeTokens={tokens} />}
       <MobileFailureNotice message={state.content && state.contentError ? state.contentError : ''} scopeKey={`${user.id}:${state.view.connectionId}:${state.view.action}`} onRetry={() => state.open(state.view.connectionId, state.view.action, state.view.matchId ? { matchId: state.view.matchId } : {})} />
     </> : <>
     {onBack ? <Action label="Back to Parent app" icon="action.back" onPress={onBack} /> : null}
@@ -342,7 +341,7 @@ function FansScreenContent({ embedded = false, themeTokens, themeMode, onBack, s
       <View style={styles.ownerFanList}>{ownedFans.map(c => <OwnedFanRow key={c.id} connection={{ ...c, permissions: restrictFanPermissionsForPlan(c.permissions, parent, matchdayPolicy) }} busy={busy} onEdit={() => begin(c)} onRemove={() => remove(c, false)} onRenew={mode => reopenInvitation(c, mode)} onDelete={() => deleteInvitation(c)} />)}</View>
       {!state.loading && !ownedFans.length ? <Text style={styles.helper}>No Fan accounts for this player yet.</Text> : null}
     </> : null}
-    <View accessibilityLabel="Players you follow">{state.connections.filter((c) => !c.is_owner && c.status === 'active' && (!viewerShell || c.id === viewerConnection?.id)).map((c) => <FansTheme.Provider key={c.id} value={fanBrandTheme(c, displayMode, matchdayPolicy).tokens}><FanPlayerCard leagueUser={user} hideIdentity={viewerShell} connection={c} matchdayPolicy={matchdayPolicy} mode={displayMode} busy={busy} SwitchControl={FanSwitch} onOpen={(action) => openFanSection(c, action)} onNotifications={(value) => run(() => state.manage(c.id, value ? 'notifications_on' : 'notifications_off'))} /></FansTheme.Provider>)}</View>
+    <View accessibilityLabel="Players you follow">{state.connections.filter((c) => !c.is_owner && c.status === 'active' && (!viewerShell || c.id === viewerConnection?.id)).map((c) => <FansTheme.Provider key={c.id} value={fanBrandTheme(c, displayMode, matchdayPolicy, polishedAppearance).tokens}><FanPlayerCard leagueUser={user} hideIdentity={viewerShell} connection={c} matchdayPolicy={matchdayPolicy} mode={displayMode} busy={busy} SwitchControl={FanSwitch} onOpen={(action) => openFanSection(c, action)} onNotifications={(value) => run(() => state.manage(c.id, value ? 'notifications_on' : 'notifications_off'))} /></FansTheme.Provider>)}</View>
     {!parents.length && !state.loading && !state.connections.some(c => !c.is_owner && c.status === 'active') ? <Text style={styles.helper}>You are not following any players yet. Open a Fan invitation to get started.</Text> : null}
 
 
@@ -379,21 +378,22 @@ function FansScreenContent({ embedded = false, themeTokens, themeMode, onBack, s
     localScrollRef.current?.scrollTo({ y: 0, animated: false })
   }
   return embedded ? content : <FansTheme.Provider value={tokens}><SafeAreaView style={styles.safe}>
-    {viewerShell ? <View style={{ paddingHorizontal: 16, backgroundColor: tokens.portalSurface, borderBottomWidth: 1, borderBottomColor: tokens.border }}>
+    {viewerShell ? <View style={styles.viewerHeader}>
       <View style={{ flexDirection: 'row', alignItems: 'center' }}><View style={{ flex: 1 }}>{brandSource ? <ClubBrand source={brandSource} matchdayPolicy={matchdayPolicy} /> : null}</View><MobileHeaderActivity /></View>
       <Pressable accessibilityRole="button" accessibilityLabel={'Active player ' + (viewerConnection?.player_name || 'not selected')} disabled={followed.length < 2} onPress={changePlayer}
-        style={{ flexDirection: 'row', alignItems: 'center', minHeight: 60, gap: 12 }}>
-        <ParentIcon iconKey="child" color={tokens.accentText} size={30} /><View style={{ flex: 1 }}>
-          <Text style={{ color: tokens.textSecondary, fontSize: 10, fontWeight: '700' }}>ACTIVE PLAYER</Text>
-          <Text numberOfLines={1} style={{ color: tokens.textPrimary, fontSize: 16, fontWeight: '800' }}>{viewerConnection?.player_name || 'Choose a player'}</Text>
-          <Text numberOfLines={1} style={{ color: tokens.textSecondary, fontSize: 12 }}>{viewerConnection?.team_name}</Text>
-        </View>{followed.length > 1 ? <Text style={{ color: tokens.accentText, fontWeight: '700' }}>Change</Text> : null}
+        style={({ pressed }) => [styles.viewerPlayer, pressed && { opacity: 0.72 }]}>
+        <View style={styles.viewerPlayerIcon}><ParentIcon iconKey="child" color={tokens.accentForeground} size={25} /></View>
+        <View style={styles.viewerPlayerCopy}>
+          <Text style={styles.viewerPlayerLabel}>ACTIVE PLAYER</Text>
+          <Text numberOfLines={1} style={styles.viewerPlayerName}>{viewerConnection?.player_name || 'Choose a player'}</Text>
+          <Text numberOfLines={1} style={styles.viewerPlayerTeam}>{viewerConnection?.team_name}</Text>
+        </View>{followed.length > 1 ? <Text style={styles.viewerPlayerChange}>Change</Text> : null}
       </Pressable>
     </View> : null}
     <Modal visible={playerSelectorOpen} animationType="fade" onRequestClose={() => setPlayerSelectorOpen(false)}>
       <SafeAreaView style={{ flex: 1, backgroundColor: tokens.portalSurface, paddingHorizontal: 16 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 56 }}><Text accessibilityRole="header" style={{ color: tokens.textPrimary, fontSize: 20, fontWeight: '700' }}>Choose player</Text><Pressable accessibilityRole="button" accessibilityLabel="Cancel player selection" onPress={() => setPlayerSelectorOpen(false)} style={{ minHeight: 44, minWidth: 64, justifyContent: 'center', alignItems: 'center' }}><Text style={{ color: tokens.textPrimary, fontWeight: '700' }}>Cancel</Text></Pressable></View>
-        <ScrollView>{followed.map(connection => <Pressable key={connection.id} accessibilityRole="button" accessibilityLabel={`Select player ${connection.player_name}`} accessibilityState={{ selected: connection.id === viewerConnection?.id }} onPress={() => { setViewerConnectionId(connection.id); setPlayerSelectorOpen(false); showSection('home') }} style={({ pressed }) => ({ minHeight: 64, justifyContent: 'center', borderBottomWidth: 1, borderBottomColor: tokens.border, opacity: pressed ? 0.65 : 1 })}>
+        <ScrollView contentContainerStyle={{ gap: 8, paddingBottom: 12 }}>{followed.map(connection => <Pressable key={connection.id} accessibilityRole="button" accessibilityLabel={`Select player ${connection.player_name}`} accessibilityState={{ selected: connection.id === viewerConnection?.id }} onPress={() => { setViewerConnectionId(connection.id); setPlayerSelectorOpen(false); showSection('home') }} style={({ pressed }) => [styles.viewerOption, connection.id === viewerConnection?.id && styles.viewerOptionActive, pressed && { opacity: 0.72 }]}>
           <Text style={{ color: tokens.textPrimary, fontSize: 16, fontWeight: '700' }}>{connection.player_name}</Text><Text style={{ color: tokens.textPrimary, fontSize: 13 }}>{connection.team_name} | {connection.club_name}</Text>
         </Pressable>)}</ScrollView>
       </SafeAreaView>
@@ -402,12 +402,33 @@ function FansScreenContent({ embedded = false, themeTokens, themeMode, onBack, s
     <View accessibilityRole="tablist" style={styles.navigation}>{tabs.map(item => <Pressable key={item.key} accessibilityRole="tab" accessibilityLabel={item.label}
       accessibilityState={{ selected: activeTab === item.key }} onPress={() => navigateTab(item.key)} style={[styles.navItem, { borderTopWidth: 2, borderTopColor: activeTab === item.key ? tokens.accentText : 'transparent' }]}>
       <ParentIcon iconKey={item.icon} color={activeTab === item.key ? tokens.accentText : tokens.textSecondary} size={24} />
-      <Text style={{ color: activeTab === item.key ? tokens.accentText : tokens.textSecondary, fontSize: 12, fontWeight: '700' }}>{item.label}</Text>
+      <Text adjustsFontSizeToFit minimumFontScale={0.8} numberOfLines={1} style={[styles.navLabel, activeTab === item.key && styles.navLabelActive]}>{item.label}</Text>
     </Pressable>)}</View>
   </SafeAreaView></FansTheme.Provider>
 }
-function createStyles(tokens) { return StyleSheet.create({
-  safe: { flex: 1, backgroundColor: tokens.portalSurface }, navigation: { flexDirection: 'row', borderTopWidth: 1, borderColor: tokens.border, backgroundColor: tokens.portalSurface }, navItem: { flex: 1, minHeight: 64, alignItems: 'center', justifyContent: 'center', gap: 4 }, account: { marginTop: 24, paddingTop: 8, borderTopWidth: 1, borderColor: tokens.border }, container: { flexGrow: 1, backgroundColor: tokens.portalBackground, padding: 18, gap: 12 }, title: { fontSize: 26, fontWeight: '800', color: tokens.textPrimary }, heading: { fontSize: 20, fontWeight: '700', marginTop: 16, color: tokens.textPrimary },
+function createStyles(tokens) {
+  const surface = { backgroundColor: tokens.portalSurface, borderColor: tokens.border, borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 15, shadowColor: tokens.accentText, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.1, shadowRadius: 7, elevation: 2 }
+  return StyleSheet.create({
+  safe: { flex: 1, backgroundColor: tokens.portalBackground },
+  viewerHeader: { alignSelf: 'center', maxWidth: 680, width: '100%', paddingHorizontal: 14, paddingTop: 8, paddingBottom: 10 },
+  viewerPlayer: { ...surface, alignItems: 'center', flexDirection: 'row', gap: 10, marginTop: 8, minHeight: 60, paddingHorizontal: 11, paddingVertical: 7 },
+  viewerPlayerIcon: { alignItems: 'center', backgroundColor: tokens.buttonPrimary, borderRadius: 18, height: 36, justifyContent: 'center', width: 36 },
+  viewerPlayerCopy: { flex: 1, minWidth: 0 },
+  viewerPlayerLabel: { color: tokens.textSecondary, fontSize: 10, fontWeight: '900', letterSpacing: 0.45, textTransform: 'uppercase' },
+  viewerPlayerName: { color: tokens.textPrimary, fontSize: 16, fontWeight: '900' },
+  viewerPlayerTeam: { color: tokens.textSecondary, fontSize: 12, fontWeight: '700' },
+  viewerPlayerChange: { backgroundColor: tokens.accentSoft, borderRadius: 15, color: tokens.accentText, fontSize: 12, fontWeight: '900', paddingHorizontal: 12, paddingVertical: 6 },
+  viewerOption: { ...surface, gap: 4, justifyContent: 'center', minHeight: 60, paddingHorizontal: 12, paddingVertical: 8 },
+  viewerOptionActive: { borderColor: tokens.accentText, backgroundColor: tokens.accentSoft },
+  navigation: { ...surface, alignSelf: 'center', borderBottomLeftRadius: 0, borderBottomRightRadius: 0, flexDirection: 'row', gap: 2, maxWidth: 680, padding: 4, width: '100%' },
+  navItem: { alignItems: 'center', flex: 1, gap: 3, justifyContent: 'center', minHeight: 52, minWidth: 0, paddingHorizontal: 2, paddingVertical: 7 },
+  navLabel: { color: tokens.textSecondary, fontSize: 11, fontWeight: '800', textAlign: 'center', width: '100%' },
+  navLabelActive: { color: tokens.accentText },
+  account: { marginTop: 24, paddingTop: 8, borderTopWidth: 1, borderColor: tokens.border },
+  container: { alignSelf: 'center', backgroundColor: tokens.portalBackground, flexGrow: 1, maxWidth: 680, paddingHorizontal: 14, paddingVertical: 6, width: '100%', gap: 12 },
+  embedded: { maxWidth: undefined, paddingHorizontal: 0, paddingVertical: 0 },
+  title: { fontSize: 26, fontWeight: '800', color: tokens.textPrimary }, heading: { fontSize: 20, fontWeight: '700', marginTop: 16, color: tokens.textPrimary },
   row: { flexDirection: 'row', alignItems: 'center', gap: 12 }, copy: { flex: 1, minWidth: 0 }, helper: { color: tokens.textSecondary, fontSize: 14, lineHeight: 20 }, label: { color: tokens.textPrimary, fontWeight: '700', fontSize: 16 },
   actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 }, action: { minHeight: 46, paddingVertical: 10, paddingHorizontal: 8, flexDirection: 'row', alignItems: 'center', gap: 8 }, actionLabel: { color: tokens.accentText, fontWeight: '700' },
   primaryAction: { minHeight: 54, justifyContent: 'center', paddingHorizontal: 18, marginVertical: 8, borderRadius: 10, backgroundColor: tokens.buttonPrimary }, primaryActionLabel: { fontSize: 17, color: tokens.accentForeground },

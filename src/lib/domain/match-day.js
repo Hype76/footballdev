@@ -1997,6 +1997,25 @@ export async function resetPreviousMatchDayResults({ user, teamId = '' } = {}) {
   invalidateMemoryCacheByPrefix('match-day:')
 }
 
+export async function deleteMatchDayFixture({ user, match } = {}) {
+  await blockDemoMutation(user)
+  assertStaffMatchDayAccess(user)
+  assertMatchInActiveTeamScope(user, match)
+  const matchDayId = normalizeText(match?.id)
+  const teamId = normalizeText(match?.teamId)
+  if (!matchDayId || !teamId) throw new Error('Choose a fixture and team to delete.')
+  const { data, error } = await supabase.rpc('delete_match_day_fixture_for_team', {
+    p_match_day_id: matchDayId,
+    p_team_id: teamId,
+  })
+  if (error) throw error
+  if (data?.deleted !== true) throw new Error('Fixture deletion could not be confirmed. Refresh Calendar before retrying.')
+  invalidateMemoryCacheByPrefix('match-day:')
+  invalidateMemoryCacheByPrefix('parent-match-day:')
+  clearViewCaches()
+  return data
+}
+
 export async function deletePreviousMatchDay({ user, match } = {}) {
   await blockDemoMutation(user)
   assertStaffMatchDayAccess(user)

@@ -58,6 +58,19 @@ try {
       await assertRenderedTextContrast(page, `More badge ${name}`)
       assert.equal(await badge.getByText(count, { exact: true }).count(), 1)
     }
+    const rows = [
+      ['Notifications', 'Invites', 'Results'],
+      ['Player stats', 'Fans', 'Development'],
+      ['Resources', 'Polls', 'Feedback & Suggestions'],
+      ['Report a Bug', 'Settings'],
+    ]
+    for (const row of rows) {
+      const tiles = row.map((title) => page.getByRole('button', { name: new RegExp('^' + title + ',') }))
+      const titles = await Promise.all(tiles.map((tile, index) => tile.getByText(row[index], { exact: true }).boundingBox()))
+      assert.ok(titles.every((bounds) => bounds && Math.abs(bounds.y - titles[0].y) < 1), `Top-align More tile titles at ${width}px: ${row.join(', ')}`)
+      const captions = await Promise.all(tiles.map((tile) => tile.locator(':scope > *').last().boundingBox()))
+      assert.ok(captions.every((bounds) => bounds && Math.abs(bounds.y - captions[0].y) < 1), 'Keep More tile descriptions aligned')
+    }
     assert.equal(await page.getByRole('button', { name: /Results/ }).getByLabel(/new/).count(), 0)
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth), false)
     assert.deepEqual(errors, [])

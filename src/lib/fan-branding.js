@@ -28,8 +28,8 @@ export function fanBrandingLink(source = {}, matchdayPolicy) {
   }
 }
 
-export function fanBrandTheme(source, mode = 'light', matchdayPolicy) {
-  const theme = createParentMobileTheme({ selectedLink: fanBrandingLink(source, matchdayPolicy), mode })
+export function fanBrandTheme(source, mode = 'light', matchdayPolicy, { polished = false } = {}) {
+  const theme = createParentMobileTheme({ selectedLink: fanBrandingLink(source, matchdayPolicy), mode, polished })
   const { tokens } = theme
   const backgrounds = [tokens.portalSurface, tokens.portalBackground, tokens.surfaceRaised]
   const readable = (colour) => backgrounds.every((background) => getParentThemeContrastRatio(colour, background) >= 4.5)

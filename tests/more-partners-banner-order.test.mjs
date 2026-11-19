@@ -26,5 +26,6 @@ test('Partners and Special Offers banner precedes every More menu', async () => 
   assertBannerPrecedesMenu(parentMore, '<View style={styles.moreGrid}>')
 
   const fansMore = fans.slice(fans.indexOf("{section === 'more' && !state.view ?"))
-  assertBannerPrecedesMenu(fansMore, '<Action icon="settings"')
+  assert.match(fansMore, /<MoreScreen conciseLabels onOpen=\{showSection\} themeTokens=\{tokens\} visibleKeys=\{viewerMoreKeys\}/)
+  assert.match(fans, /const viewerMoreKeys = \['partners', 'settings', 'feedback', 'bug'\]/)
 })

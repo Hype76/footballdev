@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { assertCoachAccountPreparationFinished, coachAccountOfflineLabel, validateCoachAccountOfflineStatus } from '../apps/coach-mobile/src/coachAccountOfflinePreparation.js'
+import { assertCoachAccountPreparationFinished, coachAccountOfflineLabel, validateCoachAccountOfflineStatus, prepareCoachAccountOffline } from '../apps/coach-mobile/src/coachAccountOfflinePreparation.js'
 
 const contexts = Array.from({ length: 5 }, (_, index) => ({ id: `team:${index}`, clubId: `club:${index % 3}`, teamId: `team:${index}` }))
 const ready = context => ({ contextId: context.id, state: 'ready', savedAt: '2026-11-18T17:00:00Z', filesFailed: 0, onlineOnly: [], error: '' })
@@ -48,4 +48,40 @@ test('actual retained statuses override a successful run when any team was evict
   assert.throws(() => assertCoachAccountPreparationFinished(result, contexts, statuses), /Download incomplete/)
   delete statuses[last]
   assert.throws(() => assertCoachAccountPreparationFinished(result, contexts, statuses), /Download incomplete/)
+})
+
+
+test('a refresh identifies the previous file count without presenting it as the current scan', async () => {
+  const context = contexts[0]
+  const written = []
+  await prepareCoachAccountOffline({
+    user: { id: 'coach' }, contexts: [context], selectedContextId: context.id,
+    readPreviousStatus: async () => ({ savedAt: '2026-11-18T17:00:00Z', filesSaved: 10 }),
+    createSaver: () => async () => ({ resourceMetadata: { offlineMediaInventory: { fingerprint: 'inventory' } } }),
+    saveStatus: async (_user, _context, status) => written.push(structuredClone(status)),
+    loadContext: async () => ({ complete: true }),
+  })
+  assert.equal(written[0].filesSaved, 0)
+  assert.equal(coachAccountOfflineLabel(written[0]), 'Checking files, 10 files saved at last download')
+  assert.equal(written.at(-1).state, 'ready')
+  assert.equal(written.at(-1).filesSaved, 0)
+})
+
+
+test('automatic preparation yields between resource, match and file processing', async () => {
+  const context = contexts[0], events = []
+  const result = await prepareCoachAccountOffline({
+    user: { id: 'coach' }, contexts: [context], selectedContextId: context.id,
+    createSaver: () => async values => ({ resourceMetadata: Object.fromEntries(Object.keys(values).map(key => [key, { fingerprint: key }])) }),
+    saveStatus: async () => {}, saveMatches: async () => {}, prepareMedia: async () => ({ bytes: 1 }),
+    yieldControl: async () => { events.push('yield') },
+    loadContext: async (_user, _context, options) => {
+      await options.onResource({ cacheKey: 'players', value: [], complete: true }); events.push('resource')
+      await options.onMatch({ id: 'match' }); events.push('match')
+      await options.onMedia({ id: 'file' }); events.push('file')
+      return { complete: true }
+    },
+  })
+  assert.deepEqual(events, ['yield', 'resource', 'yield', 'match', 'yield', 'file'])
+  assert.equal(result.complete, true)
 })

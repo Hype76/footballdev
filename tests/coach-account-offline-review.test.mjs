@@ -18,7 +18,7 @@ test('actual account service fences a manual run across logout and same-account 
  activateCoachOfflineAccount(user.id)
  const dependencies={preparationCoordinator:createCoachAccountPreparationCoordinator(),coachPreparationScopeKey,captureCoachOfflineAccount,getMedia:()=>({}),startup:Promise.resolve(),prepareCoachAccountOffline,applyCoachContext:profile=>profile,
   createCoachOfflineResourceSaver:profile=>{const guard=captureCoachOfflineAccount(profile.id);return async()=>{guard();return{resourceMetadata:{}}}},
-  saveCoachAccountPreparation:async()=>{},readCoachOfflineResources:async()=>({}),saveCoachPreparedMatchDays:async(id,_context,matches)=>{captureCoachOfflineAccount(id)();writes.push(...matches)},
+  saveCoachAccountPreparation:async()=>{},readCoachAccountPreparation:async()=>({}),readCoachOfflineResources:async()=>({}),saveCoachPreparedMatchDays:async(id,_context,matches)=>{captureCoachOfflineAccount(id)();writes.push(...matches)},
   captureAuthority:()=>()=>{},getScopedTeamBranding:()=>null,authorizeCoachOfflineMedia:()=>{},
   loadCoachOfflineContext:async(_user,_context,options)=>{loading.resolve();await release.promise;await options.onMatch({id:'old-session-match'});return{complete:true}},
  }

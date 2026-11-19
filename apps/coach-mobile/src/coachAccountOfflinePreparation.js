@@ -27,14 +27,16 @@ export function assertCoachAccountPreparationFinished(result, contexts, statuses
 
 // Preparation never changes the server's selected workspace. Each loader must
 // prove authority for its explicit target before returning viewable data.
-export async function prepareCoachAccountOffline({ user, contexts, selectedContextId, loadContext, createSaver, saveStatus, saveMatch, saveMatches, readBackResources, prepareMedia, isCurrent = () => true, now = () => new Date().toISOString() }) {
+export async function prepareCoachAccountOffline({ user, contexts, selectedContextId, loadContext, createSaver, saveStatus, saveMatch, saveMatches, readBackResources, readPreviousStatus, prepareMedia, yieldControl = async () => {}, isCurrent = () => true, now = () => new Date().toISOString() }) {
   const targets = [...contexts].filter(context => context.id && context.clubId)
     .sort((left, right) => Number(Boolean(right.teamId)) - Number(Boolean(left.teamId)) || Number(right.id === selectedContextId) - Number(left.id === selectedContextId))
   const results = []
   for (const context of targets) {
     if (!isCurrent()) return { cancelled: true, results }
     const save = createSaver(user, context, { isCurrent })
-    const status = { schemaVersion: COACH_ACCOUNT_OFFLINE_SCHEMA, scope: context.teamId ? 'team' : 'club', state: 'saving', startedAt: now(), savedAt: '', resources: {}, matchIds: [], filesSaved: 0, fileBytesSaved: 0, filesFailed: 0, onlineOnly: [], error: '' }
+    const previousStatus = readPreviousStatus ? await readPreviousStatus(user.id, context) : null
+    if (!isCurrent()) return { cancelled: true, results }
+    const status = { previousFilesSaved: previousStatus?.savedAt ? previousStatus.filesSaved : previousStatus?.previousFilesSaved, schemaVersion: COACH_ACCOUNT_OFFLINE_SCHEMA, scope: context.teamId ? 'team' : 'club', state: 'saving', startedAt: now(), savedAt: '', resources: {}, matchIds: [], filesSaved: 0, fileBytesSaved: 0, filesFailed: 0, onlineOnly: [], error: '' }
     const inventory = []
     let pendingResources = {}
     let progressItems = 0, progressAt = Date.now()
@@ -78,6 +80,7 @@ export async function prepareCoachAccountOffline({ user, contexts, selectedConte
         onMatch: async detail => {
           if (!isCurrent()) throw new Error('offline_preparation_cancelled')
           matches.set(detail.id, detail)
+          await yieldControl()
         },
         onResource: async entry => {
           if (!isCurrent()) throw new Error('offline_preparation_cancelled')
@@ -86,6 +89,7 @@ export async function prepareCoachAccountOffline({ user, contexts, selectedConte
           // Bound background disk work rather than rewriting the entire
           // encrypted account for every individual Player or Session detail.
           if (Object.keys(pendingResources).length >= 16 || entry.cacheKey === 'home') await flushResources()
+          await yieldControl()
         },
         onMedia: async resource => {
           if (!isCurrent()) throw new Error('offline_preparation_cancelled')
@@ -97,6 +101,7 @@ export async function prepareCoachAccountOffline({ user, contexts, selectedConte
             return
           }
           await saveProgress()
+          await yieldControl()
         },
       })
       if (!isCurrent()) return { cancelled: true, results }
@@ -132,7 +137,10 @@ export function coachAccountOfflineLabel(status) {
   if (!status) return 'Not downloaded yet'
   const savedFiles = `${status.filesSaved || 0} file${status.filesSaved === 1 ? '' : 's'} saved`
   if (status.state === 'ready') return status.scope === 'club' ? 'Club overview saved with its teams' : `Ready offline, ${savedFiles}`
-  if (status.state === 'saving') return `Not ready offline yet, ${savedFiles}`
+  if (status.state === 'saving') {
+    if (Number.isFinite(status.previousFilesSaved)) return `Checking files, ${status.previousFilesSaved} file${status.previousFilesSaved === 1 ? '' : 's'} saved at last download`
+    return `Not ready offline yet, ${savedFiles}`
+  }
   if (status.filesFailed) return `${status.filesFailed} file${status.filesFailed === 1 ? '' : 's'} still need downloading`
   if (status.error) return 'Download incomplete'
   if (status.onlineOnly?.length) return `Saved, ${status.onlineOnly.length} link${status.onlineOnly.length === 1 ? '' : 's'} need internet`

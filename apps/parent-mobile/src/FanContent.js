@@ -1,26 +1,16 @@
-import { useEffect, useState } from 'react'
-import { formatMatchAddedTimeClock } from '../../../src/lib/matchday-event-time'
-import { Pressable, Text, View } from 'react-native'
+import { Text, View } from 'react-native'
 import { buildParentCalendarEvents } from '../../mobile-core/src/parentCalendarCore'
 import { upcomingFanSchedule } from '../../../src/lib/fan-schedule'
 import { normalizeParentMatchDay } from './parentPortalData'
 import { CalendarScreen, DevelopmentScreen, MatchdayScreen, ResourcesScreen } from './ParentPortalScreens'
 import { getParentGoogleCalendarUrl } from './parentExperience'
-import { formatParentProductDateTime } from '../../mobile-core/src/parentDateTimeCore'
 import { isFanGameDayMatch } from '../../../src/lib/fan-game-day'
-import { getMatchDayDisplayName } from '../../../src/lib/matchday-display'
-import ParentIcon from './ParentIcon'
+import { fanBrandingLink } from '../../../src/lib/fan-branding'
 import { FanAttendanceScreen } from './FanAttendanceScreen'
 import { PlayerStatsScreen } from './PlayerStatsScreen'
 
-export function FanContent({ suppressParentFormation = false, connection, view, content, formation, onCloseFormation, onOpenResource, onOpenLink, onOpen, themeTokens }) {
-  const [clockNow, setClockNow] = useState(() => Date.now())
-  useEffect(() => {
-    if (view.action !== 'matches') return undefined
-    const timer = setInterval(() => setClockNow(Date.now()), 1000)
-    return () => clearInterval(timer)
-  }, [view.action])
-  const link = { playerName: connection?.player_name, teamName: connection?.team_name, clubName: connection?.club_name }
+export function FanContent({ suppressParentFormation = false, connection, view, content, formation, matchdayPolicy, onCloseFormation, onOpenResource, onOpenLink, onOpen, themeTokens }) {
+  const link = { ...fanBrandingLink(connection, matchdayPolicy), playerName: connection?.player_name, teamName: connection?.team_name }
   const resource = (items) => ({ items, loading: false, error: '' })
   const addToCalendar = (item) => onOpenLink(getParentGoogleCalendarUrl(item))
   if (view.action === 'attendance') return <FanAttendanceScreen items={content.attendance || []} themeTokens={themeTokens} />
@@ -42,18 +32,28 @@ export function FanContent({ suppressParentFormation = false, connection, view, 
   if (view.action === 'matches') {
     const isPlayer = connection?.relationship_type === 'player'
     const matches = (content.matches || []).filter((item) => isFanGameDayMatch(item) || (isPlayer && ['scheduled', 'scorer_request'].includes(item.status))).map((item) => ({ ...normalizeParentMatchDay({ ...item, team_name: connection?.team_name, club_name: item.club_name || connection?.club_name, events: view.matchId === item.id ? content.events || [] : [], is_scorer: false, isScorer: false, request_scorer: false }), isFanView: true, canViewSelectedSquad: isPlayer }))
-    if (!view.matchId || !matches.some(item => item.id === view.matchId)) return <View style={{ gap: 16 }}>
-      <Text accessibilityRole="header" style={{ color: themeTokens.textPrimary, fontSize: 26, fontWeight: '800' }}>Game Day</Text>
-      <Text style={{ color: themeTokens.textSecondary }}>{isPlayer ? 'Upcoming fixtures, live matches and results shared for' : 'Live matches and results shared for'} {connection?.player_name || 'your player'}.</Text>
-      {(isPlayer ? [{ label: 'Upcoming', items: matches.filter(item => ['scheduled', 'scorer_request'].includes(item.status)).sort((a, b) => Date.parse(a.matchDate) - Date.parse(b.matchDate)) }, { label: 'Live matches', items: matches.filter(item => isFanGameDayMatch(item) && item.status !== 'full_time') }, { label: 'Results', items: matches.filter(item => item.status === 'full_time') }] : [{ label: 'Live matches', items: matches.filter(item => item.status !== 'full_time') }, { label: 'Results', items: matches.filter(item => item.status === 'full_time') }]).map(group => <View key={group.label} style={{ gap: 12 }}>
-        <Text accessibilityRole="header" style={{ color: themeTokens.textPrimary, fontSize: 20, fontWeight: '700' }}>{group.label}</Text>
-      {!group.items.length ? <Text style={{ color: themeTokens.textSecondary }}>No shared {group.label.toLowerCase()}.</Text> : group.items.map(item => <Pressable key={item.id} accessibilityRole="button" accessibilityLabel={`Open ${getMatchDayDisplayName(item)}`} onPress={() => onOpen('matches', { matchId: item.id })} style={{ borderBottomWidth: 1, borderBottomColor: themeTokens.border, minHeight: 64, paddingVertical: 12, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-          <View style={{ flex: 1, gap: 6 }}><Text style={{ color: themeTokens.textPrimary, fontSize: 16, fontWeight: '700' }}>{getMatchDayDisplayName(item)}</Text><Text style={{ color: themeTokens.textSecondary }}>{formatParentProductDateTime(item.matchDate, { year: 'numeric' })}</Text>{isFanGameDayMatch(item) ? <Text style={{ color: themeTokens.textPrimary, fontSize: 24, fontWeight: '800' }}>{item.homeScore ?? 0} - {item.awayScore ?? 0}</Text> : null}{isFanGameDayMatch(item) ? <Text accessibilityLabel="Match timer" style={{ color: themeTokens.textSecondary }}>Match timer {formatMatchAddedTimeClock(item, clockNow)}</Text> : null}</View>
-          <ParentIcon iconKey="action.open" color={themeTokens.accentText} size={24} />
-        </Pressable>)}
-      </View>)}
-    </View>
-    return <MatchdayScreen suppressParentFormation={suppressParentFormation} link={link} clubKits={content.clubKits || {}} resource={resource(matches)} selectedMatch={matches.find((item) => item.id === view.matchId)} onOpen={(item) => onOpen('matches', { matchId: item.id })} onBack={() => onOpen('matches')} onOpenLink={onOpenLink} onAddToCalendar={addToCalendar} themeTokens={themeTokens} />
+    const live = matches.filter((item) => isFanGameDayMatch(item) && item.status !== 'full_time')
+    const upcoming = isPlayer
+      ? matches.filter((item) => ['scheduled', 'scorer_request'].includes(item.status)).sort((a, b) => Date.parse(a.matchDate) - Date.parse(b.matchDate))
+      : []
+    const viewerGroups = {
+      upcoming: [...live, ...upcoming],
+      recent: matches.filter((item) => item.status === 'full_time').sort((a, b) => Date.parse(b.matchDate) - Date.parse(a.matchDate)),
+    }
+    return <MatchdayScreen
+      clubKits={content.clubKits || {}}
+      link={link}
+      onAddToCalendar={addToCalendar}
+      onBack={() => onOpen('matches')}
+      onOpen={(item) => onOpen('matches', { matchId: item.id })}
+      onOpenLink={onOpenLink}
+      resource={resource(matches)}
+      selectedMatch={matches.find((item) => item.id === view.matchId)}
+      suppressParentFormation={suppressParentFormation}
+      themeTokens={themeTokens}
+      viewerGroups={viewerGroups}
+      viewerKind={isPlayer ? 'player' : 'fan'}
+    />
   }
   if (view.action === 'development') return <DevelopmentScreen resource={resource(content.reports || [])} themeTokens={themeTokens} />
   if (view.action === 'resources') return <ResourcesScreen suppressParentFormation={suppressParentFormation} resource={resource(content.resources || [])} formationBoard={formation && content.resources?.some((item) => item.id === formation.resourceId) ? formation : null} onCloseFormation={onCloseFormation} onOpen={onOpenResource} themeTokens={themeTokens} />

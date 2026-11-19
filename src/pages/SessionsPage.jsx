@@ -83,6 +83,7 @@ import {
   createAssessmentSession,
   createPlayerStaffNote,
   deleteCalendarEvent,
+  deleteMatchDayFixture,
   deleteCalendarEventOccurrence,
   deleteAssessmentSession,
   deletePlayerStaffNote,
@@ -1080,6 +1081,7 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
   const [calendarValidation, setCalendarValidation] = useState(null)
   const [calendarTeamPlayers, setCalendarTeamPlayers] = useState(null)
   const [calendarChangePrompt, setCalendarChangePrompt] = useState(null)
+  const [fixtureDeletePending, setFixtureDeletePending] = useState(false)
   const [calendarPlayerCommunicationMode, setCalendarPlayerCommunicationMode] = useState(EVENT_PLAYER_COMMUNICATION_MODES.none)
   const [calendarPlayerReview, setCalendarPlayerReview] = useState(null)
   const [calendarPlayerActionError, setCalendarPlayerActionError] = useState('')
@@ -2274,6 +2276,7 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
   }
 
   const handleCalendarModalClose = () => {
+    setFixtureDeletePending(false)
     setCalendarValidation(null)
     setCalendarModal(null)
     setCalendarForm(getDefaultCalendarForm())
@@ -4141,6 +4144,27 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
     }
   }
 
+  const handleFixtureDelete = async () => {
+    const activeEvent = calendarModal?.event
+    if (activeEvent?.sourceType !== 'match-day' || !activeEvent.data) return
+    setIsSaving(true)
+    setErrorMessage('')
+    try {
+      await deleteMatchDayFixture({ user, match: activeEvent.data })
+      const nextMatchDays = matchDays.filter((match) => match.id !== activeEvent.sourceId)
+      setMatchDays(nextMatchDays)
+      writeCalendarAwareCache({ matchDays: nextMatchDays })
+      setFixtureDeletePending(false)
+      setCalendarModal(null)
+      showToast({ title: 'Fixture deleted', message: 'The fixture was removed. Match history and audit evidence are retained.' })
+    } catch (error) {
+      setErrorMessage(error.message || 'The fixture could not be deleted.')
+      showToast({ title: 'Fixture not deleted', message: error.message || 'The fixture could not be deleted.', tone: 'error' })
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
   const handleHideDevelopmentCalendarEntry = async () => {
     const activeEvent = calendarModal?.event
     if (activeEvent?.sourceType !== 'development' || !activeEvent.sourceId) return
@@ -4556,6 +4580,8 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
   })()
 
   const calendarChangeConfirmModal = (
+    <>
+    <ConfirmModal isOpen={fixtureDeletePending} isBusy={isSaving} title="Delete fixture?" message="Remove this fixture from active views? Match history and audit evidence will be retained. This does not send a notification." cancelLabel="Go back" confirmLabel="Delete fixture" onCancel={() => setFixtureDeletePending(false)} onConfirm={handleFixtureDelete} />
     <ConfirmModal
       isOpen={Boolean(calendarChangePrompt)}
       isBusy={isSaving}
@@ -4612,6 +4638,7 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
         </div>
       ) : null}
     </ConfirmModal>
+    </>
   )
 
   if (calendarOnly) {
@@ -4673,6 +4700,7 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
           onCancel={handleCalendarModalClose}
           onChange={handleCalendarFormChange}
           onDelete={handleCalendarDelete}
+          onDeleteFixture={() => setFixtureDeletePending(true)}
           onCancelEvent={handleCalendarCancellation}
           onRemoveDevelopmentCalendarEntry={handleHideDevelopmentCalendarEntry}
           onEdit={handleCalendarEdit}
@@ -5043,6 +5071,7 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
         onCancel={handleCalendarModalClose}
         onChange={handleCalendarFormChange}
         onDelete={handleCalendarDelete}
+        onDeleteFixture={() => setFixtureDeletePending(true)}
         onCancelEvent={handleCalendarCancellation}
         onRemoveDevelopmentCalendarEntry={handleHideDevelopmentCalendarEntry}
         onEdit={handleCalendarEdit}
@@ -6050,6 +6079,7 @@ function CalendarEventModal({
   onCancel,
   onChange,
   onDelete,
+  onDeleteFixture,
   onCancelEvent,
   onRemoveDevelopmentCalendarEntry,
   onEdit,
@@ -7299,6 +7329,9 @@ function CalendarEventModal({
                     {event.sourceType === 'match-day' ? 'Cancel fixture' : 'Delete event'}
                   </button>
                 ) : null}
+                {canDeleteEvent && event.sourceType === 'match-day' ? (
+                  <button type="button" onClick={onDeleteFixture} disabled={isBusy} className="inline-flex min-h-11 items-center justify-center rounded-lg border border-red-200 bg-red-50 px-4 py-2.5 text-sm font-black text-red-700 disabled:opacity-60">Delete fixture</button>
+                ) : null}
               </div>
             </div>
           </form>
@@ -7361,6 +7394,9 @@ function CalendarEventModal({
                   >
                     {event.sourceType === 'match-day' ? 'Cancel fixture' : 'Delete event'}
                   </button>
+                ) : null}
+                {canDeleteEvent && event.sourceType === 'match-day' ? (
+                  <button type="button" onClick={onDeleteFixture} disabled={isBusy} className="inline-flex min-h-11 items-center justify-center rounded-lg border border-red-200 bg-red-50 px-4 py-2.5 text-sm font-black text-red-700 disabled:opacity-60">Delete fixture</button>
                 ) : null}
               </div>
             </div>
@@ -7482,6 +7518,9 @@ function CalendarEventModal({
                   >
                     {event.sourceType === 'match-day' ? 'Cancel fixture' : 'Delete event'}
                   </button>
+                ) : null}
+                {canDeleteEvent && event.sourceType === 'match-day' ? (
+                  <button type="button" role="menuitem" onClick={() => { setIsMobileActionMenuOpen(false); onDeleteFixture() }} disabled={isBusy} className="inline-flex min-h-11 items-center justify-center rounded-lg border border-red-200 bg-red-50 px-4 py-2.5 text-sm font-black text-red-700 disabled:opacity-60">Delete fixture</button>
                 ) : null}
               </div>
             </div>

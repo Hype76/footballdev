@@ -28,9 +28,11 @@ import {CAPABILITIES,getFeatureAccess} from './src/lib/paywall-access.js'
 ${calendarImport}
 const BrandLoader=()=>null,useConfirmedConnectionIssue=v=>v,useConfirmedConnectionMessage=v=>v
 const deriveTeamNotificationDisplayName=v=>v,getCoachTeamNotificationDisplayName=async()=> 'FP TEST',message=e=>e.message
-const readCoachOfflineResources=async()=>null,saveCoachOfflineResources=async()=>{},peekMobileResource=()=>undefined
+const readCoachOfflineResources=async()=>null,saveCoachOfflineResources=async()=>{},peekMobileResource=(_user,key)=>key==='coach:calendar'&&window.useWarmCalendar?window.events:undefined
 const readMobileResource=async(_u,key,loader,options)=>key==='coach:calendar' && !options?.force ? [] : loader(),getCoachPlayerList=async()=>[],getCoachResources=async()=>[]
-const getCoachCalendarResources=async()=>[...window.events]
+const getCoachCalendarResources=async()=>{window.calendarNetworkReads=(window.calendarNetworkReads||0)+1;return [...window.events]}
+const appStateListeners=new Set();AppState.addEventListener=(_event,listener)=>{appStateListeners.add(listener);return {remove:()=>appStateListeners.delete(listener)}};
+window.resumeCalendar=()=>{for(const listener of appStateListeners)listener('active')}
 ${screen}
 const user={id:'FP TEST coach',activeTeamId:'team',roleRank:90}
 const context={id:'team',teamId:'team',teamName:'FP TEST',planKey:'large_club',planStatus:'active',role:'head_coach',roleRank:90,paymentAccess:{canMutate:true}}
@@ -62,6 +64,15 @@ try {
   page.on('pageerror', error => errors.push(error.message))
   await page.setContent('<body style="margin:0"><div id="root"></div></body>')
   await page.addScriptTag({ content: result.outputFiles[0].text })
+  const warmPage = await browser.newPage({ viewport: { width: 390, height: 844 } })
+  await warmPage.setContent('<body style="margin:0"><div id="root"></div></body>')
+  await warmPage.evaluate(() => { window.useWarmCalendar = true })
+  await warmPage.addScriptTag({ content: result.outputFiles[0].text })
+  await warmPage.getByRole('button', { name: /15 .*4 events: Match, Training, Development, Calendar event/ }).waitFor()
+  assert.equal(await warmPage.evaluate(() => window.calendarNetworkReads || 0), 0, 'Fresh Calendar returns immediately on tab re-entry')
+  await warmPage.evaluate(() => window.resumeCalendar())
+  await warmPage.waitForFunction(() => window.calendarNetworkReads === 1)
+  await warmPage.close()
   const mixed = page.getByRole('button', { name: /15 .*4 events: Match, Training, Development, Calendar event/ })
   await mixed.waitFor()
   await page.waitForFunction(() => document.fonts.check('14px material'))

@@ -256,9 +256,9 @@ function usePortalStyles(themeTokens) {
       moreIconBadge: { alignItems: 'center', backgroundColor: colors.danger, borderColor: colors.card, borderRadius: 999, borderWidth: 2, justifyContent: 'center', minHeight: 19, minWidth: 19, paddingHorizontal: 4, position: 'absolute', right: 0, top: -4 },
       moreIconBadgeText: { color: colors.dangerForeground, fontSize: 10, fontWeight: '900', lineHeight: 13 },
       moreIconWrap: { alignItems: 'center', backgroundColor: colors.accentSoft, borderRadius: 12, height: 39, justifyContent: 'center', position: 'relative', width: 48 },
-      moreItem: { alignItems: 'center', gap: 4, justifyContent: 'center', minHeight: 88, paddingHorizontal: 5, width: '33.333%' },
+      moreItem: { alignItems: 'center', gap: 3, justifyContent: 'flex-start', minHeight: 94, paddingHorizontal: 5, paddingVertical: 7, width: '33.333%' },
       moreItemCopy: { color: colors.muted, fontSize: 10, lineHeight: 14, textAlign: 'center' },
-      moreItemTitle: { color: colors.text, fontSize: 12, fontWeight: '900', textAlign: 'center' },
+      moreItemTitle: { color: colors.text, fontSize: 12, fontWeight: '900', lineHeight: 15, minHeight: 30, textAlign: 'center' },
       monthCell: { borderColor: colors.border, borderRadius: 10, borderWidth: 1, flex: 1, gap: 4, minHeight: 54, padding: 6 },
       monthCellActive: { borderColor: colors.accentText, borderStyle: 'solid', borderWidth: 2 },
       monthCellMuted: { backgroundColor: colors.background, borderStyle: 'dashed' },
@@ -804,13 +804,13 @@ function MatchStatusBadge({ colors, status, prefix, styles, compact = false }) {
   return <View accessibilityLabel={`${prefix}: ${status.label}`} style={[{ alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: compact ? 4 : 5, borderRadius: 999, paddingHorizontal: compact ? 6 : 11, paddingVertical: compact ? 5 : 7, backgroundColor: badge.backgroundColor }, compact && styles.fixtureCompactBadge]}><ParentIcon color={badge.color} iconKey={status.icon} size={compact ? 14 : 18} /><Text style={[styles.meta, { color: badge.color, fontWeight: '700' }, compact && styles.fixtureCompactBadgeText]}>{status.label}</Text></View>
 }
 
-function MatchCard({ colors, invitations, link, match, onOpen, scorerGuide, styles }) {
+function MatchCard({ colors, invitations, link, match, onOpen, scorerGuide, styles, viewerClockNow }) {
   const invitation = getParentMatchAttendanceInvitation(match, invitations, link)
   const isCompleted = match.status === 'full_time'
   return (
     <View style={styles.listSurface}>
       {!match.isFanView && !isCompleted ? <View style={styles.fixtureBadges}><MatchStatusBadge compact colors={colors} status={getParentMatchAvailability(match, invitation, link)} prefix="Availability" styles={styles} /><MatchStatusBadge compact colors={colors} status={getParentMatchSquadStatus(match)} prefix="Match squad" styles={styles} /></View> : null}
-      <Pressable accessibilityHint={scorerGuide ? 'Opens the scoring controls' : 'Opens Match Day'} accessibilityRole="button" onPress={() => onOpen(match)} style={{ minHeight: 48, gap: 5, paddingVertical: 3 }}>
+      <Pressable accessibilityLabel={viewerClockNow ? `Open ${getMatchDayDisplayName(match)}` : undefined} accessibilityHint={scorerGuide ? 'Opens the scoring controls' : 'Opens Match Day'} accessibilityRole="button" onPress={() => onOpen(match)} style={{ minHeight: 48, gap: 5, paddingVertical: 3 }}>
         <View style={styles.row}>
           <View style={styles.fixtureStatus}><MaterialIcons accessible={false} color={colors.accentText} name="event" size={14} /><Text style={styles.fixtureStatusText}>{getParentMatchStatusLabel(match)}</Text></View>
           <Text style={[styles.meta, styles.fixtureDate]}>{formatDateOnly(match.matchDate, 'Date TBC')}</Text>
@@ -822,6 +822,7 @@ function MatchCard({ colors, invitations, link, match, onOpen, scorerGuide, styl
           <View style={styles.fixtureFooterItem}><MaterialIcons accessible={false} color={colors.accentText} name="checkroom" size={14} /><Text style={styles.meta}>{getMatchDayShirtChoiceLabel(match.shirtChoice)}</Text></View>
           {scoreVisible(match) ? <Text style={styles.score}>{match.homeScore} - {match.awayScore}</Text> : null}
         </View>
+        {viewerClockNow && scoreVisible(match) ? <Text accessibilityLabel="Match timer" style={styles.meta}>Match timer {formatMatchAddedTimeClock(match, viewerClockNow)}</Text> : null}
         {scorerGuide ? <ScorerGuidePulse color={colors.accentText} /> : null}
       </Pressable>
       {match.arrivalTime ? <Text style={styles.meta}>Arrive {formatParentProductTime(match.arrivalTime)}</Text> : null}
@@ -1313,7 +1314,7 @@ function ParentMatchFormationPlan({ error = '', onFocusBoard, plan = null, plans
   )
 }
 
-export function MatchdayScreen({ suppressParentFormation = false, activeActionId, clubKits, formationViewportHeight = 0, invitations = [], isOffline, link, onAddToCalendar, onBack, onDismiss, onFocusFormation, onLiveRefresh, onOpen, onOpenLink, onRespond, onRestoreScorer, onReviewScorer, onTransport, onScorerAction, onVolunteer, players = [], resource, scorerGuideDate, scorerSync, selectedMatch, themeTokens }) {
+export function MatchdayScreen({ suppressParentFormation = false, activeActionId, clubKits, formationViewportHeight = 0, invitations = [], isOffline, link, onAddToCalendar, onBack, onDismiss, onFocusFormation, onLiveRefresh, onOpen, onOpenLink, onRespond, onRestoreScorer, onReviewScorer, onTransport, onScorerAction, onVolunteer, players = [], resource, scorerGuideDate, scorerSync, selectedMatch, themeTokens, viewerGroups, viewerKind }) {
   const { colors, styles } = usePortalStyles(themeTokens)
   const [matchSection, setMatchSection] = useState('upcoming')
   const [squadOpenMatchId, setSquadOpenMatchId] = useState('')
@@ -1324,18 +1325,20 @@ export function MatchdayScreen({ suppressParentFormation = false, activeActionId
   const [now, setNow] = useState(() => Date.now())
   const squadFocusRef = useRef(null)
   const focusedSquadKeyRef = useRef('')
-  const matchGroups = useMemo(() => getParentMatchGroups(resource.items), [resource.items])
+  const matchGroups = useMemo(() => viewerGroups || getParentMatchGroups(resource.items), [resource.items, viewerGroups])
+  const sectionLabels = viewerKind === 'fan' ? ['Live matches', 'Results'] : ['Coming up', 'History']
   const visibleMatches = matchGroups[matchSection] || []
+  const viewerHasLiveMatch = Boolean(viewerKind && matchGroups.upcoming.some((match) => scoreVisible(match) && match.status !== 'full_time'))
   const selectedMatchIsLive = Boolean(selectedMatch && ['extra_time', 'half_time', 'live', 'penalties', 'second_half'].includes(selectedMatch.status))
   const presentation = useMemo(
     () => selectedMatch ? getCoachMatchDayPresentation(selectedMatch, now) : null,
     [now, selectedMatch],
   )
   useEffect(() => {
-    if (!selectedMatch) return undefined
+    if (!selectedMatch && !viewerHasLiveMatch) return undefined
     const clockId = setInterval(() => setNow(Date.now()), 1000)
     return () => clearInterval(clockId)
-  }, [selectedMatch])
+  }, [selectedMatch, viewerHasLiveMatch])
   useEffect(() => {
     if (!selectedMatchIsLive || isOffline || !onLiveRefresh) return undefined
     const refreshId = setInterval(() => onLiveRefresh(), 15000)
@@ -1503,13 +1506,13 @@ export function MatchdayScreen({ suppressParentFormation = false, activeActionId
       <View style={styles.section}>
         <ClubFeatureWave color={colors.accentText} />
         <View style={styles.featureHeading}><View style={styles.featureIcon}><ParentIcon color={colors.accentText} iconKey="football" size={26} /></View><Text accessibilityRole="header" style={styles.header}>Matchday</Text></View>
-        <Text style={styles.helper}>Shared fixtures and game day updates for {link?.playerName || 'your player'}.</Text>
+        <Text style={styles.helper}>{viewerKind === 'fan' ? 'Live matches and results shared for' : 'Shared fixtures and game day updates for'} {link?.playerName || 'your player'}.</Text>
       </View>
       {getParentScorerMatches(resource.items).map((match) => <View key={`scoring:${match.id}`} style={styles.section}><Text style={styles.cardTitle}>{getMatchDayDisplayName(match)}</Text><Button label={getParentScorerActionLabel(match)} onPress={() => onOpen(match)} scorerGuide={isParentScorerGuideMatch(match, scorerGuideDate)} styles={styles} /></View>)}
-      <View style={styles.fixtureFilterRow}><Button buttonStyle={styles.fixtureFilter} labelStyle={styles.fixtureFilterText} label={`Coming up (${matchGroups.upcoming.length})`} onPress={() => setMatchSection('upcoming')} outline={matchSection !== 'upcoming'} styles={styles} /><Button buttonStyle={styles.fixtureFilter} labelStyle={styles.fixtureFilterText} label={`History (${matchGroups.recent.length})`} onPress={() => setMatchSection('recent')} outline={matchSection !== 'recent'} styles={styles} /></View>
-      <ResourceState emptyCopy="There are no Parent-visible match cards for this player." {...resource} styles={styles} />
+      <View style={styles.fixtureFilterRow}><Button buttonStyle={styles.fixtureFilter} labelStyle={styles.fixtureFilterText} label={`${sectionLabels[0]} (${matchGroups.upcoming.length})`} onPress={() => setMatchSection('upcoming')} outline={matchSection !== 'upcoming'} styles={styles} /><Button buttonStyle={styles.fixtureFilter} labelStyle={styles.fixtureFilterText} label={`${sectionLabels[1]} (${matchGroups.recent.length})`} onPress={() => setMatchSection('recent')} outline={matchSection !== 'recent'} styles={styles} /></View>
+      <ResourceState emptyCopy="There are no shared matches for this player." {...resource} styles={styles} />
       {!resource.loading && resource.items.length > 0 && visibleMatches.length === 0 ? <Text style={styles.empty}>No matches are in this section.</Text> : null}
-      {visibleMatches.map((match) => <MatchCard colors={colors} invitations={invitations} link={link} key={match.id} match={match} onDismiss={onDismiss} onOpen={onOpen} scorerGuide={isParentScorerGuideMatch(match, scorerGuideDate)} styles={styles} />)}
+      {visibleMatches.map((match) => <MatchCard colors={colors} invitations={invitations} link={link} key={match.id} match={match} onDismiss={onDismiss} onOpen={onOpen} scorerGuide={isParentScorerGuideMatch(match, scorerGuideDate)} styles={styles} viewerClockNow={viewerKind ? now : undefined} />)}
     </View>
   )
 }
@@ -1801,7 +1804,7 @@ export function ChatScreen({ activeActionId, connectionUnverified = false, invit
   )
 }
 
-export function MoreScreen({ onOpen, themeTokens, unansweredInvites, unansweredPolls, unreadNotifications, visibleKeys }) {
+export function MoreScreen({ conciseLabels = false, onOpen, themeTokens, unansweredInvites, unansweredPolls, unreadNotifications, visibleKeys }) {
   const { colors, styles } = usePortalStyles(themeTokens)
   const items = [
     ['updates', 'notifications', 'Notifications', unreadNotifications ? `${unreadNotifications} new` : 'Selection, scores and club news', unreadNotifications],
@@ -1821,7 +1824,7 @@ export function MoreScreen({ onOpen, themeTokens, unansweredInvites, unansweredP
     <Text accessibilityRole="header" style={styles.header}>More</Text>
     {allowed.has('partners') ? <PartnersBanner onPress={() => onOpen('partners')} /> : null}
     {allowed.has('profile') ? <Pressable accessibilityLabel="Profile, your name and account" accessibilityRole="button" onPress={() => onOpen('profile')} style={({ pressed }) => [styles.listSurface, styles.compactRow, pressed && { opacity: 0.72 }]}><ParentIcon color={colors.accentText} iconKey="settings.account" size={26} /><View style={styles.compactCopy}><Text style={styles.cardTitle}>Profile</Text><Text style={styles.helper}>Your name and account</Text></View><ParentIcon color={colors.accentText} iconKey="action.open" size={22} /></Pressable> : null}
-    <View style={styles.moreGrid}>{items.filter(([key]) => allowed.has(key)).map(([key, iconKey, title, copy, count]) => <Pressable accessibilityLabel={`${title}, ${copy}`} accessibilityRole="button" key={key} onPress={() => onOpen(key)} style={({ pressed }) => [styles.moreItem, pressed && { opacity: 0.72 }]}><View style={styles.moreIconWrap}><ParentIcon color={colors.accentText} iconKey={iconKey} size={31} />{count ? <View accessibilityLabel={`${count} new`} style={styles.moreIconBadge}><Text style={styles.moreIconBadgeText}>{count > 99 ? '99+' : count}</Text></View> : null}</View><Text style={styles.moreItemTitle}>{title}</Text><Text style={styles.moreItemCopy}>{copy}</Text></Pressable>)}</View>
+    <View style={styles.moreGrid}>{items.filter(([key]) => allowed.has(key)).map(([key, iconKey, title, copy, count]) => <Pressable accessibilityLabel={conciseLabels ? title : `${title}, ${copy}`} accessibilityHint={conciseLabels ? copy : undefined} accessibilityRole="button" key={key} onPress={() => onOpen(key)} style={({ pressed }) => [styles.moreItem, pressed && { opacity: 0.72 }]}><View style={styles.moreIconWrap}><ParentIcon color={colors.accentText} iconKey={iconKey} size={31} />{count ? <View accessibilityLabel={`${count} new`} style={styles.moreIconBadge}><Text style={styles.moreIconBadgeText}>{count > 99 ? '99+' : count}</Text></View> : null}</View><Text style={styles.moreItemTitle}>{title}</Text><Text style={styles.moreItemCopy}>{copy}</Text></Pressable>)}</View>
   </View>
 }
 

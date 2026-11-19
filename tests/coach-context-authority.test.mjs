@@ -146,6 +146,7 @@ test('actual offline preparation waits for activation and fences an older prepar
   captureCoachOfflineAccount: () => () => {}, getMedia: () => ({}), startup: Promise.resolve(),
   prepareCoachAccountOffline: options => { preparations++; assert.equal(options.user,scopedUser); assert.equal(options.user.clubId,context.clubId,'Server-selected club remains unchanged'); assert.deepEqual(options.contexts,linkedContexts,'Every own linked context reaches the account preparer'); assert.equal(options.selectedContextId,context.id); return prepareCoachAccountOffline(options) },
   createCoachOfflineResourceSaver: (_profile,team) => async resources => { writes++; const cache=caches.get(team.id)||{resourceMetadata:{}}; for(const key of Object.keys(resources)) cache.resourceMetadata[key]={fingerprint:key}; caches.set(team.id,cache); return cache },
+  readCoachAccountPreparation: async (_id, teams, options) => { assert.equal(teams.length, 1); assert.equal(options.verifyMedia, false); return {} },
   saveCoachAccountPreparation: async () => {}, readCoachOfflineResources: async (_id,team) => caches.get(team.id), saveCoachPreparedMatchDays: async () => {},
   applyCoachContext: profile => profile, getScopedTeamBranding: () => null,
   loadCoachOfflineContext: async (_profile,_context,options) => { started.resolve(); await work.promise; await options.onResource({cacheKey:'home',value:{},complete:true}); return {complete:true} },

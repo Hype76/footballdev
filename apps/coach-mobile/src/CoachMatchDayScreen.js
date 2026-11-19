@@ -936,13 +936,15 @@ function CoachMatchDayScoped({ context, matchDayTarget, onMatchDayTargetHandled,
     const currentContext = contextRef.current
     const isCurrentScope = () => currentUser.id === userRef.current.id && currentUser.activeTeamId === userRef.current.activeTeamId && currentContext.id === contextRef.current.id
     const selectionBeforeLoad = selectedMatchId.current
-    const remote = currentUser.isOfflineProfile ? null : Promise.allSettled([
+    const remoteMatches = currentUser.isOfflineProfile ? null : Promise.allSettled([
       readMobileResource(currentUser, 'coach:match-list', () => withMobileAsyncTimeout(() => getCoachMatchDayList(currentUser)), { force: true }),
+    ]).then(([result]) => result)
+    const remotePlayers = currentUser.isOfflineProfile ? null : Promise.allSettled([
       readMobileResource(currentUser, 'coach:players', () => withMobileAsyncTimeout(() => getCoachPlayerList(currentUser))),
-    ])
+    ]).then(([result]) => result)
     const offline = accessDeniedRef.current ? Promise.resolve(null) : readCoachOfflineResources(currentUser.id, currentContext).catch(() => null)
     const initialOffline = hasMatchListSnapshot.current ? Promise.resolve(null) : offline
-    const saved = remote ? await Promise.race([initialOffline, remote.then(results => results[0].status === 'fulfilled' || isMatchDayAccessDenied(results[0].reason) ? null : initialOffline)]) : await initialOffline
+    const saved = remoteMatches ? await Promise.race([initialOffline, remoteMatches.then(result => result.status === 'fulfilled' || isMatchDayAccessDenied(result.reason) ? null : initialOffline)]) : await initialOffline
     if (!isCurrentScope()) { loadInFlight.current = false; setRefreshing(false); return }
     const hasCachedMatches = Array.isArray(saved?.resources?.matchDayList)
     const cachedMatch = saved?.resources?.matchDayDetail && typeof saved.resources.matchDayDetail === 'object'
@@ -969,14 +971,19 @@ function CoachMatchDayScoped({ context, matchDayTarget, onMatchDayTargetHandled,
       return
     }
     try {
-      const [matchesResult, playersResult] = await remote
+      const matchesResult = await remoteMatches
       if (!isCurrentScope()) return
       if (matchesResult.status === 'rejected') throw matchesResult.reason
-      if (playersResult.status === 'rejected' && isMatchDayAccessDenied(playersResult.reason)) throw playersResult.reason
       const nextMatches = matchesResult.value
       setOlderMatchOffset(nextMatches.length === COACH_MATCH_DAY_PAGE_SIZE ? nextMatches.length : null)
       hasMatchListSnapshot.current = true
+      // The list is independently authorised, but edits must wait for the roster.
+      playersStaleRef.current = true
+      setStale(true)
       setMatches(nextMatches); setLoading(false)
+      const playersResult = await remotePlayers
+      if (!isCurrentScope()) return
+      if (playersResult.status === 'rejected' && isMatchDayAccessDenied(playersResult.reason)) throw playersResult.reason
       if (playersResult.status === 'rejected') { playersStaleRef.current = true; setStale(true); setError('Players could not be refreshed. Showing saved information until the connection is restored.') }
       const fallback = playersResult.status === 'rejected' ? saved || await offline : saved
       if (!isCurrentScope()) return
@@ -1107,6 +1114,10 @@ function CoachMatchDayScoped({ context, matchDayTarget, onMatchDayTargetHandled,
     setBusy(true); setError('')
     const currentScope = context.id
     const isCurrent = () => contextRef.current.id === currentScope && selectedMatchId.current === summary.id
+    // Start the authorised detail read while encrypted local storage opens.
+    const remoteDetail = userRef.current.isOfflineProfile ? null : Promise.allSettled([
+      withMobileAsyncTimeout(() => getCoachMatchDayDetail(user, summary.id)),
+    ]).then(([result]) => result)
     const savedJournal = await readCoachMatchDayOutbox(user.id, context, summary.id).catch(() => null)
     const savedResources = savedJournal ? null : await readCoachOfflineResources(user.id, context).catch(() => null)
     const cached = savedJournal?.baseMatch || (savedResources?.resources?.matchDayDetail?.id === summary.id ? savedResources.resources.matchDayDetail : null)
@@ -1124,7 +1135,9 @@ function CoachMatchDayScoped({ context, matchDayTarget, onMatchDayTargetHandled,
       return
     }
     try {
-      const detail = await withMobileAsyncTimeout(() => getCoachMatchDayDetail(user, summary.id))
+      const detailResult = await remoteDetail
+      if (detailResult.status === 'rejected') throw detailResult.reason
+      const detail = detailResult.value
       if (!isCurrent()) return
       matchRef.current = detail; setMatch(detail); setStale(playersStaleRef.current)
       setFixtureStale(false)

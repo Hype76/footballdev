@@ -27,15 +27,26 @@ export function useCoachOfflinePreparation({ user, contexts = null, context = nu
         if (!runnerIsCurrent()) return { cancelled: true }
         refreshHomeRef.current?.()
         const current = latest.current
-        const result = await prepareCoachAccount(current.user, current.contexts, selectedId.current, runnerIsCurrent)
+        const result = await prepareCoachAccount(current.user, current.contexts, selectedId.current, runnerIsCurrent, { yieldControl: () => new Promise(resolve => setTimeout(resolve, 0)) })
         if (!result.cancelled && result.retryNeeded) throw new Error('Some club information still needs downloading.')
         return result
       },
     })
-    const initial = setTimeout(() => void runner.refresh(), 3000)
-    const interval = setInterval(() => void runner.refresh(), 30_000)
-    const subscription = AppState.addEventListener('change', state => { if (state === 'active') void runner.refresh() })
-    return () => { runner.stop(); clearTimeout(initial); clearInterval(interval); subscription.remove() }
+    const idleDelayMs = 15_000
+    let idleAt = 0
+    let idleTimer
+    const refreshWhenIdle = () => {
+      if (Date.now() >= idleAt) void runner.refresh()
+    }
+    const schedule = () => {
+      clearTimeout(idleTimer)
+      idleAt = Date.now() + idleDelayMs
+      idleTimer = setTimeout(() => runner.refresh(), idleDelayMs)
+    }
+    schedule()
+    const interval = setInterval(refreshWhenIdle, 30_000)
+    const subscription = AppState.addEventListener('change', state => { if (state === 'active') schedule() })
+    return () => { runner.stop(); clearTimeout(idleTimer); clearInterval(interval); subscription.remove() }
   }, [scopeKey, eligible])
 }
 

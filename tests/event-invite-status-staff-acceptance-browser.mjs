@@ -630,6 +630,45 @@ try {
   await waitForPort()
   browser = await chromium.launch({ headless: true })
 
+  if (process.env.CALENDAR_FIXTURE_DELETE_ONLY === '1') {
+  for (const mobile of [false, true]) {
+    const context = await browser.newContext({ viewport: mobile ? { width: 390, height: 844 } : { width: 1440, height: 1000 }, isMobile: mobile })
+    const { page, pageErrors } = await preparePage(context)
+    let calls = 0
+    await context.route('**/rest/v1/rpc/delete_match_day_fixture_for_team', async (route) => {
+      calls++
+      assert.deepEqual(route.request().postDataJSON(), { p_match_day_id: 'match-fixture', p_team_id: 'team-u12' })
+      if (calls === 1) return json(route, { message: 'Finish the active match before deleting it.' }, 400)
+      return json(route, { deleted: true, matchDayId: 'match-fixture' })
+    })
+    await signIn(page)
+    await page.goto(`${baseUrl}/calendar?action=view&eventId=match-fixture&source=match-day`, { waitUntil: 'domcontentloaded' })
+    const modal = page.getByTestId('calendar-event-modal')
+    await modal.waitFor({ state: 'visible', timeout: 15000 })
+    async function openDelete() {
+      if (mobile) {
+        await page.getByRole('button', { name: 'More actions' }).click()
+        await page.getByRole('menuitem', { name: 'Delete fixture' }).click()
+      } else await modal.getByRole('button', { name: 'Delete fixture', exact: true }).click()
+    }
+    await openDelete()
+    let confirm = page.getByRole('dialog').last()
+    await confirm.getByText('Remove this fixture from active views?', { exact: false }).waitFor()
+    await confirm.getByRole('button', { name: 'Go back' }).click()
+    assert.equal(calls, 0)
+    await openDelete()
+    confirm = page.getByRole('dialog').last()
+    await confirm.getByRole('button', { name: 'Delete fixture', exact: true }).click()
+    await page.getByText('Finish the active match before deleting it.').first().waitFor({ state: 'visible' })
+    assert.equal(calls, 1)
+    await confirm.getByRole('button', { name: 'Delete fixture', exact: true }).click()
+    await modal.waitFor({ state: 'hidden' })
+    assert.equal(calls, 2)
+    assert.deepEqual(pageErrors, [])
+    await context.close()
+  }
+  console.log('Calendar fixture deletion confirmation, failure and success passed on desktop and mobile.')
+  } else {
   const desktopContext = await browser.newContext({ colorScheme: 'dark', viewport: { width: 1440, height: 1000 } })
   const desktop = await preparePage(desktopContext)
   const existingRequests = matchState.requests
@@ -870,8 +909,12 @@ try {
   await mobileActionSheet.waitFor({ state: 'visible' })
   assert.deepEqual(
     await mobileActionSheet.getByRole('menuitem').allTextContents(),
-    ['Build Formation Board with attending players', 'Manage invited players', 'Edit event', 'Move or reschedule', 'Cancel fixture'],
+    ['Build Formation Board with attending players', 'Manage invited players', 'Edit event', 'Move or reschedule', 'Cancel fixture', 'Delete fixture'],
   )
+  await mobileActionSheet.getByRole('menuitem', { name: 'Delete fixture' }).click()
+  await mobile.page.getByText('Remove this fixture from active views?', { exact: false }).waitFor({ state: 'visible' })
+  await mobile.page.getByRole('button', { name: 'Go back' }).click()
+  await mobileMoreActions.click()
   await mobile.page.keyboard.press('Escape')
   await mobileActionSheet.waitFor({ state: 'hidden' })
   await mobile.page.waitForFunction(() => document.activeElement?.textContent?.trim() === 'More actions')
@@ -1056,6 +1099,7 @@ try {
   await shortAndroidContext.close()
 
   console.log('Event response summary, grouped manager, search, staff acceptance, and Calendar layout checks passed on desktop, tablet, iPhone, short Android, and controlled standalone PWA sessions.')
+  }
 } catch (error) {
   console.error(server.getOutput())
   throw error

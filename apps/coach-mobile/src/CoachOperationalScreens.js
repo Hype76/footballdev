@@ -407,11 +407,11 @@ function CoachCalendarScoped({ calendarTarget, context, contexts, onNavigate, on
   }
   const canViewDevelopment = getFeatureAccess({ ...context, teamId: context?.activeTeamId || context?.teamId }, CAPABILITIES.basicDevelopmentRecords).allowed
 
-  const load = useCallback(async ({ reuseFresh = false } = {}) => {
+  const load = useCallback(async ({ reuseFresh = false, revalidate = false } = {}) => {
     const request = ++calendarLoadSequence.current
     const isCurrent = () => request === calendarLoadSequence.current
     setError(''); setCacheWarning('')
-    const recent = reuseFresh && !calendarDenied.current ? peekMobileResource(user, 'coach:calendar') : undefined
+    const recent = reuseFresh && !revalidate && !calendarDenied.current ? peekMobileResource(user, 'coach:calendar') : undefined
     if (recent !== undefined) {
       hasCalendarSnapshot.current = true; setEvents(recent); setLoading(false)
     }
@@ -422,8 +422,10 @@ function CoachCalendarScoped({ calendarTarget, context, contexts, onNavigate, on
       user.activeTeamId ? readMobileResource(user, 'coach:players', () => getCoachPlayerList(user), options) : Promise.resolve([]),
       user.activeTeamId ? readMobileResource(user, 'coach:phase31e:resources', () => getCoachResources(user), options) : Promise.resolve([]),
     ])
-    const network = readMobileResource(user, 'coach:calendar', () => getCoachCalendarResources(user), { force: true })
-      .then(value => ({ value }), error => ({ error }))
+    const network = recent !== undefined
+      ? Promise.resolve({ value: recent })
+      : readMobileResource(user, 'coach:calendar', () => getCoachCalendarResources(user), { force: true })
+        .then(value => ({ value }), error => ({ error }))
     const offline = calendarDenied.current ? Promise.resolve(null) : readCoachOfflineResources(user.id, context).catch(() => null)
     const { result, cached } = await resolveWithOffline(network, hasCalendarSnapshot.current ? Promise.resolve(null) : offline, saved => {
       if (!isCurrent()) return
@@ -479,7 +481,7 @@ function CoachCalendarScoped({ calendarTarget, context, contexts, onNavigate, on
   useEffect(() => { void load({ reuseFresh: true }) }, [load])
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (state) => {
-      if (state === 'active' && canRefreshCalendar.current) void load({ reuseFresh: true })
+      if (state === 'active' && canRefreshCalendar.current) void load({ reuseFresh: true, revalidate: true })
     })
     return () => subscription.remove()
   }, [load])
@@ -490,12 +492,12 @@ function CoachCalendarScoped({ calendarTarget, context, contexts, onNavigate, on
   const selectedDay = calendarMonth.days.find((day) => day.date === selectedDate)
   const savedLocations = useMemo(() => getSavedLocationOptions(events), [events])
   const attachmentCategories = useMemo(() => [...new Set(resources.map((resource) => String(resource.category || 'general').trim().toLowerCase()).filter(Boolean))].sort(), [resources])
-  const upcomingEvents = filterCoachCalendarEvents(events, filter)
-  const trainingWindow = getCoachCalendarTrainingWindow(upcomingEvents, trainingWeeks)
-  const visibleEvents = focusedEventId ? events.filter(event => event.id === focusedEventId) : selectedDate
+  const upcomingEvents = useMemo(() => filterCoachCalendarEvents(events, filter), [events, filter])
+  const trainingWindow = useMemo(() => getCoachCalendarTrainingWindow(upcomingEvents, trainingWeeks), [upcomingEvents, trainingWeeks])
+  const visibleEvents = useMemo(() => focusedEventId ? events.filter(event => event.id === focusedEventId) : selectedDate
     ? events.filter((event) => event.calendarDate === selectedDate)
-    : filter === 'upcoming' ? trainingWindow.events : upcomingEvents
-  const groups = groupCoachCalendarEvents(visibleEvents)
+    : filter === 'upcoming' ? trainingWindow.events : upcomingEvents, [events, filter, focusedEventId, selectedDate, trainingWindow, upcomingEvents])
+  const groups = useMemo(() => groupCoachCalendarEvents(visibleEvents), [visibleEvents])
   useEffect(() => {
     if (!calendarTarget || handledTarget.current === calendarTarget) return
     const event = events.find(item => (calendarTarget.eventId ? item.id === calendarTarget.eventId : item.sourceId === calendarTarget.sourceId)
