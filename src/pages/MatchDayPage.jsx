@@ -40,6 +40,7 @@ import {
   createMatchDay as liveCreateMatchDay,
   createMatchDayEventLogEntry as liveCreateMatchDayEventLogEntry,
   deletePreviousMatchDay as liveDeletePreviousMatchDay,
+  deleteMatchDayFixture,
   getTodayMatchDayDateValue,
   getMatchDay as liveGetMatchDay,
   getMatchDays as liveGetMatchDays,
@@ -4566,6 +4567,45 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
     })
   }
 
+  const canDeleteFixture = (match) => !isDemoExperience && allowsFixtureManagement && !isPreviousMatch(match)
+    && Number(user.roleRank ?? 0) >= 30
+    && !['admin', 'super_admin', 'parent_portal', 'adult_player'].includes(user.role)
+    && Boolean(user.activeTeamId) && match.teamId === user.activeTeamId
+    && (!(isLiveMatchConsoleState(match) || ['running', 'paused', 'half_time', 'hydration'].includes(match.timerStatus))
+      || Boolean(match.matchDate && match.matchDate < getTodayMatchDayDateValue()))
+
+  const handleDeleteFixture = (match) => {
+    if (!canDeleteFixture(match)) return
+    setPendingMatchAction({
+      type: 'deleteFixture', matchId: match.id, title: 'Delete match?',
+      message: 'Remove this fixture from active views? Match history and audit evidence will be retained. This does not send a notification.',
+      confirmLabel: 'Delete match', itemsTitle: 'Fixture to delete',
+      items: [`Fixture: ${getMatchDayDisplayName(match)}`, `Date: ${formatMatchDate(match)}`],
+    })
+  }
+
+  const performDeleteFixture = async (match) => {
+    if (!canDeleteFixture(match)) {
+      setPendingMatchAction(null)
+      setErrorMessage('This fixture can no longer be deleted. Refresh Match Day and check its status.')
+      return
+    }
+    setActiveMatchId(match.id)
+    setErrorMessage('')
+    try {
+      await deleteMatchDayFixture({ user, match })
+      setMatches((current) => current.filter((candidate) => candidate.id !== match.id))
+      setPendingMatchAction(null)
+      closeSelectedMatch()
+      showToast({ title: 'Match deleted', message: 'The fixture was removed from active views and its history retained.' })
+    } catch (error) {
+      setPendingMatchAction(null)
+      setErrorMessage(error.message || 'The match could not be deleted.')
+    } finally {
+      setActiveMatchId('')
+    }
+  }
+
   const handleDeletePrevious = (match) => {
     setPendingMatchAction({
       type: 'deletePrevious',
@@ -4695,6 +4735,11 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
       return
     }
 
+    if (action.type === 'deleteFixture') {
+      await performDeleteFixture(match)
+      return
+    }
+
     if (action.type === 'deletePrevious') {
       await performDeletePrevious(match)
     }
@@ -4802,6 +4847,11 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
         workspaceSection={workspaceSection}
         onWorkspaceSectionChange={handleWorkspaceSectionChange}
       />
+      {canDeleteFixture(match) ? (
+        <div className="flex justify-end">
+          <button type="button" onClick={() => handleDeleteFixture(match)} disabled={Boolean(activeMatchId) || isSaving} className="inline-flex min-h-10 items-center justify-center rounded-lg border border-red-300 bg-white px-4 py-2 text-sm font-black text-red-700 disabled:opacity-60">Delete match</button>
+        </div>
+      ) : null}
       {isPreviousMatch(match) && canDeletePreviousGames ? (
         <div className="flex justify-end">
           <button

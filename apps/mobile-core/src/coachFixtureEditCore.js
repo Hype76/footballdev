@@ -29,7 +29,7 @@ export function canEditCoachFixture({ context, fixture, stale = false } = {}) {
 }
 
 export function canDeleteCoachFixture({ context, fixture, stale = false, today = getDateInTimeZone() } = {}) {
-  if (!canManageFixture(context, fixture, stale, 30)) return false
+  if (!canManageFixture(context, fixture, stale, 30) || context?.role === 'admin') return false
   const active = ['live', 'half_time', 'second_half', 'extra_time', 'penalties'].includes(fixture.status)
     || ['running', 'paused', 'half_time', 'hydration'].includes(fixture.timerStatus)
   return !active || Boolean(fixture.matchDate && fixture.matchDate < today)

@@ -630,7 +630,43 @@ try {
   await waitForPort()
   browser = await chromium.launch({ headless: true })
 
-  if (process.env.CALENDAR_FIXTURE_DELETE_ONLY === '1') {
+  if (process.env.MATCH_DAY_FIXTURE_DELETE_ONLY === '1') {
+    for (const mobile of [false, true]) {
+      const context = await browser.newContext({
+        viewport: mobile ? { width: 390, height: 844 } : { width: 1440, height: 1000 },
+        isMobile: mobile,
+      })
+      const { page, pageErrors } = await preparePage(context)
+      const blockedMessage = 'Wait for the match notifications to finish before deleting it.'
+      let calls = 0
+      await context.route('**/rest/v1/rpc/delete_match_day_fixture_for_team', async (route) => {
+        calls++
+        assert.deepEqual(route.request().postDataJSON(), { p_match_day_id: 'match-fixture', p_team_id: 'team-u12' })
+        if (calls === 1) return json(route, { message: blockedMessage }, 400)
+        return json(route, { deleted: true, matchDayId: 'match-fixture' })
+      })
+      await signIn(page)
+      await page.goto(`${baseUrl}/match-day?fixture=match-fixture`, { waitUntil: 'domcontentloaded' })
+      const action = page.getByRole('button', { name: 'Delete match', exact: true })
+      const confirm = page.getByRole('dialog', { name: 'Delete match?' })
+      await action.click({ timeout: 25000 })
+      await confirm.getByRole('button', { name: 'Cancel', exact: true }).click()
+      assert.equal(calls, 0)
+
+      await action.click()
+      await confirm.getByRole('button', { name: 'Delete match', exact: true }).click()
+      await page.getByText(blockedMessage, { exact: true }).last().waitFor()
+      assert.equal(calls, 1)
+
+      await action.click()
+      await confirm.getByRole('button', { name: 'Delete match', exact: true }).click()
+      await page.getByText('Match deleted', { exact: true }).last().waitFor()
+      assert.equal(calls, 2)
+      assert.deepEqual(pageErrors, [])
+      await context.close()
+    }
+    console.log('Match Day fixture deletion confirmation, failure and success passed on desktop and mobile.')
+  } else if (process.env.CALENDAR_FIXTURE_DELETE_ONLY === '1') {
   for (const mobile of [false, true]) {
     const context = await browser.newContext({ viewport: mobile ? { width: 390, height: 844 } : { width: 1440, height: 1000 }, isMobile: mobile })
     const { page, pageErrors } = await preparePage(context)

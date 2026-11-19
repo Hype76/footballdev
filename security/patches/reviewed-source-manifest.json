@@ -98,7 +98,7 @@
       "cveId": "CVE-2026-112366",
       "severity": "high",
       "summary": "Withdrawn Advisory: picomatch vulnerable to ReDoS through single-branch repeated extglobs",
-      "description": "## Withdrawn Advisory\n\nThis advisory has been withdrawn because it is a security issue. See https://github.com/micromatch/picomatch/pull/235#issuecomment-6315749381 for more information. This link is maintained to preserve external references.\n\n## Original Description\nPicomatch through 4.0.7 contains a regular expression denial of service vulnerability that allows attackers to block the event loop by supplying single-branch repeated extglob patterns. Attackers can provide globs like +(*) or +(*a), which analyzeRepeatedExtglob in lib/parse.js skips, causing exponential backtracking against short crafted strings and denying service to Node.js applications.",
+      "description": "## Withdrawn Advisory\n\nThis advisory has been withdrawn because it is not a security issue. See https://github.com/micromatch/picomatch/pull/235#issuecomment-6315749381 for more information. This link is maintained to preserve external references.\n\n## Original Description\nPicomatch through 4.0.7 contains a regular expression denial of service vulnerability that allows attackers to block the event loop by supplying single-branch repeated extglob patterns. Attackers can provide globs like +(*) or +(*a), which analyzeRepeatedExtglob in lib/parse.js skips, causing exponential backtracking against short crafted strings and denying service to Node.js applications.",
       "vulnerabilities": [
         {
           "package": {

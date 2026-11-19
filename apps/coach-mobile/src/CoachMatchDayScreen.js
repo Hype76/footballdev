@@ -236,7 +236,7 @@ function LinkedPlayerField({ emptyMessage, field, form, label: fieldLabel, onCha
       <Pressable accessibilityLabel={`Show ${fieldLabel} choices`} accessibilityRole="button" onPress={() => { setQuery(''); setOpen((current) => !current) }} style={styles.playerChoiceToggle}><Text style={styles.playerChoiceToggleText}>{open ? 'Hide' : 'Choose'}</Text></Pressable>
     </View>
     {open ? <ScrollView accessibilityLabel={`${fieldLabel} players`} keyboardShouldPersistTaps="handled" nestedScrollEnabled style={[styles.playerChoiceList, { maxHeight: 260 }]}>
-      {choices.length === 0 ? <Text style={styles.playerChoiceEmpty}>{emptyMessage}</Text> : choices.map((player, index) => <Pressable accessibilityRole="button" key={`${player.id}:${player.playerName}:${player.shirtNumber}`} onPress={() => choose(player)} style={[styles.playerChoiceRow, index === choices.length - 1 && { borderBottomWidth: 0 }]}><Text style={styles.playerChoiceName}>{player.playerName || 'Name not set'}</Text><Text style={styles.playerChoiceMeta}>{player.shirtNumber ? `Shirt ${player.shirtNumber}` : 'Shirt not set'}</Text></Pressable>)}
+      {choices.length === 0 ? <Text style={styles.playerChoiceEmpty}>{emptyMessage}</Text> : choices.map((player, index) => <Pressable accessibilityRole="button" key={`${player.id}:${player.playerName}:${player.shirtNumber}`} onPress={() => choose(player)} style={[styles.playerChoiceRow, index === choices.length - 1 && { borderBottomWidth: 0 }]}><Text style={styles.playerChoiceName}>{player.playerName || 'Name not set'}</Text><Text style={styles.playerChoiceMeta}>{player.isTrial ? 'Trial player · ' : ''}{player.shirtNumber ? `Shirt ${player.shirtNumber}` : 'Shirt not set'}</Text></Pressable>)}
     </ScrollView> : null}
   </View>
 }

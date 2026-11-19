@@ -1,4 +1,4 @@
-// Only server-authorised, match-scoped data can enable the unconfigured fallback.
+// Match participant identities must come from the authorised fixture roster.
 export function normalizeMatchDayParticipantRoster(data, match, field = 'players') {
   if (!match?.id || !match?.teamId || data?.matchId !== match.id || data?.teamId !== match.teamId || !Array.isArray(data[field])) {
     throw new Error('Match participants could not be verified. Refresh this fixture online.')
@@ -9,8 +9,14 @@ export function normalizeMatchDayParticipantRoster(data, match, field = 'players
       throw new Error('Match participants could not be verified. Refresh this fixture online.')
     }
     seen.add(player.id)
-    return { id: player.id, playerName: String(player.player_name).trim(), shirtNumber: String(player.shirt_number || ''), teamId: match.teamId }
-  })
+    return {
+      id: player.id,
+      playerName: String(player.player_name).trim(),
+      shirtNumber: String(player.shirt_number || ''),
+      teamId: match.teamId,
+      ...(player.is_trial === true ? { isTrial: true } : {}),
+    }
+  }).sort((first, second) => Number(Boolean(first.isTrial)) - Number(Boolean(second.isTrial)))
 }
 
 export function getMatchDaySubstitutionPlayers(match, fallback = []) {

@@ -72,7 +72,7 @@ test('goal copy names recorded players at every detail level while other minimal
       assert.doesNotMatch(`${copy.title} ${copy.minimalBody}`, /Private Player Name|Another Private Name|Opposition Player Name|Private correction note/)
     }
 
-    if (['goal', 'event'].includes(scenario.type) && scenario.event?.event_type !== 'water_break') {
+    if (scenario.type === 'goal' || scenario.event?.event_type === 'substitution') {
       assert.match(copy.detailedBody, /Private Player Name|Opposition Player Name/)
     }
 
@@ -82,6 +82,29 @@ test('goal copy names recorded players at every detail level while other minimal
       assert.doesNotMatch(copy.detailedBody, /Score 2\s*-\s*1/)
     }
   }
+})
+
+test('card notifications identify the recorded side while minimal alerts stay private', () => {
+  for (const homeAway of ['home', 'away']) {
+    for (const [side, team] of [['club', 'FP TEST U16'], ['opponent', 'Riverside Juniors']]) {
+      for (const colour of ['yellow', 'red']) {
+        const copy = buildParentMatchDayNotificationCopy({
+          match: { ...match, home_away: homeAway },
+          type: 'event',
+          event: { event_type: `${colour}_card`, team_side: side, player_name: 'Private Player Name', player_shirt_number: 7 },
+        })
+        const teamLabel = `${colour === 'yellow' ? 'Yellow' : 'Red'} card for ${team}`
+        assert.ok(copy.minimalBody.startsWith(`${teamLabel}.`))
+        assert.ok(copy.detailedBody.startsWith(`${teamLabel}: Private Player Name #7`))
+        assert.doesNotMatch(copy.minimalBody, /Private Player Name|#7/)
+        for (const body of [copy.minimalBody, copy.detailedBody]) {
+          assert.ok(body.includes('FP TEST U16') && body.includes('Riverside Juniors'))
+        }
+      }
+    }
+  }
+  const unknown = buildParentMatchDayNotificationCopy({ match, type: 'event', event: { event_type: 'yellow_card' } })
+  assert.match(unknown.minimalBody, /^Yellow card update\./)
 })
 
 test('unknown Match Day events fail closed to a useful privacy-safe generic update', () => {

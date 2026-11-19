@@ -135,7 +135,7 @@ test('changed advisory, upstream patch, published version or registry integrity 
 test('reviewed picomatch withdrawal still requires its exact meaning and fresh successful lookup', async () => {
   const snapshot = payload.advisories.find(value => value.ghsaId === 'GHSA-fc5q-39xc-vjpf')
   const semantic = Object.fromEntries(['ghsaId', 'cveId', 'severity', 'summary', 'description', 'vulnerabilities', 'references', 'withdrawnAt'].map(key => [key, snapshot[key]]))
-  assert.equal(hash(Buffer.from(JSON.stringify(semantic))), '0b6ed26990894fb0991bbe7325ab3a98cec30abf46b04c1aac371771512cbe4a')
+  assert.equal(hash(Buffer.from(JSON.stringify(semantic))), '640b94fcf3f7b7630d9ff6328a7db13a269a341b083ea4966c131cef024ae528')
   const url = 'https://api.github.com/advisories/' + snapshot.ghsaId
   const requestFor = map => async target => ({ ok: true, json: async () => clone(map.get(target)) })
   assert.ok((await verifyUpstream(record, payload, requestFor(responses()))).receipts.some(receipt => receipt.id === snapshot.ghsaId))
