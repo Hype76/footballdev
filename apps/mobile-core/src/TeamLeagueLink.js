@@ -26,8 +26,8 @@ export function TeamLeagueLinkRow({ client, scope, palette, styles, coach = fals
   const text = palette.textPrimary || palette.text
   const accent = palette.accentText || palette.accent
   return <View>
-    <Pressable disabled={!available} accessibilityRole={available ? 'link' : 'text'} accessibilityLabel={`Current league for ${league.value?.teamName || 'this team'}`} accessibilityHint={available ? 'Opens the league website in your browser' : undefined} onPress={() => { void league.open(Linking) }} style={({ pressed }) => [coach ? styles.homeNextRow : [styles.compactRow, { minHeight: 64, paddingVertical: 8, borderBottomColor: palette.border, borderBottomWidth: 1 }], pressed && styles.pressed]}>
-      <MaterialIcons accessible={false} color={coach ? accent : text} name="public" size={coach ? 30 : 31} />
+    <Pressable disabled={!available} accessibilityRole={available ? 'link' : 'text'} accessibilityLabel={`Current league for ${league.value?.teamName || 'this team'}`} accessibilityHint={available ? 'Opens the league website in your browser' : undefined} onPress={() => { void league.open(Linking) }} style={({ pressed }) => [coach ? styles.homeNextRow : [styles.compactRow, styles.leagueRow || { minHeight: 64, paddingVertical: 8, borderBottomColor: palette.border, borderBottomWidth: 1 }], pressed && styles.pressed]}>
+      {!coach && styles.homeItemIcon ? <View style={styles.homeItemIcon}><MaterialIcons accessible={false} color={accent} name="public" size={25} /></View> : <MaterialIcons accessible={false} color={coach ? accent : text} name="public" size={coach ? 30 : 31} />}
       <View style={coach ? styles.homeNextCopy : styles.compactCopy}>
         <Text style={coach ? styles.iconEyebrow : styles.cardTitle}>Current league</Text>
         {coach ? <><Text numberOfLines={1} style={styles.homeNextValue}>{available ? 'View league website' : 'League website'}</Text><Text numberOfLines={1} style={styles.iconMeta}>{league.value?.teamName || ' '}</Text></> : <Text numberOfLines={1} style={styles.cardMeta}>{league.value?.teamName ? `${league.value.teamName} · ` : ''}{available ? 'View league website' : 'League website'}</Text>}

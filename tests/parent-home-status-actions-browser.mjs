@@ -49,7 +49,7 @@ const polls=[{id:'open',title:'Open team poll',status:'open',options:[{id:'one',
 window.calls=[];
 function App(){const[state,setState]=useState({scene:'home',mode:'light',offline:false,match:baseMatch,event:baseEvent,invitations:[matchInvitation,eventInvitation]}),[drafts,setDrafts]=useState({});
 window.patch=patch=>setState(previous=>({...previous,...patch}));window.reset=()=>{window.calls=[];setDrafts({});setState({scene:'home',mode:'light',offline:false,match:baseMatch,event:baseEvent,invitations:[matchInvitation,eventInvitation]})};window.fixture=baseMatch;window.event=baseEvent;window.matchInvitation=matchInvitation;window.eventInvitation=eventInvitation;
-const tokens=createParentMobileTheme({mode:state.mode,selectedLink:link}).tokens;theme={palette:createParentAppPalette(tokens),styles:createParentAppStyles(tokens)};
+const tokens=createParentMobileTheme({polished:true,mode:state.mode,selectedLink:link}).tokens;theme={palette:createParentAppPalette(tokens),styles:createParentAppStyles(tokens)};
 const callback=(name,...args)=>window.calls.push([name,...args]);
 return <View style={{backgroundColor:tokens.background,minHeight:'100vh',padding:16}}>
 {state.scene==='home'?<><MatchPreviewCard match={state.match} link={link} invitations={state.invitations} onPress={item=>callback('match',item.id)}/><CalendarCard event={state.event} invitations={state.invitations} onPress={item=>callback('event',item.id)}/><CompactIconAction iconKey='refresh' label='Refresh' onPress={()=>callback('refresh')}/></>:null}

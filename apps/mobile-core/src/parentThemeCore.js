@@ -123,11 +123,21 @@ export function resolveParentMobileBranding(selectedLink = null) {
   }
 }
 
-export function createParentMobileTheme({ mode = 'dark', selectedLink = null } = {}) {
+export function createParentMobileTheme({ mode = 'dark', selectedLink = null, polished = false } = {}) {
   const resolvedMode = normalizeParentThemeMode(mode)
   const branding = resolveParentMobileBranding(selectedLink)
-  const base = BASE_TOKENS[resolvedMode]
+  const defaults = BASE_TOKENS[resolvedMode]
   const branded = resolveAccentPalette(branding.accent, resolvedMode)
+  const base = polished && resolvedMode === 'light' ? {
+    ...defaults,
+    background: mixThemeColor(branded.accent, '#f7fbff', 0.94),
+    portalBackground: mixThemeColor(branded.accent, '#f7fbff', 0.94),
+    portalSurface: '#ffffff',
+    surfaceRaised: '#f6f9fd',
+    border: mixThemeColor(branded.accent, '#dce6f2', 0.9),
+    textPrimary: '#101a30',
+    textSecondary: '#3e4d61',
+  } : defaults
   const accentForeground = themeForeground(branded.button)
   const accentSoft = mixThemeColor(branded.accent, base.surface, resolvedMode === 'dark' ? 0.84 : 0.92)
   const accentMuted = mixThemeColor(branded.accent, base.surface, resolvedMode === 'dark' ? 0.46 : 0.62)

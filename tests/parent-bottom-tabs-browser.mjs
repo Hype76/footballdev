@@ -24,7 +24,7 @@ let theme;const useParentTheme=()=>theme;
 ${functions}
 function App(){const[mode,setMode]=useState('light'),[active,setActive]=useState('matchday'),[count,setCount]=useState(19);
 window.mode=setMode;window.count=setCount;window.selected=()=>active;
-const tokens=createParentMobileTheme({mode}).tokens,palette=createParentAppPalette(tokens);theme={palette,styles:createParentAppStyles(tokens)};
+const tokens=createParentMobileTheme({mode,polished:true}).tokens,palette=createParentAppPalette(tokens);theme={palette,styles:createParentAppStyles(tokens)};
 return <BottomTabs activeTab={active} onChange={setActive} theme={mode} tabs={[{key:'home',label:'Home'},{key:'calendar',label:'Calendar'},{key:'matchday',label:'Matchday'},{key:'chat',label:'Chat'},{key:'more',label:'More',count}]}/>}
 createRoot(document.getElementById('root')).render(<App/>);`
 const bundle = await build({ stdin: { contents: entry, resolveDir: root, loader: 'jsx' }, bundle: true, write: false, jsx: 'automatic', loader: { '.js': 'jsx', '.ttf': 'dataurl' }, platform: 'browser', conditions: ['browser'], mainFields: ['browser', 'module', 'main'], nodePaths: [modules], resolveExtensions: ['.web.tsx', '.web.ts', '.web.js', '.tsx', '.ts', '.jsx', '.js', '.json'], alias: { react: path.join(modules, 'react'), 'react-dom': path.join(modules, 'react-dom'), 'react-native': path.join(modules, 'react-native-web') }, define: { 'process.env.NODE_ENV': '"production"', __DEV__: 'false', global: 'globalThis' }, banner: { js: 'globalThis.process={env:{NODE_ENV:"production"}};' } })
