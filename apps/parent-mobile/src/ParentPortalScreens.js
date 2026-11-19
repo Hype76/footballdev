@@ -373,14 +373,14 @@ function InvitationResponseControl({ activeActionId, colors, invitation, isOffli
   const accepted = ['accepted', 'available', 'attending', 'yes'].includes(responseValue)
   const declined = ['declined', 'no', 'not_attending', 'unavailable'].includes(responseValue)
   const choiceStatus = isVolunteer
-    ? accepted ? `${label} accepted` : declined ? `${label} declined` : ''
+    ? accepted ? `Volunteered as ${label.toLowerCase()}` : declined ? `${label} declined` : ''
     : accepted ? 'Attending' : declined ? 'Not attending' : responseValue === 'maybe' ? 'Maybe' : ''
   const savingLocally = local?.pending || invitation.attendancePendingStatus === 'persisting'
   const showConfirmation = accepted && !savingLocally && !error && changingScope !== scope && options.length > 0
   const hasSelectionState = Boolean(invitation.selectionState && invitation.selectionState !== 'not_applicable')
   const selection = hasSelectionState ? labelize(invitation.selectionState) : ''
   const syncStatus = isOffline ? 'Saved on this phone. Waiting to sync.' : 'Saved on this phone. Syncing.'
-  const detail = isVolunteer ? "You've accepted this role." : "You've confirmed you are attending."
+  const detail = isVolunteer ? "You volunteered for this role." : "You've confirmed you are attending."
   const status = error || (savingLocally ? 'Saving' : invitation.attendancePending ? syncStatus
     : showConfirmation ? detail
       : local?.saved || invitation.attendanceSaved ? (isVolunteer ? choiceStatus : `${choiceStatus || 'Response'} confirmed`) : '')
