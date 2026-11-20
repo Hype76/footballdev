@@ -262,7 +262,10 @@ function DisplaySettings({ clubId, settings, storageKey }) {
           <small id="club-tv-ordering-link-help">{orderingUrlInvalid ? 'Enter a valid HTTPS ordering link.' : 'When enabled, Matchday TV shows a QR code for this link. Leave it blank to show Coming soon.'}</small>
           {orderingQr?.data ? <figure className="club-tv-ordering-preview">
             <img src={orderingQr.data} alt="Kitchen ordering QR preview" width="240" height="240" />
-            <figcaption>Scan with your phone to check the ordering page before saving, or <a href={orderingUrl} target="_blank" rel="noopener noreferrer">open the ordering page in a new tab</a>.</figcaption>
+            <figcaption>
+              <span>Scan with your phone to check the ordering page before saving, or <a href={orderingUrl} target="_blank" rel="noopener noreferrer">open the ordering page in a new tab</a>.</span>
+              <a className="club-tv-ordering-download" href={orderingQr.data} download="pitchside-ordering-qr.png">Download QR code</a>
+            </figcaption>
           </figure> : orderingQr?.error ? <small role="status">QR preview unavailable.</small> : null}
         </fieldset>
         {error ? <p role="alert">{error}</p> : null}
