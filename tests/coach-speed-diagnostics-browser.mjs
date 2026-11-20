@@ -10,36 +10,49 @@ const app = await readFile('apps/coach-mobile/App.js', 'utf8')
 const navigationStart = app.indexOf('function PrimaryNavigation(')
 const navigationEnd = app.indexOf('\nfunction ', navigationStart + 1)
 assert.ok(navigationStart >= 0 && navigationEnd > navigationStart)
+const startupHookStart = app.indexOf('function useCoachStartupScreen(')
+const startupHookEnd = app.indexOf('\nfunction ', startupHookStart + 1)
+assert.ok(startupHookStart >= 0 && startupHookEnd > startupHookStart)
 
 const result = await build({
   stdin: { resolveDir: root, loader: 'jsx', contents: `
-    import React, { useState } from 'react'
+    import React, { useEffect, useRef, useState } from 'react'
     import { createRoot } from 'react-dom/client'
     import { Pressable, Text, View } from 'react-native'
     import { CoachSpeedDiagnostics } from './apps/coach-mobile/src/CoachSpeedDiagnostics'
-    import { COACH_TIMED_TABS, createCoachTabTiming } from './apps/coach-mobile/src/coachPerformanceDiagnosticsCore'
-    import { recordCoachPerformanceSample } from './apps/coach-mobile/src/coachPerformanceDiagnostics'
+    import { COACH_TIMED_TABS, coachTimingClock, createCoachTabTiming } from './apps/coach-mobile/src/coachPerformanceDiagnosticsCore'
+    import { recordCoachPerformanceSample, recordCoachStartupScreen } from './apps/coach-mobile/src/coachPerformanceDiagnostics'
     const styles = { tabBar: { flexDirection: 'row', justifyContent: 'space-around' }, tab: { minHeight: 48, justifyContent: 'center' }, infoRow: { flexDirection: 'row', justifyContent: 'space-between', padding: 4 }, infoLabel: { flex: 1 } }
     const useCoachTheme = () => ({ styles, palette: { accentText: '#0d4480', textMuted: '#435461' } })
     const CoachIcon = () => null
     const getCoachBottomNavigationPadding = () => 0
     const getCoachRouteIconKey = route => route
     ${app.slice(navigationStart, navigationEnd)}
+    const AppState = {
+      currentState: 'inactive',
+      addEventListener(_, callback) {
+        window.activateCoach = () => { this.currentState = 'active'; callback('active') }
+        return { remove() {} }
+      },
+    }
+    ${app.slice(startupHookStart, startupHookEnd)}
     const timings = createCoachTabTiming({ record: recordCoachPerformanceSample })
     const tabs = Object.entries(COACH_TIMED_TABS).map(([key, label]) => ({ key, label }))
     function Screen({ route, timing }) {
-      const [data, setData] = useState(false)
+      const [data, setData] = useState('')
       async function reloadHome() {
         recordCoachPerformanceSample({ name: 'home.invites', durationMs: 17700, status: 'error', source: 'manual' })
       }
-      window.showCalendar = () => { setData(true); timing.data('success') }
+      window.showCalendar = setData
+      useEffect(() => { if (data) timing.data(data) }, [data, timing])
       return <View onLayout={() => timing?.screen()}>
-        {route === 'more' ? <CoachSpeedDiagnostics reloadHome={reloadHome} styles={styles}/> : <Text>{data ? 'Calendar data' : 'Loading tab data'}</Text>}
+        {route === 'more' ? <CoachSpeedDiagnostics reloadHome={reloadHome} styles={styles}/> : <Text>{data === 'saved' ? 'Saved Calendar data' : data === 'success' ? 'Fresh Calendar data' : 'Loading tab data'}</Text>}
       </View>
     }
     function App() {
       const [visit, setVisit] = useState({ route: 'more', timing: null })
-      const open = route => { if (route !== visit.route) setVisit({ route, timing: timings.begin(route) }) }
+      useCoachStartupScreen('workspace')
+      const open = (route, startedAt) => { if (route !== visit.route) setVisit({ route, timing: timings.begin(route, startedAt) }) }
       return <View><PrimaryNavigation activeRoute={visit.route} bottomInset={0} navigation={tabs} onNavigate={open} platform="web"/>
         <Screen key={visit.route} {...visit}/>
       </View>
@@ -73,6 +86,8 @@ try {
       body: route.request().url().endsWith('/app.js') ? result.outputFiles[0].text : '<meta name="viewport" content="width=device-width, initial-scale=1"><div id="root"></div><script src="/app.js"></script>',
     }))
     await page.goto('http://localhost:9883')
+    await page.waitForFunction(() => typeof window.activateCoach === 'function')
+    await page.evaluate(() => window.activateCoach())
     const open = name => page.getByRole('tab', { name: name + ' tab', exact: true }).click()
     const section = name => page.getByRole('heading', { name, exact: true }).locator('..')
     const timing = async (name, tab) => (await section(name).getByText(tab, { exact: true }).locator('..').innerText()).replace(tab, '').trim()
@@ -80,25 +95,31 @@ try {
     await open('Calendar')
     await page.getByText('Loading tab data', { exact: true }).waitFor()
     await page.waitForFunction(() => JSON.parse(localStorage.getItem('fp.mobile.performance.v1.coach') || '[]').some(sample => sample.name === 'tab.calendar.screen'))
-    await page.evaluate(() => window.showCalendar())
-    await page.getByText('Calendar data', { exact: true }).waitFor()
-    await page.waitForFunction(() => JSON.parse(localStorage.getItem('fp.mobile.performance.v1.coach') || '[]').some(sample => sample.name === 'tab.calendar.data'))
+    await page.evaluate(() => window.showCalendar('saved'))
+    await page.getByText('Saved Calendar data', { exact: true }).waitFor()
+    await page.waitForFunction(() => JSON.parse(localStorage.getItem('fp.mobile.performance.v1.coach') || '[]').some(sample => sample.name === 'tab.calendar.first' && sample.status === 'saved'))
+    await page.evaluate(() => window.showCalendar('success'))
+    await page.getByText('Fresh Calendar data', { exact: true }).waitFor()
+    await page.waitForFunction(() => JSON.parse(localStorage.getItem('fp.mobile.performance.v1.coach') || '[]').some(sample => sample.name === 'tab.calendar.fresh' && sample.status === 'success'))
     await open('Match Day')
     await page.getByText('Loading tab data', { exact: true }).waitFor()
     await open('More')
     await section('Tap to screen').getByText('Calendar', { exact: true }).waitFor()
     const screen = await timing('Tap to screen', 'Calendar')
-    const data = await timing('Data wait after screen opens', 'Calendar')
-    assert.ok(milliseconds(data) > milliseconds(screen), `Expected delayed data after layout, got ${screen} and ${data}`)
-    assert.match(await timing('Data wait after screen opens', 'Match Day'), /Left before ready/)
-    assert.equal(await section('Data wait after screen opens').getByText('More', { exact: true }).count(), 0)
+    const saved = await timing('Tap to first data', 'Calendar')
+    const fresh = await timing('Tap to fresh data', 'Calendar')
+    assert.ok(milliseconds(fresh) > milliseconds(screen), `Expected delayed fresh data after layout, got ${screen} and ${fresh}`)
+    assert.match(saved, /Saved data/)
+    assert.match(await timing('App open to first usable screen', 'Coach workspace'), /^\d+(\.\d+)? (ms|s)$/)
+    assert.match(await timing('Tap to fresh data', 'Match Day'), /Left before ready/)
+    assert.equal(await section('Tap to fresh data').getByText('More', { exact: true }).count(), 0)
     await page.getByRole('button', { name: 'Run speed check', exact: true }).click()
     await page.getByText('17.70 s · Failed', { exact: true }).waitFor()
     await page.getByRole('button', { name: 'Clear saved results', exact: true }).click()
     await page.getByText('Saved speed results cleared from this phone.', { exact: true }).waitFor()
     assert.equal(await timing('Tap to screen', 'Calendar'), 'Awaiting sample')
     assert.deepEqual(errors, [])
-    console.log(`PASS ${device} ${browser.browserType().name()}: separate tap and data timing, interrupted load, failed request duration and clear.`)
+    console.log(`PASS ${device} ${browser.browserType().name()}: startup, tap to saved and fresh data, interrupted load, failed request duration and clear.`)
     await page.close()
   }
 } finally {

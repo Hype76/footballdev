@@ -88,6 +88,7 @@ import {createCoachTheme,resolveCoachBranding} from './apps/coach-mobile/src/coa
 import {getCoachBottomNavigationPadding} from './apps/coach-mobile/src/coachNavigationCore.js';
 import {getCoachRouteIconKey} from './apps/mobile-core/src/mobileIconSystem.js';
 import {createCoachScrollBounds} from './apps/coach-mobile/src/coachScrollBounds.js';
+import {coachTimingClock} from './apps/coach-mobile/src/coachPerformanceDiagnosticsCore.js';
 import {IconMenu} from './apps/mobile-core/src/IconSettings.js';
 const config={isProduction:true};let theme;
 const useCoachTheme=()=>theme;

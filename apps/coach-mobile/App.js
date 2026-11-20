@@ -129,7 +129,7 @@ import { NotificationSetupReminder } from '../mobile-core/src/NotificationSetupR
 import { coachTeamLeagueScope, teamLeagueScopeKey } from '../../src/lib/team-league-link.js'
 import { useCoachOfflinePreparation } from './src/useCoachOfflinePreparation'
 import { CoachSpeedDiagnostics } from './src/CoachSpeedDiagnostics'
-import { recordCoachPerformanceSample } from './src/coachPerformanceDiagnostics'
+import { recordCoachPerformanceSample, recordCoachStartupScreen } from './src/coachPerformanceDiagnostics'
 import { coachTimingClock, createCoachTabTiming } from './src/coachPerformanceDiagnosticsCore'
 import { countPendingCoachDevelopmentDrafts, readCoachDevelopmentDrafts } from './src/offline'
 import { subscribeDevelopmentSync } from './src/coachDevelopmentSync'
@@ -269,9 +269,6 @@ function CoachHome() {
     })
     return () => { subscription.remove(); currentTabTiming.leave() }
   }, [currentTabTiming])
-  useEffect(() => {
-    if (activeRoute === 'home' && !homeState.loading) currentTabTiming?.data(homeState.error && !homeState.hasSnapshot ? 'error' : homeState.stale ? 'saved' : 'success')
-  }, [activeRoute, currentTabTiming, homeState.error, homeState.hasSnapshot, homeState.loading, homeState.stale])
   const scrollBounds = useMemo(() => ({ ...createCoachScrollBounds((options) => contentScrollRef.current?.scrollTo(options), undefined, setContentScrollable), pageKey: scrollPageKey }), [scrollPageKey])
   const [keyboardVisible, setKeyboardVisible] = useState(Boolean(Keyboard.isVisible?.()))
   const keyboardViewport = useMemo(() => createCoachKeyboardViewport({
@@ -287,6 +284,14 @@ function CoachHome() {
   useLayoutEffect(() => { scrollBounds.activate(); return () => scrollBounds.dispose() }, [scrollBounds])
   const appStateRef = useRef(AppState.currentState)
   const lastHomeRefreshAtRef = useRef(0)
+  useEffect(() => {
+    if (activeRoute !== 'home' || !currentTabTiming || homeState.loading) return
+    if (homeState.timingOutcome && homeState.timingOutcome !== tabVisit.homeBaseline) {
+      currentTabTiming.data(homeState.timingOutcome.status)
+    } else if (homeState.hasSnapshot) {
+      currentTabTiming.data(user?.isOfflineProfile || Date.now() - lastHomeRefreshAtRef.current < HOME_REFRESH_MIN_INTERVAL_MS ? 'cached' : 'saved')
+    }
+  }, [activeRoute, currentTabTiming, homeState.hasSnapshot, homeState.loading, homeState.timingOutcome, tabVisit, user?.isOfflineProfile])
   const requestIdRef = useRef(0)
   const chatRefreshIdRef = useRef(0)
   const availabilityRefreshIdRef = useRef(0)
@@ -402,7 +407,7 @@ function CoachHome() {
     const saved = context && peekCoachHomeOfflineView(userId, context)
     const developmentDrafts = saved?.home && mergeUnfinishedDevelopmentDrafts(saved.home.developmentDrafts || [], Object.values(saved.developmentDrafts))
     const resetHome = saved?.home
-      ? { ...saved.home, developmentDrafts, developmentRecords: developmentDrafts.length, error: '', hasSnapshot: true, loading: false, savedAt: saved.home.savedAt || saved.savedAt, stale: true }
+      ? { ...saved.home, developmentDrafts, developmentRecords: developmentDrafts.length, error: '', hasSnapshot: true, loading: false, savedAt: saved.home.savedAt || saved.savedAt, stale: true, timingOutcome: null }
       : { activePolls: 0, developmentRecords: 0, error: '', loading: true, matches: [], nextCalendar: null, pendingAvailability: 0, savedAt: '', sessions: [], stale: false, summary: null, unreadChat: 0, unreadCommunication: 0 }
     homeStateRef.current = resetHome
     setHomeState(resetHome)
@@ -561,6 +566,7 @@ function CoachHome() {
         const developmentDrafts = mergeUnfinishedDevelopmentDrafts(development.drafts || [], Object.values(localDrafts || {}))
         setHomeState(current => updateCoachHomeSourceState(current, 'development', { developmentDrafts, developmentRecords: developmentDrafts.length, homeSources: { ...current.homeSources, development: true } }))
         const home = updateCoachHomeSourceState(homeStateRef.current, 'development', { developmentDrafts, developmentRecords: developmentDrafts.length })
+        delete home.timingOutcome
         void saveCoachOfflineResources(user.id, activeContext, { home }).catch(() => {})
       } catch (error) {
         const denied = error?.code === '42501' || error?.status === 403 || error?.statusCode === 403 || /permission denied|row.level security|not authori[sz]ed/i.test(String(error?.message || ''))
@@ -623,6 +629,7 @@ function CoachHome() {
       durationMs, name: `home.${name}`, source: diagnostics ? 'manual' : 'automatic', status,
     })
     let savedHome = null
+    let primarySource = 'network'
     const primaryRequest = selectedMobileUser.isOfflineProfile ? null : readMobileResource(selectedMobileUser, primaryCacheKey,
       () => getCoachPhase31GPrimaryHomeSnapshot(selectedMobileUser, partial => {
         if (requestId === requestIdRef.current && !hasCurrentHome && !savedHome && !recentPrimary) setHomeState(current => {
@@ -634,7 +641,7 @@ function CoachHome() {
           if (states.calendar === 'ready' && states.sessions === 'ready') next.nextSession = partial.nextSession
           return next
         })
-      }, recordTiming), { force: refresh || homeDeniedScopeRef.current }).then(value => ({ value }), error => ({ error }))
+      }, recordTiming), { force: refresh || homeDeniedScopeRef.current, onSource: source => { primarySource = source } }).then(value => ({ value }), error => ({ error }))
     const attentionRequest = selectedMobileUser.isOfflineProfile ? null : Promise.resolve().then(() =>
       getCoachPhase31GAttentionSnapshot(selectedMobileUser, { force: refresh,
         onTiming: recordTiming,
@@ -669,7 +676,7 @@ function CoachHome() {
       const developmentDrafts = mergeUnfinishedDevelopmentDrafts(savedHome.developmentDrafts || [], Object.values(localDevelopmentDrafts || {}))
       const cachedHome = { ...savedHome, developmentDrafts, developmentRecords: developmentDrafts.length,
         errors: developmentReadFailed ? [...(savedHome.errors || []), 'development:unavailable'] : savedHome.errors,
-        error: '', hasSnapshot: true, loading: false, savedAt: savedHome.savedAt || cached.savedAt, stale: true }
+        error: '', hasSnapshot: true, loading: false, savedAt: savedHome.savedAt || cached.savedAt, stale: true, timingOutcome: null }
       setHomeState(current => developmentRefreshId === developmentRefreshIdRef.current
         ? cachedHome : preserveCoachDevelopmentSummary(cachedHome, current))
       setLastUpdatedAt(savedHome.savedAt || cached.savedAt)
@@ -680,7 +687,7 @@ function CoachHome() {
     }
 
     if (selectedMobileUser.isOfflineProfile) {
-      if (!savedHome && !hasCurrentHome && !recentPrimary) setHomeState(current => ({ ...current, loading: false, error: 'Connect once to download your Coach overview.' }))
+      if (!savedHome && !hasCurrentHome && !recentPrimary) setHomeState(current => ({ ...current, loading: false, error: 'Connect once to download your Coach overview.', timingOutcome: { status: 'error' } }))
       setIsRefreshing(false)
       return
     }
@@ -692,6 +699,7 @@ function CoachHome() {
       if (requestId !== requestIdRef.current) return
       homeDeniedScopeRef.current = false
       const savedAt = new Date().toISOString()
+      const timingOutcome = { status: primarySource === 'cache' ? 'cached' : primary.partial || primary.errors?.length ? 'error' : 'success' }
       const primarySnapshot = { ...primary, error: '', hasSnapshot: true, loading: false, savedAt, stale: false }
       const previousPrimary = homeStateRef.current
       const primaryErrors = primary.errors || []
@@ -711,7 +719,7 @@ function CoachHome() {
         primarySnapshot.nextSession = previousPrimary.nextSession; primarySnapshot.homeSavedSources.sessions = true
       }
       if (retainSource('sessions')) primarySnapshot.sessions = previousPrimary.sessions
-      setHomeState((current) => preserveCoachDevelopmentSummary(preserveCoachChatSummary(preserveCoachAvailabilitySummary({ ...current, ...primarySnapshot }, current), current), current))
+      setHomeState((current) => preserveCoachDevelopmentSummary(preserveCoachChatSummary(preserveCoachAvailabilitySummary({ ...current, ...primarySnapshot, timingOutcome }, current), current), current))
       setLastUpdatedAt(savedAt)
       lastHomeRefreshAtRef.current = Date.now()
       void saveCoachOfflineResources(user.id, activeContext, { home: preserveCoachDevelopmentSummary(primarySnapshot, homeStateRef.current) }).catch(() => {})
@@ -752,7 +760,7 @@ function CoachHome() {
           ? completeSnapshot
           : preserveCoachChatSummary(completeSnapshot, current)
         const availabilityCurrent = availabilityRefreshId === availabilityRefreshIdRef.current ? next : preserveCoachAvailabilitySummary(next, current)
-        return developmentRefreshId === developmentRefreshIdRef.current ? availabilityCurrent : preserveCoachDevelopmentSummary(availabilityCurrent, current)
+        return { ...(developmentRefreshId === developmentRefreshIdRef.current ? availabilityCurrent : preserveCoachDevelopmentSummary(availabilityCurrent, current)), timingOutcome }
       })
       const savedSections = { home: developmentRefreshId === developmentRefreshIdRef.current
         ? completeSnapshot : preserveCoachDevelopmentSummary(completeSnapshot, homeStateRef.current) }
@@ -771,12 +779,12 @@ function CoachHome() {
         invalidateMobileResource(selectedMobileUser, primaryCacheKey)
         void saveCoachOfflineResources(user.id, activeContext, { home: null }).catch(() => {})
         chatRefreshIdRef.current += 1; availabilityRefreshIdRef.current += 1; developmentRefreshIdRef.current += 1
-        const deniedHome = { activePolls: 0, developmentRecords: 0, error: getCoachFriendlyError(error, 'Coach overview could not be loaded.'), loading: false, matches: [], nextCalendar: null, pendingAvailability: 0, savedAt: '', sessions: [], stale: true, summary: null, unreadChat: 0, unreadCommunication: 0 }
+        const deniedHome = { activePolls: 0, developmentRecords: 0, error: getCoachFriendlyError(error, 'Coach overview could not be loaded.'), loading: false, matches: [], nextCalendar: null, pendingAvailability: 0, savedAt: '', sessions: [], stale: true, summary: null, timingOutcome: { status: 'error' }, unreadChat: 0, unreadCommunication: 0 }
         homeStateRef.current = deniedHome
         setHomeState(deniedHome)
         setLastUpdatedAt('')
       }
-      else setHomeState((current) => ({ ...current, error: getCoachFriendlyError(error, 'Coach overview could not be loaded.'), loading: false, stale: Boolean(hasCurrentHome || savedHome || recentPrimary) }))
+      else setHomeState((current) => ({ ...current, error: getCoachFriendlyError(error, 'Coach overview could not be loaded.'), loading: false, stale: Boolean(hasCurrentHome || savedHome || recentPrimary), timingOutcome: { status: 'error' } }))
     } finally {
       if (requestId === requestIdRef.current) setIsRefreshing(false)
     }
@@ -820,12 +828,11 @@ function CoachHome() {
     return true
   }, [activeContext, activeRoute, matchdayPlanConfig, moreRoute, scrollContentToTop])
 
-  const navigateFromTab = useCallback((route) => {
+  const navigateFromTab = useCallback((route, start = coachTimingClock()) => {
     markCoachInteraction()
-    const start = coachTimingClock()
     if (!navigate(route) || (route === activeRoute && !moreRoute)) return
     const timing = tabTracker.begin(route, start)
-    if (timing) setTabVisit({ key: `${user?.id || ''}:${activeContext?.id || ''}:${route}:`, timing })
+    if (timing) setTabVisit({ key: `${user?.id || ''}:${activeContext?.id || ''}:${route}:`, timing, homeBaseline: homeStateRef.current.timingOutcome })
   }, [activeContext?.id, activeRoute, markCoachInteraction, moreRoute, navigate, tabTracker, user?.id])
 
   const closeFormationWorkspace = useCallback(() => {
@@ -1221,6 +1228,8 @@ function CoachHome() {
   useEffect(() => {
     if (user?.id) void inspectCoachOfflineState(user.id).catch(() => {})
   }, [user?.id])
+  useCoachStartupScreen(user && contextReady && contextOwnerUserId === user.id && contextResolution.allowed
+    ? (activeContext ? 'workspace' : 'choose') : null)
 
   if (isProfileLoading && !user?.id) return <LoadingScreen message="Resolving Coach access..." />
   if (!user) {
@@ -1992,6 +2001,7 @@ function ContextSwitcher({ contexts, user, initial = false, onInteraction, onSel
 
 function PrimaryNavigation({ activeRoute, bottomInset, navigation, onNavigate, platform }) {
   const { palette, styles } = useCoachTheme()
+  const pressStart = useRef(null)
   return (
     <View accessibilityRole="tablist" style={[styles.tabBar, { paddingBottom: getCoachBottomNavigationPadding(bottomInset, platform) }]}>
       {navigation.map((route) => {
@@ -2002,7 +2012,17 @@ function PrimaryNavigation({ activeRoute, bottomInset, navigation, onNavigate, p
             accessibilityRole="tab"
             accessibilityState={{ selected }}
             key={route.key}
-            onPress={() => onNavigate(route.key)}
+            onPressIn={() => { pressStart.current = { route: route.key, at: coachTimingClock() } }}
+            onPressOut={() => {
+              const press = pressStart.current
+              void Promise.resolve().then(() => { if (pressStart.current === press) pressStart.current = null })
+            }}
+            onPress={() => {
+              const press = pressStart.current
+              pressStart.current = null
+              const at = coachTimingClock()
+              onNavigate(route.key, press?.route === route.key && at - press.at < 1000 ? press.at : at)
+            }}
             style={({ pressed }) => [styles.tab, selected && styles.tabSelected, pressed && styles.pressed]}
           >
             <CoachIcon color={selected ? palette.accentText : palette.textMuted} iconKey={getCoachRouteIconKey(route.key)} size={23} />
@@ -2213,6 +2233,16 @@ class CoachRootErrorBoundary extends Component {
   }
 }
 
+function useCoachStartupScreen(destination) {
+  useEffect(() => {
+    if (!destination) return undefined
+    const report = () => recordCoachStartupScreen(destination, () => AppState.currentState)
+    const subscription = AppState.addEventListener('change', report)
+    report()
+    return () => subscription.remove()
+  }, [destination])
+}
+
 function AppContent() {
   const {
     authError,
@@ -2225,7 +2255,10 @@ function AppContent() {
     unlockWithBiometrics,
   } = useMobileAuth()
 
-  if ([MOBILE_STARTUP_STATES.BOOTING, MOBILE_STARTUP_STATES.RESTORING_SESSION, MOBILE_STARTUP_STATES.RESOLVING_STAFF_CONTEXT].includes(startupState)) {
+  const starting = [MOBILE_STARTUP_STATES.BOOTING, MOBILE_STARTUP_STATES.RESTORING_SESSION, MOBILE_STARTUP_STATES.RESOLVING_STAFF_CONTEXT].includes(startupState)
+  const startupDestination = startupState === MOBILE_STARTUP_STATES.RECOVERABLE_ERROR ? 'recovery' : !session?.user ? 'signin' : isLocked ? 'unlock' : null
+  useCoachStartupScreen(starting ? null : startupDestination)
+  if (starting) {
     return <LoadingScreen message={startupState === MOBILE_STARTUP_STATES.RESOLVING_STAFF_CONTEXT ? 'Resolving Coach context...' : 'Loading Football Player Coach...'} />
   }
   if (startupState === MOBILE_STARTUP_STATES.RECOVERABLE_ERROR) {

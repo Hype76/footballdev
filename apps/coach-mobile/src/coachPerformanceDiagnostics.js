@@ -1,7 +1,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage'
-import { createCoachPerformanceDiagnostics, getCoachConnectionLabel as readConnectionLabel } from './coachPerformanceDiagnosticsCore'
+import { createCoachPerformanceDiagnostics, createCoachStartupTiming, getCoachConnectionLabel as readConnectionLabel } from './coachPerformanceDiagnosticsCore'
 
 const diagnostics = createCoachPerformanceDiagnostics({ storage: AsyncStorage })
+export const recordCoachStartupScreen = createCoachStartupTiming({ record: diagnostics.record })
 
 export function recordCoachPerformanceSample(sample) {
   diagnostics.record(sample)
