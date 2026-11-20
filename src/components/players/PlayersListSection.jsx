@@ -10,6 +10,7 @@ const eyebrowClass = 'text-xs font-black uppercase tracking-[0.14em] text-[#4b5f
 const secondaryButtonClass = 'inline-flex min-h-11 items-center justify-center rounded-lg border border-[#d7e5dc] bg-white px-4 py-3 text-sm font-black text-[#101828] shadow-sm shadow-[#101828]/5 transition hover:border-[#047857] hover:bg-[#ecfdf5] disabled:cursor-not-allowed disabled:opacity-60'
 
 export function PlayersListSection({
+  adultLinkStatuses = {},
   playerTypes = PLAYER_SECTIONS,
   actionLoadingKey,
   canMovePlayersToTrial = true,
@@ -167,6 +168,9 @@ export function PlayersListSection({
                           {isSquadPlayer ? 'Squad player' : 'Trial player'}
                         </span>
                       </div>
+                      {adultLinkStatuses[player.playerId] === 'linked' ? (
+                        <p className="mt-1 text-xs font-bold text-[#047857]">Player account linked</p>
+                      ) : null}
                       <p className="mt-2 text-sm font-bold text-[#4b5f55]">{player.team || 'No team entered'}</p>
                       <p className="mt-1 text-sm font-semibold text-[#4b5f55]">
                         {player.positions?.length ? player.positions.join(', ') : 'No positions entered'}

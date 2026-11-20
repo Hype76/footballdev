@@ -196,13 +196,31 @@ function isPermissionGranted(permission) {
   ].includes(permission?.ios?.status)
 }
 
-async function request({ apiBaseUrl, body, method, path, isCurrent = () => true }) {
+async function request({ apiBaseUrl, body, method, path, adultLinkId, isCurrent = () => true }) {
   const accessToken = await getAccessToken()
   if (!isCurrent()) throw new Error('Notification setup is no longer current.')
   if (!accessToken) {
     throw Object.assign(new Error('Sign in before changing notifications.'), { code: 'PARENT_MOBILE_SIGN_IN_REQUIRED', status: 401 })
   }
   if (!apiBaseUrl) throw new Error('Notifications are not ready for this build.')
+  if (adultLinkId) {
+    const installationId = body?.installationId || new URL(`https://local.invalid${path}`).searchParams.get('installationId')
+    const { data, error } = await supabase.rpc('own_adult_player_push_installation', {
+      action_value: ({ GET: 'get', POST: 'register', PATCH: 'update', DELETE: 'delete' })[method],
+      installation_id_value: installationId,
+      expected_link_id_value: adultLinkId,
+      token_value: body?.expoPushToken || null,
+      platform_value: body?.platform || null,
+      detail_value: body?.detailLevel || 'minimal',
+      enabled_value: body?.enabled !== false,
+    })
+    if (error) {
+      if (error.message?.includes('PARENT_MOBILE_INSTALLATION_OWNED')) error.code = 'PARENT_MOBILE_INSTALLATION_OWNED'
+      throw error
+    }
+    if (!isCurrent()) throw new Error('Notification setup is no longer current.')
+    return { installation: data }
+  }
 
   const { ok, response, result } = await fetchJsonWithTimeout(joinApiPath(apiBaseUrl, path), {
     method,
@@ -223,12 +241,14 @@ async function request({ apiBaseUrl, body, method, path, isCurrent = () => true 
   return result
 }
 
-export async function initializeParentNotifications() {
-  await registerBackgroundInvitationActions()
-  await Notifications.setNotificationCategoryAsync('parent-response', [
-    { buttonTitle: 'Accept', identifier: 'parent_accept', options: { opensAppToForeground: false } },
-    { buttonTitle: 'Decline', identifier: 'parent_decline', options: { isDestructive: true, opensAppToForeground: false } },
-  ])
+export async function initializeParentNotifications({ adultPlayer = false } = {}) {
+  if (!adultPlayer) {
+    await registerBackgroundInvitationActions()
+    await Notifications.setNotificationCategoryAsync('parent-response', [
+      { buttonTitle: 'Accept', identifier: 'parent_accept', options: { opensAppToForeground: false } },
+      { buttonTitle: 'Decline', identifier: 'parent_decline', options: { isDestructive: true, opensAppToForeground: false } },
+    ])
+  }
   if (Platform.OS === 'android') {
     // Parent updates and the existing native default channel both carry Parent alerts.
     for (const id of [CHANNEL_ID, 'matchday']) await Notifications.setNotificationChannelAsync(id, {
@@ -248,8 +268,8 @@ export function addParentPushTokenListener(listener) {
   })
 }
 
-export async function loadParentNotificationState({ apiBaseUrl }) {
-  await initializeParentNotifications()
+export async function loadParentNotificationState({ apiBaseUrl, adultLinkId }) {
+  await initializeParentNotifications({ adultPlayer: Boolean(adultLinkId) })
   const [detailLevel, installationId, permission] = await Promise.all([
     getLocalDetailLevel(apiBaseUrl),
     getInstallationId(apiBaseUrl),
@@ -258,6 +278,7 @@ export async function loadParentNotificationState({ apiBaseUrl }) {
   const result = await request({
     apiBaseUrl,
     method: 'GET',
+    adultLinkId,
     path: `${getInstallationPath(apiBaseUrl)}?installationId=${encodeURIComponent(installationId)}`,
   })
   const serverState = result.installation || { detailLevel, enabled: false, registered: false }
@@ -265,13 +286,13 @@ export async function loadParentNotificationState({ apiBaseUrl }) {
   return mergeParentNotificationPermission(serverState, permission, detailLevel)
 }
 
-export async function enableParentNotifications({ apiBaseUrl, detailLevel: requestedDetailLevel, devicePushToken, easProjectId, parentLinkId, isCurrent = () => true, requestPermission = true }) {
+export async function enableParentNotifications({ apiBaseUrl, detailLevel: requestedDetailLevel, devicePushToken, easProjectId, parentLinkId, adultLinkId, isCurrent = () => true, requestPermission = true }) {
   if (!Device.isDevice) {
     throw createSafePushSetupError({ message: 'device unavailable' }, 'device')
   }
 
   const assertCurrent = () => { if (!isCurrent()) throw new Error('Notification setup is no longer current.') }
-  await initializeParentNotifications()
+  await initializeParentNotifications({ adultPlayer: Boolean(adultLinkId) })
   assertCurrent()
   let detailLevel
   try {
@@ -337,6 +358,7 @@ export async function enableParentNotifications({ apiBaseUrl, detailLevel: reque
     return request({
       apiBaseUrl,
       method: 'POST',
+      adultLinkId,
       isCurrent,
       path: getInstallationPath(apiBaseUrl),
       body: {
@@ -374,7 +396,7 @@ export async function enableParentNotifications({ apiBaseUrl, detailLevel: reque
   })
 }
 
-export async function updateParentNotificationPreference({ apiBaseUrl, detailLevel, enabled }) {
+export async function updateParentNotificationPreference({ apiBaseUrl, detailLevel, enabled, adultLinkId }) {
   const normalizedDetail = await setLocalDetailLevel(detailLevel, apiBaseUrl)
   const installationId = await getInstallationId(apiBaseUrl)
   const permission = await getPermissionState()
@@ -384,6 +406,7 @@ export async function updateParentNotificationPreference({ apiBaseUrl, detailLev
     const result = await request({
       apiBaseUrl,
       method: 'PATCH',
+      adultLinkId,
       path: getInstallationPath(apiBaseUrl),
       body: {
         detailLevel: normalizedDetail,
@@ -419,6 +442,12 @@ export async function unbindParentNotifications({ accessToken, apiBaseUrl }) {
     }
   }
 
+  if (accessToken) {
+    const { error } = await supabase.rpc('own_adult_player_push_installation', {
+      action_value: 'delete', installation_id_value: installationId,
+    })
+    if (error) console.warn('Player push revocation failed.', error.code || 'unknown')
+  }
   await Notifications.unregisterForNotificationsAsync()
   await Notifications.setBadgeCountAsync(0).catch(() => {})
 

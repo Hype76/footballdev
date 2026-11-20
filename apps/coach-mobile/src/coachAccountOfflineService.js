@@ -70,7 +70,7 @@ function captureAuthority(user, context, isCurrent = () => true) {
 const preparationCoordinator = createCoachAccountPreparationCoordinator()
 export const subscribeCoachOfflinePreparation = (userId, listener) => preparationCoordinator.subscribe(userId, listener)
 export const notifyCoachOfflinePreparation = userId => preparationCoordinator.notify(userId)
-export async function prepareCoachAccount(user, contexts, selectedContextId, callerIsCurrent = () => true, { yieldControl } = {}) {
+export async function prepareCoachAccount(user, contexts, selectedContextId, callerIsCurrent = () => true, { yieldControl, reuseSaved = false } = {}) {
   const accountGuard = captureCoachOfflineAccount(user.id)
   if (user.waitForCoachAuthority) await withMobileAsyncTimeout(() => user.waitForCoachAuthority(), { timeoutMs: 20000 })
   try { accountGuard() } catch { return { cancelled: true } }
@@ -83,10 +83,20 @@ export async function prepareCoachAccount(user, contexts, selectedContextId, cal
   return preparationCoordinator.run(key, caller, async (isCurrent, report) => {
     let nativeMedia
     try { nativeMedia = getMedia(user); await withMobileAsyncTimeout(() => startup, { timeoutMs: 20000 }) } catch { nativeMedia = null }
-    return prepareCoachAccountOffline({ user, contexts, selectedContextId, isCurrent, report, yieldControl,
+    let statuses
+    return prepareCoachAccountOffline({ user, contexts, selectedContextId, isCurrent, report, yieldControl, reuseSaved,
       createSaver: createCoachOfflineResourceSaver, saveStatus: saveCoachAccountPreparation,
       readBackResources: readCoachOfflineResources,
-      readPreviousStatus: async (userId, context) => (await readCoachAccountPreparation(userId, [context]).catch(() => ({})))[context.id],
+      readPreviousStatus: async (userId, context) => {
+        statuses ||= readCoachAccountPreparation(userId, contexts, {
+          acceptUpdatedResources: reuseSaved,
+          beforeVerifyMedia: yieldControl && (async () => {
+            await yieldControl(isCurrent)
+            if (!isCurrent()) throw new Error('offline_preparation_cancelled')
+          }),
+        })
+        return (await statuses)[context.id]
+      },
       verifyCheckpoint: async (profile, context, current) => {
         if (context.teamId) await readCoachOfflineFamily(applyCoachContext(profile, context), context, 'notifications', { isCurrent: current })
       },

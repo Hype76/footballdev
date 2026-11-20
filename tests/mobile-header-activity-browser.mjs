@@ -7,7 +7,7 @@ import { mkdir } from 'node:fs/promises'
 const root=process.cwd(),modules=path.join(root,'apps/parent-mobile/node_modules')
 const entry=`
 import React,{useState} from 'react';import {createRoot} from 'react-dom/client';import {View,Text,Pressable} from 'react-native';
-import {MobileActivityProvider} from './apps/mobile-core/src/MobileActivityContext.js';
+import {MobileActivityProvider,useMobileOffline} from './apps/mobile-core/src/MobileActivityContext.js';
 import {MobileHeaderActivity,MobileLoadingStatus} from './apps/mobile-core/src/MobileHeaderActivity.js';
 import {AttendancePendingRows} from './apps/mobile-core/src/AttendancePendingRows.js';
 window.alerts=[];window.retries=0;window.reviews=0;window.fresh=true;
@@ -16,11 +16,12 @@ window.setTimeout=(fn,ms,...args)=>{if(ms!==60000)return originalTimer(fn,ms,...
 window.clearTimeout=key=>timers.has(key)?timers.delete(key):originalClear(key);
 window.advance=ms=>{time+=ms;for(const[key,timer]of timers)if(timer.at<=time){timers.delete(key);timer.fn()}};
 const styles={row:{},body:{},helper:{},error:{}};
+function CachedFixture(){useMobileOffline(true);return null}
 function App(){const[busy,setBusy]=useState(false),[error,setError]=useState(''),[scope,setScope]=useState('first'),[offline,setOffline]=useState(false),[conflict,setConflict]=useState(false),[extra,setExtra]=useState(false);
 window.setBusy=setBusy;window.setError=setError;window.scope=setScope;window.offline=setOffline;window.conflict=setConflict;window.extra=setExtra;
 const outbox={commands:[...(busy||error?[{id:scope,label:'Monday training',status:conflict?'conflict':busy?'sending':'retryable',response:'available',error}]:[]),...(extra?[{id:'another-saved-answer',status:'saved',error:''}]:[])],error:'',retry:()=>{window.retries++},review:()=>{window.reviews++}};
-return <MobileActivityProvider key={scope} active={busy} offline={offline}><View style={{minHeight:'100vh',backgroundColor:'#f7f8fa'}}>
-<View style={{height:64,flexDirection:'row',alignItems:'center',justifyContent:'space-between',paddingHorizontal:16,borderBottomWidth:1}}><Text>Football Player</Text><MobileHeaderActivity live styles={{testBadgeText:{color:'#173f7a',fontSize:12}}}/></View>
+return <MobileActivityProvider key={scope} active={busy} offline={offline}><CachedFixture/><View style={{minHeight:'100vh',backgroundColor:'#f7f8fa'}}>
+<View style={{height:64,flexDirection:'row',alignItems:'center',justifyContent:'space-between',paddingHorizontal:16,borderBottomWidth:1}}><Text>Football Player</Text><MobileHeaderActivity live connectionOffline={offline} styles={{testBadgeText:{color:'#173f7a',fontSize:12}}}/></View>
 <View testID="stable-content" style={{padding:16}}><Text>Monday training</Text><Pressable accessibilityRole="button" accessibilityLabel="Attending" onPress={()=>setBusy(true)} style={({pressed})=>({minHeight:44,opacity:pressed||busy?0.6:1})}><Text>Attending</Text></Pressable></View>
 {busy?<MobileLoadingStatus message="Saving your response"/>:null}<AttendancePendingRows outbox={outbox} styles={styles} onRefresh={()=>window.fresh}/>
 </View></MobileActivityProvider>}
@@ -34,6 +35,8 @@ try{
  await page.route('http://localhost:9879/**',route=>route.fulfill({contentType:'text/html',body:'<meta name="viewport" content="width=device-width,initial-scale=1"><div id="root"></div>'}))
  await page.goto('http://localhost:9879/');await page.addScriptTag({content:result.outputFiles[0].text})
  await page.getByText('LIVE',{exact:true}).waitFor()
+ const dot=page.getByTestId('mobile-live-dot')
+ assert.equal(await dot.isVisible(),true)
  const header=page.getByTestId('mobile-header-activity'),content=page.getByTestId('stable-content'),initialHeader=await header.boundingBox(),initialContent=await content.boundingBox()
  const started=Date.now();await page.getByRole('button',{name:'Attending',exact:true}).click();await page.getByRole('progressbar',{name:'Updating'}).waitFor();assert.ok(Date.now()-started<500,'Immediate tap acknowledgement in this browser fixture')
  assert.deepEqual(await header.boundingBox(),initialHeader);assert.deepEqual(await content.boundingBox(),initialContent)
@@ -51,6 +54,10 @@ try{
  await page.evaluate(()=>window.alerts.at(-1).buttons[1].onPress());assert.equal(await page.evaluate(()=>window.reviews),0)
  await page.evaluate(()=>{window.fresh=true;window.alerts.at(-1).buttons[1].onPress()});await page.waitForTimeout(20);assert.equal(await page.evaluate(()=>window.reviews),1)
  await page.evaluate(()=>{window.setError('');window.offline(true)});await page.getByText('OFFLINE',{exact:true}).waitFor();assert.deepEqual(await content.boundingBox(),initialContent)
+ assert.equal(await dot.count(),0)
+ await page.evaluate(()=>window.offline(false));await dot.waitFor()
+ assert.equal(await page.getByText('LIVE',{exact:true}).isVisible(),true)
+ assert.deepEqual(await header.boundingBox(),initialHeader)
  await mkdir('output/playwright/weekend',{recursive:true});await page.screenshot({path:'output/playwright/weekend/fixed-header-loading.png'})
  assert.deepEqual(errors,[]);console.log('PASS fixed header, stable content and labels, immediate acknowledgement, one-minute failure delay, recovery cancellation, account-safe callbacks, conflict review authority and offline status.')
 }finally{await browser.close()}

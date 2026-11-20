@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import test from 'node:test'
 import { withMobileAsyncTimeout } from '../apps/mobile-core/src/http.js'
-import { createCoachContextAuthority } from '../apps/coach-mobile/src/coachContextAuthorityCore.js'
+import { createCoachContextAuthority, watchCoachConnection } from '../apps/coach-mobile/src/coachContextAuthorityCore.js'
 import { createMobileResourceCache, mobileResourceCache, readMobileResource } from '../apps/mobile-core/src/mobileResourceCache.js'
 
 const user = { id: 'simon', clubId: 'cached-club' }
@@ -147,13 +147,13 @@ test('actual offline preparation waits for activation and fences an older prepar
   captureCoachOfflineAccount: () => () => {}, getMedia: () => ({}), startup: Promise.resolve(),
   prepareCoachAccountOffline: options => { preparations++; assert.equal(options.user,scopedUser); assert.equal(options.user.clubId,context.clubId,'Server-selected club remains unchanged'); assert.deepEqual(options.contexts,linkedContexts,'Every own linked context reaches the account preparer'); assert.equal(options.selectedContextId,context.id); return prepareCoachAccountOffline(options) },
   createCoachOfflineResourceSaver: (_profile,team) => async resources => { writes++; const cache=caches.get(team.id)||{resourceMetadata:{}}; for(const key of Object.keys(resources)) cache.resourceMetadata[key]={fingerprint:key}; caches.set(team.id,cache); return cache },
-  readCoachAccountPreparation: async (_id, teams, options) => { assert.equal(teams.length, 1); assert.equal(options?.verifyMedia ?? true, true); return {} },
+  readCoachAccountPreparation: async (_id, teams, options) => { assert.deepEqual(teams, linkedContexts); assert.equal(options?.verifyMedia ?? true, true); return {} },
   saveCoachAccountPreparation: async () => {}, readCoachOfflineResources: async (_id,team) => caches.get(team.id), saveCoachPreparedMatchDays: async () => {},
   applyCoachContext: profile => profile, getScopedTeamBranding: () => null,
   loadCoachOfflineContext: async (_profile,_context,options) => { started.resolve(); await work.promise; await options.onResource({cacheKey:'home',value:{},complete:true}); return {complete:true} },
  }
  const prepare = new Function(...Object.keys(serviceDependencies), service.slice(serviceStart,serviceEnd).replace('export ','')+'; return prepareCoachAccount')(...Object.values(serviceDependencies))
- const dependencies = { latest:{current:{user:scopedUser,contexts:linkedContexts}}, InteractionManager:{runAfterInteractions:resolve=>resolve()}, selectedId:{current:context.id}, refreshHomeRef:{current:null}, prepareCoachAccount:prepare }
+ const dependencies = { latest:{current:{user:scopedUser,contexts:linkedContexts}}, InteractionManager:{runAfterInteractions:resolve=>resolve()}, selectedId:{current:context.id}, busy:{current:false}, lastInteraction:{current:0}, prepareCoachAccount:prepare }
  const run = new Function(...Object.keys(dependencies), 'return (' + source.slice(start, end + 8) + ')')(...Object.values(dependencies))
  const pending = run(() => true)
  await Promise.resolve(); assert.equal(writes, 0); assert.equal(preparations,0)
@@ -165,4 +165,31 @@ test('actual offline preparation waits for activation and fences an older prepar
  assert.equal(preparations,2)
  assert.equal(writes,4,'The current generation saves the home and media inventory for each linked team')
  assert.deepEqual([...caches.keys()].sort(),linkedContexts.map(team=>team.id).sort())
+})
+
+
+test('Coach connection checks detect network loss and recovery without changing screens', async () => {
+ const statuses = []
+ let tick, active = true, probes = 0, cancelled = false, failure
+ const stop = watchCoachConnection({
+  probe: async () => { probes += 1; return {error:failure} },
+  isActive: () => active,
+  onOffline: value => statuses.push(value),
+  schedule: (run, interval) => { assert.equal(interval, 15000); tick = run; return 42 },
+  cancel: timer => { assert.equal(timer, 42); cancelled = true },
+ })
+ await tick()
+ failure = new TypeError('Network request failed')
+ await tick()
+ active = false
+ await tick()
+ assert.equal(probes, 2)
+ active = true
+ failure = Object.assign(new Error('Permission denied'), {status:403})
+ await tick()
+ assert.deepEqual(statuses, [false, true, false])
+ stop()
+ await tick()
+ assert.equal(cancelled, true)
+ assert.equal(probes, 3)
 })

@@ -254,7 +254,7 @@ export async function saveCoachAccountPreparation(userId, context, status, isCur
   })
 }
 
-export async function readCoachAccountPreparation(userId, contexts, { verifyMedia = true } = {}) {
+export async function readCoachAccountPreparation(userId, contexts, { verifyMedia = true, acceptUpdatedResources = true, beforeVerifyMedia } = {}) {
   const { document } = await (store.readSnapshot ? store.readSnapshot(userId) : store.read(userId))
   const guard = store.captureScopeGuard(userId)
   const results = []
@@ -263,7 +263,7 @@ export async function readCoachAccountPreparation(userId, contexts, { verifyMedi
     const entry = document?.accountPreparation?.[context.id]
     if (!matchesOfflineContext(document, userId, context) || entry?.authority !== outboxAuthority(context)) { results.push([context.id, null]); continue }
     const cache = getCoachOfflineResources(document, context)
-    let status = validateCoachAccountOfflineStatus(entry.status, cache)
+    let status = validateCoachAccountOfflineStatus(entry.status, cache, { acceptUpdatedResources })
     if (status?.savedAt && (status.matchIds || []).some(id => {
       const journal = document.matchDayOutboxes?.[context.id]?.[id]
       return journal?.authority !== outboxAuthority(context) || journal?.baseMatch?.id !== id
@@ -271,6 +271,8 @@ export async function readCoachAccountPreparation(userId, contexts, { verifyMedi
     })) status = { ...status, checkpoint: undefined, state: 'partial', error: 'Some saved fixtures need downloading again.' }
     const inventory = cache?.resources?.offlineMediaInventory || []
     if (verifyMedia && status?.savedAt && !status.filesFailed && ['ready', 'partial'].includes(status.state) && inventory.length) {
+      if (beforeVerifyMedia) await beforeVerifyMedia()
+      guard()
       let verified = false
       try { verified = status.filesSaved === inventory.length && await mediaHooks.verifyInventory(userId, context, inventory, document.profile.value) } catch { /* Missing or unverifiable copies are incomplete. */ }
       guard()

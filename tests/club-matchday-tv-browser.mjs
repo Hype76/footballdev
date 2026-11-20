@@ -623,8 +623,11 @@ try {
   for (let i = 0; i < 3 && !(await page.getByAltText('Free live goal alerts for grassroots football. Scan the QR code to get started.').count()); i++) await page.clock.runFor(11000)
   const goalAd = page.getByRole('region', { name: 'Matchday adverts' }).getByAltText('Free live goal alerts for grassroots football. Scan the QR code to get started.')
   await goalAd.waitFor()
+  const pauseForArtwork = page.getByRole('button', { name: 'Pause carousel' })
+  if (await pauseForArtwork.isVisible()) await pauseForArtwork.click()
   for (const [width, height, minimumArtworkWidth] of [[1366, 650, 290], [1632, 776, 340], [1920, 1080, 450], [800, 900, 450], [390, 844, 350]]) {
     await page.setViewportSize({ width, height })
+    await goalAd.waitFor({ state: 'visible' })
     await goalAd.evaluate(img => img.decode())
     const size = await goalAd.evaluate(img => {
       const { width, height } = img.getBoundingClientRect()
@@ -638,7 +641,8 @@ try {
   }
   await page.setViewportSize({ width: 1366, height: 650 })
   await page.screenshot({ path: `${output}/goal-alert-ad.png` })
-  await page.getByRole('button', { name: 'Pause carousel' }).click()
+  const resumeAfterArtwork = page.getByRole('button', { name: 'Resume carousel' })
+  if (await resumeAfterArtwork.isVisible()) await resumeAfterArtwork.click()
   await page.setViewportSize({ width: 1920, height: 1080 })
   await openSettings()
   await page.getByLabel('Show pitchside ordering').check()
@@ -771,6 +775,26 @@ try {
   const publicQr = page.getByAltText('Scan to open pitchside ordering')
   await publicQr.waitFor()
   assert.equal(await publicQr.getAttribute('src'), savedOrderingQr)
+  for (const viewport of [{ width: 1920, height: 1080 }, { width: 1366, height: 768 }, { width: 1366, height: 650 }, { width: 390, height: 844 }]) {
+    await page.setViewportSize(viewport)
+    const layout = await page.evaluate(() => {
+      const map = document.querySelector('.club-tv-pitch img').getBoundingClientRect()
+      const qr = document.querySelector('.club-tv-ordering img').getBoundingClientRect()
+      const ordering = getComputedStyle(document.querySelector('.club-tv-ordering'))
+      const panel = document.querySelector('.club-tv-ordering')
+      panel.style.display = 'none'
+      const mapOnlyHeight = document.querySelector('.club-tv-pitch img').getBoundingClientRect().height
+      panel.style.removeProperty('display')
+      return { mapWidth: map.width, mapHeight: map.height, mapOnlyHeight, mapBottom: map.bottom, qrTop: qr.top, qrWidth: qr.width, background: ordering.backgroundColor }
+    })
+    assert.ok(layout.mapHeight >= 100, `Pitch map has usable space at ${viewport.width}x${viewport.height}`)
+    console.log(`Pitch map ${viewport.width}x${viewport.height}: ${Math.round(layout.mapWidth)}x${Math.round(layout.mapHeight)} with ordering; ${Math.round(layout.mapOnlyHeight)}px high without ordering; QR ${Math.round(layout.qrWidth)}px`)
+    if (viewport.width === 1366) assert.ok(layout.mapHeight >= layout.mapOnlyHeight * (viewport.height < 700 ? 0.5 : 0.65), `Ordering preserves map height at ${viewport.width}x${viewport.height}`)
+    assert.ok(layout.qrWidth >= 100, 'Ordering QR remains at least 100 pixels wide')
+    assert.ok(layout.mapBottom <= layout.qrTop, 'Pitch map and ordering QR do not overlap')
+    assert.equal(layout.background, 'rgba(0, 0, 0, 0)', 'Ordering has no coloured surround')
+  }
+  await page.setViewportSize({ width: 1920, height: 1080 })
   await page.screenshot({ path: `${output}/pitchside-ordering.png` })
   assert.equal(await page.getByRole('button', { name: 'Sign in', exact: true }).count(), 0)
   const requestsBeforeDateChange = requests.filter(request => request.action === 'view').length

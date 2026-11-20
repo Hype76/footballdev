@@ -74,7 +74,7 @@ test('Coach Game Day matches the canonical live controller while preserving conf
   assert.match(coachScreen, /activateKeepAwakeAsync/)
   assert.match(coachScreen, /setPanel\(isLiveMatch\(detail\) \? 'live' : 'overview'\)/)
   assert.match(coachScreen, /Start this match\?/)
-  assert.match(coachScreen, /getCoachMatchDayActions\(\{ context, match, reconciling, stale: stale \|\| pendingCount > 0, offlineReady \}\)/)
+  assert.match(coachScreen, /getCoachMatchDayActions\(\{ context, match, reconciling, stale: stale \|\| pendingCount > 0, offlineReady, volunteerStale \}\)/)
   assert.match(coachScreen, /runCoachMatchDayTimerAction/)
   assert.match(coachScreen, /capture\('event', validated\)/)
   assert.match(coachScreen, /selectedMatchId\.current = match\?\.id \|\| requestedFixtureId \|\| ''/)

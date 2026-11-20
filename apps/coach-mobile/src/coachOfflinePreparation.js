@@ -111,7 +111,7 @@ export async function prepareCoachOfflineData({ user, context, dependencies, isC
   return { saved: isCurrent(), fixtures: upcoming.length }
 }
 
-export function createCoachPreparationRunner({ run, isActive, now = Date.now }) {
+export function createCoachPreparationRunner({ run, isActive, now = Date.now, refreshAfterSuccess = true }) {
   let running = false
   let stopped = false
   let retryAt = 0
@@ -123,7 +123,7 @@ export function createCoachPreparationRunner({ run, isActive, now = Date.now }) 
       const captured = generation
       try {
         const result = await run(() => !stopped && captured === generation && isActive())
-        retryAt = now() + (result?.cancelled ? 0 : COACH_PREPARATION_REFRESH_MS)
+        retryAt = result?.cancelled ? 0 : refreshAfterSuccess ? now() + COACH_PREPARATION_REFRESH_MS : Infinity
       } catch { retryAt = now() + 30_000 }
       finally { running = false }
     },

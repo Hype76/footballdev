@@ -1,3 +1,4 @@
+import { adultPlayerNotificationScope, openAdultPlayerNotification, resolveAdultPlayerNotificationOpen } from './src/adultPlayerNotificationsCore'
 import { ClubFeatureWave } from '../mobile-core/src/ClubFeatureWave.js'
 import { MobileSwitch as Switch } from '../mobile-core/src/MobileSwitch.js'
 import { getAppleCalendarSubscriptionUrl } from '../mobile-core/src/calendarSubscriptionCore.js'
@@ -377,6 +378,8 @@ export function ParentHome({ openPlayer, playerAccess, adultLink, openOtherAccou
 function ParentHomeSession({ initialNotice = null, onAccessRemoved, openPlayer, playerAccess, adultLink = null, openOtherAccount }) {
   const { authError, isProfileLoading, refreshUserProfile, replaceCurrentUserProfile, signOut, user } = useMobileAuth()
   const lastNotificationResponse = Notifications.useLastNotificationResponse()
+  const latestNotificationResponseRef = useRef(lastNotificationResponse)
+  latestNotificationResponseRef.current = lastNotificationResponse
   const [activeTab, setActiveTab] = useState('home')
   const [matchdayPlanConfig, setMatchdayPlanConfig] = useState(null)
   const [activeActionId, setActiveActionId] = useState('')
@@ -410,6 +413,7 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved, openPlayer, 
     permissionStatus: 'undetermined',
     registered: false,
   })
+  const [playerNotificationRetry, setPlayerNotificationRetry] = useState(0)
   const [notificationStateStatus, setNotificationStateStatus] = useState(MOBILE_SETTING_LOAD_STATES.LOADING)
   const [notificationSettingsFocusRequest, setNotificationSettingsFocusRequest] = useState(null)
   const [notificationResponseHistoryReady, setNotificationResponseHistoryReady] = useState(false)
@@ -499,6 +503,8 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved, openPlayer, 
     () => adultLink ? { ...user, role: 'adult_player', parentPortalLinks: [adultLink], selectedParentLinkId: adultLink.id, selectedPlayerId: adultLink.playerId, playerId: adultLink.playerId, clubId: adultLink.clubId, teamId: adultLink.teamId } : withSelectedParentLink({ ...user, parentPortalLinks: parentLinks }, selectedLink),
     [adultLink, parentLinks, selectedLink, user],
   )
+  const playerPushScopeRef = useRef('')
+  playerPushScopeRef.current = adultPlayerNotificationScope(user?.id, adultLink)
   const connectivityScope = parentConnectivityScope(selectedMobileUser, selectedLink)
   const connectivityScopeRef = useRef(connectivityScope)
   const connectivityUserRef = useRef(selectedMobileUser)
@@ -677,7 +683,7 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved, openPlayer, 
     [selectedMobileUser?.id],
   )
 
-  const consumeLastNotificationResponse = useCallback((responseId) => {
+  const consumeLastNotificationResponse = useCallback((responseId, { clearResponse = true } = {}) => {
     notificationResponseIdRef.current = responseId
     if (responseId && notificationResponseHistoryKey) {
       const recentIds = [...notificationResponseHistoryRef.current, responseId]
@@ -685,7 +691,7 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved, openPlayer, 
       notificationResponseHistoryRef.current = new Set(recentIds)
       void AsyncStorage.setItem(notificationResponseHistoryKey, JSON.stringify(recentIds)).catch(() => {})
     }
-    void Notifications.clearLastNotificationResponseAsync().catch(() => {})
+    if (clearResponse) void Notifications.clearLastNotificationResponseAsync().catch(() => {})
   }, [notificationResponseHistoryKey])
 
   const applyParentNotificationDestination = useCallback((destination, { pending = false } = {}) => {
@@ -1239,19 +1245,14 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved, openPlayer, 
 
   useEffect(() => {
     if (!selectedMobileUser?.id) return undefined
-    if (adultLink) {
-      setNotificationState({ enabled: false, detailLevel: 'minimal', message: 'Player device alerts are not available on this installation yet.' })
-      setNotificationStateStatus(MOBILE_SETTING_LOAD_STATES.READY)
-      return undefined
-    }
 
     let mounted = true
     const requestId = notificationStateRequestRef.current + 1
     notificationStateRequestRef.current = requestId
     setNotificationStateStatus(MOBILE_SETTING_LOAD_STATES.LOADING)
     void Promise.allSettled([
-      loadParentNotificationState({ apiBaseUrl: config.apiBaseUrl }),
-      getParentCommunicationPreference(config.apiBaseUrl),
+      loadParentNotificationState({ apiBaseUrl: config.apiBaseUrl, adultLinkId: adultLink?.id }),
+      adultLink ? Promise.resolve({ communicationChannel: 'both' }) : getParentCommunicationPreference(config.apiBaseUrl),
     ])
       .then(([notificationResult, communicationResult]) => {
         if (!mounted) return
@@ -1288,12 +1289,11 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved, openPlayer, 
   }, [])
 
   const reloadParentNotificationState = useCallback(async ({ preserveKnownState = false } = {}) => {
-    if (adultLink) return null
     const requestId = notificationStateRequestRef.current + 1
     notificationStateRequestRef.current = requestId
     if (!preserveKnownState) setNotificationStateStatus(MOBILE_SETTING_LOAD_STATES.LOADING)
     try {
-      const nextState = await loadParentNotificationState({ apiBaseUrl: config.apiBaseUrl })
+      const nextState = await loadParentNotificationState({ apiBaseUrl: config.apiBaseUrl, adultLinkId: adultLink?.id })
       if (notificationStateRequestRef.current !== requestId) return null
       setNotificationState(nextState)
       setNotificationStateStatus(MOBILE_SETTING_LOAD_STATES.READY)
@@ -1321,7 +1321,10 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved, openPlayer, 
         resumeInteractionRef.current?.cancel?.()
         resumeInteractionRef.current = InteractionManager.runAfterInteractions(() => {
           void recoverParentConnection()
-            .then(() => roomIdAtResume && roomIdAtResume === selectedRoomId ? reloadSelectedChatRoomRef.current() : null)
+            .then(() => {
+              if (adultLink) setPlayerNotificationRetry(value => value + 1)
+              return roomIdAtResume && roomIdAtResume === selectedRoomId ? reloadSelectedChatRoomRef.current() : null
+            })
             .catch(() => {})
             .finally(() => {
               resumeRefreshRef.current = false
@@ -1337,26 +1340,54 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved, openPlayer, 
       resumeInteractionRef.current = null
       resumeRefreshRef.current = false
     }
-  }, [recoverParentConnection, loadParentData, refreshParentAppInstallationPresence, reloadParentNotificationState, runParentSync, selectedLink?.id, selectedRoomId])
+  }, [adultLink, recoverParentConnection, loadParentData, refreshParentAppInstallationPresence, reloadParentNotificationState, runParentSync, selectedLink?.id, selectedRoomId])
 
   useEffect(() => {
-    if (adultLink || !notificationState.enabled || !selectedLink?.id) return undefined
+    if (!notificationState.enabled || !selectedLink?.id) return undefined
+    const expectedPushScope = playerPushScopeRef.current
     const subscription = addParentPushTokenListener((devicePushToken) => {
       void enableParentNotifications({
         apiBaseUrl: config.apiBaseUrl,
         devicePushToken,
         requestPermission: false,
-        isCurrent: () => currentAccountRef.current === user?.id,
+        isCurrent: () => currentAccountRef.current === user?.id && playerPushScopeRef.current === expectedPushScope,
         easProjectId: config.easProjectId,
         parentLinkId: selectedLink.id,
+        adultLinkId: adultLink?.id,
       }).then(setNotificationState).catch(() => {})
     })
     return () => subscription.remove()
   }, [adultLink, notificationState.enabled, selectedLink?.id, user?.id])
 
   useEffect(() => {
-    if (adultLink) return undefined
     const request = lastNotificationResponse?.notification?.request
+    if (adultLink) {
+      const data = request?.content?.data
+      const responseId = normalizeText(request?.identifier)
+      if (!responseId || !notificationResponseHistoryReady || notificationResponseIdRef.current === responseId || notificationResponseHistoryRef.current.has(responseId) || notificationResponseProcessingRef.current === responseId) return undefined
+      // The outer shared-app entry validates and switches a different mode/link.
+      if (!resolveAdultPlayerNotificationOpen(data, adultLink, {}, user?.id)) return undefined
+      const expectedScope = adultPlayerNotificationScope(user?.id, adultLink)
+      notificationResponseProcessingRef.current = responseId
+      let responseActive = true
+      // Failed refreshes retain the pending response for foreground/manual retry.
+      void openAdultPlayerNotification({
+        data, link: adultLink, userId: user?.id,
+        load: () => loadCurrentParentNotificationData(loadParentData),
+        isCurrent: () => responseActive && currentAccountRef.current === user?.id && playerPushScopeRef.current === expectedScope
+          && notificationResponseProcessingRef.current === responseId
+          && latestNotificationResponseRef.current?.notification?.request?.identifier === responseId,
+        navigate: applyParentNotificationDestination,
+        // Retain the native response and use history to prevent replay. Clearing it
+        // here could erase a newer notification received during the refresh.
+        consume: () => consumeLastNotificationResponse(responseId, { clearResponse: false }),
+      }).finally(() => { if (notificationResponseProcessingRef.current === responseId) notificationResponseProcessingRef.current = '' })
+      return () => {
+        responseActive = false
+        if (notificationResponseProcessingRef.current === responseId) notificationResponseProcessingRef.current = ''
+      }
+    }
+    if (request?.content?.data?.app === 'player') return undefined
     if (['parent_accept', 'parent_decline'].includes(lastNotificationResponse?.actionIdentifier)) {
       // Only live delivery and the background task may execute a button press.
       // Rehydrating this cached response must never retry a failed action.
@@ -1511,7 +1542,7 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved, openPlayer, 
       })
 
     return undefined
-  }, [adultLink, applyParentNotificationDestination, consumeLastNotificationResponse, lastNotificationResponse, loadParentData, notificationResponseHistoryReady, parentLinks, selectedLink, selectedMobileUser])
+  }, [adultLink, applyParentNotificationDestination, consumeLastNotificationResponse, lastNotificationResponse, loadParentData, notificationResponseHistoryReady, parentLinks, selectedLink, selectedMobileUser, user?.id, playerNotificationRetry])
 
   useEffect(() => {
     lastBackAtRef.current = 0
@@ -1570,6 +1601,7 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved, openPlayer, 
       await runParentSync({ explicitRetry: true })
       const result = await loadParentData()
       if (result.stale) return
+      if (adultLink && !result.failed) setPlayerNotificationRetry(value => value + 1)
       setNotice(isOffline
         ? null
         : result.failed > 0
@@ -2388,8 +2420,8 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved, openPlayer, 
   }
 
   async function handleNotificationModeChange(mode) {
-    if (adultLink) { setNotice({ message: 'Player device alerts are not available on this installation yet.', tone: 'warning' }); return }
     if (activeActionId || !selectedLink?.id) return
+    const expectedPushScope = playerPushScopeRef.current
     const currentMode = notificationState.enabled ? notificationState.detailLevel : 'off'
     const registrationReady = notificationStateStatus === MOBILE_SETTING_LOAD_STATES.READY
       && notificationState.enabled && notificationState.registered && notificationState.permissionGranted
@@ -2401,19 +2433,23 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved, openPlayer, 
       const nextState = mode === 'off'
         ? await updateParentNotificationPreference({
             apiBaseUrl: config.apiBaseUrl,
+            adultLinkId: adultLink?.id,
             detailLevel: notificationState.detailLevel,
             enabled: false,
           })
         : notificationState.enabled && registrationReady
           ? await updateParentNotificationPreference({
               apiBaseUrl: config.apiBaseUrl,
+              adultLinkId: adultLink?.id,
               detailLevel: mode,
               enabled: true,
             })
           : await enableParentNotifications({
               apiBaseUrl: config.apiBaseUrl,
+              adultLinkId: adultLink?.id,
               detailLevel: mode,
               easProjectId: config.easProjectId,
+              isCurrent: () => currentAccountRef.current === user?.id && playerPushScopeRef.current === expectedPushScope,
               parentLinkId: selectedLink.id,
             })
       if (mode === 'off' || nextState.enabled) await AsyncStorage.setItem(`${notificationExplainerKey(user.id, config.apiBaseUrl)}.paused`, mode === 'off' ? '1' : '0')
@@ -2421,7 +2457,7 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved, openPlayer, 
       setNotificationStateStatus(MOBILE_SETTING_LOAD_STATES.READY)
       setNotice({
         message: nextState.enabled
-          ? nextState.visibleAlertsReady === false ? 'Phone permission is on, but visible alerts need attention in phone settings.' : 'Parent push alerts are enabled on this device.'
+          ? nextState.visibleAlertsReady === false ? 'Phone permission is on, but visible alerts need attention in phone settings.' : `${adultLink ? 'Player' : 'Parent'} push alerts are enabled on this device.`
           : nextState.message || 'Notifications are off. The rest of the app is unchanged.',
         tone: nextState.enabled ? 'success' : 'warning',
       })
@@ -3786,7 +3822,7 @@ function SettingsScreen({
 
       <SettingsSection id="notifications" label="Notifications" iconKey="settings.notifications">
       <InfoPanel iconKey="settings.notifications" title="Notifications">
-        {isAdultPlayer ? <Text style={styles.helperText}>Your invitations and Chat updates appear in Notifications. Player device push alerts are not available on this installation yet.</Text> : <>
+        {isAdultPlayer ? <Text style={styles.helperText}>Receive invitations and Chat alerts on this device. Chat room mute settings still apply.</Text> : null}
         <InfoRow
           label="Status"
           value={notificationStateStatus === MOBILE_SETTING_LOAD_STATES.READY
@@ -3795,7 +3831,7 @@ function SettingsScreen({
         />
         {notificationStateStatus === MOBILE_SETTING_LOAD_STATES.STALE ? <Text style={styles.helperText}>Unable to confirm push alerts. Retry the check or enable alerts again. Your saved preference has not been changed.</Text> : null}
         {notificationStateStatus === MOBILE_SETTING_LOAD_STATES.ERROR ? <Text style={styles.helperText}>Notification status could not be read. No setting has been changed.</Text> : null}
-        {communicationPreference.communicationChannel === 'email' ? <Text style={styles.helperText}>Your communication choice is Email. Choose App notifications or Both in Email &amp; app to receive push alerts.</Text> : null}
+        {!isAdultPlayer && communicationPreference.communicationChannel === 'email' ? <Text style={styles.helperText}>Your communication choice is Email. Choose App notifications or Both in Email &amp; app to receive push alerts.</Text> : null}
         {notificationStateKnown && !notificationState.permissionGranted && notificationState.permissionStatus === 'denied' && !notificationState.canAskAgain ? (
           <Text style={styles.helperText}>Permission is blocked in device settings. The app remains fully usable.</Text>
         ) : null}
@@ -3803,7 +3839,6 @@ function SettingsScreen({
         {[MOBILE_SETTING_LOAD_STATES.ERROR, MOBILE_SETTING_LOAD_STATES.STALE].includes(notificationStateStatus) ? <PrimaryAction iconKey="action.retry" disabled={activeActionId === 'notifications'} label="Retry notification check" onPress={onRetryNotificationState} secondary /> : null}
         {!notificationStateLoading ? <PrimaryAction iconKey="settings.notifications" secondary disabled={activeActionId === 'notifications'} label={notificationStateStatus === MOBILE_SETTING_LOAD_STATES.READY && notificationState.enabled && notificationState.permissionGranted ? 'Pause all push alerts on this device' : 'Enable push alerts on this device'} onPress={() => onNotificationModeChange(notificationStateStatus === MOBILE_SETTING_LOAD_STATES.READY && notificationState.enabled && notificationState.permissionGranted ? 'off' : 'minimal')} /> : null}
         <PrimaryAction iconKey="settings.app" label="Open device notification settings" onPress={() => Linking.openSettings()} secondary />
-        </>}
 
         <View style={styles.settingRow}>
           <View style={styles.settingCopy}>
@@ -3824,7 +3859,7 @@ function SettingsScreen({
         {activeActionId === 'notifications' || notificationStateLoading ? <BrandLoader /> : null}
         {!isAdultPlayer ? <NotificationCategorySettings allowedKeys={notificationCategoryKeys} key={user.id} app="parent" userId={user.id} palette={palette} Icon={ParentIcon} /> : null}
 
-        {notificationState.enabled && !config.isProduction ? (
+        {!isAdultPlayer && notificationState.enabled && !config.isProduction ? (
           <View style={styles.notificationTestActions}>
             <Text style={styles.helperText}>Controlled tests send only to this authorised test installation.</Text>
             <PrimaryAction label="Try message alert" loading={activeActionId === 'notification-test'} onPress={() => onSendTestNotification('parent_message')} secondary />
@@ -4029,6 +4064,16 @@ function AppContent() {
   const signingInForFan = fanLink.route != null && fanSignInRoute === fanLink.route
   const fanNotification = Notifications.useLastNotificationResponse()
   const [dismissedFanNotification, setDismissedFanNotification] = useState('')
+  const wasPlayerNotificationHandled = useCallback(async (userId, responseId) => {
+    try {
+      const stored = JSON.parse(await AsyncStorage.getItem(`${PARENT_NOTIFICATION_RESPONSE_HISTORY_PREFIX}.${userId}`) || '[]')
+      return Array.isArray(stored) && stored.includes(responseId)
+    } catch { return false }
+  }, [])
+  const rejectPlayerNotification = useCallback(async responseId => {
+    const latest = await Notifications.getLastNotificationResponseAsync().catch(() => null)
+    if (latest?.notification?.request?.identifier === responseId) await Notifications.clearLastNotificationResponseAsync().catch(() => {})
+  }, [])
   const fanNotificationId = fanNotification?.notification?.request?.identifier || ''
   const showFanNotification = fanNotification?.notification?.request?.content?.data?.route === 'fans' && fanNotificationId !== dismissedFanNotification
   const {
@@ -4077,7 +4122,7 @@ function AppContent() {
   if (fanLink.route?.kind === 'fans') return <FansScreen onBack={fanLink.close} />
   if (showFanNotification) return <FansScreen onBack={() => setDismissedFanNotification(fanNotificationId)} />
   return (
-    <AdultPlayerEntry key={session.user.id} userId={session.user.id} links={user?.id === session.user.id ? user.parentPortalLinks || [] : []} parentProfilePending={user?.id !== session.user.id && isProfileLoading}
+    <AdultPlayerEntry key={session.user.id} notificationResponse={fanNotification} wasPlayerNotificationHandled={wasPlayerNotificationHandled} onRejectPlayerNotification={rejectPlayerNotification} userId={session.user.id} links={user?.id === session.user.id ? user.parentPortalLinks || [] : []} parentProfilePending={user?.id !== session.user.id && isProfileLoading}
       onSignOut={signOut}
       renderPlayer={({ link, openOtherAccount }) => <ParentHome key={`player:${link.id}`} adultLink={link} openOtherAccount={openOtherAccount} />}
       renderParent={({ openPlayer, playerAccess }) => <ParentHome openPlayer={openPlayer} playerAccess={playerAccess} />}

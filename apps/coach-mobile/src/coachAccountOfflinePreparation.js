@@ -30,7 +30,7 @@ const COMPLETE_REFRESH_MS = 5 * 60 * 1000
 
 // A checkpoint holds only locally verified records and file metadata. Signed URLs
 // are never saved, and each unfinished file is authorised when it is downloaded.
-export async function prepareCoachAccountOffline({ user, contexts, selectedContextId, loadContext, createSaver, saveStatus, saveMatch, saveMatches, readBackResources, readPreviousStatus, verifyCheckpoint, prepareMedia, hasMedia, report = () => {}, yieldControl = async () => {}, isCurrent = () => true, now = () => new Date().toISOString() }) {
+export async function prepareCoachAccountOffline({ user, contexts, selectedContextId, loadContext, createSaver, saveStatus, saveMatch, saveMatches, readBackResources, readPreviousStatus, verifyCheckpoint, prepareMedia, hasMedia, report = () => {}, yieldControl = async () => {}, reuseSaved = false, isCurrent = () => true, now = () => new Date().toISOString() }) {
   const targets = [...new Map(contexts.filter(context => context.id && context.clubId).map(context => [context.id, context])).values()]
     .sort((left, right) => Number(Boolean(right.teamId)) - Number(Boolean(left.teamId)) || Number(right.id === selectedContextId) - Number(left.id === selectedContextId))
   const results = []
@@ -45,9 +45,10 @@ export async function prepareCoachAccountOffline({ user, contexts, selectedConte
   }
 
   for (const context of targets) {
+    await yieldControl(isCurrent)
     if (!isCurrent()) return { cancelled: true, results }
     const prior = previous.get(context.id)
-    const reuse = isFinished(prior) && age(prior.savedAt) >= 0 && age(prior.savedAt) < (incomplete ? RESUME_MAX_AGE_MS : COMPLETE_REFRESH_MS)
+    const reuse = isFinished(prior) && age(prior.savedAt) >= 0 && (reuseSaved || age(prior.savedAt) < (incomplete ? RESUME_MAX_AGE_MS : COMPLETE_REFRESH_MS))
     const resume = Array.isArray(prior?.checkpoint?.plan) && prior.checkpoint.saved && Array.isArray(prior.matchIds)
       && age(prior.startedAt) >= 0 && age(prior.startedAt) < RESUME_MAX_AGE_MS
     if ((reuse || resume) && verifyCheckpoint) {
@@ -128,16 +129,17 @@ export async function prepareCoachAccountOffline({ user, contexts, selectedConte
       if (!resume) {
         const result = await loadContext(user, context, {
           isCurrent,
+          beforePage: () => yieldControl(isCurrent),
           onStage: resourceKey => { status.resourceKey = resourceKey; notify() },
           onIncomplete: error => { status.filesFailed += 1; status.error = getCoachFriendlyError(error, 'A file could not be saved. Connect and try downloading again.') },
           onDependencyIncomplete: () => { status.error = 'Some teams in this club still need downloading.' },
-          onMatch: async detail => { assertCurrent(); matches.set(detail.id, detail); await yieldControl() },
+          onMatch: async detail => { assertCurrent(); matches.set(detail.id, detail); await yieldControl(isCurrent) },
           onResource: async entry => {
             assertCurrent()
             if (entry?.complete !== true || !entry.cacheKey) throw new Error('offline_preparation_incomplete_resource')
             pendingResources[entry.cacheKey] = entry.value
             if (Object.keys(pendingResources).length >= 16 || entry.cacheKey === 'home') await flushResources()
-            await yieldControl()
+            await yieldControl(isCurrent)
           },
           onMedia: async resource => {
             assertCurrent()
@@ -159,7 +161,7 @@ export async function prepareCoachAccountOffline({ user, contexts, selectedConte
       notify()
       if (plan.length) await persist()
 
-      if (plan.length) await yieldControl()
+      if (plan.length) await yieldControl(isCurrent)
       for (const resource of plan) {
         assertCurrent()
         const key = mediaKey(resource)
@@ -190,7 +192,7 @@ export async function prepareCoachAccountOffline({ user, contexts, selectedConte
         }
         if (status.checkpoint) status.checkpoint = { plan, saved: { ...savedMedia } }
         await saveProgress()
-        await yieldControl()
+        await yieldControl(isCurrent)
       }
 
       status.currentFile = ''
@@ -254,10 +256,15 @@ export function coachAccountOfflineLabel(status) {
   return 'Download incomplete'
 }
 
-export function validateCoachAccountOfflineStatus(status, cache) {
+export function validateCoachAccountOfflineStatus(status, cache, { acceptUpdatedResources = false } = {}) {
   if (!status || status.schemaVersion !== COACH_ACCOUNT_OFFLINE_SCHEMA) return null
-  const retained = Object.entries(status.resources || {}).every(([key, fingerprint]) =>
-    cache?.resourceMetadata?.[key]?.fingerprint === fingerprint && cache?.resources?.[key] !== undefined)
+  const allowReplacement = acceptUpdatedResources && isFinished(status)
+  const retained = Object.entries(status.resources || {}).every(([key, fingerprint]) => {
+    const savedFingerprint = cache?.resourceMetadata?.[key]?.fingerprint
+    const savedValue = cache?.resources?.[key]
+    return savedValue !== undefined && savedValue !== null && (savedFingerprint === fingerprint
+      || (allowReplacement && key !== 'offlineMediaInventory' && Boolean(savedFingerprint)))
+  })
   return { ...status, state: status.state === 'ready' && !retained ? 'partial' : status.state,
     checkpoint: retained ? status.checkpoint : undefined,
     error: retained ? status.error : 'Some saved information needs downloading again.' }

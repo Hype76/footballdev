@@ -115,6 +115,7 @@ export function PlayerDetailsSection({
                   <PlayerDetailsSummary
                     canMovePlayersToTrial={canMovePlayersToTrial}
                     contacts={contacts}
+                    adultLinkStatus={adultLinkStatuses[player.id]}
                     directEmailSendingId={directEmailSendingId}
                     directEmailTemplates={getDirectEmailTemplateOptions(player)}
                     selectedDirectEmailTemplateKey={getSelectedDirectEmailTemplateOption(player)?.optionKey || ''}
@@ -357,6 +358,7 @@ function PlayerDetailsSummary({
   parentPasswordResetSendingLinkId = '',
   parentPortalRevokingLinkId = '',
   parentPortalLinks = [],
+  adultLinkStatus,
   player,
   selectedDirectInviteDate,
   selectedDirectEmailTemplateKey,
@@ -406,6 +408,9 @@ function PlayerDetailsSummary({
                     <p className="break-words text-sm font-black text-[#101828]">
                       Contact: {contact.name || (contact.type === PLAYER_CONTACT_TYPES.self ? 'Player' : 'Parent or guardian')}
                     </p>
+                    {contact.type === PLAYER_CONTACT_TYPES.self && adultLinkStatus === 'linked' ? (
+                      <span className="mt-2 text-xs font-bold leading-5 text-[#047857]">Player account linked</span>
+                    ) : null}
                     {contact.email ? (
                       <div className="mt-3 flex min-w-0 flex-1 flex-col gap-3">
                         <span className="min-w-0 text-sm font-semibold leading-6 text-[#101828] [overflow-wrap:anywhere]">Email: {contact.email}</span>

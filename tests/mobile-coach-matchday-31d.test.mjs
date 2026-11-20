@@ -312,3 +312,14 @@ test('Phase 31D sources contain no live Football Player project reference or pro
     assert.doesNotMatch(source, /allowLiveSupabase|productionAccess:\s*true/)
   }
 })
+
+
+test('volunteers require a fresh online fixture, independently of the player roster', () => {
+  const fixture = { ...baseMatch, status: 'scorer_request' }
+  const forFixture = options => getCoachMatchDayActions({ context, match: fixture, stale: true, ...options })
+  assert.equal(forFixture({ volunteerStale: false }).canSelectVolunteers, true)
+  assert.equal(forFixture({ volunteerStale: false }).canSetSquad, false)
+  assert.equal(forFixture({ volunteerStale: true }).canSelectVolunteers, false)
+  assert.equal(forFixture({ volunteerStale: false, reconciling: true }).canSelectVolunteers, false)
+  assert.equal(forFixture({ volunteerStale: false, context: { ...context, paymentAccess: { canMutate: false } } }).canSelectVolunteers, false)
+})

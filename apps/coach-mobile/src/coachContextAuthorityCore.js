@@ -46,3 +46,21 @@ export function createCoachContextAuthority(activate) {
     },
   }
 }
+
+
+export function watchCoachConnection({ probe, isActive, onOffline, schedule = setInterval, cancel = clearInterval }) {
+  let pending
+  let stopped = false
+  const timer = schedule(async () => {
+    if (stopped || pending || !isActive()) return
+    const controller = new AbortController()
+    pending = controller
+    const timeout = setTimeout(() => controller.abort(), 5000)
+    let failure
+    try { ({ error: failure } = await probe(controller.signal)) }
+    catch (error) { failure = error }
+    finally { clearTimeout(timeout); pending = null }
+    if (!stopped && isActive()) onOffline(controller.signal.aborted || isCoachAuthorityConnectionFailure(failure))
+  }, 15000)
+  return () => { stopped = true; cancel(timer); pending?.abort() }
+}

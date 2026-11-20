@@ -83,6 +83,6 @@ test('automatic preparation yields between resource, match and file processing',
       return { complete: true }
     },
   })
-  assert.deepEqual(events, ['yield', 'resource', 'yield', 'match', 'file', 'fixtures saved', 'yield', 'file transfer', 'yield'])
+  assert.deepEqual(events, ['yield', 'yield', 'resource', 'yield', 'match', 'file', 'fixtures saved', 'yield', 'file transfer', 'yield'])
   assert.equal(result.complete, true)
 })

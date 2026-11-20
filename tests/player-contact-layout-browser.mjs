@@ -102,7 +102,8 @@ try {
  await adultPage.getByRole('button', { name: 'Resend Player invitation' }).click()
  assert.equal(await adultPage.evaluate(() => window.resendPlayer), 'adult')
  await adultPage.getByRole('button', { name: 'Refresh Player account status' }).click()
- await adultPage.getByText('Player account linked').waitFor()
+ await adultPage.getByRole('status').filter({ hasText: 'Player account linked' }).waitFor()
+ await adultPage.getByRole('region', { name: 'Player contacts' }).getByText('Player account linked', { exact: true }).waitFor()
  assert.equal(await adultPage.getByRole('button', { name: 'Resend Player invitation' }).count(), 0)
  await editorPage.route('http://127.0.0.1/player-contact-test', route =>
   route.fulfill({ contentType: 'text/html', body: '<div id="root"></div>' }))

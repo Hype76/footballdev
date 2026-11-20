@@ -34,12 +34,13 @@ async function defaultRpc(name,params) {
   return supabase.rpc(name,params)
 }
 
-export async function readCoachOfflineFamily(user,context,key,{rpc=defaultRpc,isCurrent=()=>true}={}) {
+export async function readCoachOfflineFamily(user,context,key,{rpc=defaultRpc,isCurrent=()=>true,beforePage}={}) {
   assertContext(user,context)
   if (!COACH_OFFLINE_RESOURCE_KEYS.includes(key)) throw new Error('coach_offline_resource_unknown')
   const items=[],identities=new Set(),cursors=new Set()
   let cursor=null, revision=null, total=null
   do {
+    if(beforePage) await beforePage()
     if(!isCurrent()) throw new Error('coach_offline_cancelled')
     const {data,error}=await withMobileAsyncTimeout(() => rpc('get_own_coach_offline_resource', {
       club_value:context.clubId,team_value:context.teamId,resource_key:key,cursor_value:cursor,
@@ -99,7 +100,7 @@ function developmentWorkspace(records) {
       clientSaveVersion:Number(item.client_save_version || item.draft_data?.draftMeta?.clientSaveVersion || 0),lastSavedAt:item.last_saved_at || '',status:item.status}))}
 }
 
-export async function loadCoachOfflineContext(user,context,{isCurrent=()=>true,onResource=async()=>{},onMedia=async()=>{},onMatch=async()=>{},onStage=()=>{},deferMediaAuthorization=false,rpc=defaultRpc,authorizeMedia=authorizeCoachOfflineMedia}={}) {
+export async function loadCoachOfflineContext(user,context,{isCurrent=()=>true,onResource=async()=>{},onMedia=async()=>{},onMatch=async()=>{},onStage=()=>{},beforePage,deferMediaAuthorization=false,rpc=defaultRpc,authorizeMedia=authorizeCoachOfflineMedia}={}) {
   assertContext(user,context)
   const records={},onlineOnly=[]
   let resourceCount=0
@@ -109,7 +110,7 @@ export async function loadCoachOfflineContext(user,context,{isCurrent=()=>true,o
   }
   for(const key of COACH_OFFLINE_RESOURCE_KEYS) {
     assertCurrent();onStage(key)
-    const rows=await readCoachOfflineFamily(user,context,key,{rpc,isCurrent})
+    const rows=await readCoachOfflineFamily(user,context,key,{rpc,isCurrent,beforePage})
     for(const item of rows) (records[item.kind] ||= []).push(item.data)
     if(key==='players') {
       const types=(records.playerTypes || []).map(normalizeClubPlayerType)

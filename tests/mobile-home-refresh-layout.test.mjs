@@ -254,9 +254,11 @@ test('failed refresh is unavailable, then recovers, and offline profiles make no
 test('Home re-entry, foreground timer and trusted-app notification refresh availability; cleanup and background stop polling', () => {
   const calls = [], timers = []
   let notification, removed = false
+  let now = 60000
   const dependencies = {
     activeRoute: 'home', previousHomeRouteRef: { current: 'more' }, contextOwnedByCurrentUser: true,
     selectedMobileUser: { activeTeamId: 'team' }, appStateRef: { current: 'active' },
+    Date: { now: () => now }, lastHomeRefreshAtRef: { current: now },
     loadHome: async options => { calls.push(options) }, HOME_REFRESH_MIN_INTERVAL_MS: 30000,
     Notifications: { addNotificationReceivedListener: listener => { notification = listener; return { remove: () => { removed = true } } } },
     setInterval: (callback, delay) => { assert.equal(delay, 30000); timers.push(callback); return 1 },
@@ -267,9 +269,13 @@ test('Home re-entry, foreground timer and trusted-app notification refresh avail
   timers[0]()
   notification({ request: { content: { data: { app: 'coach', count: 999 } } } })
   assert.equal(calls.filter(call => call.availabilityOnly).length, 3)
+  now += 30000
+  timers[0]()
+  assert.equal(calls.length, 6)
+  assert.equal(calls.at(-1), undefined, 'stale Home refreshes the full workspace')
   dependencies.appStateRef.current = 'background'
   timers[0]()
-  assert.equal(calls.length, 5)
+  assert.equal(calls.length, 6)
   cleanup()
   assert.equal(removed, true)
   assert.equal(timers.length, 0)
