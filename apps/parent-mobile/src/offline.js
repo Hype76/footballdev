@@ -31,7 +31,7 @@ import {
 import { getParentPortalLinks, withSelectedParentLink } from '../../mobile-core/src/parentLinks'
 import { applyParentNotificationAction } from '../../mobile-core/src/parentNotificationInboxCore'
 import { pruneRemovedParentOfflineScopes } from '../../mobile-core/src/parentAccessRemovalCore'
-import { appendParentScorerCommand, canReviewParentScorerActions, projectParentScorerOutbox, restoreRejectedShootout, reviewParentScorerConflict } from './parentScorerOutboxCore'
+import { appendParentScorerCommand, canReviewParentScorerActions, archiveExpiredParentScorerActions, projectParentScorerOutbox, restoreRejectedShootout, reviewParentScorerConflict } from './parentScorerOutboxCore'
 import { applyParentScorerCommand } from './parentPortalData'
 
 const config = getMobileRuntimeConfig('parent')
@@ -312,7 +312,9 @@ export async function reviewParentScorerSavedActions(user, link, latest, expecte
     await updateParentDocument(user, document => {
       const current = document?.parentScorerOutboxes?.[link.id]?.[latest.id]
       assertParentScorerScope(document, user, link, latest)
-      journal = reviewParentScorerConflict(current, latest, expectedIds, options)
+      journal = options?.archiveExpiredActions
+        ? archiveExpiredParentScorerActions(current, latest, expectedIds)
+        : reviewParentScorerConflict(current, latest, expectedIds, options)
       return { ...document, parentScorerOutboxes: { ...document.parentScorerOutboxes,
         [link.id]: { ...document.parentScorerOutboxes[link.id], [latest.id]: journal } } }
     })
@@ -332,7 +334,7 @@ function updateScorerSnapshots(document, user, link, matches) {
     const current = scoped[match.id]
     if (current && !current.pending?.length && Date.parse(match.updatedAt) >= Date.parse(current.baseMatch.updatedAt)) {
       if (scoped === currentOutboxes) scoped = { ...currentOutboxes }
-      scoped[match.id] = { baseMatch: match, pending: [], verifiedAt: new Date().toISOString(), error: '' }
+      scoped[match.id] = { ...current, baseMatch: match, pending: [], verifiedAt: new Date().toISOString(), error: '', errorCode: '' }
     }
   }
   return scoped === currentOutboxes ? document : { ...document, parentScorerOutboxes: { ...outboxes, [link.id]: scoped } }
