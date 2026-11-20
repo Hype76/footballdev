@@ -10,7 +10,7 @@ import { useClubPlayerTypes } from '../hooks/players/useClubPlayerTypes.js'
 import { PlayerStatsCards } from '../components/players/PlayerStatsCards.jsx'
 import { canCreateEvaluation, canManageTeamSettings, useAuth } from '../lib/auth.js'
 import { CAPABILITIES } from '../lib/paywall-access.js'
-import { getTeamAdultPlayerSetupResendTargets, resendAdultPlayerSetupInvite } from '../lib/email-builder.js'
+import { getAdultPlayerLinkStatus, getTeamAdultPlayerSetupResendTargets, resendAdultPlayerSetupInvite } from '../lib/email-builder.js'
 import { canUseUiFeature, createUiFeatureUnavailableMessage } from '../lib/paywall-ui.js'
 import {
   PLAYER_PAGE_SIZE,
@@ -194,6 +194,7 @@ export function PlayersPage({
         team: player.team,
         teamId: player.teamId,
         status: player.status,
+        contactType: player.contactType,
         positions: player.positions ?? [],
         parentName: player.parentName,
         parentEmail: player.parentEmail,
@@ -294,6 +295,24 @@ export function PlayersPage({
   const visiblePaginatedPlayers = compactMode
     ? { ...paginatedPlayers, items: focusedPlayer ? [focusedPlayer] : [] }
     : paginatedPlayers
+
+  const [adultLinkStatusResult, setAdultLinkStatusResult] = useState({ scope: '', statuses: {} })
+  const visibleAdultIds = visiblePaginatedPlayers.items
+    .filter((player) => player.playerId && ['self', 'both'].includes(player.contactType))
+    .map((player) => player.playerId)
+  const visibleAdultIdsKey = JSON.stringify(visibleAdultIds)
+  useEffect(() => {
+    let current = true
+    const ids = JSON.parse(visibleAdultIdsKey)
+    setAdultLinkStatusResult({ scope: userScopeKey, statuses: {} })
+    void Promise.all(ids.map(async (id) => {
+      try { return [id, (await getAdultPlayerLinkStatus(id)).state] }
+      catch { return [id, 'unavailable'] }
+    })).then((entries) => {
+      if (current) setAdultLinkStatusResult({ scope: userScopeKey, statuses: Object.fromEntries(entries) })
+    })
+    return () => { current = false }
+  }, [userScopeKey, visibleAdultIdsKey])
 
   const totalEvaluations = playerRows.reduce((sum, player) => sum + player.totalEvaluations, 0)
   const evaluatedPlayerCount = playerRows.filter((player) => player.totalEvaluations > 0).length
@@ -576,6 +595,7 @@ export function PlayersPage({
       />}
 
       <PlayersListSection
+        adultLinkStatuses={adultLinkStatusResult.scope === userScopeKey ? adultLinkStatusResult.statuses : {}}
         playerTypes={playerTypes}
         actionLoadingKey={actionLoadingKey}
         compactMode={compactMode}
