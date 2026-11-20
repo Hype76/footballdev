@@ -771,7 +771,7 @@
   "implementationHashes": {
     "scripts/security-supply-chain-gate.mjs": "9ef3c2fa9949a270eba3b8d7eefc2f9e303e8fbb2fda3921b2e6e42280e733fc",
     "scripts/security-apply-reviewed-backports.mjs": "ba146641cebf4a835337602d942d3fe9e432dfb44cd178e64e7e5bcabe2cb7b1",
-    "scripts/security-verify-reviewed-backports.mjs": "90352fd64510852bb041bcdcd4162e52e8d31c929bfbd66378353f1fd1976300",
+    "scripts/security-verify-reviewed-backports.mjs": "ea9bc9fc91d9ecc12af0f1e943ab81d318f2deb1a9b6b42f7cef7a177b9c706b",
     "security/patches/braces-3.0.3.patch": "e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699",
     "security/patches/node-forge-1.4.0.patch": "2de065ac998bf58917a14d0935112d97ec2957ac41b5f06958d500934f188ed4",
     "security/patches/reviewed-source-manifest.json": "0507b50c4ce7a772508ed3a0d18290548bb1fd48802db4599a5ec8e47e2eed49",
@@ -2216,7 +2216,7 @@
       "src/lib/recovery-phase.js": "766ddc9a287d3bdff8f8d9fc32efed6c9541bad9c62018f894ee46b95f4e4766",
       "src/pages/ClubMatchdayTvPage.jsx": "26620fb3d5d9d05efbe0a3c24c5360d5338e9a28832bdfe1671768dd0f4899e8",
       "src/pages/club-matchday-tv.css": "83658d26ea6c765f46f328bca3b543a54d55f479d0808f65237d8f2261d09112",
-      "tests/club-matchday-tv-browser.mjs": "340883bd409d098584e000040bebd948cc40742b96c4c670fd4e47503638eaed",
+      "tests/club-matchday-tv-browser.mjs": "b29ba7655e1f14a5df3446e75ac2014e270d8c6cd421b40d38fd4fc989b34bd5",
       "tests/club-matchday-tv-weather.test.mjs": "967df9819b3d087dc3576d9768abd42e18ecdf7cfc2bd4df0e9add545fc854bb",
       "tests/club-matchday-tv.test.mjs": "9e6559dda06cfa0c6cf94f0b37fa986a2f55ca330e929fe5de58946a8c9aa239",
       "tests/security-tooling-updates.test.mjs": "1d78c188aed7037fdea62dac2aed45aac0e8bcc3c4b9b2d9bb28dbebc30ad536",
@@ -2501,9 +2501,9 @@
       "public/_redirects": "0697607cbbef250875b142e5ec09e88daa38053204beae6c1c1748fab23f1df9",
       "src/club-matchday-tv-main.jsx": "4c409f172aa1e0f1ce1008cb2681839a663691abf100c27ebd05b5dd8d49a581",
       "src/pages/ClubMatchdayTvDisplay.jsx": "751f9c0a38109b9d93dbe7889a6235a6feaf01e656671becf631391c27c9691d",
-      "src/pages/ClubMatchdayTvSettingsPage.jsx": "09f61ef905ed37848d3b7bc9cdd031cf1f186569b08d4376b3e48dc6031007c1",
+      "src/pages/ClubMatchdayTvSettingsPage.jsx": "19290f927895cac5f8c859d2f750583bd867e00074aee44a91d01234c08f45e0",
       "src/pages/StandaloneClubMatchdayTv.jsx": "a64361cca8b8b5116da6b6d0a920b6b8baa0db3c63356f0c9544eb101466fb8d",
-      "src/pages/club-matchday-tv-settings.css": "0e9de8384ae580c7fdddf470e413009f5f7b01a820def24ac159afc1bbd653cc",
+      "src/pages/club-matchday-tv-settings.css": "92be0694119ea619286ae8faac47b44ea030e938640e1ccb67c8a5bdf69150c2",
       "supabase/migrations/20261112090042_v1_club_matchday_tv_settings.sql": "44153da498a5a91fd16adf3f710e6aaecf5366bde84f03e8642da297207398fa",
       "apps/coach-mobile/src/CoachSavedFormationBoards.js": "baa2ec5c88fd86c6f1f91b87e9273aaceb2323678d82ec5b339c0af227cd4147",
       "apps/mobile-core/src/FormationBoardVisuals.js": "dc979a2af71c48570469dc7d612211f9f6e32a35f32269542c34451ab2ab2e8d",
@@ -4210,7 +4210,7 @@
     },
     "toolingRequalification20261117": "Qualify official minimatch 11.0.9 JavaScript tooling across all three scopes. Lock changes are limited to minimatch; direct and native dependencies, Expo runtime, reviewed package patches and audit rules are retained."
   },
-  "releasePreparationSha256": "d1431e0bcf3dcdba6aaa58faf462425f3ff0ceb60e4bcb63868a030f88ddbd2b",
+  "releasePreparationSha256": "919a57b314e574f62f3632dba05a08a4a1db62693f2dab6d40620da7917b9844",
   "rootOnlyProposalSha256": "45c3b7352c7328c84982e114b7e87e09cf79514d02d102297ae75ec0925812eb",
   "remediationMode": "maintained-source-fixes",
   "officialCompatibilityDependencies": [
