@@ -771,7 +771,7 @@
   "implementationHashes": {
     "scripts/security-supply-chain-gate.mjs": "9ef3c2fa9949a270eba3b8d7eefc2f9e303e8fbb2fda3921b2e6e42280e733fc",
     "scripts/security-apply-reviewed-backports.mjs": "ba146641cebf4a835337602d942d3fe9e432dfb44cd178e64e7e5bcabe2cb7b1",
-    "scripts/security-verify-reviewed-backports.mjs": "598544c6da9ea77ecc2a567155c7b378a5c35b8a56dcc866b97cc171d203bd19",
+    "scripts/security-verify-reviewed-backports.mjs": "13cea8c39614110c7a6f4a5b8504c975ec723491a98563085afb091a3436d1e0",
     "security/patches/braces-3.0.3.patch": "e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699",
     "security/patches/node-forge-1.4.0.patch": "2de065ac998bf58917a14d0935112d97ec2957ac41b5f06958d500934f188ed4",
     "security/patches/reviewed-source-manifest.json": "0507b50c4ce7a772508ed3a0d18290548bb1fd48802db4599a5ec8e47e2eed49",
@@ -2065,7 +2065,7 @@
       "tests/mobile-parent-live-account-qa-29.test.mjs": "eced8eda1acf427848cf0b45b24789b5db99bbd1e140a573621f3a7b8b7e69bb",
       "tests/mobile-parent-offline-sync-21a.test.mjs": "ad54818302854971a45b26b17aa4b761884ae673c2107b796e8ed6790f174323",
       "tests/mobile-parent-portal-parity-final-25.test.mjs": "8d8ba794f26dd083b96d5a5ede8c01ac2eeb6b87ecbe587d0e2ac524792afacf",
-      "tests/mobile-parent-rebuild-20.test.mjs": "ef82b1682a1c36bf3ffd3e45d3674fb29373738f886e95deff06ef8062d3c1c6",
+      "tests/mobile-parent-rebuild-20.test.mjs": "2f02155cf831123c52082bc11ea3a19c428c7030d22ca9c606d2854476e93c4e",
       "tests/mobile-parent-startup-28.test.mjs": "537d9971bd49b4891a4acc9e08576934e992f885b8f5d124cf8f212e2ea3e87c",
       "tests/mobile-password-recovery-contract-76.test.mjs": "1201afda15ab117e41fcb3d53c7593df693bc89490ecf7b9345126d7764e1aa4",
       "tests/mobile-persistent-loading.test.mjs": "aa72eb27ba60fd51afd8a76ce34093e8bd030bc0f9eaccc9f6b3673c27ae5284",
@@ -4186,7 +4186,7 @@
     },
     "toolingRequalification20261117": "Qualify official minimatch 11.0.9 JavaScript tooling across all three scopes. Lock changes are limited to minimatch; direct and native dependencies, Expo runtime, reviewed package patches and audit rules are retained."
   },
-  "releasePreparationSha256": "c7121e2e8e080591026df6f9e8707db29945ba449a40b1117cae00f185e468b4",
+  "releasePreparationSha256": "f64e1faf0ddea5159cfdbc6013a06cb612d96018ebcdedc792a54552b1a6ee4b",
   "rootOnlyProposalSha256": "45c3b7352c7328c84982e114b7e87e09cf79514d02d102297ae75ec0925812eb",
   "remediationMode": "maintained-source-fixes",
   "officialCompatibilityDependencies": [
