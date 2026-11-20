@@ -28,6 +28,7 @@ import { PasswordInput } from '../mobile-core/src/PasswordInput'
 import { FansScreen, clearFanNotificationDevice } from './src/FansScreen'
 import { FanInvitationScreen } from './src/FanInvitationScreen'
 import { useFanAppLink } from './src/useFanAppLink'
+import { AdultPlayerEntry } from './src/AdultPlayerEntry'
 import { requiresWatchedMatch } from '../../src/lib/poll-watched-match.js'
 import { BrandLoader } from '../mobile-core/src/BrandLoader'
 import { MobileActivityProvider } from '../mobile-core/src/MobileActivityContext'
@@ -350,28 +351,28 @@ function LoginScreen() {
       appRole="parent"
       authError={authError}
       onCreateAccount={() => setCreatingAccount(true)}
-      copy="Sign in or create your account. Your team invitation connects you to your player."
-      emailPlaceholder="parent@example.com"
-      kicker="Parent access"
+      copy="Sign in with the email and password you set up through your team invitation."
+      emailPlaceholder="you@example.com"
+      kicker="Parent and Player access"
       logoSource={require('./assets/football-player-logo.png')}
       meta="Private family access. Password sign-in only."
       requestPasswordReset={requestPasswordReset}
       signIn={handleSignIn}
-      title="Everything for your player, in one place."
+      title="Your team in one place"
     />
   )
 }
 
-function ParentHome() {
+function ParentHome({ openPlayer, playerAccess }) {
   const [accessRevision, setAccessRevision] = useState(0)
   const [accessNotice, setAccessNotice] = useState(null)
-  return <ParentHomeSession key={accessRevision} initialNotice={accessNotice} onAccessRemoved={(message) => {
+  return <ParentHomeSession key={accessRevision} initialNotice={accessNotice} openPlayer={openPlayer} playerAccess={playerAccess} onAccessRemoved={(message) => {
     setAccessNotice({ message, tone: 'warning' })
     setAccessRevision(value => value + 1)
   }} />
 }
 
-function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
+function ParentHomeSession({ initialNotice = null, onAccessRemoved, openPlayer, playerAccess }) {
   const { authError, isProfileLoading, refreshUserProfile, replaceCurrentUserProfile, signOut, user } = useMobileAuth()
   const lastNotificationResponse = Notifications.useLastNotificationResponse()
   const [activeTab, setActiveTab] = useState('home')
@@ -2671,8 +2672,10 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
                 && (!lastNotificationResponse || notificationResponseIdRef.current === lastNotificationResponse.notification?.request?.identifier)
                 && Object.values(resources).every(resource => !resource.loading && !resource.error)}
             />
+            {renderedActiveTab === 'home' && openPlayer ? <PrimaryAction label="Open Player account" secondary onPress={openPlayer} /> : null}
             {renderedActiveTab === 'home' ? (
               <HomeScreen
+                playerAccess={playerAccess}
                 leagueUser={selectedMobileUser}
                 userId={selectedMobileUser?.id}
                 onOpenEventDetails={() => scrollViewRef.current?.scrollTo({ y: 0, animated: false })}
@@ -3065,7 +3068,7 @@ function NotificationsScreen({ busy, isOffline, matches, onAction, onOpenNotific
   </View>
 }
 
-function HomeScreen({ userId, leagueUser, activeActionId, calendar, homeModel, inviteCount = 0, invitations = [], onRespond, isOffline, link, matches, messages, notifications, onOpenInvites, onOpenLink, onOpenMatch, onOpenUpdates, onOpenPolls, onOpenResource, onRetry, pollsVisible = true, scorerGuideDate, selectedMatch, themeTokens, onOpenEventDetails }) {
+function HomeScreen({ playerAccess, userId, leagueUser, activeActionId, calendar, homeModel, inviteCount = 0, invitations = [], onRespond, isOffline, link, matches, messages, notifications, onOpenInvites, onOpenLink, onOpenMatch, onOpenUpdates, onOpenPolls, onOpenResource, onRetry, pollsVisible = true, scorerGuideDate, selectedMatch, themeTokens, onOpenEventDetails }) {
   const { palette, styles } = useParentTheme()
   const homeSections = useParentHomeSections(userId)
   const [selectedEventKey, setSelectedEventKey] = useState('')
@@ -3075,7 +3078,7 @@ function HomeScreen({ userId, leagueUser, activeActionId, calendar, homeModel, i
   const homeFixtures = getParentHomeFixtureCards(homeModel)
   const scorerMatches = getParentScorerMatches(matches.items)
   if (!link?.id) {
-    return <UnlinkedParentScreen themeTokens={themeTokens} />
+    return <UnlinkedParentScreen themeTokens={themeTokens} playerAccess={playerAccess} />
   }
 
   if (selectedEvent) return <CalendarEventDetail activeActionId={activeActionId} backLabel="Back to Home" event={selectedEvent} invitations={invitations} onRespond={onRespond} isOffline={isOffline} onBack={() => setSelectedEventKey('')} onOpenLink={onOpenLink} onOpenResource={onOpenResource} themeTokens={themeTokens} />
@@ -3978,11 +3981,13 @@ function AppContent() {
   const showFanNotification = fanNotification?.notification?.request?.content?.data?.route === 'fans' && fanNotificationId !== dismissedFanNotification
   const {
     authError,
+    isProfileLoading,
     user,
     isLocked,
     resetLocalAppData,
     retryStartup,
     session,
+    signOut,
     startupDiagnosticCode,
     startupState,
     unlockWithBiometrics,
@@ -4018,9 +4023,13 @@ function AppContent() {
   if (!fanLink.ready) return <LoadingScreen message="Checking app invitation..." />
   if (fanLink.route?.kind === 'invite') return <FanInvitationScreen key={`${session.user.id}:${fanLink.route.token}`} token={fanLink.route.token} session={session} onSignIn={() => setFanSignInRoute(fanLink.route)} onClose={fanLink.close} onAccepted={fanLink.accepted} />
   if (fanLink.route?.kind === 'fans') return <FansScreen onBack={fanLink.close} />
-  if (user?.parentPortalLinks?.length && user.parentPortalLinks.every((link) => link.linkType === 'fan')) return <FansScreen />
   if (showFanNotification) return <FansScreen onBack={() => setDismissedFanNotification(fanNotificationId)} />
-  return <ParentHome />
+  return (
+    <AdultPlayerEntry key={session.user.id} userId={session.user.id} links={user?.id === session.user.id ? user.parentPortalLinks || [] : []} parentProfilePending={user?.id !== session.user.id && isProfileLoading}
+      onSignOut={signOut}
+      renderParent={({ openPlayer, playerAccess }) => <ParentHome openPlayer={openPlayer} playerAccess={playerAccess} />}
+      renderFan={(openPlayer) => <FansScreen onBack={openPlayer} backLabel="Open Player account" />} />
+  )
 }
 
 function StartupRecoveryScreen({ diagnosticCode, message, onReset, onRetry, showReset = true }) {

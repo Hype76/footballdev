@@ -1,3 +1,4 @@
+import { APP_DOWNLOAD_LINKS } from '../lib/app-download-links.js'
 import { UserFeedbackLinks } from '../components/layout/UserFeedbackLinks.jsx'
 import { useCallback, useEffect, useState } from 'react'
 import { useAuth } from '../lib/auth.js'
@@ -184,6 +185,19 @@ export function AdultPlayerPage() {
           ) : null}
         </div>
       </header>
+
+      <section aria-labelledby="player-app-heading" className="mt-6 space-y-3 border-b border-[var(--border-color)] pb-5">
+        <h2 id="player-app-heading" className="text-xl font-bold text-[var(--text-primary)]">Sign in to the Football Player Parents app</h2>
+        <p className="text-sm leading-6 text-[var(--text-muted)]">
+          Players use the Football Player Parents app. Open it or download it below, then sign in with the same email and password you used for Player setup. If the app opens your Parent account, choose Open Player account on Home.
+        </p>
+        <div className="flex flex-wrap gap-x-5">
+          <a className="inline-flex min-h-11 items-center text-sm font-bold text-[var(--text-primary)] underline" href="footballplayerparents://">Open the app</a>
+          <a className="inline-flex min-h-11 items-center text-sm font-bold text-[var(--text-primary)] underline" href={APP_DOWNLOAD_LINKS.parent.apple}>App Store</a>
+          <a className="inline-flex min-h-11 items-center text-sm font-bold text-[var(--text-primary)] underline" href={APP_DOWNLOAD_LINKS.parent.android}>Google Play</a>
+          <a className="inline-flex min-h-11 items-center text-sm font-bold text-[var(--text-primary)] underline" href="/sign-in?access=player">Player sign-in on the web</a>
+        </div>
+      </section>
 
       <main className="mt-6">
         <UserFeedbackLinks />

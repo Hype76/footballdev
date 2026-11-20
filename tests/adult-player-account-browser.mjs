@@ -238,6 +238,11 @@ async function runJourney(browser, name, contextOptions) {
   const prepared = await preparePage(page)
 
   await signIn(page)
+  await page.getByRole('heading', { name: 'Sign in to the Football Player Parents app' }).waitFor({ state: 'visible' })
+  assert.equal(await page.getByRole('link', { name: 'Open the app', exact: true }).getAttribute('href'), 'footballplayerparents://')
+  assert.equal(await page.getByRole('link', { name: 'App Store', exact: true }).getAttribute('href'), 'https://apps.apple.com/app/football-player-parents/id6772061464')
+  assert.equal(await page.getByRole('link', { name: 'Google Play', exact: true }).getAttribute('href'), 'https://play.google.com/store/apps/details?id=com.footballplayer.parents')
+  assert.equal(await page.getByRole('link', { name: 'Player sign-in on the web', exact: true }).getAttribute('href'), '/sign-in?access=player')
   await page.getByRole('heading', { name: 'Your invitations' }).waitFor({ state: 'visible' })
   await page.getByText('Match Day vs Browser United', { exact: true }).waitFor({ state: 'visible' })
   await page.getByText('First Team Training', { exact: true }).waitFor({ state: 'visible' })
