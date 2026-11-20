@@ -261,7 +261,8 @@ export function validateCoachAccountOfflineStatus(status, cache, { acceptUpdated
   const allowReplacement = acceptUpdatedResources && isFinished(status)
   const retained = Object.entries(status.resources || {}).every(([key, fingerprint]) => {
     const savedFingerprint = cache?.resourceMetadata?.[key]?.fingerprint
-    return cache?.resources?.[key] !== undefined && (savedFingerprint === fingerprint
+    const savedValue = cache?.resources?.[key]
+    return savedValue !== undefined && savedValue !== null && (savedFingerprint === fingerprint
       || (allowReplacement && key !== 'offlineMediaInventory' && Boolean(savedFingerprint)))
   })
   return { ...status, state: status.state === 'ready' && !retained ? 'partial' : status.state,

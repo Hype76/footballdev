@@ -271,6 +271,8 @@ test('automatic preparation repairs missing teams and keeps completed downloads 
     resourceMetadata: { players: { fingerprint: 'fresh-players' }, offlineMediaInventory: { fingerprint: 'saved-files' } } }
   const changed = validateCoachAccountOfflineStatus(completed, saved, { acceptUpdatedResources: true })
   assert.equal(changed.state, 'ready')
+  const denied = { ...saved, resources: { ...saved.resources, players: null } }
+  assert.equal(validateCoachAccountOfflineStatus(completed, denied, { acceptUpdatedResources: true }).state, 'partial')
   assert.equal(validateCoachAccountOfflineStatus(completed, { ...saved, resources: { players: [] } },
     { acceptUpdatedResources: true }).state, 'partial')
 

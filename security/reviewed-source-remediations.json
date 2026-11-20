@@ -771,7 +771,7 @@
   "implementationHashes": {
     "scripts/security-supply-chain-gate.mjs": "9ef3c2fa9949a270eba3b8d7eefc2f9e303e8fbb2fda3921b2e6e42280e733fc",
     "scripts/security-apply-reviewed-backports.mjs": "ba146641cebf4a835337602d942d3fe9e432dfb44cd178e64e7e5bcabe2cb7b1",
-    "scripts/security-verify-reviewed-backports.mjs": "d62ba4930f52c09c58e4ca4da3812117ae4b46431fcac8fbd8dc4ffe38e7aecc",
+    "scripts/security-verify-reviewed-backports.mjs": "f6cd8e1348281fa02eb5e3460663d91c8297d3e12a7a5a9a62fd440701eb1992",
     "security/patches/braces-3.0.3.patch": "e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699",
     "security/patches/node-forge-1.4.0.patch": "2de065ac998bf58917a14d0935112d97ec2957ac41b5f06958d500934f188ed4",
     "security/patches/reviewed-source-manifest.json": "0507b50c4ce7a772508ed3a0d18290548bb1fd48802db4599a5ec8e47e2eed49",
@@ -2650,7 +2650,7 @@
       "tests/adult-player-both-contact.test.mjs": "d32a6b09e2a25f00dd3861b1d5ea05851971624374fa53763b199dd6faf14a46",
       "apps/coach-mobile/src/CoachOfflineReadiness.js": "9bdb091af22c5edc504ca01643a35d25b042b89e5783f01f9c78d1b85ed80971",
       "tests/coach-manual-sync-browser.mjs": "5502c5703ef415b009cd2557f4884cddca4b3e3d7a5ef4c715816b699e6855b1",
-      "apps/coach-mobile/src/coachAccountOfflinePreparation.js": "599ea476e956dd9ebeed5e9988c47308163e41df45c62f097b27708821d1045c",
+      "apps/coach-mobile/src/coachAccountOfflinePreparation.js": "882fae85160ef16b6e978810a7a948d90b8d658d9be64c1223c1a298d7f35b4f",
       "apps/coach-mobile/src/coachAccountOfflineService.js": "5ac3a66fc4cbb73c335eca1f1fdfcdf547f571d71deca7f772f1782a121a50f1",
       "apps/coach-mobile/src/coachOfflineAccountSession.js": "954ab2eb5290c753bf6d2bbc2ad0928a191fd1d4a9eb599627b7d3dfa2cfc811",
       "apps/coach-mobile/src/coachOfflineFormationView.js": "ddf4fde40f57eab9a7fd393f90b494af4951fc23262a69513831c8dbfd58bfc3",
@@ -2666,7 +2666,7 @@
       "netlify/functions/coach-offline-media.js": "74ea8a6a32139608048bb6254c1535b50b86d749495d5267d155fdc353a2762c",
       "supabase/migrations/20261118125500_coach_account_offline_scoped_reads.sql": "7e02bed8852fd25e525009d1149694aa387764d67c19aa0d09fe97f3e74848a1",
       "supabase/migrations/20261118131314_resource_library_video_formats.sql": "1c6f34d6ae0cea130fc4d6fa064bcf4ac8dd6e47f1b480616948490bf0e06952",
-      "tests/coach-account-offline-review.test.mjs": "8b6c40a2084aa6ef01a76bd5ad036683feac309a3ee63fe9f3038cf75809f5f1",
+      "tests/coach-account-offline-review.test.mjs": "31978638ef024b7587831eaaa94062495b8ac6a1d4a7571a247c581d1a9bc0ba",
       "tests/coach-complete-offline-snapshots.test.mjs": "55dd4b39f72ee3fb1f42ee5e0af303a4be7ad3ff9c5fe8841f757f61d20b15f0",
       "tests/coach-encrypted-media-store.test.mjs": "c7e73bf41600ebf6d477a57e203ab94e52955ddc2fd1122912df129f0cb17f2e",
       "tests/coach-offline-chat-open.test.mjs": "b3791bfa9f605a495822339daff4e105a556d0941734c536bfc01e8818afddfe",
@@ -4200,7 +4200,7 @@
     },
     "toolingRequalification20261117": "Qualify official minimatch 11.0.9 JavaScript tooling across all three scopes. Lock changes are limited to minimatch; direct and native dependencies, Expo runtime, reviewed package patches and audit rules are retained."
   },
-  "releasePreparationSha256": "55e9ad9a8ae3ec1072e12ec55c2e8a4913322124d4c9bdfe36055478af09da7e",
+  "releasePreparationSha256": "68035f30bab11bef08bfe746974da31287bb51d603f59c42357e5db957bdd7c4",
   "rootOnlyProposalSha256": "45c3b7352c7328c84982e114b7e87e09cf79514d02d102297ae75ec0925812eb",
   "remediationMode": "maintained-source-fixes",
   "officialCompatibilityDependencies": [
