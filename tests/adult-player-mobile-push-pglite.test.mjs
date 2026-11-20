@@ -301,3 +301,22 @@ test('Player Chat fanout excludes Parent private rooms, removed match selection 
   assert.equal((await claimPush(db)).length,0)
  } finally {await db.close()}
 })
+
+test('same authenticated person retains both valid Parent and Player registrations on the shared token', async () => {
+ const db=await setup()
+ try {
+  await db.query(`insert into parent_mobile_push_installations(installation_id,auth_user_id,parent_link_id,status,enabled,expo_push_token) values($1,$2,$3,'active',true,'ExpoPushToken[adult_test]')`,[uuid(700),id.user,uuid(701)])
+  await register(db)
+  let parent=(await db.query('select * from parent_mobile_push_installations')).rows[0]
+  assert.equal(parent.enabled,true);assert.equal(parent.auth_user_id,id.user);assert.equal(parent.expo_push_token,'ExpoPushToken[adult_test]')
+  await sendChat(db)
+  await db.query(`update parent_mobile_push_installations set expo_push_token='ExpoPushToken[adult_test]' where installation_id=$1`,[uuid(700)])
+  assert.equal((await db.query('select count(*)::int n from adult_player_mobile_push_installations where enabled')).rows[0].n,1)
+  assert.equal((await claimPush(db)).length,1)
+  // Each role's own authenticated sign-out operation removes its registration.
+  await db.query(`update parent_mobile_push_installations set enabled=false,expo_push_token=null,status='revoked' where installation_id=$1 and auth_user_id=$2`,[uuid(700),id.user])
+  await db.query("select own_adult_player_push_installation('delete',$1)",[deviceId])
+  assert.equal((await db.query('select count(*)::int n from adult_player_mobile_push_installations')).rows[0].n,0)
+  assert.equal((await db.query('select count(*)::int n from parent_mobile_push_installations where enabled')).rows[0].n,0)
+ } finally {await db.close()}
+})

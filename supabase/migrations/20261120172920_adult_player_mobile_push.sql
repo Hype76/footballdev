@@ -18,7 +18,8 @@ alter table public.adult_player_mobile_push_installations enable row level secur
 revoke all on public.adult_player_mobile_push_installations from public, anon, authenticated;
 grant select, update on public.adult_player_mobile_push_installations to service_role;
 
--- Native token ownership is exclusive across identities in the shared app.
+-- A native token may retain both roles for the same authenticated person.
+-- A different account takes ownership and revokes the previous account.
 -- The transaction lock serializes Parent/Player registration of the same token.
 create function app_private.fence_shared_parent_player_push_token() returns trigger
 language plpgsql security definer set search_path = '' as $$
@@ -28,9 +29,9 @@ begin
   if tg_table_name='adult_player_mobile_push_installations' then
     update public.parent_mobile_push_installations set enabled=false,status='revoked',expo_push_token=null,
       auth_user_id=null,parent_link_id=null,club_id=null,team_id=null,updated_at=now()
-      where expo_push_token=new.expo_push_token;
+      where expo_push_token=new.expo_push_token and auth_user_id is distinct from new.user_id;
   else
-    delete from public.adult_player_mobile_push_installations where expo_push_token=new.expo_push_token;
+    delete from public.adult_player_mobile_push_installations where expo_push_token=new.expo_push_token and user_id is distinct from new.auth_user_id;
   end if;
   return new;
 end; $$;
@@ -180,7 +181,7 @@ begin
     data_value := jsonb_build_object('route','invites','invitationId',source_value,'type','player_invitation');
   end if;
   return jsonb_build_object('to',device.expo_push_token,'title',title_value,'body',body_value,'sound','default',
-    'data',data_value || jsonb_build_object('app','player','adultLinkId',device.adult_link_id,'teamId',device.team_id,'clubId',device.club_id));
+    'data',data_value || jsonb_build_object('app','player','userId',device.user_id,'adultLinkId',device.adult_link_id,'teamId',device.team_id,'clubId',device.club_id));
 end; $$;
 revoke all on function app_private.adult_player_push_payload(public.adult_player_mobile_push_installations,text,text) from public,anon,authenticated,service_role;
 
