@@ -144,7 +144,7 @@ test('created fixtures become the selected match and invalidate Calendar before 
   const invalidated = []
   const selectedMatchId = { current: 'previous-fixture' }
   const matchRef = { current: { id: 'previous-fixture' } }
-  const dependencies = { setFixtureFormOpen: () => {}, onRequestScrollTop: () => {}, setNotice: () => {}, normalizeCoachMatchDay, selectedMatchId, matchRef, invalidateMobileResource: (_user, key) => invalidated.push(key), user: {}, setMatches: () => {}, getCoachMatchDayDetail: async () => { assert.equal(selectedMatchId.current, 'fixture'); return { id: 'fixture' } }, setMatch: () => {}, setPanel: () => {}, setScoreDraft: () => {} }
+  const dependencies = { setFixtureFormOpen: () => {}, onRequestScrollTop: () => {}, setNotice: () => {}, normalizeCoachMatchDay, selectFixture: id => { selectedMatchId.current = id }, matchRef, invalidateMobileResource: (_user, key) => invalidated.push(key), user: {}, setMatches: () => {}, getCoachMatchDayDetail: async () => { assert.equal(selectedMatchId.current, 'fixture'); return { id: 'fixture' } }, setMatch: () => {}, setPanel: () => {}, setScoreDraft: () => {} }
   const created = new Function(...Object.keys(dependencies), `return async (result) => {${handler}}`)(...Object.values(dependencies))
   await created({ match: { id: 'fixture', matchDate: '2099-10-15' } })
   assert.deepEqual(invalidated, ['coach:calendar', 'coach:match-list'])

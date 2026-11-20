@@ -21,8 +21,8 @@ test('Coach Match Day uses bounded reads and preserves the exact fixture target'
   const source = read('apps/coach-mobile/src/CoachMatchDayScreen.js')
   assert.match(source, /withMobileAsyncTimeout\(\(\) => getCoachMatchDayList/)
   assert.match(source, /withMobileAsyncTimeout\(\(\) => getCoachMatchDayDetail\(currentUser, activeSelectionId\)\)/)
-  assert.match(source, /cachedMatch\?\.id === activeSelectionId/)
-  assert.match(source, /selectedMatchId\.current = requestedFixtureId/)
+  assert.match(source, /fallbackDetail\?\.id === activeSelectionId/)
+  assert.match(source, /selectFixture\(requestedFixtureId\)/)
 })
 
 test('Coach Sessions degrades optional reads without replacing fresh Sessions with an offline warning', () => {
