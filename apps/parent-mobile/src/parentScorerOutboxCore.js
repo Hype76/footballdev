@@ -18,6 +18,30 @@ export function describeSavedScorerAction(command) {
   return parts.join(', ')
 }
 
+export function hasExpiredParentScorerActions(journal, now = Date.now()) {
+  const capturedAt = Date.parse(journal?.pending?.[0]?.capturedAt)
+  return Number.isFinite(capturedAt) && now - capturedAt > MATCH_DAY_OFFLINE_MAX_AGE
+}
+
+export function canArchiveExpiredParentScorerActions(journal) {
+  return hasExpiredParentScorerActions(journal)
+    && journal.errorCode === 'P0001'
+    && journal.error === 'The saved action is invalid or over 24 hours old. Review it before continuing.'
+}
+
+export function archiveExpiredParentScorerActions(journal, latest, expectedIds) {
+  if (!canArchiveExpiredParentScorerActions(journal) || expectedIds?.length !== journal.pending.length
+    || journal.pending.some((command, index) => command.id !== expectedIds[index])) {
+    throw new Error('The saved action changed. Refresh and review it again.')
+  }
+  if (!latest?.updatedAt || latest.id !== journal.baseMatch?.id || latest.clubId !== journal.baseMatch?.clubId
+    || latest.teamId !== journal.baseMatch?.teamId) {
+    throw new Error('Refresh the fixture before archiving saved scoring.')
+  }
+  return { ...journal, baseMatch: latest, pending: [], archivedActions: [...(journal.archivedActions || []), ...journal.pending],
+    verifiedAt: new Date().toISOString(), error: '', errorCode: '' }
+}
+
 export function canReviewParentScorerActions(journal) {
   return journal?.errorCode === '40001' || (journal?.errorCode === 'P0001' && journal.pending?.[0]?.kind === 'start'
     && journal.error === 'This saved clock action predates the current clock. Review it before continuing.')
@@ -52,6 +76,7 @@ function shootoutSide(match, side) {
 export function appendParentScorerCommand(journal, { id, kind, payload = {}, capturedAt = new Date().toISOString() }) {
   if (!journal?.baseMatch?.id || !journal.baseMatch.updatedAt) throw new Error('Refresh this fixture online before recording on this device.')
   const captured = Date.parse(capturedAt)
+  if (hasExpiredParentScorerActions(journal, captured)) throw new Error('Review the expired saved scoring action before recording.')
   const verified = Date.parse(journal.verifiedAt)
   if (!Number.isFinite(captured) || !Number.isFinite(verified) || captured - verified > MATCH_DAY_OFFLINE_MAX_AGE) throw new Error('This saved fixture is over 24 hours old. Refresh it online before recording.')
   if (!id || journal.pending.some(command => command.id === id)) throw new Error('This action already exists.')
@@ -149,6 +174,11 @@ export function mergeParentScorerAcknowledgement(baseMatch, command, result) {
 
 export function getVisibleParentScorerMatch(match, journal) {
   if (!journal?.baseMatch) return match
+  if (hasExpiredParentScorerActions(journal)) {
+    const sameFixture = match.id === journal.baseMatch.id && match.clubId === journal.baseMatch.clubId
+      && match.teamId === journal.baseMatch.teamId && !match.isFanView
+    return sameFixture ? { ...match, needsSavedScoringReview: true } : match
+  }
   if (journal.pending?.length) return projectParentScorerOutbox(journal)
   if (Date.parse(journal.baseMatch.updatedAt) > Date.parse(match.updatedAt)) {
     const acknowledged = journal.baseMatch
