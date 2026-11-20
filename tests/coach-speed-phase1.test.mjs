@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import test from 'node:test'
-import { COACH_PERFORMANCE_STORAGE_KEY, createCoachPerformanceDiagnostics, createCoachTabTiming, getCoachConnectionLabel } from '../apps/coach-mobile/src/coachPerformanceDiagnosticsCore.js'
+import { COACH_PERFORMANCE_STORAGE_KEY, createCoachPerformanceDiagnostics, createCoachStartupTiming, createCoachTabTiming, getCoachConnectionLabel } from '../apps/coach-mobile/src/coachPerformanceDiagnosticsCore.js'
+import { createMobileResourceCache } from '../apps/mobile-core/src/mobileResourceCache.js'
 import { readAllPages } from '../apps/mobile-core/src/coachAvailabilityData.js'
 import { buildCoachCalendarEvents } from '../apps/mobile-core/src/coachCalendarCore.js'
 import { normalizeCoachInvite } from '../apps/mobile-core/src/coachPhase31ECore.js'
@@ -29,7 +30,7 @@ test('Coach speed diagnostics retain only bounded local timing fields', async ()
   assert.equal(stored, null)
 })
 
-test('Coach tab diagnostics separate layout time from first data and fence old visits', () => {
+test('Coach tab diagnostics measure saved and fresh paints from the tap and fence old visits', () => {
   let time = 100
   const frames = [], samples = []
   const tracker = createCoachTabTiming({ record: sample => samples.push(sample), now: () => time, afterFrame: callback => frames.push(callback) })
@@ -38,16 +39,18 @@ test('Coach tab diagnostics separate layout time from first data and fence old v
   calendar.screen()
   calendar.screen()
   flush(140)
+  calendar.data('saved')
+  flush(170)
   calendar.data('success')
   flush(1800)
-  assert.deepEqual(samples.map(({name, durationMs}) => [name, durationMs]), [['tab.calendar.screen', 40], ['tab.calendar.data', 1660]])
+  assert.deepEqual(samples.map(({name, durationMs, status}) => [name, durationMs, status]), [['tab.calendar.screen', 40, 'success'], ['tab.calendar.first', 70, 'saved'], ['tab.calendar.fresh', 1700, 'success']])
 
   const players = tracker.begin('players')
-  players.data('saved')
+  players.data('cached')
   flush(1810)
   players.screen()
   flush(1825)
-  assert.deepEqual(samples.slice(-2).map(({name, durationMs, status}) => [name, durationMs, status]), [['tab.players.screen', 25, 'success'], ['tab.players.data', 0, 'saved']])
+  assert.deepEqual(samples.slice(-3).map(({name, durationMs, status}) => [name, durationMs, status]), [['tab.players.screen', 25, 'success'], ['tab.players.first', 25, 'saved'], ['tab.players.fresh', 25, 'cached']])
 
   const abandoned = tracker.begin('matchday')
   abandoned.screen()
@@ -59,9 +62,68 @@ test('Coach tab diagnostics separate layout time from first data and fence old v
   more.data('success')
   flush(2010)
   abandoned.data('success')
-  assert.deepEqual(samples.slice(-2).map(({name, status, durationMs}) => [name, status, durationMs]), [['tab.matchday.data', 'left', 150], ['tab.more.screen', 'success', 10]])
+  assert.deepEqual(samples.slice(-3).map(({name, status, durationMs}) => [name, status, durationMs]), [['tab.matchday.first', 'left', 175], ['tab.matchday.fresh', 'left', 175], ['tab.more.screen', 'success', 10]])
   assert.equal(samples.every(sample => sample.source === 'tap'), true)
   assert.equal(tracker.begin('settings'), null)
+})
+
+test('Coach startup uses the earliest available marker and measures the first usable screen once', () => {
+  const samples = [], frames = []
+  const options = { record: value => samples.push(value), now: () => 2100, bundleStart: 200, afterFrame: fn => frames.push(fn) }
+  const native = createCoachStartupTiming({ ...options, performance: { rnStartupTiming: { startTime: 35, initializeRuntimeStart: 80 } } })
+  native('workspace')
+  native('signin')
+  frames.shift()()
+  assert.deepEqual(samples, [{ name: 'startup.workspace', durationMs: 2065, status: 'success', source: 'launch' }])
+  const runtime = createCoachStartupTiming({ ...options, performance: { rnStartupTiming: { startTime: 80, initializeRuntimeStart: 80 } } })
+  runtime('unlock'); frames.shift()()
+  assert.deepEqual(samples.at(-1), { name: 'startup.unlock', durationMs: 2020, status: 'success', source: 'runtime' })
+  const fallback = createCoachStartupTiming({ ...options, performance: { rnStartupTiming: { startTime: 1700000000000 } } })
+  fallback('choose'); frames.shift()()
+  assert.deepEqual(samples.at(-1), { name: 'startup.choose', durationMs: 1900, status: 'success', source: 'bundle' })
+  const background = createCoachStartupTiming({ ...options, performance: null })
+  background('workspace', () => false); frames.shift()()
+  assert.equal(samples.length, 3)
+})
+
+test('Coach keeps the last startup result after the tab sample history fills', async () => {
+  const diagnostics = createCoachPerformanceDiagnostics({ storage: { getItem: async () => '[]' }, schedule: () => 1 })
+  diagnostics.record({ name: 'startup.signin', source: 'launch', durationMs: 500 })
+  diagnostics.record({ name: 'startup.workspace', source: 'runtime', durationMs: 4500 })
+  for (let index = 0; index < 70; index++) diagnostics.record({ name: 'tab.home.first', source: 'tap', durationMs: index })
+  const rows = await diagnostics.read()
+  assert.equal(rows.length, 60)
+  assert.deepEqual(rows.filter(row => row.name.startsWith('startup.')).map(({name, source, durationMs}) => [name, source, durationMs]), [['startup.workspace', 'runtime', 4500]])
+})
+
+test('Coach does not count saved data that never painted and retains a separately painted snapshot after an error', () => {
+  const samples = [], frames = []
+  let time = 100
+  const tracker = createCoachTabTiming({ record: sample => samples.push(sample), now: () => time, afterFrame: callback => frames.push(callback) })
+  const paint = nextTime => { time = nextTime; for (const frame of frames.splice(0)) frame() }
+  const calendar = tracker.begin('calendar')
+  calendar.data('saved'); paint(150)
+  calendar.screen(); calendar.data('success'); paint(200)
+  assert.deepEqual(samples.filter(row => row.name.startsWith('tab.calendar.')).map(row => row.status), ['success', 'success', 'success'])
+  const home = tracker.begin('home')
+  home.screen(); home.data('saved'); paint(220)
+  home.data('error'); paint(700)
+  assert.deepEqual(samples.slice(-2).map(({durationMs, status}) => [durationMs, status]), [[20, 'saved'], [500, 'error']])
+})
+
+test('A warm cache hit is distinct from fresh network data, including a shared ongoing request', async () => {
+  const cache = createMobileResourceCache()
+  let resolve
+  const deferred = new Promise(done => { resolve = done })
+  const sources = []
+  const options = { onSource: source => sources.push(source) }
+  const first = cache.read('team:home', () => deferred, options)
+  const other = cache.read('team:home', () => assert.fail('Should share the original request'), options)
+  assert.equal(first, other)
+  resolve(['example'])
+  await first
+  assert.deepEqual(await cache.read('team:home', () => assert.fail('Should use the cache'), options), ['example'])
+  assert.deepEqual(sources, ['network', 'network', 'cache'])
 })
 
 test('Coach tab results retain tap source and failed duration without account content', async () => {

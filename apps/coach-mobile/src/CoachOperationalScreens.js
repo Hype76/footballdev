@@ -447,7 +447,7 @@ function CoachCalendarScoped({ calendarTarget, context, contexts, onNavigate, on
       calendarDenied.current = false
       hasCalendarSnapshot.current = true
       setEvents(rows)
-      setTabDataStatus(recent === undefined ? 'success' : 'saved')
+      setTabDataStatus(recent === undefined ? 'success' : 'cached')
       setLoading(false)
       const [playerResult, resourceResult] = await optionalResults
       if (!isCurrent()) return
@@ -476,7 +476,7 @@ function CoachCalendarScoped({ calendarTarget, context, contexts, onNavigate, on
         resourceRequest.current += 1
         hasCalendarSnapshot.current = false; setEvents([]); setPlayers([]); setResources([]); setSelected(null); setForm(null); setResourceEditor(null); setStale(true)
       }
-      if (!hasCalendarSnapshot.current) setTabDataStatus('error')
+      setTabDataStatus('error')
       setError(message(loadError, 'Calendar could not be loaded.'))
     } finally {
       if (isCurrent()) setLoading(false)
@@ -1054,9 +1054,10 @@ function CoachPlayersScoped({ context, onNavigate, onQuickActionHandled, onReque
     const request = ++playersLoadSequence.current
     const isCurrent = () => request === playersLoadSequence.current
     const recent = reuseFresh && !playersDenied.current ? peekMobileResource(user, 'coach:players') : undefined
-    if (recent !== undefined) { hasPlayersSnapshot.current = true; setPlayers(recent); setStale(false); setLoading(false); setError(''); setTabDataStatus('saved'); return }
+    if (recent !== undefined) { hasPlayersSnapshot.current = true; setPlayers(recent); setStale(false); setLoading(false); setError(''); setTabDataStatus('cached'); return }
     setError(''); setCacheWarning(''); setLoading(!hasPlayersSnapshot.current); setStale(true)
-    const network = readMobileResource(user, 'coach:players', () => getCoachPlayerList(user), { force: !reuseFresh || playersDenied.current })
+    let playerSource = 'network'
+    const network = readMobileResource(user, 'coach:players', () => getCoachPlayerList(user), { force: !reuseFresh || playersDenied.current, onSource: source => { playerSource = source } })
       .then(value => ({ value }), error => ({ error }))
     const offline = hasPlayersSnapshot.current || playersDenied.current ? Promise.resolve(null) : readCoachOfflineResources(user.id, context).catch(() => null)
     const { result } = await resolveWithOffline(network, offline, cached => {
@@ -1071,7 +1072,7 @@ function CoachPlayersScoped({ context, onNavigate, onQuickActionHandled, onReque
       const rows = result.value
       playersDenied.current = false
       hasPlayersSnapshot.current = true
-      setPlayers(rows); setStale(false); setTabDataStatus('success')
+      setPlayers(rows); setStale(false); setTabDataStatus(playerSource === 'cache' ? 'cached' : 'success')
       await saveCoachOfflineResources(user.id, context, { players: rows }).catch(() => { if (isCurrent()) setCacheWarning('Players are up to date, but this phone could not save an offline copy.') })
     } catch (loadError) {
       if (!isCurrent()) return
@@ -1080,7 +1081,7 @@ function CoachPlayersScoped({ context, onNavigate, onQuickActionHandled, onReque
         playerRequest.current += 1
         hasPlayersSnapshot.current = false; setPlayers([]); setFocusedPlayer(null); setDetail(null); setForm(null); setStale(true)
       }
-      if (!hasPlayersSnapshot.current) setTabDataStatus('error')
+      setTabDataStatus('error')
       setError(message(loadError, 'Players could not be loaded.'))
     } finally { if (isCurrent()) setLoading(false) }
   }, [context, user])

@@ -2,6 +2,25 @@ export const COACH_PERFORMANCE_STORAGE_KEY = 'fp.mobile.performance.v1.coach'
 const MAX_SAMPLES = 60
 export const COACH_TIMED_TABS = Object.freeze({ home: 'Home', calendar: 'Calendar', players: 'Players', matchday: 'Match Day', more: 'More' })
 export const coachTimingClock = () => typeof globalThis.performance?.now === 'function' ? globalThis.performance.now() : Date.now()
+const bundleStartedAt = coachTimingClock()
+export const COACH_STARTUP_DESTINATIONS = Object.freeze({ workspace: 'Coach workspace', choose: 'Team or club picker', signin: 'Sign-in screen', unlock: 'Unlock screen', recovery: 'Startup recovery' })
+
+export function createCoachStartupTiming({ record, now = coachTimingClock, afterFrame = callback => requestAnimationFrame(callback), performance = globalThis.performance, bundleStart = bundleStartedAt }) {
+  let measured = false
+  return (destination, isActive = () => true) => {
+    if (measured || !Object.hasOwn(COACH_STARTUP_DESTINATIONS, destination)) return
+    // React Native's optional marker shares the clock used by performance.now().
+    const nativeTiming = performance?.rnStartupTiming
+    const start = nativeTiming?.startTime ?? performance?.getEntriesByType?.('navigation')?.[0]?.startTime
+    const hasStartupMarker = Number.isFinite(start) && start >= 0 && start <= bundleStart
+    const source = !hasStartupMarker ? 'bundle' : start === nativeTiming?.initializeRuntimeStart ? 'runtime' : 'launch'
+    measured = true
+    afterFrame(() => {
+      if (!isActive()) return
+      record({ name: `startup.${destination}`, durationMs: now() - (hasStartupMarker ? start : bundleStart), status: 'success', source })
+    })
+  }
+}
 
 export function createCoachTabTiming({ record, now = coachTimingClock, afterFrame = callback => requestAnimationFrame(callback) }) {
   let current
@@ -10,13 +29,19 @@ export function createCoachTabTiming({ record, now = coachTimingClock, afterFram
       if (!Object.hasOwn(COACH_TIMED_TABS, route)) return null
       current?.leave()
       const hasData = route !== 'more'
-      let screenAt, dataAt, dataStatus
-      let screenQueued = false, dataQueued = false, dataRecorded = false
-      const log = (stage, at, status, since = startedAt) => record({ name: `tab.${route}.${stage}`, durationMs: at - since, status, source: 'tap' })
+      let screenAt, firstData, freshData, pendingData
+      let screenQueued = false, dataQueued = false, firstRecorded = false, freshRecorded = false
+      const log = (stage, at, status) => record({ name: `tab.${route}.${stage}`, durationMs: at - startedAt, status, source: 'tap' })
       const finishData = () => {
-        if (dataRecorded || screenAt === undefined || dataAt === undefined) return
-        dataRecorded = true
-        log('data', Math.max(screenAt, dataAt), dataStatus, screenAt)
+        if (screenAt === undefined || dataQueued) return
+        if (firstData && !firstRecorded) {
+          firstRecorded = true
+          log('first', Math.max(screenAt, firstData.at), firstData.status)
+        }
+        if (freshData && !freshRecorded) {
+          freshRecorded = true
+          log('fresh', Math.max(screenAt, freshData.at), freshData.status)
+        }
       }
       const visit = {
         screen() {
@@ -30,12 +55,19 @@ export function createCoachTabTiming({ record, now = coachTimingClock, afterFram
           })
         },
         data(status) {
-          if (current !== visit || !hasData || dataQueued) return
+          if (current !== visit || !hasData || freshRecorded) return
+          // A later result in the same frame replaces a snapshot that never painted.
+          if (pendingData !== 'success') pendingData = status
+          if (dataQueued) return
           dataQueued = true
           afterFrame(() => {
             if (current !== visit) return
-            dataAt = now()
-            dataStatus = status
+            dataQueued = false
+            const outcome = pendingData
+            pendingData = undefined
+            const at = now()
+            if ((!firstData || (outcome === 'success' && !firstRecorded)) && outcome !== 'error') firstData = { at, status: outcome === 'success' ? 'success' : 'saved' }
+            if ((!freshData || (outcome === 'success' && !freshRecorded)) && outcome !== 'saved') freshData = { at, status: outcome }
             finishData()
           })
         },
@@ -43,10 +75,8 @@ export function createCoachTabTiming({ record, now = coachTimingClock, afterFram
           if (current !== visit) return
           current = null
           if (screenAt === undefined) log('screen', now(), 'left')
-          if (hasData && !dataRecorded) {
-            const leftAt = now()
-            log('data', leftAt, 'left', screenAt ?? leftAt)
-          }
+          if (hasData && !firstRecorded) log('first', now(), 'left')
+          if (hasData && !freshRecorded) log('fresh', now(), 'left')
         },
       }
       current = visit
@@ -55,8 +85,9 @@ export function createCoachTabTiming({ record, now = coachTimingClock, afterFram
   }
 }
 
-const TAB_NAMES = Object.keys(COACH_TIMED_TABS).flatMap(route => route === 'more' ? [`tab.${route}.screen`] : [`tab.${route}.screen`, `tab.${route}.data`])
-const ALLOWED_NAMES = new Set([...TAB_NAMES, 'home', 'home.matches', 'home.sessions', 'home.calendar', 'home.development', 'home.chatRooms', 'home.polls', 'home.invites'])
+const TAB_NAMES = Object.keys(COACH_TIMED_TABS).flatMap(route => (route === 'more' ? ['screen'] : ['screen', 'data', 'first', 'fresh']).map(stage => `tab.${route}.${stage}`))
+const STARTUP_NAMES = Object.keys(COACH_STARTUP_DESTINATIONS).map(destination => `startup.${destination}`)
+const ALLOWED_NAMES = new Set([...TAB_NAMES, ...STARTUP_NAMES, 'home', 'home.matches', 'home.sessions', 'home.calendar', 'home.development', 'home.chatRooms', 'home.polls', 'home.invites'])
 
 export function createCoachPerformanceDiagnostics({ storage, schedule = setTimeout, cancel = clearTimeout, now = () => new Date() }) {
   let samples = []
@@ -73,11 +104,17 @@ export function createCoachPerformanceDiagnostics({ storage, schedule = setTimeo
       durationMs,
       id: String(sample?.id || `${now().getTime()}:${sequence++}`),
       name,
-      source: sample?.source === 'manual' || sample?.source === 'tap' ? sample.source : 'automatic',
-      status: ['error', 'saved', 'left'].includes(sample?.status) ? sample.status : 'success',
+      source: ['manual', 'tap', 'launch', 'runtime', 'bundle'].includes(sample?.source) ? sample.source : 'automatic',
+      status: ['error', 'saved', 'left', 'cached'].includes(sample?.status) ? sample.status : 'success',
     })
   }
-  const trim = values => values.slice(-MAX_SAMPLES)
+  const trim = (values) => {
+    if (values.length <= MAX_SAMPLES) return values
+    const recent = values.slice(-MAX_SAMPLES)
+    if (recent.some(sample => sample.name.startsWith('startup.'))) return recent
+    const startup = values.slice(0, -MAX_SAMPLES).reverse().find(sample => sample.name.startsWith('startup.'))
+    return startup ? [startup, ...recent.slice(1)] : recent
+  }
   const hydrate = async () => {
     if (hydrated) return
     if (!hydratePromise) {

@@ -10,10 +10,17 @@ export function createMobileResourceCache({ now = Date.now, maxEntries = 80 } = 
       const entry = entries.get(key)
       return entry?.hasValue && (allowStale || now() - entry.savedAt < maxAgeMs) ? entry.value : undefined
     },
-    read(key, loader, { force = false, maxAgeMs = DEFAULT_MAX_AGE_MS } = {}) {
+    read(key, loader, { force = false, maxAgeMs = DEFAULT_MAX_AGE_MS, onSource } = {}) {
       const existing = entries.get(key)
-      if (existing?.pending && (!force || existing.pendingForced)) return existing.pending
-      if (!force && existing?.hasValue && now() - existing.savedAt < maxAgeMs) return Promise.resolve(existing.value)
+      if (existing?.pending && (!force || existing.pendingForced)) {
+        onSource?.('network')
+        return existing.pending
+      }
+      if (!force && existing?.hasValue && now() - existing.savedAt < maxAgeMs) {
+        onSource?.('cache')
+        return Promise.resolve(existing.value)
+      }
+      onSource?.('network')
       const owner = generation
       const entry = { ...existing }
       const pending = Promise.resolve().then(loader).then((value) => {
@@ -58,7 +65,10 @@ export function mobileResourceKey(user, resource) {
 }
 
 export function readMobileResource(user, resource, loader, options = {}) {
-  if (!user?.id) return Promise.resolve().then(loader)
+  if (!user?.id) {
+    options.onSource?.('network')
+    return Promise.resolve().then(loader)
+  }
   const authorityGeneration = user.getCoachAuthorityGeneration?.()
   const guardedLoader = resource.startsWith('coach:') && typeof user.waitForCoachAuthority === 'function'
     ? async () => {

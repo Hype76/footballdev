@@ -973,7 +973,7 @@ function CoachMatchDayScoped({ context, matchDayTarget, onMatchDayTargetHandled,
       if (!hasCachedMatches) {
         setTabDataStatus('error')
         setError('Connect and download fixtures on Home before recording on this phone.')
-      }
+      } else setTabDataStatus('cached')
       return
     }
     try {
@@ -1045,7 +1045,7 @@ function CoachMatchDayScoped({ context, matchDayTarget, onMatchDayTargetHandled,
       if (isCurrentScope() && isMatchDayAccessDenied(loadError)) clearDenied()
       if (isCurrentScope()) { setStale(true); setFixtureStale(true) }
       if (isCurrentScope()) {
-        if (!hasMatchListSnapshot.current) setTabDataStatus('error')
+        setTabDataStatus('error')
         setError(errorMessage(loadError, 'Match Day could not be loaded.'))
       }
     } finally {

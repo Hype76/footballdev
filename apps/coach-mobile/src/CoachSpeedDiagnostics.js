@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Pressable, Text, View } from 'react-native'
 import { clearCoachPerformanceSamples, getCoachConnectionLabel, readCoachPerformanceSamples } from './coachPerformanceDiagnostics'
-import { COACH_TIMED_TABS } from './coachPerformanceDiagnosticsCore'
+import { COACH_STARTUP_DESTINATIONS, COACH_TIMED_TABS } from './coachPerformanceDiagnosticsCore'
 
 const LABELS = Object.freeze({
   home: 'Complete Home refresh',
@@ -13,6 +13,8 @@ const LABELS = Object.freeze({
   'home.polls': 'Poll summary',
   'home.invites': 'Availability summary',
 })
+const OUTCOMES = Object.freeze({ saved: 'Saved data', left: 'Left before ready', error: 'Failed' })
+const START_MARKERS = Object.freeze({ bundle: 'From app code start', runtime: 'From runtime start' })
 
 function formatDuration(value) {
   const duration = Number(value || 0)
@@ -23,10 +25,11 @@ function TimingRows({ title, rows, styles }) {
   return <View>
     <Text accessibilityRole="header" style={styles.bodyText}>{title}</Text>
     {rows.map(([label, sample]) => {
-      const outcome = sample?.status === 'saved' ? ' · Saved data' : sample?.status === 'left' ? ' · Left before ready' : sample?.status === 'error' ? ' · Failed' : ''
+      const outcome = START_MARKERS[sample?.source] || OUTCOMES[sample?.status]
+      const value = !sample ? 'Awaiting sample' : sample.status === 'cached' ? 'Saved data only' : `${formatDuration(sample.durationMs)}${outcome ? ` · ${outcome}` : ''}`
       return <View key={label} style={styles.infoRow}>
         <Text style={styles.infoLabel}>{label}</Text>
-        <Text style={styles.infoValue}>{sample ? formatDuration(sample.durationMs) + outcome : 'Awaiting sample'}</Text>
+        <Text style={styles.infoValue}>{value}</Text>
       </View>
     })}
   </View>
@@ -43,6 +46,7 @@ export function CoachSpeedDiagnostics({ reloadHome, styles }) {
     for (const sample of samples) if (!byName.has(sample.name)) byName.set(sample.name, sample)
     return byName
   }, [samples])
+  const startup = samples.find(sample => sample.name.startsWith('startup.'))
   const tapRows = (stage) => Object.entries(COACH_TIMED_TABS)
     .filter(([route]) => stage === 'screen' || route !== 'more')
     .map(([route, label]) => [label, latest.get(`tab.${route}.${stage}`)])
@@ -65,9 +69,11 @@ export function CoachSpeedDiagnostics({ reloadHome, styles }) {
     setNotice('Saved speed results cleared from this phone.')
   }
   return <View style={{ gap: 10, paddingVertical: 4 }}>
-    <Text style={styles.bodyText}>Open the bottom tabs and wait for their data, then return here. Screen timing starts when Coach receives your tap. Results stay on this phone.</Text>
+    <Text style={styles.bodyText}>Fully close and reopen Coach to measure startup. Open the bottom tabs and wait for their main content, then return here. Fresh data timing includes the whole wait from your tap. Results stay on this phone.</Text>
+    <TimingRows title="App open to first usable screen" rows={[[COACH_STARTUP_DESTINATIONS[startup?.name.slice('startup.'.length)] || 'Coach workspace', startup]]} styles={styles} />
     <TimingRows title="Tap to screen" rows={tapRows('screen')} styles={styles} />
-    <TimingRows title="Data wait after screen opens" rows={tapRows('data')} styles={styles} />
+    <TimingRows title="Tap to first data" rows={tapRows('first')} styles={styles} />
+    <TimingRows title="Tap to fresh data" rows={tapRows('fresh')} styles={styles} />
     <View style={styles.infoRow}><Text style={styles.infoLabel}>Connection reported</Text><Text style={styles.infoValue}>{getCoachConnectionLabel()}</Text></View>
     <Pressable accessibilityRole="button" accessibilityState={{ disabled: running }} disabled={running} onPress={run} style={{ minHeight: 48, justifyContent: 'center', paddingVertical: 10 }}>
       <Text style={styles.bodyText}>{running ? 'Checking speed...' : 'Run speed check'}</Text>
