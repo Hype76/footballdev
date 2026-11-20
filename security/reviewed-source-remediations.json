@@ -771,7 +771,7 @@
   "implementationHashes": {
     "scripts/security-supply-chain-gate.mjs": "9ef3c2fa9949a270eba3b8d7eefc2f9e303e8fbb2fda3921b2e6e42280e733fc",
     "scripts/security-apply-reviewed-backports.mjs": "ba146641cebf4a835337602d942d3fe9e432dfb44cd178e64e7e5bcabe2cb7b1",
-    "scripts/security-verify-reviewed-backports.mjs": "ed59180aad32be9e4a7a3e17204c5c8869cb3a96dc90d10ef34d850dda07d344",
+    "scripts/security-verify-reviewed-backports.mjs": "ee8ee3f8fd8dc6ca86f21415e1f1a7dba4af68803f2657e491ecc222df69f0b0",
     "security/patches/braces-3.0.3.patch": "e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699",
     "security/patches/node-forge-1.4.0.patch": "2de065ac998bf58917a14d0935112d97ec2957ac41b5f06958d500934f188ed4",
     "security/patches/reviewed-source-manifest.json": "0507b50c4ce7a772508ed3a0d18290548bb1fd48802db4599a5ec8e47e2eed49",
@@ -2216,7 +2216,7 @@
       "src/lib/recovery-phase.js": "766ddc9a287d3bdff8f8d9fc32efed6c9541bad9c62018f894ee46b95f4e4766",
       "src/pages/ClubMatchdayTvPage.jsx": "26620fb3d5d9d05efbe0a3c24c5360d5338e9a28832bdfe1671768dd0f4899e8",
       "src/pages/club-matchday-tv.css": "9115a6ea3f37fa378e383db5f9d957a03e83437052833a8b9d4eb0eb42610372",
-      "tests/club-matchday-tv-browser.mjs": "8173d3b3d4030fddde681d4e037377d4730a37425c3756583c22de448a7c3934",
+      "tests/club-matchday-tv-browser.mjs": "8fe05e5301f66ca90a27b9f93423aa49ca9c73eb840fd2564528c32f491149f0",
       "tests/club-matchday-tv-weather.test.mjs": "967df9819b3d087dc3576d9768abd42e18ecdf7cfc2bd4df0e9add545fc854bb",
       "tests/club-matchday-tv.test.mjs": "9e6559dda06cfa0c6cf94f0b37fa986a2f55ca330e929fe5de58946a8c9aa239",
       "tests/security-tooling-updates.test.mjs": "1d78c188aed7037fdea62dac2aed45aac0e8bcc3c4b9b2d9bb28dbebc30ad536",
@@ -2500,10 +2500,10 @@
       "matchday-tv-view.html": "8a5c393d0a52ef7365b16ad613b515e06e47084677181b03a906ee1f96488f9c",
       "public/_redirects": "0697607cbbef250875b142e5ec09e88daa38053204beae6c1c1748fab23f1df9",
       "src/club-matchday-tv-main.jsx": "4c409f172aa1e0f1ce1008cb2681839a663691abf100c27ebd05b5dd8d49a581",
-      "src/pages/ClubMatchdayTvDisplay.jsx": "5b2c6a37f749bb8cdaa203055b35f1640b7723e2dd083cc0a3857b15386e68c7",
-      "src/pages/ClubMatchdayTvSettingsPage.jsx": "4917b7feb8a7fdceba5f58fc5532ab8982cf91c5611720730595cbe37d91a68b",
+      "src/pages/ClubMatchdayTvDisplay.jsx": "751f9c0a38109b9d93dbe7889a6235a6feaf01e656671becf631391c27c9691d",
+      "src/pages/ClubMatchdayTvSettingsPage.jsx": "09f61ef905ed37848d3b7bc9cdd031cf1f186569b08d4376b3e48dc6031007c1",
       "src/pages/StandaloneClubMatchdayTv.jsx": "a64361cca8b8b5116da6b6d0a920b6b8baa0db3c63356f0c9544eb101466fb8d",
-      "src/pages/club-matchday-tv-settings.css": "72fa4739aa42f4a965eaf4f58375310b8949cf8273e5baaf3af677142b7984b9",
+      "src/pages/club-matchday-tv-settings.css": "0e9de8384ae580c7fdddf470e413009f5f7b01a820def24ac159afc1bbd653cc",
       "supabase/migrations/20261112090042_v1_club_matchday_tv_settings.sql": "44153da498a5a91fd16adf3f710e6aaecf5366bde84f03e8642da297207398fa",
       "apps/coach-mobile/src/CoachSavedFormationBoards.js": "baa2ec5c88fd86c6f1f91b87e9273aaceb2323678d82ec5b339c0af227cd4147",
       "apps/mobile-core/src/FormationBoardVisuals.js": "dc979a2af71c48570469dc7d612211f9f6e32a35f32269542c34451ab2ab2e8d",
@@ -2715,7 +2715,8 @@
       "tests/mobile-simon-feedback-55.test.mjs": "5da5f8c3ab601e73037632e20ed6bd0a14acbba43e5972c879948326f05e3ee2",
       "tests/parent-notification-inbox-controls.test.mjs": "a4d245e29f4e3964fc285a59266a8361a821ce4c11f4fbaa121c5e6f888ffc79",
       "tests/mobile-expired-attention-counters-90.test.mjs": "5d5a74af8742503102a36b107fcdc4263d436b58a2c0e941d6a9c8bfe794e8d6",
-      "tests/parent-fan-selected-plan-gates.test.mjs": "30d9d9e959ed98da94d83c8f9c6d3644e005dd5888a5dba851d2b705d13be520"
+      "tests/parent-fan-selected-plan-gates.test.mjs": "30d9d9e959ed98da94d83c8f9c6d3644e005dd5888a5dba851d2b705d13be520",
+      "src/lib/use-club-tv-ordering-qr.js": "98eec26de4b24bf186b2a78c90e7f7e6fc0e164d0263e25ffade146f05058b65"
     },
     "externalTrustInputs": [
       "FOOTBALL_REVIEW_RECEIPT_BASE64",
@@ -4200,7 +4201,7 @@
     },
     "toolingRequalification20261117": "Qualify official minimatch 11.0.9 JavaScript tooling across all three scopes. Lock changes are limited to minimatch; direct and native dependencies, Expo runtime, reviewed package patches and audit rules are retained."
   },
-  "releasePreparationSha256": "a11d1339288a23a8cead5c0053009fb02718a4fb671b4057312f5039957ef25e",
+  "releasePreparationSha256": "4e44ba810994a2d41a1fa2bd4bac62e91793185ce8e15a1decf93f77be6450d4",
   "rootOnlyProposalSha256": "45c3b7352c7328c84982e114b7e87e09cf79514d02d102297ae75ec0925812eb",
   "remediationMode": "maintained-source-fixes",
   "officialCompatibilityDependencies": [

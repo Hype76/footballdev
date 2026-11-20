@@ -4,6 +4,7 @@ import { useAuth } from '../lib/auth.js'
 import { clubTvSlugStatus, clubTvStorageKey, clubTvViewerUrl, hasLocalTvPreferences, normalizeClubTvSlug, normalizeTvOrderingUrl, normalizeTvPreferences, readTvPreferences, TV_ORDERING_URL_MAX_LENGTH, TV_SPONSOR_EXTENSIONS, TV_SPONSOR_MAX_BYTES, validTvSponsorSchedule } from '../lib/club-matchday-tv.js'
 import { getClubMatchdayTv, uploadClubTvSponsor } from '../lib/domain/club-matchday-tv.js'
 import { ClubTvSponsorImage } from '../components/ClubTvSponsorImage.jsx'
+import { useClubTvOrderingQr } from '../lib/use-club-tv-ordering-qr.js'
 import './club-matchday-tv.css'
 import './club-matchday-tv-settings.css'
 
@@ -69,7 +70,9 @@ function DisplaySettings({ clubId, settings, storageKey }) {
   const availability = slugStatus !== 'valid' ? slugStatus
     : slug === savedSlug ? 'available' : checked?.slug === slug ? checked.status : 'checking'
   const needsLink = draft.accessMode === 'public' && !slug && !savedSlug
-  const orderingUrlInvalid = Boolean(draft.pitchsideOrderingUrl.trim() && !normalizeTvOrderingUrl(draft.pitchsideOrderingUrl))
+  const orderingUrl = normalizeTvOrderingUrl(draft.pitchsideOrderingUrl)
+  const orderingUrlInvalid = Boolean(draft.pitchsideOrderingUrl.trim() && !orderingUrl)
+  const orderingQr = useClubTvOrderingQr(orderingUrl)
   const canSave = !orderingUrlInvalid && !saving && !mapUploading && !sponsorsUploading && !needsLink && (!slug || availability === 'available')
   const link = savedSlug ? clubTvViewerUrl(savedSlug) : ''
 
@@ -257,6 +260,10 @@ function DisplaySettings({ clubId, settings, storageKey }) {
             value={draft.pitchsideOrderingUrl} aria-invalid={orderingUrlInvalid} aria-describedby="club-tv-ordering-link-help"
             onChange={(event) => setDraft({ ...draft, pitchsideOrderingUrl: event.target.value })} />
           <small id="club-tv-ordering-link-help">{orderingUrlInvalid ? 'Enter a valid HTTPS ordering link.' : 'When enabled, Matchday TV shows a QR code for this link. Leave it blank to show Coming soon.'}</small>
+          {orderingQr?.data ? <figure className="club-tv-ordering-preview">
+            <img src={orderingQr.data} alt="Kitchen ordering QR preview" width="240" height="240" />
+            <figcaption>Scan with your phone to check the ordering page before saving, or <a href={orderingUrl} target="_blank" rel="noopener noreferrer">open the ordering page in a new tab</a>.</figcaption>
+          </figure> : orderingQr?.error ? <small role="status">QR preview unavailable.</small> : null}
         </fieldset>
         {error ? <p role="alert">{error}</p> : null}
         <p role="status">{message}</p>
