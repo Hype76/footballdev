@@ -1,3 +1,4 @@
+import { requestAdultPlayerWorkspace } from '../../mobile-core/src/adultPlayerWorkspace'
 import { loadTeamBrandingDisplay } from '../../../src/lib/team-branding-display.js'
 
 export async function getAdultPlayerAccess(client, userId) {
@@ -11,7 +12,25 @@ export async function getAdultPlayerAccess(client, userId) {
     return { status: 'denied' }
   }
 
+  let profile
+  try {
+    profile = await requestAdultPlayerWorkspace('profile', { userId, expectedLinkId: row.link_id })
+  } catch (error) {
+    if (error.status === 401 || error.status === 403) return { status: 'denied' }
+    error.playerLinkVerified = true
+    throw error
+  }
+  const selected = profile.link
+  if (selected?.id !== row.link_id || selected.playerId !== row.player_id
+    || selected.clubId !== row.club_id || selected.teamId !== row.team_id || !profile.planKey) {
+    return { status: 'denied' }
+  }
+
   const link = await loadTeamBrandingDisplay(client, {
+    linkType: 'adult_player',
+    planKey: profile.planKey,
+    planStatus: profile.planStatus,
+    capabilities: profile.capabilities || {},
     id: row.link_id,
     playerId: row.player_id,
     playerName: row.player_name,

@@ -58,11 +58,12 @@ test('More notifications count matches the general updates listed by Notificatio
   assert.match(source, /const unreadNotifications = countUnreadGeneralNotifications\(resources\.notifications\.items\)/)
   assert.match(source, /<NotificationsScreen[\s\S]*resource=\{resources\.notifications\}/)
   assert.match(source, /function NotificationsScreen[\s\S]*const updates = prepareParentUpdates\(resource\.items\)/)
-  const countExpression = source.match(/\{ count: (unreadNotifications[^\n]+), key: 'more'/)?.[1]
+  const countExpression = source.match(/\{ count: (\(adultLink[^\n]+), key: 'more'/)?.[1]
   assert.ok(countExpression, 'More badge count remains wired to general notifications')
-  const count = new Function('unreadNotifications', 'homeModel', 'unansweredInvites', 'parentRouteAllowed', `return ${countExpression}`)
-  assert.equal(count(2, { unansweredPolls: 4 }, 3, () => false), 5)
-  assert.equal(count(2, { unansweredPolls: 4 }, 3, (route) => route === 'polls'), 9)
+  const count = new Function('adultLink', 'unreadNotifications', 'homeModel', 'unansweredInvites', 'parentRouteAllowed', `return ${countExpression}`)
+  assert.equal(count(null, 2, { unansweredPolls: 4 }, 3, () => false), 5)
+  assert.equal(count(null, 2, { unansweredPolls: 4 }, 3, (route) => route === 'polls'), 9)
+  assert.equal(count({ id: 'player' }, 2, { unansweredPolls: 4 }, 3, (route) => route === 'polls'), 7)
 })
 
 test('clear all persists only general notifications for this parent and child, including beyond 500', async () => {

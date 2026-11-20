@@ -82,7 +82,8 @@ import { mobileResourceKey } from '../mobile-core/src/mobileResourceCache'
 import { acceptDurableMobileAction, releaseCancelledParentLoads } from '../mobile-core/src/durableMobileAction'
 import { getMobileNotificationIndicator, MOBILE_SETTING_LOAD_STATES, preserveMobileNotificationState } from '../mobile-core/src/deviceSettingsCore'
 import { getParentAppBadgeUpdate } from '../mobile-core/src/parentNotificationsCore'
-import { getParentCalendarEvents, getParentMessages, getParentPolls } from '../mobile-core/src/data'
+import { loadAdultPlayerWorkspace } from './src/adultPlayerWorkspaceData'
+import { getParentCalendarEvents, getParentMessages, getParentPolls, markParentMessageRead, submitParentPollVote } from '../mobile-core/src/data'
 import { getParentPortalLinks, getSelectedParentLink, withSelectedParentLink } from '../mobile-core/src/parentLinks'
 import { buildParentCalendarEvents } from '../mobile-core/src/parentCalendarCore'
 import { createParentChatRequestGate, filterDeniedParentChatHistory, isParentAccessDenied, parentCalendarDependencies, resolveParentCalendarRefresh, resolveParentResourceFailure, shouldClearParentChatOnSettlement } from './src/parentRefreshCore'
@@ -155,6 +156,7 @@ import {
   markParentChatRoomRead,
   markParentNotificationRead,
   openParentResource,
+  openParentDevelopmentReport,
   respondToParentInvitation,
   setParentMatchTransport,
   sendParentChatMessage,
@@ -357,16 +359,16 @@ function LoginScreen() {
   )
 }
 
-function ParentHome({ openPlayer, playerAccess }) {
+export function ParentHome({ openPlayer, playerAccess, adultLink, openOtherAccount }) {
   const [accessRevision, setAccessRevision] = useState(0)
   const [accessNotice, setAccessNotice] = useState(null)
-  return <ParentHomeSession key={accessRevision} initialNotice={accessNotice} openPlayer={openPlayer} playerAccess={playerAccess} onAccessRemoved={(message) => {
+  return <ParentHomeSession key={accessRevision} initialNotice={accessNotice} openPlayer={openPlayer} playerAccess={playerAccess} adultLink={adultLink} openOtherAccount={openOtherAccount} onAccessRemoved={(message) => {
     setAccessNotice({ message, tone: 'warning' })
     setAccessRevision(value => value + 1)
   }} />
 }
 
-function ParentHomeSession({ initialNotice = null, onAccessRemoved, openPlayer, playerAccess }) {
+function ParentHomeSession({ initialNotice = null, onAccessRemoved, openPlayer, playerAccess, adultLink = null, openOtherAccount }) {
   const { authError, isProfileLoading, refreshUserProfile, replaceCurrentUserProfile, signOut, user } = useMobileAuth()
   const lastNotificationResponse = Notifications.useLastNotificationResponse()
   const [activeTab, setActiveTab] = useState('home')
@@ -468,14 +470,14 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved, openPlayer, 
     requestAnimationFrame(() => scrollViewRef.current?.scrollTo({ animated: true, y: targetY }))
     setNotificationSettingsFocusRequest(null)
   }, [])
-  const parentLinks = useMemo(() => getParentPortalLinks(user).filter((link) => link.linkType !== 'fan'), [user])
+  const parentLinks = useMemo(() => adultLink ? [adultLink] : getParentPortalLinks(user).filter((link) => link.linkType !== 'fan'), [adultLink, user])
   const selectedLink = useMemo(
-    () => getSelectedParentLink({ ...user, parentPortalLinks: parentLinks }, selectedLinkId),
-    [parentLinks, selectedLinkId, user],
+    () => adultLink || getSelectedParentLink({ ...user, parentPortalLinks: parentLinks }, selectedLinkId),
+    [adultLink, parentLinks, selectedLinkId, user],
   )
   const selectedMobileUser = useMemo(
-    () => withSelectedParentLink({ ...user, parentPortalLinks: parentLinks }, selectedLink),
-    [parentLinks, selectedLink, user],
+    () => adultLink ? { ...user, role: 'adult_player', parentPortalLinks: [adultLink], selectedParentLinkId: adultLink.id, selectedPlayerId: adultLink.playerId, playerId: adultLink.playerId, clubId: adultLink.clubId, teamId: adultLink.teamId } : withSelectedParentLink({ ...user, parentPortalLinks: parentLinks }, selectedLink),
+    [adultLink, parentLinks, selectedLink, user],
   )
   const connectivityScope = parentConnectivityScope(selectedMobileUser, selectedLink)
   const connectivityScopeRef = useRef(connectivityScope)
@@ -502,6 +504,8 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved, openPlayer, 
   const parentPlanContext = useMemo(() => selectedLink || user, [selectedLink, user])
   const parentRouteAllowed = useCallback((route) => {
     const normalizedRoute = String(route || '').trim().toLowerCase()
+    if (adultLink && normalizedRoute === 'fans') return false
+    if (normalizedRoute === 'stats' && !['parent', 'adult_player'].includes(selectedLink?.linkType)) return false
     if (selectedLink && !String(selectedLink.planKey || selectedLink.plan_key || '').trim()) {
       return !['calendar', 'matchday', 'formation', 'sessions', 'development', 'resources', 'chat', 'messages', 'polls', 'invites', 'results'].includes(normalizedRoute)
     }
@@ -512,7 +516,7 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved, openPlayer, 
       return isMobileCapabilityAllowed(parentPlanContext, 'parentChat', matchdayPlanConfig)
     }
     return isMobileRouteAllowed(parentPlanContext, normalizedRoute, matchdayPlanConfig)
-  }, [matchdayPlanConfig, parentPlanContext, selectedLink])
+  }, [adultLink, matchdayPlanConfig, parentPlanContext, selectedLink])
   useEffect(() => {
     let cancelled = false
     if (!parentPlanContext || !isMatchdayPlan(parentPlanContext)) {
@@ -540,7 +544,7 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved, openPlayer, 
   useEffect(() => { setChildNotificationBadges({}) }, [user?.id])
 
   useEffect(() => {
-    if (!childSwitcherOpen || !selectedMobileUser?.id) return undefined
+    if (adultLink || !childSwitcherOpen || !selectedMobileUser?.id) return undefined
     let cancelled = false
     setChildNotificationBadgeError('')
     void getParentChildNotificationBadges(selectedMobileUser).then((counts) => {
@@ -551,22 +555,22 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved, openPlayer, 
     return () => { cancelled = true }
   }, [childSwitcherOpen, selectedMobileUser])
   const refreshParentAppInstallationPresence = useCallback(async () => {
-    if (!selectedMobileUser?.id) return null
+    if (adultLink || !selectedMobileUser?.id) return null
     try {
       return await registerParentAppInstallation({ apiBaseUrl: config.apiBaseUrl })
     } catch {
       return null
     }
-  }, [selectedMobileUser?.id])
+  }, [adultLink, selectedMobileUser?.id])
   const dismissalStorageKey = useMemo(
-    () => selectedMobileUser?.id && selectedLink?.id ? `fp.parent.dismissed.v1.${selectedMobileUser.id}.${selectedLink.id}` : '',
+    () => selectedMobileUser?.id && selectedLink?.id ? `fp.${adultLink ? 'player' : 'parent'}.dismissed.v1.${selectedMobileUser.id}.${selectedLink.id}` : '',
     [selectedLink?.id, selectedMobileUser?.id],
   )
   const attendanceOutbox = useAttendanceOutbox({
     subscribeNetwork: listener => NetInfo.addEventListener(listener),
-    scope: JSON.stringify(['parent', selectedMobileUser?.id, selectedLink?.id, selectedLink?.playerId, selectedLink?.clubId, selectedLink?.teamId]),
-    read: () => readParentAttendanceCommands(selectedMobileUser, selectedLink),
-    update: change => updateParentAttendanceCommands(selectedMobileUser, selectedLink, change),
+    scope: JSON.stringify([adultLink ? 'adult_player' : 'parent', selectedMobileUser?.id, selectedLink?.id, selectedLink?.playerId, selectedLink?.clubId, selectedLink?.teamId]),
+    read: () => adultLink ? Promise.resolve([]) : readParentAttendanceCommands(selectedMobileUser, selectedLink),
+    update: change => adultLink ? Promise.resolve([]) : updateParentAttendanceCommands(selectedMobileUser, selectedLink, change),
     notify: async (command, receipt) => Boolean(await sendCoachTrainingAvailabilityResponsePushSafely({
       parentLinkId: command.preparation.target.parentLinkId,
       requestPlayerId: command.preparation.target.requestPlayerId,
@@ -712,7 +716,7 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved, openPlayer, 
     }
     let cachedView = null
     try {
-      cachedView = await readParentOfflineView(selectedMobileUser.id, selectedLink.id, selectedMobileUser)
+      cachedView = adultLink ? null : await readParentOfflineView(selectedMobileUser.id, selectedLink.id, selectedMobileUser)
     } catch (error) {
       console.warn(error)
     }
@@ -747,16 +751,19 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved, openPlayer, 
     if (cachedView?.sync) setSyncSummary(cachedView.sync)
     if (isOffline) return { cached: Boolean(cachedView?.cache), failed: cachedView?.cache ? 0 : resourceNames.length }
 
-    const calendarEventResourcesPromise = getParentCalendarEventResources(selectedMobileUser)
+    const adultWorkspace = adultLink ? loadAdultPlayerWorkspace(selectedMobileUser) : null
+    if (adultWorkspace) void adultWorkspace.catch(() => {})
+
+    const calendarEventResourcesPromise = getParentCalendarEventResources(selectedMobileUser, adultWorkspace)
     const resourcesByOccurrencePromise = calendarEventResourcesPromise.then(buildCalendarResourcesByOccurrence)
-    const calendarEventDetailsPromise = getParentCalendarEventDetails(selectedMobileUser)
+    const calendarEventDetailsPromise = getParentCalendarEventDetails(selectedMobileUser, adultWorkspace)
     const calendarEventDetailsByIdPromise = calendarEventDetailsPromise.then((events) => new Map(
       events.map((event) => [normalizeText(event.id), event]),
     ))
     const loaders = {
       calendar: async () => {
         const [calendarEvents, resourcesByOccurrence, detailsById] = await Promise.all([
-          getParentCalendarEvents(selectedMobileUser),
+          getParentCalendarEvents(selectedMobileUser, adultWorkspace),
           resourcesByOccurrencePromise,
           calendarEventDetailsByIdPromise,
         ])
@@ -770,7 +777,7 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved, openPlayer, 
       },
       chatHistory: () => Promise.resolve(previousResources?.chatHistory?.items || cachedView?.cache?.resources.chatHistory || []),
       chatRooms: () => getParentChatRooms(selectedMobileUser),
-      development: () => getParentDevelopmentHistory(selectedMobileUser),
+      development: () => getParentDevelopmentHistory(selectedMobileUser, adultWorkspace),
       invitations: async () => {
         const [invitations, resourcesByOccurrence, detailsById] = await Promise.all([
           getParentInvitations(selectedMobileUser),
@@ -787,17 +794,17 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved, openPlayer, 
       },
       matches: async () => {
         const [matches, players, resourcesByOccurrence] = await Promise.all([
-          getParentPortalMatchDays(selectedMobileUser),
-          getParentPortalMatchDayPlayers(selectedMobileUser),
+          getParentPortalMatchDays(selectedMobileUser, adultWorkspace),
+          getParentPortalMatchDayPlayers(selectedMobileUser, adultWorkspace),
           resourcesByOccurrencePromise,
         ])
         if (requestId === requestIdRef.current) setMatchDayPlayers(players)
         return matches.map((match) => ({ ...match, offlineVerifiedAt: new Date().toISOString(), resources: resourcesByOccurrence.get(getCalendarResourceOccurrenceKey(match.id, match.matchDate, 'match_day')) || [] }))
       },
-      messages: () => getParentMessages(selectedMobileUser),
-      notifications: () => getParentNotificationInbox(selectedMobileUser),
-      polls: () => getParentPolls(selectedMobileUser),
-      resources: () => getParentResources(selectedMobileUser),
+      messages: () => getParentMessages(selectedMobileUser, adultWorkspace),
+      notifications: () => getParentNotificationInbox(selectedMobileUser, adultWorkspace),
+      polls: () => getParentPolls(selectedMobileUser, adultWorkspace),
+      resources: () => getParentResources(selectedMobileUser, adultWorkspace),
     }
     const filterChatHistory = (items) => filterDeniedParentChatHistory(items, deniedChatScopesRef.current, (roomId) => parentChatScope(selectedMobileUser, selectedLink, roomId), deniedResourceScopesRef.current.has(JSON.stringify([cacheScopeKey, 'chatHistory'])))
     const calendarDependencies = parentCalendarDependencies
@@ -815,7 +822,7 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved, openPlayer, 
         if (result.status === 'rejected' && isParentAccessDenied(result.reason)) {
           const names = [name, ...(calendarDependencies.includes(name) ? ['calendar'] : []), ...(name === 'chatRooms' ? ['chatHistory'] : [])]
           names.forEach((item) => deniedResourceScopesRef.current.add(JSON.stringify([cacheScopeKey, item])))
-          deniedCachePurges.push(discardParentOfflineResources(selectedMobileUser, selectedLink.id, { names }).catch((error) => { console.warn('Denied Parent cache could not be removed', error); return error }))
+          if (!adultLink) deniedCachePurges.push(discardParentOfflineResources(selectedMobileUser, selectedLink.id, { names }).catch((error) => { console.warn('Denied Parent cache could not be removed', error); return error }))
         }
         if (shouldClearParentChatOnSettlement(name, result)) {
           chatRequestGateRef.current.invalidate()
@@ -823,7 +830,7 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved, openPlayer, 
         }
         if (result.status === 'fulfilled' && name !== 'calendar' && name !== 'chatHistory') deniedResourceScopesRef.current.delete(JSON.stringify([cacheScopeKey, name]))
         if (result.status === 'fulfilled' && name === 'chatRooms') deniedResourceScopesRef.current.delete(JSON.stringify([cacheScopeKey, 'chatHistory']))
-        if (name === 'invitations' && result.status === 'fulfilled') {
+        if (!adultLink && name === 'invitations' && result.status === 'fulfilled') {
           void reconcileAttendance(result.value.map(invitation => invitation.attendancePreparation))
         }
         const publishCalendar = calendarDependencies.includes(name)
@@ -890,7 +897,7 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved, openPlayer, 
     await Promise.allSettled(deniedCachePurges)
     if (requestId !== requestIdRef.current) return { failed: 0, stale: true }
     let reconciledSync = cachedView?.sync || null
-    if (failed < resourceNames.length) {
+    if (!adultLink && failed < resourceNames.length) {
       try {
         await new Promise((resolve) => {
           InteractionManager.runAfterInteractions(resolve)
@@ -914,8 +921,8 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved, openPlayer, 
         console.warn(error)
       }
     }
-    return { failed, items: refreshedItems, sync: reconciledSync }
-  }, [isOffline, parentLinks, selectedLink, selectedMobileUser, reconcileAttendance])
+    return { failed, items: refreshedItems, matchesFresh: resultByName.matches?.status === 'fulfilled', sync: reconciledSync }
+  }, [adultLink, isOffline, parentLinks, selectedLink, selectedMobileUser, reconcileAttendance, setScorerOutboxes, setSyncSummary])
 
   const parentSyncScopeRef = useRef('')
   const parentActionScopeRef = useRef(0)
@@ -926,7 +933,7 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved, openPlayer, 
     setSyncSummary({ attentionItems: [], needsAttention: 0, state: 'synced', waiting: 0 })
   }, [selectedMobileUser?.id, selectedLink?.id])
   const runParentSync = useCallback(async ({ explicitRetry = false } = {}) => {
-    if (isOffline || !selectedMobileUser?.id) return null
+    if (adultLink || isOffline || !selectedMobileUser?.id) return null
     const scope = parentSyncScopeRef.current
     setIsSyncing(true)
     try {
@@ -948,7 +955,7 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved, openPlayer, 
     } finally {
       if (scope === parentSyncScopeRef.current) setIsSyncing(false)
     }
-  }, [isOffline, loadParentData, selectedLink?.id, selectedMobileUser])
+  }, [adultLink, isOffline, loadParentData, selectedLink?.id, selectedMobileUser, setScorerOutboxes, setSyncSummary])
 
   const refreshParentMatchDay = useCallback(async () => {
     if (isOffline || !selectedMobileUser?.id) return
@@ -959,7 +966,7 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved, openPlayer, 
       ])
       setMatchDayPlayers(players)
       const verifiedMatches = matches.map(match => ({ ...match, offlineVerifiedAt: new Date().toISOString() }))
-      if (selectedLink) setScorerOutboxes(await refreshParentScorerOutboxes(selectedMobileUser, selectedLink, verifiedMatches))
+      if (selectedLink && !adultLink) setScorerOutboxes(await refreshParentScorerOutboxes(selectedMobileUser, selectedLink, verifiedMatches))
       setResources((current) => ({
         ...current,
         matches: { error: '', items: verifiedMatches, loading: false },
@@ -1146,6 +1153,11 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved, openPlayer, 
 
   useEffect(() => {
     if (!selectedMobileUser?.id) return undefined
+    if (adultLink) {
+      setNotificationState({ enabled: false, detailLevel: 'minimal', message: 'Player device alerts are not available on this installation yet.' })
+      setNotificationStateStatus(MOBILE_SETTING_LOAD_STATES.READY)
+      return undefined
+    }
 
     let mounted = true
     const requestId = notificationStateRequestRef.current + 1
@@ -1190,6 +1202,7 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved, openPlayer, 
   }, [])
 
   const reloadParentNotificationState = useCallback(async ({ preserveKnownState = false } = {}) => {
+    if (adultLink) return null
     const requestId = notificationStateRequestRef.current + 1
     notificationStateRequestRef.current = requestId
     if (!preserveKnownState) setNotificationStateStatus(MOBILE_SETTING_LOAD_STATES.LOADING)
@@ -1241,7 +1254,7 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved, openPlayer, 
   }, [recoverParentConnection, loadParentData, refreshParentAppInstallationPresence, reloadParentNotificationState, runParentSync, selectedLink?.id, selectedRoomId])
 
   useEffect(() => {
-    if (!notificationState.enabled || !selectedLink?.id) return undefined
+    if (adultLink || !notificationState.enabled || !selectedLink?.id) return undefined
     const subscription = addParentPushTokenListener((devicePushToken) => {
       void enableParentNotifications({
         apiBaseUrl: config.apiBaseUrl,
@@ -1256,6 +1269,7 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved, openPlayer, 
   }, [notificationState.enabled, selectedLink?.id, user?.id])
 
   useEffect(() => {
+    if (adultLink) return undefined
     const request = lastNotificationResponse?.notification?.request
     if (['parent_accept', 'parent_decline'].includes(lastNotificationResponse?.actionIdentifier)) {
       // Only live delivery and the background task may execute a button press.
@@ -1357,7 +1371,7 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved, openPlayer, 
                 if (!chatRequestGateRef.current.isCurrent(chatRequest, chatRequestScopeRef.current)) return
                 if (isParentAccessDenied(error)) {
                   deniedChatScopesRef.current.add(chatScope)
-                  void discardParentOfflineResources(selectedMobileUser, selectedLink.id, { roomId: room.id }).catch(() => {})
+                  if (!adultLink) void discardParentOfflineResources(selectedMobileUser, selectedLink.id, { roomId: room.id }).catch(() => {})
                   setResources((current) => ({ ...current, chatHistory: { ...current.chatHistory, items: current.chatHistory.items.filter((message) => message.roomId !== room.id) } }))
                 }
                 setChatMessages((current) => resolveParentResourceFailure(current, error, getParentFriendlyError(error, 'Chat messages could not be loaded.')))
@@ -1493,6 +1507,7 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved, openPlayer, 
   }
 
   function handleChildChange(linkId, { stayOnFans = false } = {}) {
+    if (adultLink) return
     if (!parentLinks.some((link) => link.id === linkId)) return
     parentSyncScopeRef.current = `${selectedMobileUser?.id || ''}:${linkId}`
     parentActionScopeRef.current += 1
@@ -1506,6 +1521,7 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved, openPlayer, 
   }
 
   async function handleRemoveOwnPlayerAccess(link) {
+    if (adultLink) return
     if (removalInFlightRef.current || activeActionId || isOffline || isSyncing) throw new Error('Connect and wait for current actions to finish, then try again.')
     const accountId = user.id
     const { profile, removedLinkIds } = buildParentProfileAfterAccessRemoval({ ...user, selectedParentLinkId: selectedLink?.id || user.selectedParentLinkId }, link.playerId)
@@ -1545,6 +1561,12 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved, openPlayer, 
   async function handleOpenMessage(message) {
     setSelectedMessageId(message.id)
     if (message.readAt || activeActionId) return
+    if (adultLink) {
+      if (isOffline) return
+      try { await markParentMessageRead(selectedMobileUser, message.id); await loadParentData() }
+      catch (error) { setNotice({ message: getParentFriendlyError(error, 'This message could not be marked as read.'), tone: 'warning' }) }
+      return
+    }
 
     const scope = parentSyncScopeRef.current
     const generation = parentActionScopeRef.current
@@ -1589,6 +1611,14 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved, openPlayer, 
     if (requiresWatchedMatch(poll) && watchedMatch !== true) return
     const optionId = normalizeText(selectedOptionId) || getPollDraftOption(poll, pollDrafts)
     if (!canSubmitParentPoll(poll, optionId) || activeActionId) return
+    if (adultLink) {
+      if (isOffline) return
+      setActiveActionId(`poll:${poll.id}`)
+      try { await submitParentPollVote(selectedMobileUser, poll.id, optionId, watchedMatch); await loadParentData(); setNotice({ message: 'Your response has been saved.', tone: 'success' }) }
+      catch (error) { setNotice({ message: getParentFriendlyError(error, 'Your poll response could not be saved.'), tone: 'error' }) }
+      finally { setActiveActionId('') }
+      return
+    }
 
     const scope = parentSyncScopeRef.current
     const generation = parentActionScopeRef.current
@@ -1650,9 +1680,9 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved, openPlayer, 
     }
   }
 
-  async function handleInvitationResponse(invitation, responseState, { inlineFeedback = false } = {}) {
-    if (invitation?.attendancePreparation && ['match_attendance', 'training_attendance'].includes(invitation.invitationType)) {
-      if (invitation.attendancePending || activeActionId || !isParentInvitationActionable(invitation)
+  async function handleInvitationResponse(invitation, responseState, { inlineFeedback = false, independent = false } = {}) {
+    if (!adultLink && invitation?.attendancePreparation && ['match_attendance', 'training_attendance'].includes(invitation.invitationType)) {
+      if (invitation.attendancePending || (!independent && activeActionId) || !isParentInvitationActionable(invitation)
         || selectedLink?.linkType !== 'parent' || invitation.parentLinkId !== selectedLink.id || invitation.childId !== selectedLink.playerId) return false
       const scope = parentSyncScopeRef.current
       const generation = parentActionScopeRef.current
@@ -1700,6 +1730,7 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved, openPlayer, 
   }
 
   async function handleMatchTransport(invitation, mode, seatsOffered = 0) {
+    if (adultLink) return
     if (isOffline || activeActionId) return
     const actionScope = parentSyncScopeRef.current
     const actionGeneration = parentActionScopeRef.current
@@ -1735,7 +1766,7 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved, openPlayer, 
   }
 
   const prepareDevelopmentPdf = useCallback((item, viewIsCurrent = () => true) => {
-    if (isOffline || !selectedLink?.id || !item?.canDownloadPdf) return
+    if (adultLink || isOffline || !selectedLink?.id || !item?.canDownloadPdf) return
     const authorityScope = reportScopeRef.current
     const navigationIsCurrent = pdfNavigationVisitRef.current.capture()
     const isCurrent = () => pdfMountedRef.current && authorityScope === reportScopeRef.current && navigationIsCurrent() && viewIsCurrent()
@@ -1751,6 +1782,15 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved, openPlayer, 
 
   async function handleDevelopmentPdf(item, action = 'share', viewIsCurrent = () => true) {
     if (isOffline || !selectedLink?.id || !item?.id) return
+    if (adultLink) {
+      setActiveActionId(`development:${item.id}`)
+      try {
+        const result = await openParentDevelopmentReport(selectedMobileUser, item.id)
+        if (result?.externalUrl) await openExternalParentUrl(result.externalUrl)
+      } catch (error) { setNotice({ message: getParentFriendlyError(error, 'This Development report could not be opened.'), tone: 'warning' }) }
+      finally { setActiveActionId('') }
+      return
+    }
     const authorityScope = reportScopeRef.current
     const navigationIsCurrent = pdfNavigationVisitRef.current.capture()
     const key = `${authorityScope}:${item.id}`
@@ -1918,7 +1958,7 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved, openPlayer, 
       if (unreadMessages.length) {
         const readAt = new Date().toISOString()
         try {
-          await Promise.all(unreadMessages.map((message) => queueParentMessageRead(selectedMobileUser, selectedLink.id, message)))
+          await Promise.all(unreadMessages.map((message) => adultLink ? markParentMessageRead(selectedMobileUser, message.id) : queueParentMessageRead(selectedMobileUser, selectedLink.id, message)))
           setResources((current) => ({
             ...current,
             messages: {
@@ -2050,7 +2090,7 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved, openPlayer, 
 
   function clearDeniedChatHistory(roomId) {
     deniedChatScopesRef.current.add(parentChatScope(selectedMobileUser, selectedLink, roomId))
-    void discardParentOfflineResources(selectedMobileUser, selectedLink.id, { roomId }).catch(() => {})
+    if (!adultLink) void discardParentOfflineResources(selectedMobileUser, selectedLink.id, { roomId }).catch(() => {})
     setResources((current) => ({
       ...current,
       chatHistory: { ...current.chatHistory, items: current.chatHistory.items.filter((message) => message.roomId !== roomId) },
@@ -2068,7 +2108,7 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved, openPlayer, 
       ...current,
       chatHistory: { ...current.chatHistory, error: '', items: nextHistory, loading: false },
     }))
-    void saveParentOfflineResources(selectedMobileUser, selectedLink.id, {
+    if (!adultLink) void saveParentOfflineResources(selectedMobileUser, selectedLink.id, {
       chatHistory: nextHistory,
     }).catch(() => {})
   }
@@ -2244,6 +2284,7 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved, openPlayer, 
   }
 
   async function handleNotificationModeChange(mode) {
+    if (adultLink) { setNotice({ message: 'Player device alerts are not available on this installation yet.', tone: 'warning' }); return }
     if (activeActionId || !selectedLink?.id) return
     const currentMode = notificationState.enabled ? notificationState.detailLevel : 'off'
     const registrationReady = notificationStateStatus === MOBILE_SETTING_LOAD_STATES.READY
@@ -2340,7 +2381,7 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved, openPlayer, 
   async function handleRestoreDismissedItems() {
     if (dismissalStorageKey) await AsyncStorage.removeItem(dismissalStorageKey)
     setDismissedItems({ development: [], invitations: [], matches: [], messages: [], polls: [], resources: [] })
-    setNotice({ message: 'Hidden Parent items are visible again.', tone: 'success' })
+    setNotice({ message: `Hidden ${adultLink ? 'Player' : 'Parent'} items are visible again.`, tone: 'success' })
   }
 
   async function handleCommunicationChannelChange(communicationChannel) {
@@ -2359,6 +2400,7 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved, openPlayer, 
   }
 
   async function handleTestNotification(intentType) {
+    if (adultLink) return
     if (activeActionId || !notificationState.enabled) return
     setActiveActionId('notification-test')
     setNotice(null)
@@ -2383,7 +2425,7 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved, openPlayer, 
     setActiveActionId(`notifications:${action}`)
     try {
       const result = await markParentNotificationRead(selectedMobileUser, notificationIds, action === 'clear' ? 'clear_general' : 'read')
-      await markParentOfflineNotificationRead(selectedMobileUser, linkId, result.notificationIds, action, result.readAt)
+      if (!adultLink) await markParentOfflineNotificationRead(selectedMobileUser, linkId, result.notificationIds, action, result.readAt)
       if (requestId !== requestIdRef.current) return
       setResources((current) => ({ ...current, notifications: { ...current.notifications, items: applyParentNotificationAction(current.notifications.items, result.notificationIds, action, result.readAt) } }))
       setNotice({ message: action === 'clear' ? 'Notifications cleared.' : 'Marked as read.', tone: 'success' })
@@ -2406,7 +2448,7 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved, openPlayer, 
         items: current.notifications.items.map((item) => notificationIdSet.has(normalizeText(item.id)) ? { ...item, isRead: true } : item),
       },
     }))
-    void markParentOfflineNotificationRead(selectedMobileUser, selectedLink.id, notificationIds).catch(() => {})
+    if (!adultLink) void markParentOfflineNotificationRead(selectedMobileUser, selectedLink.id, notificationIds).catch(() => {})
     void markParentNotificationRead(selectedMobileUser, notificationIds).catch(() => {})
 
     const currentItems = Object.fromEntries(resourceNames.map((name) => [name, resources[name].items]))
@@ -2466,7 +2508,7 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved, openPlayer, 
   }
 
   if (selectedLink && !String(selectedLink.planKey || selectedLink.plan_key || '').trim()) {
-    return <LoadingScreen message="Checking your player's team access..." />
+    return <LoadingScreen message={adultLink ? "Checking your team access..." : "Checking your player's team access..."} />
   }
 
   const selectedMessage = resources.messages.items.find((message) => message.id === selectedMessageId)
@@ -2479,7 +2521,7 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved, openPlayer, 
     { key: 'calendar', label: 'Calendar' },
     { key: 'matchday', label: 'Matchday' },
     { count: unreadChat, key: 'chat', label: 'Chat' },
-    { count: unreadNotifications + (parentRouteAllowed('polls') ? homeModel.unansweredPolls : 0) + unansweredInvites, key: 'more', label: 'More' },
+    { count: (adultLink ? 0 : unreadNotifications) + (parentRouteAllowed('polls') ? homeModel.unansweredPolls : 0) + unansweredInvites, key: 'more', label: 'More' },
   ].filter(({ key }) => parentRouteAllowed(key))
   const renderedActiveTab = parentRouteAllowed(activeTab) ? activeTab : 'home'
   const renderedMoreSection = moreSection && parentRouteAllowed(moreSection) ? moreSection : ''
@@ -2563,7 +2605,7 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved, openPlayer, 
             {notice ? <Notice compact={notice.compact} message={notice.message} onDismiss={() => setNotice(null)} tone={notice.tone} /> : null}
             <AttendancePendingRows outbox={attendanceOutbox} onRefresh={async () => { if (isOffline) return false; const result = await loadParentData(); return result?.failed === 0 && !result?.stale }} styles={styles} />
 
-            <NotificationExplainer
+            {!adultLink ? <NotificationExplainer
               key={user.id + selectedLink?.id}
               accountId={user.id} linkId={selectedLink?.id} config={config} palette={palette}
               onState={setNotificationState}
@@ -2574,7 +2616,8 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved, openPlayer, 
                 && !pendingNotificationRoomId && !notificationResponseProcessingRef.current
                 && (!lastNotificationResponse || notificationResponseIdRef.current === lastNotificationResponse.notification?.request?.identifier)
                 && Object.values(resources).every(resource => !resource.loading && !resource.error)}
-            />
+            /> : null}
+            {renderedActiveTab === 'home' && openOtherAccount ? <PrimaryAction label="Open Parent or Fan account" secondary onPress={openOtherAccount} /> : null}
             {renderedActiveTab === 'home' && openPlayer ? <PrimaryAction label="Open Player account" secondary onPress={openPlayer} /> : null}
             {renderedActiveTab === 'home' ? (
               <HomeScreen
@@ -2605,7 +2648,7 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved, openPlayer, 
                 selectedMatch={selectedMatch}
               />
             ) : null}
-            {renderedActiveTab === 'calendar' ? <CalendarScreen targetEventId={selectedCalendarTarget?.id} targetOccurrenceDate={selectedCalendarTarget?.occurrenceDate} targetRequestId={selectedCalendarTarget?.requestId} onOpenEventDetails={() => scrollViewRef.current?.scrollTo({ y: 0, animated: false })} activeActionId={activeActionId} invitations={visibleInvitationsWithMatchTimes} isOffline={isOffline} link={selectedLink} onAddToCalendar={handleAddToCalendar} onDateSelected={() => setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 50)} onOpenInvitation={(invitation) => { setSelectedInvitationId(invitation.invitationId); setMoreSection('invites'); setActiveTab('more') }} onOpenLink={handleOpenMatchLink} onOpenResource={handleOpenCalendarResource} onRespond={handleInvitationResponse} onTransport={handleMatchTransport} resource={resources.calendar} theme={displayTheme} themeTokens={themeModel.tokens} /> : null}
+            {renderedActiveTab === 'calendar' ? <CalendarScreen targetEventId={selectedCalendarTarget?.id} targetOccurrenceDate={selectedCalendarTarget?.occurrenceDate} targetRequestId={selectedCalendarTarget?.requestId} onOpenEventDetails={() => scrollViewRef.current?.scrollTo({ y: 0, animated: false })} activeActionId={activeActionId} invitations={visibleInvitationsWithMatchTimes} isOffline={isOffline} link={selectedLink} onAddToCalendar={handleAddToCalendar} onDateSelected={() => setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 50)} onOpenInvitation={(invitation) => { setSelectedInvitationId(invitation.invitationId); setMoreSection('invites'); setActiveTab('more') }} onOpenLink={handleOpenMatchLink} onOpenResource={handleOpenCalendarResource} onRespond={handleInvitationResponse} onTransport={adultLink ? undefined : handleMatchTransport} resource={resources.calendar} theme={displayTheme} themeTokens={themeModel.tokens} /> : null}
             {renderedActiveTab === 'matchday' ? (
               <MatchdayScreen
                 suppressParentFormation
@@ -2621,11 +2664,11 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved, openPlayer, 
                 onOpen={(match) => setSelectedMatchId(match.id)}
                 onAddToCalendar={handleAddToCalendar}
                 onOpenLink={handleOpenMatchLink}
-                onScorerAction={handleScorerAction}
-                onReviewScorer={handleReviewScorerActions}
-                onVolunteer={handleInvitationResponse}
+                onScorerAction={adultLink ? undefined : handleScorerAction}
+                onReviewScorer={adultLink ? undefined : handleReviewScorerActions}
+                onVolunteer={adultLink ? undefined : handleInvitationResponse}
                 onRespond={handleInvitationResponse}
-                onTransport={handleMatchTransport}
+                onTransport={adultLink ? undefined : handleMatchTransport}
                 players={matchDayPlayers}
                 resource={{ ...resources.matches, items: visibleMatches }}
                 scorerSync={selectedMatch ? scorerOutboxes[selectedMatch.id] : null}
@@ -2636,6 +2679,7 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved, openPlayer, 
             ) : null}
             {renderedActiveTab === 'more' && !renderedMoreSection ? (
               <MoreScreen
+                viewerKind={adultLink ? 'player' : 'parent'}
                 onOpen={(section) => {
                   if (!parentRouteAllowed(section)) {
                     setNotice({ message: 'That section is not available for this team plan.', tone: 'warning' })
@@ -2655,13 +2699,13 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved, openPlayer, 
             {renderedActiveTab === 'more' && ['feedback', 'bug'].includes(renderedMoreSection) ? <UserFeedbackScreen key={renderedMoreSection} type={renderedMoreSection} appRole="parent" headingStyle={styles.detailTitle} textStyle={{ color: palette.text, fontSize: 16 }} /> : null}
             {renderedActiveTab === 'more' && renderedMoreSection === 'profile' ? <ParentProfileScreen key={`profile-${user.id}-${user.displayName || user.name || ''}`} activeActionId={activeActionId} isOffline={isOffline} isSyncing={isSyncing} onDisplayNameChange={handleDisplayNameChange} user={user} /> : null}
             {renderedActiveTab === 'more' && renderedMoreSection === 'partners' ? <PartnersScreen appRole="parent" headingStyle={styles.detailTitle} textStyle={{ color: palette.text, fontSize: 15, lineHeight: 22 }} /> : null}
-            {renderedActiveTab === 'more' && renderedMoreSection === 'updates' ? <NotificationsScreen busy={Boolean(activeActionId)} isOffline={isOffline} matches={visibleMatches} onAction={handleNotificationAction} onOpenNotification={handleOpenNotification} onRetry={handleRefresh} resource={resources.notifications} /> : null}
+            {renderedActiveTab === 'more' && renderedMoreSection === 'updates' ? <NotificationsScreen viewerKind={adultLink ? 'player' : 'parent'} busy={Boolean(activeActionId)} isOffline={isOffline} matches={visibleMatches} onAction={handleNotificationAction} onOpenNotification={handleOpenNotification} onRetry={handleRefresh} resource={resources.notifications} /> : null}
             {renderedActiveTab === 'more' && renderedMoreSection === 'invites' ? (
-              <InvitationsScreen activeActionId={activeActionId} isOffline={isOffline} link={selectedLink} onAddToCalendar={handleAddToCalendar} onBackTarget={() => setSelectedInvitationId('')} onOpenResource={handleOpenCalendarResource} onRespond={handleInvitationResponse} onTransport={handleMatchTransport} resource={{ ...resources.invitations, items: visibleInvitationsWithMatchTimes }} targetInvitationId={selectedInvitationId} theme={displayTheme} themeTokens={themeModel.tokens} />
+              <InvitationsScreen activeActionId={activeActionId} isOffline={isOffline} link={selectedLink} onAddToCalendar={handleAddToCalendar} onBackTarget={() => setSelectedInvitationId('')} onOpenResource={handleOpenCalendarResource} onRespond={handleInvitationResponse} onTransport={adultLink ? undefined : handleMatchTransport} resource={{ ...resources.invitations, items: visibleInvitationsWithMatchTimes }} targetInvitationId={selectedInvitationId} theme={displayTheme} themeTokens={themeModel.tokens} />
             ) : null}
             {renderedActiveTab === 'more' && renderedMoreSection === 'results' ? <ResultsScreen activeActionId={activeActionId} link={selectedLink} onDownloadPdf={handleDownloadMatchReport} resource={{ ...resources.matches, items: visibleMatches }} theme={displayTheme} themeTokens={themeModel.tokens} /> : null}
             {renderedActiveTab === 'more' && renderedMoreSection === 'fans' ? <FansScreen embedded scrollViewRef={scrollViewRef} themeMode={displayTheme} themeTokens={themeModel.tokens} selectedParentLinkId={selectedLink?.id} onSelectedParentLinkChange={(linkId) => handleChildChange(linkId, { stayOnFans: true })} /> : null}
-            {renderedActiveTab === 'more' && renderedMoreSection === 'development' ? <DevelopmentScreen isOffline={isOffline} pendingReportIds={pdfTasks.filter(task => task.authorityScope === reportScopeRef.current).map(task => task.reportId)} onDismiss={(report) => handleDismissParentItem('development', report.id, 'report')} onOpen={handleDevelopmentPdf} onPrepare={prepareDevelopmentPdf} resource={{ ...resources.development, items: visibleDevelopment }} theme={displayTheme} themeTokens={themeModel.tokens} /> : null}
+            {renderedActiveTab === 'more' && renderedMoreSection === 'development' ? <DevelopmentScreen viewerKind={adultLink ? 'player' : 'parent'} isOffline={isOffline} pendingReportIds={pdfTasks.filter(task => task.authorityScope === reportScopeRef.current).map(task => task.reportId)} onDismiss={(report) => handleDismissParentItem('development', report.id, 'report')} onOpen={handleDevelopmentPdf} onPrepare={prepareDevelopmentPdf} resource={{ ...resources.development, items: visibleDevelopment }} theme={displayTheme} themeTokens={themeModel.tokens} /> : null}
             {renderedActiveTab === 'more' && renderedMoreSection === 'resources' ? <ResourcesScreen suppressParentFormation formationBoard={selectedResourcePreview} formationViewportHeight={contentViewportHeight} isOffline={isOffline} onCloseFormation={() => setSelectedResourcePreview(null)} onDismiss={(item) => handleDismissParentItem('resources', item.id, 'resource')} onOpen={(item) => handleOpenParentItem('resource', item)} resource={{ ...resources.resources, items: visibleResources }} theme={displayTheme} themeTokens={themeModel.tokens} /> : null}
             {renderedActiveTab === 'more' && renderedMoreSection === 'messages' ? (
               <MessagesScreen
@@ -2745,10 +2789,10 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved, openPlayer, 
           </View>
         </ScrollView>}
 
-        {!focusedChatRoom ? <BottomTabs activeTab={renderedActiveTab} onChange={handleTabChange} tabs={tabs} theme={displayTheme} /> : null}
+        {!focusedChatRoom ? <BottomTabs appLabel={adultLink ? "Player" : "Parent"} activeTab={renderedActiveTab} onChange={handleTabChange} tabs={tabs} theme={displayTheme} /> : null}
       </KeyboardAvoidingView>
     </SafeAreaView>
-    <NotificationSetupReminder appRole="parent" userId={user.id} state={notificationState} status={notificationStateStatus} offline={isOffline} busy={activeActionId === 'notifications'} palette={palette} onOpenSettings={openNotificationSettings} />
+    {!adultLink ? <NotificationSetupReminder appRole="parent" userId={user.id} state={notificationState} status={notificationStateStatus} offline={isOffline} busy={activeActionId === 'notifications'} palette={palette} onOpenSettings={openNotificationSettings} /> : null}
     </ParentThemeContext.Provider>
     </MobileActivityProvider>
   )
@@ -2860,11 +2904,11 @@ function NotificationStatusButton({ notificationState, notificationStateStatus, 
   )
 }
 
-function BottomTabs({ activeTab, onChange, tabs, theme }) {
+function BottomTabs({ activeTab, appLabel = 'Parent', onChange, tabs, theme }) {
   const { palette, styles } = useParentTheme()
   const isLight = theme === 'light'
   return (
-    <View accessibilityLabel="Parent app navigation" style={[styles.tabBar, isLight && styles.tabBarLight]}>
+    <View accessibilityLabel={`${appLabel} app navigation`} style={[styles.tabBar, isLight && styles.tabBarLight]}>
       {tabs.map((tab) => {
         const active = activeTab === tab.key
         return (
@@ -2890,6 +2934,7 @@ function getNotificationTypeLabel(intentType) {
   return ({
     matchday_update: 'MATCH',
     parent_chat: 'CHAT',
+    player_invitation: 'INVITE',
     parent_message: 'NEWS',
     parent_poll: 'POLL',
     poll_results: 'RESULT',
@@ -2903,6 +2948,7 @@ function getNotificationTypeIcon(intentType) {
   return ({
     matchday_update: 'event',
     parent_chat: 'chat',
+    player_invitation: 'event-available',
     parent_message: 'campaign',
     parent_poll: 'poll',
     poll_results: 'emoji-events',
@@ -2925,13 +2971,13 @@ function HomeStatusBadges({ badges = [] }) {
   })}</View>
 }
 
-function NotificationsScreen({ busy, isOffline, matches, onAction, onOpenNotification, onRetry, resource }) {
+function NotificationsScreen({ viewerKind, busy, isOffline, matches, onAction, onOpenNotification, onRetry, resource }) {
   const { palette, styles } = useParentTheme()
   const [unreadOnly, setUnreadOnly] = useState(false)
   const updates = prepareParentUpdates(resource.items)
   const visible = updates.filter((item) => !unreadOnly || !item.isRead)
   return <View style={styles.screenStack}>
-    <SectionHeading title="Notifications" copy="Squad selection, scores and news from your club." />
+    <SectionHeading title="Notifications" copy={viewerKind === 'player' ? "Your invitations and Chat updates." : "Squad selection, scores and news from your club."} />
     <ResourceError onRetry={onRetry} resource={resource} title="Notifications unavailable" />
     <View style={styles.cardTopRow}>
       <CompactIconAction iconKey="notifications" selected={!unreadOnly} label={`All (${updates.length})`} onPress={() => setUnreadOnly(false)} secondary={unreadOnly} />
@@ -2943,7 +2989,7 @@ function NotificationsScreen({ busy, isOffline, matches, onAction, onOpenNotific
     </View> : null}
     {isOffline ? <Text style={styles.helperText}>Connect to the internet to mark notifications as read or clear them.</Text> : null}
     {resource.loading && !updates.length ? <LoadingPanel message="Loading notifications" /> : null}
-    {!resource.loading && !visible.length ? <EmptyPanel title={unreadOnly ? 'All caught up' : 'No notifications'} message={unreadOnly ? 'Read notifications are still available under All.' : 'Squad decisions, match scores and club news will appear here.'} /> : null}
+    {!resource.loading && !visible.length ? <EmptyPanel title={unreadOnly ? 'All caught up' : 'No notifications'} message={unreadOnly ? 'Read notifications are still available under All.' : viewerKind === 'player' ? 'Your invitations and Chat updates will appear here.' : 'Squad decisions, match scores and club news will appear here.'} /> : null}
     {visible.map((notification) => {
       const presentation = getParentNotificationPresentation(notification, matches)
       return <View key={notification.id} style={[styles.card, !notification.isRead && styles.cardProminent]}>
@@ -2951,7 +2997,7 @@ function NotificationsScreen({ busy, isOffline, matches, onAction, onOpenNotific
         <View style={styles.notificationRow}>
           <View style={styles.notificationIcon}><ParentIcon color={palette.accentText} iconKey={getNotificationTypeIcon(notification.intentType)} size={23} /></View>
           <View style={styles.notificationContent}>
-            <View style={styles.cardTopRow}><Badge label={getNotificationTypeLabel(notification.intentType)} tone={notification.isRead ? 'neutral' : 'accent'} /><Text style={styles.cardDate}>{formatDateTime(notification.sentAt || notification.createdAt)}</Text></View>
+            <View style={styles.cardTopRow}><Badge label={getNotificationTypeLabel(notification.intentType)} tone={notification.isRead ? 'neutral' : 'accent'} />{notification.sentAt || notification.createdAt ? <Text style={styles.cardDate}>{formatDateTime(notification.sentAt || notification.createdAt)}</Text> : null}</View>
             <Text style={styles.cardTitle}>{presentation.displayTitle}</Text>
             <Text style={styles.bodyText}>{presentation.displayBody}</Text>
             <Text style={styles.cardLink}>{presentation.actionLabel}</Text>
@@ -3027,7 +3073,7 @@ function HomeScreen({ playerAccess, userId, leagueUser, activeActionId, calendar
       {homeSections.error ? <Text style={styles.helperText}>{homeSections.error}</Text> : null}
 
       {homeFixtures.length > 0 ? (
-        <HomeCollapsibleSection copy="Upcoming Parent-visible Matchday items." title="Fixtures" expanded={homeSections.sections.fixtures} disabled={!homeSections.ready} onToggle={() => homeSections.toggle('fixtures')}>
+        <HomeCollapsibleSection copy={link?.linkType === 'adult_player' ? "Your upcoming fixtures." : "Upcoming fixtures for your player."} title="Fixtures" expanded={homeSections.sections.fixtures} disabled={!homeSections.ready} onToggle={() => homeSections.toggle('fixtures')}>
           {homeFixtures.map((match) => (
             <MatchPreviewCard invitations={invitations} link={link} key={match.id} match={match} onPress={onOpenMatch} />
           ))}
@@ -3043,7 +3089,7 @@ function HomeScreen({ playerAccess, userId, leagueUser, activeActionId, calendar
       ) : null}
 
       {homeModel.recentMatches.length > 0 ? (
-        <HomeCollapsibleSection copy="Recent Parent-visible results." title="Recent Matchday" expanded={homeSections.sections.recentMatches} disabled={!homeSections.ready} onToggle={() => homeSections.toggle('recentMatches')}>
+        <HomeCollapsibleSection copy={link?.linkType === 'adult_player' ? "Your completed matches." : "Completed matches for your player."} title="Recent Matchday" expanded={homeSections.sections.recentMatches} disabled={!homeSections.ready} onToggle={() => homeSections.toggle('recentMatches')}>
           {homeModel.recentMatches.slice(0, 3).map((match) => (
             <MatchPreviewCard invitations={invitations} link={link} key={match.id} match={match} onPress={onOpenMatch} />
           ))}
@@ -3319,7 +3365,7 @@ function PollsScreen({ activeActionId, drafts, link, onDismiss, onDraftChange, o
                 const optionDisabled = (needsConfirmation && !watchedMatch) || !canSubmitParentPoll(poll, option.id) || busy || ownChildOption || atChoiceLimit
                 return (
                   <Pressable
-                    accessibilityHint={ownChildOption ? 'Your own player is not available for this poll' : poll.allowMultiple ? 'Adds or removes this saved response' : 'Selects this response'}
+                    accessibilityHint={ownChildOption ? link?.linkType === 'adult_player' ? 'You cannot vote for yourself in this poll' : 'Your own player is not available for this poll' : poll.allowMultiple ? 'Adds or removes this saved response' : 'Selects this response'}
                     accessibilityRole={poll.allowMultiple ? 'checkbox' : 'radio'}
                     accessibilityState={{ checked: selected, disabled: optionDisabled }}
                     disabled={optionDisabled}
@@ -3434,6 +3480,7 @@ function SettingsScreen({
   const { palette, styles } = useParentTheme()
   const [currentPassword, setCurrentPassword] = useState('')
   const [nextPassword, setNextPassword] = useState('')
+  const isAdultPlayer = selectedLink?.linkType === 'adult_player'
   const [calendarFeed, setCalendarFeed] = useState({ userId: '', linkId: '', url: '' })
   const [visibleCalendarLink, setVisibleCalendarLink] = useState(null)
   const [calendarHelpExpanded, setCalendarHelpExpanded] = useState(false)
@@ -3448,7 +3495,7 @@ function SettingsScreen({
   useEffect(() => () => { calendarScopeRef.current = '' }, [])
   useEffect(() => {
     let current = true
-    if (user?.id && selectedLink?.id) {
+    if (!isAdultPlayer && user?.id && selectedLink?.id) {
       void getStoredParentCalendarFeedUrl(user, selectedLink).then((url) => {
         if (!current) return
         setCalendarFeed({ userId: user.id, linkId: selectedLink.id, url })
@@ -3519,7 +3566,7 @@ function SettingsScreen({
 
       <SettingsSection id="children" label="Players" iconKey="more.team">
       <InfoPanel iconKey="more.team" title="Linked players">
-        <ParentPlayerAccessControls links={links} disabled={isOffline || isSyncing || Boolean(activeActionId)} onRemove={onRemoveOwnPlayerAccess} palette={palette} />
+        {isAdultPlayer ? <><InfoRow label="Player" value={selectedLink.playerName} /><InfoRow label="Team" value={selectedLink.teamName} /><Text style={styles.helperText}>This is your own Player account. Ask your club to update your team access.</Text></> : <ParentPlayerAccessControls links={links} disabled={isOffline || isSyncing || Boolean(activeActionId)} onRemove={onRemoveOwnPlayerAccess} palette={palette} />}
       </InfoPanel>
       </SettingsSection>
 
@@ -3595,7 +3642,7 @@ function SettingsScreen({
 
       </SettingsSection>
 
-      <SettingsSection id="communication" label="Email & app" iconKey="more.chat">
+      {!isAdultPlayer ? <SettingsSection id="communication" label="Email & app" iconKey="more.chat">
       <InfoPanel iconKey="more.chat" title="Communication choice">
         <Text style={styles.bodyText}>Choose how Football Player sends club updates and requests. Email and app notifications are delivered independently.</Text>
         <View style={styles.notificationChoices}>
@@ -3622,10 +3669,11 @@ function SettingsScreen({
           })}
         </View>
       </InfoPanel>
-      </SettingsSection>
+      </SettingsSection> : null}
 
       <SettingsSection id="notifications" label="Notifications" iconKey="settings.notifications">
       <InfoPanel iconKey="settings.notifications" title="Notifications">
+        {isAdultPlayer ? <Text style={styles.helperText}>Your invitations and Chat updates appear in Notifications. Player device push alerts are not available on this installation yet.</Text> : <>
         <InfoRow
           label="Status"
           value={notificationStateStatus === MOBILE_SETTING_LOAD_STATES.READY
@@ -3642,6 +3690,7 @@ function SettingsScreen({
         {[MOBILE_SETTING_LOAD_STATES.ERROR, MOBILE_SETTING_LOAD_STATES.STALE].includes(notificationStateStatus) ? <PrimaryAction iconKey="action.retry" disabled={activeActionId === 'notifications'} label="Retry notification check" onPress={onRetryNotificationState} secondary /> : null}
         {!notificationStateLoading ? <PrimaryAction iconKey="settings.notifications" secondary disabled={activeActionId === 'notifications'} label={notificationStateStatus === MOBILE_SETTING_LOAD_STATES.READY && notificationState.enabled && notificationState.permissionGranted ? 'Pause all push alerts on this device' : 'Enable push alerts on this device'} onPress={() => onNotificationModeChange(notificationStateStatus === MOBILE_SETTING_LOAD_STATES.READY && notificationState.enabled && notificationState.permissionGranted ? 'off' : 'minimal')} /> : null}
         <PrimaryAction iconKey="settings.app" label="Open device notification settings" onPress={() => Linking.openSettings()} secondary />
+        </>}
 
         <View style={styles.settingRow}>
           <View style={styles.settingCopy}>
@@ -3660,7 +3709,7 @@ function SettingsScreen({
         </View>
 
         {activeActionId === 'notifications' || notificationStateLoading ? <BrandLoader /> : null}
-        <NotificationCategorySettings allowedKeys={notificationCategoryKeys} key={user.id} app="parent" userId={user.id} palette={palette} Icon={ParentIcon} />
+        {!isAdultPlayer ? <NotificationCategorySettings allowedKeys={notificationCategoryKeys} key={user.id} app="parent" userId={user.id} palette={palette} Icon={ParentIcon} /> : null}
 
         {notificationState.enabled && !config.isProduction ? (
           <View style={styles.notificationTestActions}>
@@ -3701,14 +3750,14 @@ function SettingsScreen({
         <InfoRow label="Saved information" value={cacheState.source === 'cache' ? cacheState.stale ? 'Saved, may be out of date' : 'Saved on this device' : 'Up to date'} />
         <InfoRow label="Actions waiting" value={String(syncSummary.waiting)} />
         <InfoRow label="Needs attention" value={String(syncSummary.needsAttention)} />
-        <Text style={styles.helperText}>Saved family information and waiting actions are encrypted on this device and removed when you sign out.</Text>
+        <Text style={styles.helperText}>{isAdultPlayer ? 'Connect to view current Player information and save responses. Player actions are sent directly to your club.' : 'Saved family information and waiting actions are encrypted on this device and removed when you sign out.'}</Text>
         {!isOffline && (syncSummary.waiting > 0 || syncSummary.needsAttention > 0) ? (
           <PrimaryAction label="Retry sync" loading={isSyncing} onPress={onRetrySync} secondary />
         ) : null}
       </InfoPanel>
       </SettingsSection>
 
-      <SettingsSection id="calendar-sync" label="Calendar sync" iconKey="action.calendar">
+      {!isAdultPlayer ? <SettingsSection id="calendar-sync" label="Calendar sync" iconKey="action.calendar">
         <Text accessibilityRole="header" style={styles.cardTitle}>Calendar sync</Text>
         <Text style={styles.helperText}>Accepted events for {selectedLink?.playerName || 'the selected player'}, updated in your calendar.</Text>
         <View style={styles.calendarActions}>
@@ -3723,7 +3772,7 @@ function SettingsScreen({
         </View>
         {calendarNotice ? <Text accessibilityLiveRegion="polite" style={styles.helperText}>{calendarNotice}</Text> : null}
         {calendarError ? <Text accessibilityLiveRegion="polite" style={styles.errorText}>{calendarError}</Text> : null}
-      </SettingsSection>
+      </SettingsSection> : null}
 
       </IconSettings>
     </View>
@@ -3915,6 +3964,7 @@ function AppContent() {
   return (
     <AdultPlayerEntry key={session.user.id} userId={session.user.id} links={user?.id === session.user.id ? user.parentPortalLinks || [] : []} parentProfilePending={user?.id !== session.user.id && isProfileLoading}
       onSignOut={signOut}
+      renderPlayer={({ link, openOtherAccount }) => <ParentHome key={`player:${link.id}`} adultLink={link} openOtherAccount={openOtherAccount} />}
       renderParent={({ openPlayer, playerAccess }) => <ParentHome openPlayer={openPlayer} playerAccess={playerAccess} />}
       renderFan={(openPlayer) => <FansScreen onBack={openPlayer} backLabel="Open Player account" />} />
   )

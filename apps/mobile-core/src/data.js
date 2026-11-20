@@ -1,3 +1,4 @@
+import { isAdultPlayerLink, normalizeAdultCalendarDates, readAdultPlayerWorkspaceSection } from './adultPlayerWorkspace'
 import { getMobileRuntimeConfig } from './config'
 import { fetchJsonWithTimeout, joinApiPath } from './http'
 import { getParentPortalLinks, getSelectedParentLink } from './parentLinks'
@@ -426,8 +427,11 @@ export async function getParentMatchDays(user) {
   }))
 }
 
-export async function getParentCalendarEvents(user) {
+export async function getParentCalendarEvents(user, adultWorkspace) {
   const selectedLink = getSelectedParentLink(user)
+  if (isAdultPlayerLink(selectedLink)) {
+    return (await readAdultPlayerWorkspaceSection(user, adultWorkspace, 'calendar')).map(row => normalizeCalendarEvent(normalizeAdultCalendarDates(row)))
+  }
 
   if (!selectedLink?.id) {
     return []
@@ -443,8 +447,11 @@ export async function getParentCalendarEvents(user) {
   return [...(shared.data || []), ...(cancelled.data || []).map(row => ({ ...row, show_cancelled: true }))].map(normalizeCalendarEvent)
 }
 
-export async function getParentMessages(user) {
+export async function getParentMessages(user, adultWorkspace) {
   const selectedLink = getSelectedParentLink(user)
+  if (isAdultPlayerLink(selectedLink)) {
+    return (await readAdultPlayerWorkspaceSection(user, adultWorkspace, 'messages')).map(normalizeMessage)
+  }
 
   if (!selectedLink?.id) {
     return []
@@ -463,6 +470,11 @@ export async function getParentMessages(user) {
 
 export async function getParentPolls(user) {
   const selectedLink = getSelectedParentLink(user)
+  if (isAdultPlayerLink(selectedLink)) {
+    const { data, error } = await supabase.rpc('get_own_adult_player_polls')
+    if (error) throw error
+    return (data || []).map(normalizePoll)
+  }
 
   if (!selectedLink?.id) {
     return []
@@ -508,6 +520,15 @@ export async function submitParentPollVote(user, pollId, optionId, watchedMatch 
     throw new Error('Choose a poll answer before voting.')
   }
 
+  if (isAdultPlayerLink(selectedLink)) {
+    const { data, error } = await supabase.rpc('submit_own_adult_player_poll_vote', {
+      watched_match_value: watchedMatch === true,
+      option_id_value: normalizedOptionId,
+      poll_id_value: normalizedPollId,
+    })
+    if (error) throw error
+    return data
+  }
   const { data, error } = await supabase.rpc('submit_parent_portal_poll_vote', {
     watched_match_value: watchedMatch === true,
     option_id_value: normalizedOptionId,

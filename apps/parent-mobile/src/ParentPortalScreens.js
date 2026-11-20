@@ -315,7 +315,7 @@ function IconChoice({ accessibilityLabel, busy = false, colors, disabled = false
 }
 
 function InvitationResponseControl({ activeActionId, colors, invitation, isOffline, isLocked = false, label, onRespond, styles }) {
-  const scope = JSON.stringify([invitation.parentLinkId, invitation.childId, invitation.invitationId])
+  const scope = JSON.stringify([invitation.adultPlayerLinkId ? 'adult_player' : 'parent', invitation.adultPlayerLinkId || invitation.parentLinkId, invitation.childId, invitation.invitationId])
   const captureView = useAttendanceUiGuard(scope)
   const inFlight = useRef(null)
   const [submission, setSubmission] = useState(null)
@@ -329,9 +329,10 @@ function InvitationResponseControl({ activeActionId, colors, invitation, isOffli
   const options = getInvitationResponseOptions(invitation)
   const lockReason = getParentInvitationLockReason(invitation)
   const error = local?.error || invitation.attendancePendingError
+  const adultConfirmed = invitation.adultPlayerLinkId && ['accepted', 'available', 'attending', 'yes'].includes(normalizeText(local?.saved ? local.response : invitation.responseState).toLowerCase())
   const status = error || (local?.pending || invitation.attendancePendingStatus === 'persisting' ? 'Saving'
     : invitation.attendancePending ? 'Saved on phone, waiting to sync'
-      : local?.saved || invitation.attendanceSaved ? 'Saved' : '')
+      : adultConfirmed ? "You've confirmed your own attendance." : local?.saved || invitation.attendanceSaved ? 'Saved' : '')
   const respond = async (value) => {
     if (busy || isLocked || offlineBlocked || !actionable || inFlight.current?.scope === scope) return
     const current = captureView()
@@ -341,7 +342,7 @@ function InvitationResponseControl({ activeActionId, colors, invitation, isOffli
     try {
       const receipt = await onRespond(invitation, value, { inlineFeedback: true })
       if (!current()) return
-      setSubmission({ scope, pending: false, saved: Boolean(receipt?.saved), error: receipt?.error || '' })
+      setSubmission({ scope, response: value, pending: false, saved: Boolean(receipt?.saved), error: receipt?.error || '' })
     } catch (failure) {
       if (current()) setSubmission({ scope, pending: false, error: failure?.message || 'Your response could not be saved. Try again.' })
     } finally {
@@ -389,7 +390,7 @@ function ParentCarpoolControl({ activeActionId, colors, invitation, isOffline, o
   const needsLift = Boolean(invitation?.transportNeedsLift)
   const offeringLift = Boolean(invitation?.transportCanOfferLift)
   const status = needsLift ? 'Needs a lift' : offeringLift ? 'Offering a lift' : invitation?.transportRespondedAt ? 'Not needed' : 'Optional'
-  if (invitation?.carpoolEnabled !== true) return null
+  if (invitation?.carpoolEnabled !== true || typeof onTransport !== 'function') return null
   return (
     <View style={styles.inviteSection}>
       <Pressable accessibilityLabel={`Carpool, ${status}`} accessibilityRole="button" accessibilityState={{ expanded: open }} onPress={() => setOpen((current) => !current)} style={styles.inviteSectionHeader}><ParentIcon color={needsLift ? colors.danger : offeringLift ? colors.success : colors.muted} iconKey="carpool.offer" size={23} /><View style={styles.inviteSectionCopy}><Text style={styles.cardTitle}>Carpool</Text><Text style={styles.meta}>{status}</Text></View><ParentIcon color={colors.accentText} iconKey={open ? 'keyboard-arrow-up' : 'keyboard-arrow-down'} size={22} /></Pressable>
@@ -405,7 +406,7 @@ function ParentCarpoolControl({ activeActionId, colors, invitation, isOffline, o
 export function CalendarEventDetail({ activeActionId, backLabel = 'Back to Calendar', event, invitations = [], isOffline, onBack, onOpenLink, onOpenResource, onRespond, themeTokens }) {
   const { colors, styles } = usePortalStyles(themeTokens)
   const invitation = getParentCalendarAttendanceInvitation(event, invitations)
-  const captureResponseView = useAttendanceUiGuard(JSON.stringify([event.id, event.occurrenceDate, invitation?.invitationId, invitation?.parentLinkId]))
+  const captureResponseView = useAttendanceUiGuard(JSON.stringify([event.id, event.occurrenceDate, invitation?.invitationId, invitation?.adultPlayerLinkId || invitation?.parentLinkId]))
   const presentation = getParentEventPresentation(event)
   const directionsUrl = getParentCalendarDirectionsUrl(event, Platform.OS)
   useEffect(() => {
@@ -605,6 +606,7 @@ export function InvitationsScreen({ activeActionId, isOffline, link, onAddToCale
   const counts = useMemo(() => getParentInvitationCounts(resource.items), [resource.items])
   const defaultSection = sections.needsResponse.length ? 'needsResponse' : 'upcoming'
   const [sectionKey, setSectionKey] = useState(null)
+  const [retainedPlayerEvent, setRetainedPlayerEvent] = useState('')
   const [volunteerHelpOpen, setVolunteerHelpOpen] = useState(false)
   const activeSectionKey = sectionKey || defaultSection
   const targetedInvitation = targetInvitationId
@@ -618,8 +620,11 @@ export function InvitationsScreen({ activeActionId, isOffline, link, onAddToCale
   ], [sections])
   const groupedInvitations = useMemo(() => groupParentInvitationsByEvent(uniqueInvitations), [uniqueInvitations])
   const visibleEventKeys = useMemo(() => new Set((targetedInvitation ? [targetedInvitation] : sections[activeSectionKey] || []).map(getParentInvitationEventKey)), [activeSectionKey, sections, targetedInvitation])
-  const visibleGroups = groupedInvitations.filter((group) => visibleEventKeys.has(group.eventKey))
-  const respond = (invitation, responseState, options) => onRespond(invitation, responseState, options)
+  const visibleGroups = groupedInvitations.filter((group) => visibleEventKeys.has(group.eventKey) || (link?.linkType === 'adult_player' && group.eventKey === retainedPlayerEvent))
+  const respond = (invitation, responseState, options) => {
+    if (link?.linkType === 'adult_player') { setSectionKey(activeSectionKey); setRetainedPlayerEvent(getParentInvitationEventKey(invitation)) }
+    return onRespond(invitation, responseState, options)
+  }
   return (
     <View style={styles.stack}>
       {targetedInvitation && onBackTarget ? <Button label="Back to all requests" onPress={onBackTarget} outline styles={styles} /> : null}
@@ -630,7 +635,7 @@ export function InvitationsScreen({ activeActionId, isOffline, link, onAddToCale
         ['upcoming', 'Coming up'],
         ['responded', 'Responded'],
         ['history', 'History'],
-      ].map(([key, label]) => <Button key={key} label={`${label}${counts[key] ? ` (${counts[key]})` : ''}`} onPress={() => setSectionKey(key)} outline={activeSectionKey !== key} styles={styles} />)}</View> : null}
+      ].map(([key, label]) => <Button key={key} label={`${label}${counts[key] ? ` (${counts[key]})` : ''}`} onPress={() => { setSectionKey(key); setRetainedPlayerEvent('') }} outline={activeSectionKey !== key} styles={styles} />)}</View> : null}
       <ResourceState emptyCopy="There are no invitations for this player." {...resource} styles={styles} />
       {!resource.loading && resource.items.length > 0 && visibleGroups.length === 0 ? <Text style={styles.empty}>Nothing is in this section.</Text> : null}
       {visibleGroups.map((group) => {
@@ -1242,8 +1247,8 @@ export function MatchdayScreen({ suppressParentFormation = false, activeActionId
           <Text style={styles.cardTitle}>Archived scoring on this phone</Text>
           {scorerSync.archivedActions.map(command => <Text key={command.id} style={styles.body}>{describeSavedScorerAction(command)}</Text>)}
         </View> : null}
-        {selectedMatch.isScorer && !selectedMatch.needsSavedScoringReview ? <ScorerControls activeActionId={activeActionId} isOffline={isOffline} match={selectedMatch} onAction={(action, value) => onScorerAction(selectedMatch, action, value)} onReview={() => onReviewScorer?.(selectedMatch)} placeholderColor={colors.muted} players={scorerPlayers} scorerSync={scorerSync} styles={styles} /> : null}
-        {selectedMatch.isScorer && !selectedMatch.needsSavedScoringReview ? <MatchdayAction accessibilityLabel="Back to Matchday" label="Back" iconKey="action.back" onPress={onBack} colors={colors} styles={styles} back /> : null}
+        {link?.linkType !== 'adult_player' && selectedMatch.isScorer && !selectedMatch.needsSavedScoringReview ? <ScorerControls activeActionId={activeActionId} isOffline={isOffline} match={selectedMatch} onAction={(action, value) => onScorerAction(selectedMatch, action, value)} onReview={() => onReviewScorer?.(selectedMatch)} placeholderColor={colors.muted} players={scorerPlayers} scorerSync={scorerSync} styles={styles} /> : null}
+        {link?.linkType !== 'adult_player' && selectedMatch.isScorer && !selectedMatch.needsSavedScoringReview ? <MatchdayAction accessibilityLabel="Back to Matchday" label="Back" iconKey="action.back" onPress={onBack} colors={colors} styles={styles} back /> : null}
         <View style={[styles.gameDayHero, selectedMatchIsLive && styles.gameDayHeroLive]}>
           {['cancelled', 'postponed'].includes(selectedMatch.status) ? <Text style={styles.pill}>{getParentMatchStatusLabel(selectedMatch)}</Text> : null}
           <Text accessibilityRole="header" style={styles.header}>{presentation?.displayName || getMatchDayDisplayName(selectedMatch)}</Text>
@@ -1301,7 +1306,7 @@ export function MatchdayScreen({ suppressParentFormation = false, activeActionId
             </View>
           </View>
         ) : null}
-        {scorerInvitation ? (
+        {link?.linkType !== 'adult_player' && scorerInvitation ? (
           <View style={styles.card}><Text style={styles.cardTitle}>Volunteer scorer</Text><Text style={styles.body}>{selectedMatch.scorerRequestMessage || 'Coaches are looking for a Parent scorer.'}</Text><Button disabled={isOffline || Boolean(activeActionId)} label={activeActionId === `invite:${scorerInvitation.invitationId}` ? 'Saving...' : 'Register interest'} onPress={() => onVolunteer(scorerInvitation, 'yes')} styles={styles} /></View>
         ) : null}
         {timeline.length > 0 ? <View style={styles.card}>
@@ -1341,7 +1346,7 @@ export function ResultsScreen({ activeActionId = '', link, onDownloadPdf, resour
   const results = getParentMatchGroups(resource.items).recent.filter((match) => match.status === 'full_time')
   return (
     <View style={styles.stack}>
-      <View><Text accessibilityRole="header" style={styles.header}>Results</Text><Text style={styles.helper}>Completed Parent-visible fixtures for {link?.playerName || 'your player'}.</Text></View>
+      <View><Text accessibilityRole="header" style={styles.header}>Results</Text><Text style={styles.helper}>Completed {link?.linkType === 'adult_player' ? 'fixtures for' : 'Parent-visible fixtures for'} {link?.playerName || 'your player'}.</Text></View>
       <ResourceState emptyCopy="There are no completed results for this player." error={resource.error} items={results} loading={resource.loading} styles={styles} />
       {results.map((match) => <ParentMatchReportCard colors={colors} isDownloading={activeActionId === `match-report:${match.id}`} key={match.id} match={match} onDownloadPdf={onDownloadPdf} styles={styles} />)}
     </View>
@@ -1378,7 +1383,7 @@ function ParentMatchReportCard({ colors, isDownloading = false, match, onDownloa
   )
 }
 
-export function DevelopmentScreen({ isOffline, onDismiss, onOpen, onPrepare, pendingReportIds = [], resource, themeTokens }) {
+export function DevelopmentScreen({ viewerKind, isOffline, onDismiss, onOpen, onPrepare, pendingReportIds = [], resource, themeTokens }) {
   const { colors, styles } = usePortalStyles(themeTokens)
   const [selectedReportId, setSelectedReportId] = useState('')
   const selectedReport = resource.items.find((report) => report.id === selectedReportId) || null
@@ -1444,7 +1449,7 @@ export function DevelopmentScreen({ isOffline, onDismiss, onOpen, onPrepare, pen
     <View style={styles.stack}>
       <View><Text accessibilityRole="header" style={styles.header}>Development</Text><Text style={styles.helper}>Development history shared for the selected player.</Text></View>
       {isOffline ? <Text style={styles.warning}>Report details are saved for reading. Sharing a PDF needs a connection.</Text> : null}
-      <ResourceState emptyCopy="No delivered Development reports are available for this player." {...resource} styles={styles} />
+      <ResourceState emptyCopy={viewerKind === 'player' ? "No development reports have been shared with your Player account." : "No delivered Development reports are available for this player."} {...resource} styles={styles} />
       {resource.items.map((report) => <View key={report.id} style={styles.card}><Pressable accessibilityLabel="View Development report" accessibilityRole="button" onPress={() => setSelectedReportId(report.id)} style={styles.compactRow}><ParentIcon color={colors.accentText} iconKey="development" size={30} /><View style={styles.compactCopy}><View style={styles.row}><Text style={styles.pill}>{report.deliveryLabel || 'Shared'}</Text><Text style={styles.meta}>{formatDate(report.recordDate || report.finalizedAt)}</Text></View><Text style={styles.cardTitle}>{report.form?.name || 'Development report'}</Text>{report.overallScore == null ? null : <Text style={styles.meta}>Overall {report.overallScore} / {report.overallMaxScore || 10}</Text>}</View><ParentIcon color={colors.accentText} iconKey="action.open" size={22} /></Pressable><View style={styles.row}><Text style={styles.meta}>Open report</Text>{onDismiss ? <IconAction accessibilityLabel="Hide Development report" colors={colors} iconKey="action.hide" onPress={() => onDismiss(report)} styles={styles} /> : null}</View></View>)}
     </View>
   )
@@ -1590,16 +1595,16 @@ export function ChatScreen({ activeActionId, connectionUnverified = false, invit
   )
 }
 
-export function MoreScreen({ onOpen, themeTokens, unansweredInvites, unansweredPolls, unreadNotifications, visibleKeys }) {
+export function MoreScreen({ viewerKind, onOpen, themeTokens, unansweredInvites, unansweredPolls, unreadNotifications, visibleKeys }) {
   const { colors, styles } = usePortalStyles(themeTokens)
   const items = [
-    ['updates', 'notifications', 'Notifications', unreadNotifications ? `${unreadNotifications} new` : 'Selection, scores and club news', unreadNotifications],
-    ['invites', 'invite', 'Invites', unansweredInvites ? `${unansweredInvites} to answer` : 'Attendance and roles', unansweredInvites],
+    ['updates', 'notifications', 'Notifications', unreadNotifications ? `${unreadNotifications} new` : viewerKind === 'player' ? 'Your invitations and Chat updates' : 'Selection, scores and club news', unreadNotifications],
+    ['invites', 'invite', 'Invites', unansweredInvites ? `${unansweredInvites} to answer` : viewerKind === 'player' ? 'Your attendance' : 'Attendance and roles', unansweredInvites],
     ['results', 'result', 'Results', 'Completed fixtures', 0],
     ['fans', 'fans', 'Fans', 'People and access', 0],
     ['development', 'development', 'Development', 'Shared reports', 0],
     ['resources', 'resource', 'Resources', 'Files and links', 0],
-    ['polls', 'poll', 'Polls', unansweredPolls ? `${unansweredPolls} to answer` : 'Parent polls', unansweredPolls],
+    ['polls', 'poll', 'Polls', unansweredPolls ? `${unansweredPolls} to answer` : viewerKind === 'player' ? 'Team polls' : 'Parent polls', unansweredPolls],
     ['feedback', 'more.feedback', 'Feedback & Suggestions', 'Share your ideas', 0],
     ['bug', 'more.bug', 'Report a Bug', 'Tell us what went wrong', 0],
     ['settings', 'settings', 'Settings', 'App and alerts', 0],

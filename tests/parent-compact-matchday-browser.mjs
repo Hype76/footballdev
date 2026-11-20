@@ -70,7 +70,7 @@ const setParentMatchTransport=async(user,invitation,mode)=>{window.calls.push(['
 window.calls=[];window.pending=[];window.server=initial;window.serverInvitation=initialInvitation;
 function App(){const[match,setMatch]=useState(initial),[mode,setMode]=useState('light'),[offline,setOffline]=useState(false),[warning,setWarning]=useState(false),[activeActionId,setActiveActionId]=useState(''),[notice,setNotice]=useState(null),[invitation,setInvitation]=useState(initialInvitation),[selectedLinkId,setSelectedLinkId]=useState('parent'),[linkType,setLinkType]=useState('parent'),[showList,setShowList]=useState(false),[fixtures,setFixtures]=useState([]);
 const[screen,setScreen]=useState('matchday'),[target,setTarget]=useState('invitation');
-const isOffline=offline,selectedMobileUser={id:'account',selectedParentLinkId:selectedLinkId},link={...parentLink,id:selectedLinkId,playerId:selectedLinkId==='parent'?'child':'other-child',linkType},parentLinks=[parentLink,{id:'other'}];
+const adultLink=null,isOffline=offline,selectedMobileUser={id:'account',selectedParentLinkId:selectedLinkId},link={...parentLink,id:selectedLinkId,playerId:selectedLinkId==='parent'?'child':'other-child',linkType},parentLinks=[parentLink,{id:'other'}];
 const selectedLink=link;
 const parentSyncScopeRef=useRef(''),parentActionScopeRef=useRef(0),requestIdRef=useRef(0);parentSyncScopeRef.current='account:'+selectedLinkId;
 const setChildSwitcherOpen=()=>{},setActiveTab=()=>{};

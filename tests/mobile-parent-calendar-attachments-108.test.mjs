@@ -16,7 +16,7 @@ test('Parent calendar loader joins safe event attachment metadata to the visible
 
   assert.match(data, /action: 'list_calendar_event_resources'/)
   assert.match(data, /eventId: normalizeText\(resource\.eventId/)
-  assert.match(app, /getParentCalendarEventResources\(selectedMobileUser\)/)
+  assert.match(app, /getParentCalendarEventResources\(selectedMobileUser, adultWorkspace\)/)
   assert.match(app, /buildCalendarResourcesByOccurrence/)
   assert.match(app, /getCalendarResourceOccurrenceKey\(event\.id, event\.startsAt\)/)
   assert.match(endpoint, /select\('id, club_id, team_id, title, category, original_filename, file_size_bytes, archived_at'\)/)
