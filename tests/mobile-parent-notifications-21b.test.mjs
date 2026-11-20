@@ -28,7 +28,7 @@ test('Parent can repair stale or permission-blocked registration without pausing
     const state = { enabled: true, registered: true, detailLevel: 'minimal', permissionGranted }
     const requestRef = { current: 4 }
     const dependencies = {
-      user: { id: 'parent' }, AsyncStorage: { async setItem() {} }, notificationExplainerKey: () => 'parent-test',
+      adultLink: null, playerPushScopeRef: { current: 'parent' }, currentAccountRef: { current: 'parent' }, user: { id: 'parent' }, AsyncStorage: { async setItem() {} }, notificationExplainerKey: () => 'parent-test',
       activeActionId: '', selectedLink: { id: 'parent-link' }, notificationState: state,
       notificationStateStatus: status, MOBILE_SETTING_LOAD_STATES: { READY: 'ready', STALE: 'stale' },
       notificationStateRequestRef: requestRef, config: { apiBaseUrl: 'test', easProjectId: 'project' },
@@ -124,7 +124,7 @@ test('restored Auth reloads notification state without duplicate focus registrat
   assert.match(app, /if \(!selectedMobileUser\?\.id\) return undefined/)
   assert.match(
     app,
-    /loadParentNotificationState\(\{ apiBaseUrl: config\.apiBaseUrl \}\)[\s\S]*setNotificationState/,
+    /loadParentNotificationState\(\{ apiBaseUrl: config\.apiBaseUrl, adultLinkId: adultLink\?\.id \}\)[\s\S]*setNotificationState/,
   )
 
   const appStateEffectStart = app.indexOf("AppState.addEventListener('change'")
