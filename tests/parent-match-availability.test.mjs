@@ -32,12 +32,12 @@ const functionSource = name => { const node = declarations.find(node => node?.ty
 test('data mutations reject unrelated child, Fan and Player before calling the existing RPC', async () => {
   const calls=[]
   const supabase={rpc:async(name,args)=>{calls.push({name,args});return {data:{saved:true}}}}
-  const {setParentMatchTransport,respondToParentInvitation}=new Function('supabase',`
-    const requireSelectedLink=user=>user.link,normalizeText=value=>String(value??'').trim();
+  const {setParentMatchTransport,respondToParentInvitation}=new Function('supabase','respondToOwnAdultPlayerInvitation',`
+    const requireSelectedLink=user=>user.link,isAdultPlayerLink=value=>value?.linkType==='adult_player',normalizeText=value=>String(value??'').trim();
     ${functionSource('isParentInvitationActionable')}
     ${functionSource('setParentMatchTransport')}
     ${functionSource('respondToParentInvitation')}
-    return {setParentMatchTransport,respondToParentInvitation};`)(supabase)
+    return {setParentMatchTransport,respondToParentInvitation};`)(supabase, async (_client, args) => { calls.push({ name: 'own_player', args }); return { success: true } })
   for(const badLink of [{...link,id:'other'},{...link,playerId:'other'},{...link,linkType:'fan'},{...link,linkType:'player'}]) {
     await assert.rejects(setParentMatchTransport({link:badLink},invitation,'needs_lift'),/Parent account/)
     await assert.rejects(respondToParentInvitation({link:badLink},invitation,'available'),/Parent account/)
@@ -49,6 +49,16 @@ test('data mutations reject unrelated child, Fan and Player before calling the e
   assert.equal(calls[0].args.request_id_value,'request')
   assert.equal(calls[1].name,'respond_parent_portal_match_day_invitation')
   assert.equal(calls[1].args.parent_link_id_value,'parent')
+
+  const adult = { ...link, id: 'adult-link', linkType: 'adult_player' }
+  const ownInvitation = { ...invitation, parentLinkId: undefined, adultPlayerLinkId: adult.id }
+  assert.equal(getParentMatchAttendanceInvitation(match, [invitation, ownInvitation], adult), ownInvitation)
+  assert.equal(canChangeParentMatchAvailability(match, ownInvitation, adult), true)
+  await assert.rejects(setParentMatchTransport({ link: adult }, ownInvitation, 'needs_lift'), /Parent account/)
+  await assert.rejects(respondToParentInvitation({ link: adult }, invitation, 'available'), /Player account/)
+  await assert.rejects(respondToParentInvitation({ link: adult }, { ...ownInvitation, childId: 'someone-else' }, 'available'), /Player account/)
+  await respondToParentInvitation({ link: adult }, ownInvitation, 'MAYBE')
+  assert.deepEqual(calls.slice(2), [{ name: 'own_player', args: { invitation: ownInvitation, responseState: 'maybe' } }])
 })
 
 test('match loader merges fixture squad arrays using stable IDs and does not request private transport for readonly links', async () => {
@@ -58,7 +68,7 @@ test('match loader merges fixture squad arrays using stable IDs and does not req
     const data={get_parent_portal_match_days:[{id:'match'}],get_parent_portal_match_squad_transport:[{match_day_id:'match',squad_players:[{player_id:'one',player_name:'Same name',needs_lift:true},{player_id:'two',player_name:'Same name',can_offer_lift:true}]}],get_parent_portal_confirmed_teams:[{match_day_id:'match',selected_player_names:['Same name','Same name']}]}
     return {data:data[name]||[]}
   }}
-  const getParentPortalMatchDays=new Function('supabase','withParentMatchReportBranding',`const requireSelectedLink=user=>user.link,normalizeParentMatchDay=row=>row;${functionSource('getParentPortalMatchDays')};return getParentPortalMatchDays;`)(supabase, (row) => row)
+  const getParentPortalMatchDays=new Function('supabase','withParentMatchReportBranding',`const requireSelectedLink=user=>user.link,isAdultPlayerLink=value=>value?.linkType==='adult_player',normalizeParentMatchDay=row=>row;${functionSource('getParentPortalMatchDays')};return getParentPortalMatchDays;`)(supabase, (row) => row)
   const [result]=await getParentPortalMatchDays({link})
   assert.deepEqual(result.squad_transport.map(player=>player.player_id),['one','two'])
   assert.equal(result.selected_player_names.length,2)

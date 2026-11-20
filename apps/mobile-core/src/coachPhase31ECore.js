@@ -312,7 +312,7 @@ export function getCoachChatRoomDisplay(room = {}) {
   let title = normalize(room.title) || (kind === 'staff' ? 'Coach Chat' : 'Parent Chat')
   let context = teamName
 
-  if (kind === 'parent' && type === 'parent_staff' && playerName) {
+  if (kind === 'parent' && ['parent_staff', 'player_staff'].includes(type) && playerName) {
     title = `${playerName} | Chat with Coaches`
     context = teamName
   } else if (kind === 'parent' && type === 'match_squad') {
@@ -331,6 +331,7 @@ const COACH_CHAT_ROOM_SECTION_DEFINITIONS = Object.freeze([
   Object.freeze({ key: 'team', title: 'Team Chat' }),
   Object.freeze({ key: 'staff', title: 'Coaches' }),
   Object.freeze({ key: 'parents', title: 'Parents' }),
+  Object.freeze({ key: 'players', title: 'Players' }),
   Object.freeze({ key: 'match_day', title: 'Match Day' }),
   Object.freeze({ key: 'other', title: 'Other conversations' }),
 ])
@@ -341,6 +342,7 @@ export function getCoachChatRoomSectionKey(room = {}) {
   if (kind === 'parent' && type === 'team') return 'team'
   if (kind === 'staff') return 'staff'
   if (kind === 'parent' && type === 'parent_staff') return 'parents'
+  if (kind === 'parent' && type === 'player_staff') return 'players'
   if (kind === 'parent' && type === 'match_squad') return 'match_day'
   return 'other'
 }

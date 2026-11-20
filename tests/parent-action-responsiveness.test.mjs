@@ -19,6 +19,7 @@ function fixture(name, { persist = async () => ({ commandId: 'command', createdA
   const refs = { currentAccountRef: { current: 'parent' }, parentSyncScopeRef: { current: 'parent:player' },
     parentActionScopeRef: { current: 0 }, parentFeedbackSequenceRef: { current: 0 }, requestIdRef: { current: 0 } }
   const dependencies = {
+    adultLink: null,
     ...refs, acceptDurableMobileAction, releaseCancelledParentLoads, activeActionId: '', selectedMobileUser: { id: 'parent' }, selectedLink: { id: 'player' },
     isOffline: false, pollDrafts: {}, normalizeText: value => String(value || '').trim(),
     requiresWatchedMatch: () => false, getPollDraftOption: () => 'option', canSubmitParentPoll: () => true,

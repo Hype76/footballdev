@@ -29,6 +29,7 @@ const syncParentOfflineCommands = async (user) => {
 const syncParentScorerOutboxes = async () => ({ saved: 0 })
 const readParentScorerOutboxes = async () => ({})
 function App() {
+  const adultLink = null
   const [isOffline, setIsOffline] = useState(true)
   const [selectedMobileUser, setUser] = useState({ id: 'account-a' })
   const [selectedLink, setLink] = useState({ id: 'child-a' })

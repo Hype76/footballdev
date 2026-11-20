@@ -87,7 +87,7 @@ function App(){
  const [selectedLinkId,setSelectedLinkId]=useState('first'),[activeTab,setActiveTab]=useState('more'),[moreSection,setMoreSection]=useState('fans'),[key,setKey]=useState(0),[mode,setMode]=useState(ownerPreview?'light':'dark');
  const [activeActionId,setActiveActionId]=useState('invite:stale'),[notice,setNotice]=useState({message:'stale notice'});
  const parentSyncScopeRef=useRef('parent-test:first'),parentActionScopeRef=useRef(0),requestIdRef=useRef(0);
- const parentLinks=window.user.parentPortalLinks,selectedMobileUser=window.user;
+ const adultLink=null,parentLinks=window.user.parentPortalLinks,selectedMobileUser=window.user;
  const saveParentOfflineSelection=async(_user,id)=>{window.saved=id};const setChildSwitcherOpen=()=>{};
  ${handler}
  useEffect(()=>{${sectionReset}},[selectedLinkId]);

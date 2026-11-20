@@ -27,7 +27,7 @@ export function useAdultPlayerAccess(userId) {
       }
       return result
     } catch (error) {
-      const result = { status: 'error', previouslyLinked: linkedThisSession.current, message: error.code === 'ADULT_PLAYER_ACCESS_TIMEOUT' ? 'Player access is taking too long to check. Check your connection and try again.' : error.message }
+      const result = { status: 'error', previouslyLinked: linkedThisSession.current || error.playerLinkVerified === true, message: error.code === 'ADULT_PLAYER_ACCESS_TIMEOUT' ? 'Player access is taking too long to check. Check your connection and try again.' : error.message }
       if (mounted.current && request.current === requestId) setAccess({ ...result, userId })
       return result
     }

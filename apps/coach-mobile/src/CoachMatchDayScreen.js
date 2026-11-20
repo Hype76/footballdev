@@ -1006,7 +1006,16 @@ function CoachMatchDayScoped({ context, matchDayTarget, onMatchDayTargetHandled,
       throw operationError
     } finally { busyRef.current = reconciliationPending; setBusy(false) }
   }
-  const confirm = async () => { const action = pending; setPending(null); if (!action) return; try { await action.run() } catch { return } }
+  const confirm = async () => {
+    const action = pending
+    setPending(null)
+    if (!action) return
+    try {
+      await action.run()
+    } catch {
+      if (action.kind === 'start-match') onRequestScrollTop?.()
+    }
+  }
   const notifySquad = async (choices) => {
     if (busyRef.current) throw new Error('Another match change is still saving. Try sending notifications again in a moment.')
     busyRef.current = true
@@ -1072,9 +1081,22 @@ function CoachMatchDayScoped({ context, matchDayTarget, onMatchDayTargetHandled,
     finally { busyRef.current = false; setBusy(false) }
   }
   const canQueueFullTime = offlineReady && outbox.journal.baseMatch.updatedAt === match?.updatedAt
-  const runTimer = action => OFFLINE_MATCH_TIMER_ACTIONS.has(action) && (action !== 'full_time' || canQueueFullTime)
-    ? capture('timer', { action })
-    : replace(() => runCoachMatchDayTimerAction(user, match, action), detail => isCoachMatchDayTimerActionApplied(detail, action))
+  const runTimer = action => {
+    if (action === 'start') {
+      const journal = outbox.journal
+      if (busyRef.current || reconciling || outbox.syncing || journal?.pending?.length || journal?.error || journal?.errorCode) {
+        const message = 'Review saved match actions or wait for syncing before starting this match.'
+        setError(message)
+        return Promise.reject(new Error(message))
+      }
+      if (!user.isOfflineProfile && !stale && Array.isArray(journal?.pending)) {
+        return replace(() => runCoachMatchDayTimerAction(user, match, action), detail => isCoachMatchDayTimerActionApplied(detail, action))
+      }
+    }
+    return OFFLINE_MATCH_TIMER_ACTIONS.has(action) && (action !== 'full_time' || canQueueFullTime)
+      ? capture('timer', { action })
+      : replace(() => runCoachMatchDayTimerAction(user, match, action), detail => isCoachMatchDayTimerActionApplied(detail, action))
+  }
   const runFinish = (action) => {
     const latest = finishRef.current
     if (busyRef.current || selectedMatchId.current !== match.id || latest?.match?.id !== match.id
