@@ -122,7 +122,7 @@ export function countUnreadNonChatNotifications(notifications = []) {
 }
 
 export function prepareParentUpdates(notifications = []) {
-  return prepareParentNotificationInbox(notifications.filter((notification) => getParentNotificationCategory(notification) === 'general'))
+  return prepareParentNotificationInbox(notifications.filter((notification) => notification.audience === 'player' || getParentNotificationCategory(notification) === 'general'))
 }
 
 export function countUnreadGeneralNotifications(notifications = []) {

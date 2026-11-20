@@ -80,7 +80,7 @@ const [invitation]=invitationRows;
 const setInvitation=update=>setInvitationRows(([first,...rest])=>[typeof update==='function'?update(first):update,...rest]);
 const[screen,setScreen]=useState('matchday'),[target,setTarget]=useState('invitation');
 const isOffline=offline,selectedMobileUser={id:'account',selectedParentLinkId:selectedLinkId},link={...parentLink,id:selectedLinkId,playerId:selectedLinkId==='parent'?'child':'other-child',linkType},parentLinks=[parentLink,{id:'other'}];
-const selectedLink=link;
+const selectedLink=link,adultLink=null;
 const parentSyncScopeRef=useRef(''),parentActionScopeRef=useRef(0),invitationResponsesInFlight=useRef(new Set()),requestIdRef=useRef(0);parentSyncScopeRef.current='account:'+selectedLinkId;
 const setChildSwitcherOpen=()=>{},setActiveTab=()=>{};
 const scrollViewRef=useRef(null),contentColumnRef=useRef(null);

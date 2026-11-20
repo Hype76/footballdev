@@ -97,6 +97,10 @@ test('Parent notification native work cannot leave the settings switch busy fore
 test('Coach Parent Chat labels include Player or fixture context', () => {
   const direct = normalizeCoachChatRoom({ player_name: 'Clyde Bates', room_type: 'parent_staff', team_name: 'U17 Green' }, 'parent')
   assert.deepEqual(getCoachChatRoomDisplay(direct), { context: 'U17 Green', title: 'Clyde Bates | Chat with Coaches' })
+  const adult = normalizeCoachChatRoom({ id: 'adult', player_name: 'Adult Player', room_type: 'player_staff', team_name: 'Senior' }, 'parent')
+  assert.deepEqual(getCoachChatRoomDisplay(adult), { context: 'Senior', title: 'Adult Player | Chat with Coaches' })
+  assert.equal(getCoachChatRoomSectionKey(adult), 'players')
+  assert.deepEqual(buildCoachChatRoomSections([adult]).map(section => section.title), ['Players'])
 
   const squad = normalizeCoachChatRoom({ kickoff_time: '10:00:00', match_date: '2026-08-16', opponent: 'St Ives', room_type: 'match_squad', team_name: 'U17 Green' }, 'parent')
   assert.deepEqual(getCoachChatRoomDisplay(squad), { context: '2026-08-16 at 10:00', title: 'U17 Green v St Ives' })

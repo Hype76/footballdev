@@ -98,7 +98,7 @@ jobs:
         run: npm ci --include=optional
       - name: Provision exact externally reviewed backports
         run: npm run security:provision -- --install-mobile
-      - name: Install Playwright Chromium
+      - name: Install Playwright browsers
         run: |
           if ! getent ahostsv4 azure.archive.ubuntu.com >/dev/null; then
             selected=''
@@ -112,7 +112,7 @@ jobs:
             [ -n "$selected" ] || { echo 'No Ubuntu archive is reachable'; exit 1; }
             printf '%s\n' "$selected" | sudo tee /etc/apt/apt-mirrors.txt >/dev/null
           fi
-          npx playwright install --with-deps chromium
+          npx playwright install --with-deps chromium webkit
       - name: Official tooling security and PDF compatibility
         run: node --test tests/security-tooling-updates.test.mjs && node tests/security-tooling-pdf-browser.mjs
       - name: Native calendar subscriptions and background invitation commands
@@ -331,8 +331,11 @@ jobs:
           tests/adult-calendar-notification-delivery.test.mjs
           tests/adult-calendar-real-command.test.mjs
           tests/adult-calendar-response-readback.test.mjs
+          tests/adult-player-workspace-endpoint.test.mjs
+          tests/adult-player-shared-chat-pglite.test.mjs
           && node tests/adult-player-linking-browser.mjs
           && node tests/adult-player-workspace-bridge-browser.mjs
+          && node tests/adult-player-mobile-browser.mjs
           && node tests/adult-player-account-browser.mjs
           && node tests/adult-player-invite-design-browser.mjs
           && node tests/player-contact-layout-browser.mjs

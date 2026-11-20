@@ -1,11 +1,16 @@
 const text = value => String(value ?? '').trim().toLowerCase()
 
+function invitationMatchesLink(invitation, link) {
+  if (!link?.id || !invitation || invitation.childId !== link.playerId) return false
+  if (link.linkType === 'adult_player') return invitation.adultPlayerLinkId === link.id
+  return link.linkType === 'parent' && invitation.parentLinkId === link.id
+}
+
 export function getParentMatchAttendanceInvitation(match, invitations = [], link = {}) {
-  if (!match?.id || !link.id || link.linkType !== 'parent' || match.isFanView) return null
+  if (!match?.id || !link.id || match.isFanView) return null
   return invitations.find(invitation => invitation.invitationType === 'match_attendance'
     && invitation.eventId === match.id
-    && invitation.parentLinkId === link.id
-    && invitation.childId === link.playerId) || null
+    && invitationMatchesLink(invitation, link)) || null
 }
 
 export function getParentMatchVolunteerInvitations(match, invitations = [], link = {}, now = Date.now()) {
@@ -22,8 +27,7 @@ export function getParentMatchVolunteerInvitations(match, invitations = [], link
 }
 
 export function canChangeParentMatchAvailability(match, invitation, link = {}, now = Date.now()) {
-  return Boolean(link.linkType === 'parent' && !match?.isFanView
-    && invitation?.parentLinkId === link.id && invitation?.childId === link.playerId
+  return Boolean(!match?.isFanView && invitationMatchesLink(invitation, link)
     && invitation?.eventId === match?.id && invitation?.invitationType === 'match_attendance' && invitation?.sourceRecordId
     && ['active', 'offered'].includes(invitation.invitationState)
     && (invitation.canRespond || invitation.canChangeResponse)
@@ -33,7 +37,8 @@ export function canChangeParentMatchAvailability(match, invitation, link = {}, n
 }
 
 export function getParentMatchAvailability(match = {}, invitation, link = {}, now = Date.now()) {
-  const status = text(match.availabilityStatus)
+  const status = text(link.linkType === 'adult_player' && invitationMatchesLink(invitation, link)
+    ? invitation.responseState : match.availabilityStatus)
   if (['available', 'yes'].includes(status)) return { label: 'Available', tone: 'success', icon: 'check-circle' }
   if (['unavailable', 'no'].includes(status)) return { label: 'Not available', tone: 'danger', icon: 'cancel' }
   if (status === 'maybe') return { label: 'Maybe', tone: 'warning', icon: 'help-outline' }

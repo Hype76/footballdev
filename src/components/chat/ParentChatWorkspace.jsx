@@ -16,6 +16,7 @@ function isChatAuthorityError(error) {
 
 const groupOrder = [
   { key: PARENT_CHAT_ROOM_TYPES.parentStaff, label: 'Chat with Coaches' },
+  { key: PARENT_CHAT_ROOM_TYPES.playerStaff, label: 'Player Chat with Coaches' },
   { key: PARENT_CHAT_ROOM_TYPES.team, label: 'Team Chat' },
   { key: PARENT_CHAT_ROOM_TYPES.teamTraining, label: 'Training-only Chat' },
   { key: PARENT_CHAT_ROOM_TYPES.teamMatch, label: 'Match-only Chat' },
@@ -66,6 +67,9 @@ function formatClock(value, isTbc = false) {
 }
 
 function getRoomHeading(room) {
+  if (room.type === PARENT_CHAT_ROOM_TYPES.playerStaff) {
+    return 'Player Chat with Coaches'
+  }
   if (room.type === PARENT_CHAT_ROOM_TYPES.parentStaff) {
     return 'Chat with Coaches'
   }
@@ -84,7 +88,7 @@ function getRoomHeading(room) {
 function getRoomContext(room) {
   const children = room.childNames.join(', ')
 
-  if (room.type === PARENT_CHAT_ROOM_TYPES.parentStaff) {
+  if ([PARENT_CHAT_ROOM_TYPES.parentStaff, PARENT_CHAT_ROOM_TYPES.playerStaff].includes(room.type)) {
     return [room.playerName || children, room.teamName].filter(Boolean).join(', ')
   }
 
@@ -96,6 +100,9 @@ function getRoomContext(room) {
 }
 
 function getRoomEmptyCopy(room) {
+  if (room.type === PARENT_CHAT_ROOM_TYPES.playerStaff) {
+    return 'No messages yet. This conversation is shared only with this adult Player and authorised Team Coaches.'
+  }
   if (room.type === PARENT_CHAT_ROOM_TYPES.parentStaff) {
     return 'No messages yet. Use this room for practical questions about your player and team.'
   }

@@ -12,7 +12,7 @@ function extracted(file,name) {
   const visit=node=>{ if(!node||typeof node!=='object')return; if(node.type==='FunctionDeclaration'&&node.id?.name===name)result=source.slice(node.start,node.end); if(node.type==='ObjectMethod'&&node.key?.name===name)result=`function ${source.slice(node.start,node.end)}`; if(node.type==='VariableDeclarator'&&node.id?.name===name)result=`const ${name} = ${source.slice(node.init.start,node.init.end)}`; Object.values(node).forEach(value=>Array.isArray(value)?value.forEach(visit):visit(value)) }
   visit(ast); assert.ok(result,`${name} exists`); return result
 }
-function bind(source,name,dependencies) { const values={canRespondToCoachInviteOnBehalf,...dependencies}; return new Function(...Object.keys(values),`${source}; return ${name}`)(...Object.values(values)) }
+function bind(source,name,dependencies) { const values={adultLink:null,canRespondToCoachInviteOnBehalf,...dependencies}; return new Function(...Object.keys(values),`${source}; return ${name}`)(...Object.values(values)) }
 function deferred(){let resolve,reject;const promise=new Promise((a,b)=>{resolve=a;reject=b});return {promise,resolve,reject}}
 
 test('actual attendance view guard rejects uncommitted, switched, returned and unmounted callback tokens', () => {

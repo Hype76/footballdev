@@ -78,7 +78,7 @@ test('Parent and Fan surfaces hide denied entries and guard direct opens', async
   assert.match(fansMobile, /isFanAccessAllowedForPlan\(connection, action, matchdayPolicy\)/)
   assert.match(parentApp, /isMobileCapabilityAllowed\(parentPlanContext, 'parentChat', matchdayPlanConfig\)/)
   assert.match(parentApp, /normalizedRoute === 'results'[\s\S]{0,160}isMobileCapabilityAllowed\(parentPlanContext, 'matchDay', matchdayPlanConfig\)/)
-  assert.match(parentApp, /return <LoadingScreen message="Checking your player's team access\.\.\."/)
+  assert.match(parentApp, /return <LoadingScreen message=\{adultLink \? "Checking your team access\.\.\." : "Checking your player's team access\.\.\."\}/)
   assert.match(parentApp, /\.filter\(\(\{ key \}\) => parentRouteAllowed\(key\)\)/)
   assert.match(parentApp, /const renderedActiveTab = parentRouteAllowed\(activeTab\) \? activeTab : 'home'/)
   assert.match(parentApp, /const renderedMoreSection = moreSection && parentRouteAllowed\(moreSection\) \? moreSection : ''/)
