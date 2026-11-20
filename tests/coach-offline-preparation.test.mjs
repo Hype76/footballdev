@@ -154,3 +154,17 @@ test('repairing one missing fixture does not download or redate already fresh re
   assert.equal(state.reads, reads)
   assert.equal(state.writes, writes)
 })
+
+
+test('automatic downloads stay complete for the foreground session and recheck after a pause', async () => {
+  let time = 0, runs = 0
+  const runner = createCoachPreparationRunner({ now: () => time, isActive: () => true,
+    refreshAfterSuccess: false, run: async () => { runs += 1; return { complete: true } } })
+  await runner.refresh()
+  time += 10 * COACH_PREPARATION_REFRESH_MS
+  await runner.refresh()
+  assert.equal(runs, 1)
+  runner.pause()
+  await runner.refresh()
+  assert.equal(runs, 2)
+})

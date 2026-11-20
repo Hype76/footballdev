@@ -231,6 +231,8 @@ function CoachHome() {
   const homeDeniedScopeRef = useRef(false)
   homeStateRef.current = homeState
   const [isRefreshing, setIsRefreshing] = useState(false)
+  const lastCoachInteraction = useRef(0)
+  const markCoachInteraction = useCallback(() => { lastCoachInteraction.current = Date.now() }, [])
   const [lastUpdatedAt, setLastUpdatedAt] = useState('')
   const [matchDayTarget, setMatchDayTarget] = useState(null)
   const [calendarTarget, setCalendarTarget] = useState(null)
@@ -780,11 +782,9 @@ function CoachHome() {
   }, [activeContext, selectedMobileUser, user?.id])
 
   useCoachOfflinePreparation({ user: selectedMobileUser, contexts: contextResolution.contexts, activeContext,
-    enabled: Boolean(user?.id && contextReady && contextOwnerUserId === user.id && activeRoute !== 'matchday'),
-    activeInvites: isMatchInvitesRoute,
-    refreshActiveHome: () => {
-      if (activeRoute === 'home' && Date.now() - lastHomeRefreshAtRef.current >= HOME_REFRESH_MIN_INTERVAL_MS) void loadHome()
-    },
+    enabled: Boolean(user?.id && activeContext && contextReady && contextOwnerUserId === user.id && activeRoute !== 'matchday'),
+    foregroundBusy: isSwitchingContext || isRefreshing || (activeRoute === 'home' && homeState.loading),
+    lastInteraction: lastCoachInteraction,
   })
 
   useEffect(() => {
@@ -820,11 +820,12 @@ function CoachHome() {
   }, [activeContext, activeRoute, matchdayPlanConfig, moreRoute, scrollContentToTop])
 
   const navigateFromTab = useCallback((route) => {
+    markCoachInteraction()
     const start = coachTimingClock()
     if (!navigate(route) || (route === activeRoute && !moreRoute)) return
     const timing = tabTracker.begin(route, start)
     if (timing) setTabVisit({ key: `${user?.id || ''}:${activeContext?.id || ''}:${route}:`, timing })
-  }, [activeContext?.id, activeRoute, moreRoute, navigate, tabTracker, user?.id])
+  }, [activeContext?.id, activeRoute, markCoachInteraction, moreRoute, navigate, tabTracker, user?.id])
 
   const closeFormationWorkspace = useCallback(() => {
     const target = formationReturnRef.current
@@ -967,6 +968,24 @@ function CoachHome() {
   }, [activeContext, contextOwnedByCurrentUser, loadHome, user?.id])
 
   useEffect(() => {
+    if (!contextOwnedByCurrentUser || selectedMobileUser?.isOfflineProfile) return undefined
+    const currentLogo = getScopedTeamBranding(activeContext)?.logoUrl
+    const logos = [...new Set(contextResolution.contexts.map(context => getScopedTeamBranding(context)?.logoUrl)
+      .filter(url => url && url !== currentLogo))]
+    if (!logos.length || typeof Image.queryCache !== 'function') return undefined
+    let current = true
+    const work = InteractionManager.runAfterInteractions(() => {
+      void Image.queryCache(logos).then(async cached => {
+        for (const logo of logos) {
+          if (!current) return
+          if (!cached[logo]) await Image.prefetch(logo).catch(() => {})
+        }
+      }).catch(() => {})
+    })
+    return () => { current = false; work.cancel() }
+  }, [activeContext, contextOwnedByCurrentUser, contextResolution.contexts, selectedMobileUser?.isOfflineProfile])
+
+  useEffect(() => {
     latestBadgeCountRef.current = getCoachAppBadgeCount({ unreadChat: homeState.unreadChat })
   }, [homeState.unreadChat])
   useCoachAppBadge({ homeState, activeRoute, contextId: activeContext?.id })
@@ -1000,13 +1019,20 @@ function CoachHome() {
       if (appStateRef.current === 'active') void loadHome({ availabilityOnly: true }).catch(() => {})
     }
     const refreshAttention = () => { refreshChat(); refreshAvailability() }
-    if (returnedHome) refreshAvailability()
+    const refreshHomeIfOld = () => {
+      if (appStateRef.current !== 'active' || Date.now() - lastHomeRefreshAtRef.current < HOME_REFRESH_MIN_INTERVAL_MS) return false
+      void loadHome().catch(() => {})
+      return true
+    }
+    if (returnedHome && !refreshHomeIfOld()) refreshAvailability()
     // Refresh from the current context, never from untrusted notification counts.
     const subscription = Notifications.addNotificationReceivedListener((notification) => {
       const data = notification?.request?.content?.data || {}
       if (data.app === 'coach') refreshAttention()
     })
-    const timer = activeRoute === 'home' ? setInterval(refreshAttention, HOME_REFRESH_MIN_INTERVAL_MS) : null
+    const timer = activeRoute === 'home' ? setInterval(() => {
+      if (!refreshHomeIfOld()) refreshAttention()
+    }, HOME_REFRESH_MIN_INTERVAL_MS) : null
     return () => {
       subscription.remove()
       if (timer) clearInterval(timer)
@@ -1197,7 +1223,7 @@ function CoachHome() {
   return (
     <MobileActivityProvider key={`${user.id}:${activeContext.id}`} active={isRefreshing || homeState.loading} offline={user.isOfflineProfile || homeState.stale}>
     <CoachThemeContext.Provider value={themeContext}>
-      <SafeAreaView edges={['top', 'right', 'left']} style={styles.appShell}>
+      <SafeAreaView edges={['top', 'right', 'left']} onTouchStart={markCoachInteraction} onTouchMove={markCoachInteraction} style={styles.appShell}>
         <StatusBar style={themeModel.mode === 'dark' ? 'light' : 'dark'} />
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -1268,6 +1294,7 @@ function CoachHome() {
               <ContextSwitcher
                 user={selectedMobileUser}
                 contexts={contextResolution.contexts}
+                onInteraction={markCoachInteraction}
                 onSelect={selectContext}
                 selectedContextId={activeContext.id}
                 switching={isSwitchingContext}
@@ -1872,7 +1899,7 @@ function ContextOptionBadge({ logoUrl: remoteUrl, user, context, styles }) {
     source={showLogo ? { uri: logoUrl } : require('./assets/football-player-logo.png')} style={styles.contextBadge} />
 }
 
-function ContextSwitcher({ contexts, user, initial = false, onSelect, selectedContextId, switching = false }) {
+function ContextSwitcher({ contexts, user, initial = false, onInteraction, onSelect, selectedContextId, switching = false }) {
   const { palette, styles } = useCoachTheme()
   const [open, setOpen] = useState(false)
   const preparation = useCoachAccountPreparationStatus(user, contexts, open || initial)
@@ -1921,7 +1948,7 @@ function ContextSwitcher({ contexts, user, initial = false, onSelect, selectedCo
     </View>
     <Modal animationType="slide" navigationBarTranslucent={false} onRequestClose={() => setOpen(false)} presentationStyle="fullScreen" statusBarTranslucent={false} visible={open}>
       <SafeAreaProvider>
-      <SafeAreaView accessibilityViewIsModal edges={['top', 'bottom', 'right', 'left']} style={styles.appShell}>
+      <SafeAreaView accessibilityViewIsModal edges={['top', 'bottom', 'right', 'left']} onTouchStart={onInteraction} onTouchMove={onInteraction} style={styles.appShell}>
         <View style={styles.contextPickerHeader}>
           <Text accessibilityRole="header" style={[styles.screenTitle, styles.contextPickerCopy]}>Change team or club</Text>
           <Pressable accessibilityRole="button" onPress={() => setOpen(false)} style={styles.contextPickerClose}><Text style={styles.contextPickerSelectedText}>Close</Text></Pressable>

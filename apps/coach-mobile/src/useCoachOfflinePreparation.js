@@ -9,7 +9,7 @@ import { notifyCoachOfflinePreparation, prepareCoachAccount } from './coachAccou
 import { assertCoachAccountPreparationFinished } from './coachAccountOfflinePreparation'
 import { coachPreparationScopeKey } from './coachAccountPreparationCoordinator'
 
-export function useCoachOfflinePreparation({ user, contexts = null, context = null, activeContext = context, enabled, refreshActiveHome }) {
+export function useCoachOfflinePreparation({ user, contexts = null, context = null, activeContext = context, enabled, lastInteraction, foregroundBusy = false }) {
   const availableContexts = useMemo(() => contexts || (context ? [context] : []), [contexts, context])
   const latest = useRef({ user, contexts: availableContexts })
   useEffect(() => { latest.current = { user, contexts: availableContexts } }, [user, availableContexts])
@@ -17,18 +17,29 @@ export function useCoachOfflinePreparation({ user, contexts = null, context = nu
   const scopeKey = coachPreparationScopeKey(userId, user?.isOfflineProfile ? 'offline' : 'online', availableContexts)
   const eligible = Boolean(enabled && user?.id && !user.isOfflineProfile && availableContexts.some(item => item.clubId))
   const selectedId = useRef('')
-  const refreshHomeRef = useRef(refreshActiveHome)
-  useEffect(() => { selectedId.current = activeContext?.id || ''; refreshHomeRef.current = refreshActiveHome }, [activeContext?.id, refreshActiveHome])
+  const busy = useRef(foregroundBusy)
+  useEffect(() => { busy.current = foregroundBusy }, [foregroundBusy])
+  useEffect(() => { selectedId.current = activeContext?.id || '' }, [activeContext?.id])
   useEffect(() => {
     if (!eligible) return undefined
     const runner = createCoachPreparationRunner({
       isActive: () => AppState.currentState === 'active',
+      refreshAfterSuccess: false,
       run: async runnerIsCurrent => {
+        const waitForForeground = async isCurrent => {
+          while (isCurrent() && (busy.current || Date.now() - (lastInteraction?.current || 0) < 2000)) {
+            await new Promise(resolve => setTimeout(resolve, 250))
+          }
+        }
+        const yieldControl = async isCurrent => {
+          await new Promise(resolve => setTimeout(resolve, 0))
+          await waitForForeground(isCurrent)
+        }
         await new Promise(resolve => InteractionManager.runAfterInteractions(resolve))
+        await waitForForeground(runnerIsCurrent)
         if (!runnerIsCurrent()) return { cancelled: true }
-        refreshHomeRef.current?.()
         const current = latest.current
-        const result = await prepareCoachAccount(current.user, current.contexts, selectedId.current, runnerIsCurrent, { yieldControl: () => new Promise(resolve => setTimeout(resolve, 0)) })
+        const result = await prepareCoachAccount(current.user, current.contexts, selectedId.current, runnerIsCurrent, { yieldControl, reuseSaved: true })
         if (!result.cancelled && result.retryNeeded) throw new Error('Some club information still needs downloading.')
         return result
       },
@@ -51,7 +62,7 @@ export function useCoachOfflinePreparation({ user, contexts = null, context = nu
       else { runner.pause(); notifyCoachOfflinePreparation(userId) }
     })
     return () => { runner.stop(); clearTimeout(idleTimer); clearInterval(interval); subscription.remove() }
-  }, [scopeKey, eligible, userId])
+  }, [scopeKey, eligible, userId, lastInteraction])
 }
 
 export async function syncCoachOfflineNow(user, context) {

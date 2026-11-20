@@ -261,3 +261,39 @@ test('a failed team continues the account queue and a retry checks its scope bef
   assert.equal(states.get(one.id).checkpoint, undefined)
   assert.equal(fetched, 2)
 })
+
+
+test('automatic preparation repairs missing teams and keeps completed downloads across sessions', async () => {
+  const teams = ['first', 'missing', 'last'].map(id => ({ id, clubId: 'club', teamId: id }))
+  const completed = { schemaVersion: 1, state: 'ready', savedAt: '2026-11-19T17:00:00Z',
+    resources: { players: 'previous-players', offlineMediaInventory: 'saved-files' } }
+  const saved = { resources: { players: [], offlineMediaInventory: [] },
+    resourceMetadata: { players: { fingerprint: 'fresh-players' }, offlineMediaInventory: { fingerprint: 'saved-files' } } }
+  const changed = validateCoachAccountOfflineStatus(completed, saved, { acceptUpdatedResources: true })
+  assert.equal(changed.state, 'ready')
+  assert.equal(validateCoachAccountOfflineStatus(completed, { ...saved, resources: { players: [] } },
+    { acceptUpdatedResources: true }).state, 'partial')
+
+  const gate = deferred(), reached = deferred(), checked = [], loads = []
+  const pending = prepareCoachAccountOffline({
+    user: { id: 'coach' },
+    contexts: teams,
+    selectedContextId: teams[0].id,
+    reuseSaved: true,
+    now: () => '2026-11-20T18:00:00Z',
+    readPreviousStatus: async (_id, team) => team.id !== 'missing' ? changed : null,
+    verifyCheckpoint: async (_user, team) => { checked.push(team.id) },
+    yieldControl: async () => {
+      if (checked.length === 1 && !loads.length) { reached.resolve(); await gate.promise }
+    },
+    createSaver: () => async () => saved,
+    saveStatus: async () => {},
+    loadContext: async (_user, team) => { loads.push(team.id); return { complete: true } },
+  })
+  await reached.promise
+  assert.deepEqual(loads, [], 'A foreground wait holds the next team download')
+  gate.resolve()
+  assert.equal((await pending).complete, true)
+  assert.deepEqual(loads, ['missing'])
+  assert.deepEqual(checked, ['first', 'last'])
+})
