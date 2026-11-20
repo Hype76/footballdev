@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
+import { resolve } from 'node:path'
 import { build } from 'esbuild'
 import { chromium } from 'playwright'
 
@@ -12,7 +13,7 @@ const bundle=await build({stdin:{resolveDir:process.cwd(),loader:'jsx',contents:
  onRejectPlayerNotification={window.rejectPush} wasPlayerNotificationHandled={window.wasHandled} renderParent={()=> <h1>Parent Home</h1>}
  renderPlayer={({link})=><h1>Player {link.id}</h1>} />}
  createRoot(document.getElementById('root')).render(<App/>);
-`},bundle:true,write:false,platform:'browser',jsx:'automatic',loader:{'.js':'jsx'},plugins:[{name:'services',setup(builder){
+`},bundle:true,write:false,platform:'browser',jsx:'automatic',loader:{'.js':'jsx'},alias:{react:resolve('node_modules/react')},plugins:[{name:'services',setup(builder){
  builder.onResolve({filter:/\/(useAdultPlayerAccess|adultPlayerAccess\.js|AdultPlayerScreen)$/},args=>({path:args.path,namespace:'fixture'}));
  builder.onLoad({filter:/.*/,namespace:'fixture'},args=>{
  if(args.path.endsWith('AdultPlayerScreen'))return {contents:'export const AdultPlayerScreen=()=>null'};
