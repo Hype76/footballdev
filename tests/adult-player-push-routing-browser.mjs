@@ -9,7 +9,7 @@ const bundle=await build({stdin:{resolveDir:process.cwd(),loader:'jsx',contents:
  import {AdultPlayerEntry} from './apps/parent-mobile/src/AdultPlayerEntry.js';
  function App(){const [response,setResponse]=useState(null);const [user,setUser]=useState('user');window.tap=setResponse;window.changeAccount=setUser;
  return <AdultPlayerEntry key={user} userId={user} links={[{id:'parent-link',linkType:'parent'}]} notificationResponse={response}
- onRejectPlayerNotification={window.rejectPush} renderParent={()=> <h1>Parent Home</h1>}
+ onRejectPlayerNotification={window.rejectPush} wasPlayerNotificationHandled={window.wasHandled} renderParent={()=> <h1>Parent Home</h1>}
  renderPlayer={({link})=><h1>Player {link.id}</h1>} />}
  createRoot(document.getElementById('root')).render(<App/>);
 `},bundle:true,write:false,platform:'browser',jsx:'automatic',loader:{'.js':'jsx'},plugins:[{name:'services',setup(builder){
@@ -29,11 +29,15 @@ try {
  await page.evaluate(()=>{
   window.activeLink={id:'own-link',clubId:'own-club',teamId:'own-team'};
   window.accessResult={status:'linked',link:window.activeLink};window.rejections=[];
-  window.rejectPush=id=>window.rejections.push(id);window.readAccess=async()=>window.accessResult;
+  window.rejectPush=id=>window.rejections.push(id);window.wasHandled=async(_user,id)=>id==='handled';window.readAccess=async()=>window.accessResult;
  })
  await page.addScriptTag({content:bundle.outputFiles[0].text})
  await page.getByRole('heading',{name:'Parent Home'}).waitFor()
  const tap=(id,change={})=>({notification:{request:{identifier:id,content:{data:{app:'player',userId:'user',adultLinkId:'own-link',clubId:'own-club',teamId:'own-team',route:'chat',roomId:'room',...change}}}}})
+ await page.evaluate(value=>window.tap(value),tap('handled'))
+ await page.waitForTimeout(50)
+ assert.equal(await page.getByRole('heading',{name:'Parent Home'}).count(),1)
+ await page.evaluate(()=>window.tap(null))
  await page.evaluate(value=>window.tap(value),tap('valid'))
  await page.getByRole('heading',{name:'Player own-link'}).waitFor()
  await page.evaluate(()=>window.changeAccount('wrong-user'))

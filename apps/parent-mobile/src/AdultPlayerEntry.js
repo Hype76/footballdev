@@ -4,7 +4,7 @@ import { selectAdultPlayerView } from './adultPlayerAccess.js'
 import { prepareAdultPlayerNotificationMode, resolveAdultPlayerNotificationMode } from './adultPlayerNotificationsCore.js'
 import { useAdultPlayerAccess } from './useAdultPlayerAccess'
 
-export function AdultPlayerEntry({ userId, links, parentProfilePending, onSignOut, renderParent, renderFan, renderPlayer, notificationResponse, onRejectPlayerNotification }) {
+export function AdultPlayerEntry({ userId, links, parentProfilePending, onSignOut, renderParent, renderFan, renderPlayer, notificationResponse, onRejectPlayerNotification, wasPlayerNotificationHandled }) {
   const { access, refresh } = useAdultPlayerAccess(userId)
   const hasParent = links.some(link => link.linkType !== 'fan')
   const hasFan = !hasParent && links.some(link => link.linkType === 'fan')
@@ -17,13 +17,20 @@ export function AdultPlayerEntry({ userId, links, parentProfilePending, onSignOu
     let current = true
     const pending = { responseId, data, retry: false }
     pendingPush.current = pending
-    void prepareAdultPlayerNotificationMode({
+    void (async () => {
+      if (await wasPlayerNotificationHandled?.(userId, responseId)) {
+        if (current && pendingPush.current === pending) pendingPush.current = null
+        return 'handled'
+      }
+      if (!current || pendingPush.current !== pending) return 'stale'
+      return prepareAdultPlayerNotificationMode({
       data, userId, refresh, isCurrent: () => current && pendingPush.current === pending,
       selectPlayer: () => { pendingPush.current = null; setPreferredMode('player') },
       reject: () => { pendingPush.current = null; onRejectPlayerNotification?.(responseId) },
-    }).then(outcome => { if (current && outcome === 'retry') pending.retry = true }).catch(() => { if (current) pending.retry = true })
+      })
+    })().then(outcome => { if (current && outcome === 'retry') pending.retry = true }).catch(() => { if (current) pending.retry = true })
     return () => { current = false }
-  }, [responseId, data, userId, refresh, onRejectPlayerNotification])
+  }, [responseId, data, userId, refresh, onRejectPlayerNotification, wasPlayerNotificationHandled])
 
   // A failed check remains pending. Existing foreground/manual access refreshes
   // can finish the switch after connectivity returns without replaying a tap.

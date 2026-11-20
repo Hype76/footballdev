@@ -378,6 +378,8 @@ export function ParentHome({ openPlayer, playerAccess, adultLink, openOtherAccou
 function ParentHomeSession({ initialNotice = null, onAccessRemoved, openPlayer, playerAccess, adultLink = null, openOtherAccount }) {
   const { authError, isProfileLoading, refreshUserProfile, replaceCurrentUserProfile, signOut, user } = useMobileAuth()
   const lastNotificationResponse = Notifications.useLastNotificationResponse()
+  const latestNotificationResponseRef = useRef(lastNotificationResponse)
+  latestNotificationResponseRef.current = lastNotificationResponse
   const [activeTab, setActiveTab] = useState('home')
   const [matchdayPlanConfig, setMatchdayPlanConfig] = useState(null)
   const [activeActionId, setActiveActionId] = useState('')
@@ -681,7 +683,7 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved, openPlayer, 
     [selectedMobileUser?.id],
   )
 
-  const consumeLastNotificationResponse = useCallback((responseId) => {
+  const consumeLastNotificationResponse = useCallback((responseId, { clearResponse = true } = {}) => {
     notificationResponseIdRef.current = responseId
     if (responseId && notificationResponseHistoryKey) {
       const recentIds = [...notificationResponseHistoryRef.current, responseId]
@@ -689,7 +691,7 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved, openPlayer, 
       notificationResponseHistoryRef.current = new Set(recentIds)
       void AsyncStorage.setItem(notificationResponseHistoryKey, JSON.stringify(recentIds)).catch(() => {})
     }
-    void Notifications.clearLastNotificationResponseAsync().catch(() => {})
+    if (clearResponse) void Notifications.clearLastNotificationResponseAsync().catch(() => {})
   }, [notificationResponseHistoryKey])
 
   const applyParentNotificationDestination = useCallback((destination, { pending = false } = {}) => {
@@ -1367,15 +1369,23 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved, openPlayer, 
       if (!resolveAdultPlayerNotificationOpen(data, adultLink, {}, user?.id)) return undefined
       const expectedScope = adultPlayerNotificationScope(user?.id, adultLink)
       notificationResponseProcessingRef.current = responseId
+      let responseActive = true
       // Failed refreshes retain the pending response for foreground/manual retry.
       void openAdultPlayerNotification({
         data, link: adultLink, userId: user?.id,
         load: () => loadCurrentParentNotificationData(loadParentData),
-        isCurrent: () => currentAccountRef.current === user?.id && playerPushScopeRef.current === expectedScope && notificationResponseProcessingRef.current === responseId,
+        isCurrent: () => responseActive && currentAccountRef.current === user?.id && playerPushScopeRef.current === expectedScope
+          && notificationResponseProcessingRef.current === responseId
+          && latestNotificationResponseRef.current?.notification?.request?.identifier === responseId,
         navigate: applyParentNotificationDestination,
-        consume: () => consumeLastNotificationResponse(responseId),
+        // Retain the native response and use history to prevent replay. Clearing it
+        // here could erase a newer notification received during the refresh.
+        consume: () => consumeLastNotificationResponse(responseId, { clearResponse: false }),
       }).finally(() => { if (notificationResponseProcessingRef.current === responseId) notificationResponseProcessingRef.current = '' })
-      return undefined
+      return () => {
+        responseActive = false
+        if (notificationResponseProcessingRef.current === responseId) notificationResponseProcessingRef.current = ''
+      }
     }
     if (request?.content?.data?.app === 'player') return undefined
     if (['parent_accept', 'parent_decline'].includes(lastNotificationResponse?.actionIdentifier)) {
@@ -4054,6 +4064,12 @@ function AppContent() {
   const signingInForFan = fanLink.route != null && fanSignInRoute === fanLink.route
   const fanNotification = Notifications.useLastNotificationResponse()
   const [dismissedFanNotification, setDismissedFanNotification] = useState('')
+  const wasPlayerNotificationHandled = useCallback(async (userId, responseId) => {
+    try {
+      const stored = JSON.parse(await AsyncStorage.getItem(`${PARENT_NOTIFICATION_RESPONSE_HISTORY_PREFIX}.${userId}`) || '[]')
+      return Array.isArray(stored) && stored.includes(responseId)
+    } catch { return false }
+  }, [])
   const rejectPlayerNotification = useCallback(async responseId => {
     const latest = await Notifications.getLastNotificationResponseAsync().catch(() => null)
     if (latest?.notification?.request?.identifier === responseId) await Notifications.clearLastNotificationResponseAsync().catch(() => {})
@@ -4106,7 +4122,7 @@ function AppContent() {
   if (fanLink.route?.kind === 'fans') return <FansScreen onBack={fanLink.close} />
   if (showFanNotification) return <FansScreen onBack={() => setDismissedFanNotification(fanNotificationId)} />
   return (
-    <AdultPlayerEntry key={session.user.id} notificationResponse={fanNotification} onRejectPlayerNotification={rejectPlayerNotification} userId={session.user.id} links={user?.id === session.user.id ? user.parentPortalLinks || [] : []} parentProfilePending={user?.id !== session.user.id && isProfileLoading}
+    <AdultPlayerEntry key={session.user.id} notificationResponse={fanNotification} wasPlayerNotificationHandled={wasPlayerNotificationHandled} onRejectPlayerNotification={rejectPlayerNotification} userId={session.user.id} links={user?.id === session.user.id ? user.parentPortalLinks || [] : []} parentProfilePending={user?.id !== session.user.id && isProfileLoading}
       onSignOut={signOut}
       renderPlayer={({ link, openOtherAccount }) => <ParentHome key={`player:${link.id}`} adultLink={link} openOtherAccount={openOtherAccount} />}
       renderParent={({ openPlayer, playerAccess }) => <ParentHome openPlayer={openPlayer} playerAccess={playerAccess} />}
