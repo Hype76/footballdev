@@ -771,7 +771,7 @@
   "implementationHashes": {
     "scripts/security-supply-chain-gate.mjs": "9ef3c2fa9949a270eba3b8d7eefc2f9e303e8fbb2fda3921b2e6e42280e733fc",
     "scripts/security-apply-reviewed-backports.mjs": "ba146641cebf4a835337602d942d3fe9e432dfb44cd178e64e7e5bcabe2cb7b1",
-    "scripts/security-verify-reviewed-backports.mjs": "bef74ec21ce59d07682756d25ea70d2fba88ca9b94fab3e83a906fe32f052e9f",
+    "scripts/security-verify-reviewed-backports.mjs": "b91349f0c2e39f42026c831a0df0837a9ed1f74601ec68f4316acef37e011f43",
     "security/patches/braces-3.0.3.patch": "e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699",
     "security/patches/node-forge-1.4.0.patch": "2de065ac998bf58917a14d0935112d97ec2957ac41b5f06958d500934f188ed4",
     "security/patches/reviewed-source-manifest.json": "0507b50c4ce7a772508ed3a0d18290548bb1fd48802db4599a5ec8e47e2eed49",
@@ -2605,7 +2605,7 @@
       "supabase/migrations/20261117173402_adult_player_status_authority_transaction.sql": "5fa2f20cf8b5a6fd5b1426b3a0c4dc3beda742a3f146ec238704c1b9bde9956a",
       "src/components/parent-portal/ParentPortalShell.jsx": "b6d918148dc11272a552bc67bebb1461d384c0ed4f4e4b28cd06ec302c4c6b04",
       "src/lib/workspace-session-bridge.jsx": "4be8cba4a647db6ec16e9e7115632b9658c86bf0adec6b649c9d6674a150438c",
-      "src/pages/AdultPlayerPage.jsx": "406bc4069e86609de44a6b73ee3f465f4de8efc2f7385f6c13f0ce62f2f708d0",
+      "src/pages/AdultPlayerPage.jsx": "55d28aa2a41077dd77b8282f62cecdbda1fc225c5779f4240424cbf76a33e990",
       "tests/adult-player-account-browser.mjs": "60197b4bd49e09cb793336ca9098c4ef259ce0ab3141590d4e95725a60a1b5e8",
       "tests/adult-player-account-foundation.test.mjs": "f15111aef255f91c76881c10fa3774c95758481b3b2d7a3342e20403f3e9f320",
       "supabase/migrations/20261117180703_adult_player_shared_parent_account.sql": "9f55fa6e1ef91ac669ed6ca5b84547f5a9d2c9df3bf1c72fdad2561d2dfb3c24",
@@ -4179,7 +4179,7 @@
     },
     "toolingRequalification20261117": "Qualify official minimatch 11.0.9 JavaScript tooling across all three scopes. Lock changes are limited to minimatch; direct and native dependencies, Expo runtime, reviewed package patches and audit rules are retained."
   },
-  "releasePreparationSha256": "9b5fdfd402f575db1b8dd51b02b25d2cf718139b902535f72812731b1a839974",
+  "releasePreparationSha256": "0b68d599b81bcc20f908f7aeeea327db60ea29224307517c75a08d1596ce7865",
   "rootOnlyProposalSha256": "45c3b7352c7328c84982e114b7e87e09cf79514d02d102297ae75ec0925812eb",
   "remediationMode": "maintained-source-fixes",
   "officialCompatibilityDependencies": [
