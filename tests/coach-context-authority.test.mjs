@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import test from 'node:test'
 import { withMobileAsyncTimeout } from '../apps/mobile-core/src/http.js'
-import { createCoachContextAuthority } from '../apps/coach-mobile/src/coachContextAuthorityCore.js'
+import { createCoachContextAuthority, watchCoachConnection } from '../apps/coach-mobile/src/coachContextAuthorityCore.js'
 import { createMobileResourceCache, mobileResourceCache, readMobileResource } from '../apps/mobile-core/src/mobileResourceCache.js'
 
 const user = { id: 'simon', clubId: 'cached-club' }
@@ -165,4 +165,31 @@ test('actual offline preparation waits for activation and fences an older prepar
  assert.equal(preparations,2)
  assert.equal(writes,4,'The current generation saves the home and media inventory for each linked team')
  assert.deepEqual([...caches.keys()].sort(),linkedContexts.map(team=>team.id).sort())
+})
+
+
+test('Coach connection checks detect network loss and recovery without changing screens', async () => {
+ const statuses = []
+ let tick, active = true, probes = 0, cancelled = false, failure
+ const stop = watchCoachConnection({
+  probe: async () => { probes += 1; return {error:failure} },
+  isActive: () => active,
+  onOffline: value => statuses.push(value),
+  schedule: (run, interval) => { assert.equal(interval, 15000); tick = run; return 42 },
+  cancel: timer => { assert.equal(timer, 42); cancelled = true },
+ })
+ await tick()
+ failure = new TypeError('Network request failed')
+ await tick()
+ active = false
+ await tick()
+ assert.equal(probes, 2)
+ active = true
+ failure = Object.assign(new Error('Permission denied'), {status:403})
+ await tick()
+ assert.deepEqual(statuses, [false, true, false])
+ stop()
+ await tick()
+ assert.equal(cancelled, true)
+ assert.equal(probes, 3)
 })

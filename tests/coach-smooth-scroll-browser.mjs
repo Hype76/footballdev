@@ -103,6 +103,8 @@ function CoachRoute({onRequestScrollTop,onNotificationSettingsFocus}){const reve
 function App(){
 const [mode,setMode]=useState('dark'),[activeRoute,setActiveRoute]=useState('home'),[selected,setSelected]=useState('a'),[isRefreshing,setRefreshing]=useState(false);
 const [showSavedInvites,setShowSavedInvites]=useState(false);window.setShowSavedInvites=setShowSavedInvites;
+const [offline,setOffline]=useState(false);window.setCoachOffline=setOffline;
+const markCoachInteraction=()=>{};
 const [moreRoute,setMoreRoute]=useState('');window.setMoreRoute=setMoreRoute;
 const [height,setHeight]=useState(850);window.setHeight=setHeight;
 window.setMode=setMode;window.setRoute=setActiveRoute;window.refresh=setRefreshing;
@@ -155,13 +157,15 @@ try {
       await header.waitFor()
       for (const mode of ['light', 'dark']) {
         await page.evaluate(mode => window.setMode(mode), mode)
-        for (const [route, label] of [['home', 'Live'], ['invites', 'Offline'], ['invites', 'Live']]) {
+        for (const [route, label] of [['home', 'Live'], ['invites', 'Live'], ['invites', 'Offline'], ['invites', 'Live']]) {
           await page.evaluate(({ route, label }) => {
             window.setRoute(route)
-            window.setShowSavedInvites(label === 'Offline')
+            window.setShowSavedInvites(route === 'invites')
+            window.setCoachOffline(label === 'Offline')
           }, { route, label })
           const status = header.getByLabel(label, { exact: true })
           await status.waitFor()
+          assert.equal(await header.getByTestId('mobile-live-dot').count(), label === 'Live' ? 1 : 0)
           const contrast = await status.evaluate(element => {
             const luminance = color => color.match(/\d+/g).slice(0, 3).map(channel => {
               const value = Number(channel) / 255

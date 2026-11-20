@@ -195,7 +195,7 @@ export function captureCoachMatchDayAction(match, action, now = Date.now()) {
   })
 }
 
-export function getCoachMatchDayActions({ context, match, reconciling = false, stale = false, offlineReady = false } = {}) {
+export function getCoachMatchDayActions({ context, match, reconciling = false, stale = false, offlineReady = false, volunteerStale = stale } = {}) {
   const roleRank = Number(context?.roleRank || 0)
   const hasTeamAuthority = !['parent_portal', 'adult_player', 'super_admin'].includes(context?.role) && roleRank >= 20
     && (context?.role !== 'admin' || (Boolean(context.clubId && context.teamId)
@@ -228,7 +228,7 @@ export function getCoachMatchDayActions({ context, match, reconciling = false, s
     canCorrectScore: captureActions ? captureActions.canCorrectScore : !blockedReason && hasStarted && (match?.status === 'full_time' || !['not_started', 'full_time'].includes(match?.timerStatus)),
     canSaveFinalReport: !reconciling && !stale && hasTeamAuthority && context?.paymentAccess?.canMutate === true && isFinalMatchReportAvailable(match),
     canSetSquad: !reconciling && !stale && hasTeamAuthority && context?.paymentAccess?.canMutate === true && ['scheduled', 'scorer_request'].includes(match?.status),
-    canSelectVolunteers: !reconciling && !stale && hasTeamAuthority && context?.paymentAccess?.canMutate === true && ['scheduled', 'scorer_request'].includes(match?.status),
+    canSelectVolunteers: !reconciling && !volunteerStale && hasTeamAuthority && context?.paymentAccess?.canMutate === true && ['scheduled', 'scorer_request'].includes(match?.status),
     startBlockedReason: startBlockedByFixtureDate ? 'This match can only be started on its fixture date.' : '',
     timerActions: captureActions ? captureActions.timerActions.filter(item => ['start', 'pause', 'hydration', 'half_time', 'resume', 'full_time', 'conclude'].includes(item.action)) : timerActions,
   })

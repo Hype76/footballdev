@@ -1,4 +1,4 @@
-import { createCoachContextAuthority } from './src/coachContextAuthorityCore'
+import { createCoachContextAuthority, watchCoachConnection } from './src/coachContextAuthorityCore'
 import { MobileSwitch as Switch } from '../mobile-core/src/MobileSwitch.js'
 import { DeviceThemeChoices } from '../mobile-core/src/DeviceThemeChoices'
 import { resolveDeviceThemeMode } from '../mobile-core/src/deviceThemeCore'
@@ -217,6 +217,7 @@ function CoachHome() {
   const [chatNotificationTarget, setChatNotificationTarget] = useState(null)
   const [contextReady, setContextReady] = useState(false)
   const [contextAuthorityOffline, setContextAuthorityOffline] = useState(false)
+  const [connectionCheck, setConnectionCheck] = useState(null)
   const contextAuthorityReadyRef = useRef(false)
   const authorityUserIdRef = useRef(user?.id)
   authorityUserIdRef.current = user?.id
@@ -1060,27 +1061,56 @@ function CoachHome() {
     return () => { subscription.remove(); resumeSubscription.remove() }
   }, [activeContext?.id, contextOwnedByCurrentUser, enableNotifications, refreshNotificationRegistration])
 
+  const restoreCoachConnection = useCallback(async () => {
+    try {
+      const authority = await synchronizeContextAuthority(activeContext, { preserveView: true })
+      if (!authority.isCurrent()) return
+      completeContextAuthority()
+      if (!authority.offline) {
+        setConnectionCheck(null)
+        homeDeniedScopeRef.current = false
+        lastHomeRefreshAtRef.current = 0
+        if (activeRoute !== 'matchday') void loadHome({ refresh: true })
+      }
+    } catch (error) {
+      if (error?.code === 'coach_context_changed') return
+      setSelectedContextId('')
+      setNotice('Could not restore the Coach workspace. Select it again when online.')
+      setContextReady(true)
+    }
+  }, [activeContext, activeRoute, completeContextAuthority, loadHome, synchronizeContextAuthority])
+
   useLayoutEffect(() => {
     const subscription = AppState.addEventListener('change', (nextState) => {
       const previousState = appStateRef.current
       if (nextState === 'background') lastBackAtRef.current = 0
       appStateRef.current = nextState
       if (previousState === 'active' || nextState !== 'active' || !activeContext || contextOwnerUserId !== user?.id) return
-      void synchronizeContextAuthority(activeContext, { preserveView: true }).then(authority => {
-        if (!authority.isCurrent()) return
-        homeDeniedScopeRef.current = false
-        lastHomeRefreshAtRef.current = 0
-        completeContextAuthority()
-        if (activeRoute !== 'matchday') void loadHome({ refresh: true })
-      }).catch(error => {
-        if (error?.code === 'coach_context_changed') return
-        setSelectedContextId('')
-        setNotice('Could not restore the Coach workspace. Select it again when online.')
-        setContextReady(true)
-      })
+      void restoreCoachConnection()
     })
     return () => subscription.remove()
-  }, [activeContext, activeRoute, completeContextAuthority, contextOwnerUserId, loadHome, synchronizeContextAuthority, user?.id])
+  }, [activeContext, contextOwnerUserId, restoreCoachConnection, user?.id])
+
+  useEffect(() => {
+    if (!contextAuthorityOffline || user?.isOfflineProfile || !contextOwnedByCurrentUser || isSwitchingContext) return undefined
+    const retry = setInterval(() => {
+      if (appStateRef.current === 'active' && contextAuthorityReadyRef.current) void restoreCoachConnection()
+    }, 5000)
+    return () => clearInterval(retry)
+  }, [contextAuthorityOffline, contextOwnedByCurrentUser, isSwitchingContext, restoreCoachConnection, user?.isOfflineProfile])
+
+  const connectionScope = activeContext && user?.id ? JSON.stringify([user.id, activeContext.id]) : ''
+  const offline = Boolean(selectedMobileUser?.isOfflineProfile || (connectionCheck?.scope === connectionScope && connectionCheck.offline))
+  const connectionClubId = activeContext?.clubId
+  useEffect(() => {
+    if (!contextOwnedByCurrentUser || !connectionClubId || selectedMobileUser?.isOfflineProfile) return undefined
+    return watchCoachConnection({
+      isActive: () => appStateRef.current === 'active',
+      probe: signal => coachSupabase.from('clubs').select('id', { head: true }).eq('id', connectionClubId).limit(1).abortSignal(signal),
+      onOffline: disconnected => setConnectionCheck(current => current?.scope === connectionScope && current.offline === disconnected
+        ? current : { scope: connectionScope, offline: disconnected }),
+    })
+  }, [connectionClubId, connectionScope, contextOwnedByCurrentUser, selectedMobileUser?.isOfflineProfile])
 
   useEffect(() => {
     if (!contextOwnedByCurrentUser || contextResolution.contexts.length === 0) return
@@ -1221,7 +1251,7 @@ function CoachHome() {
   }
 
   return (
-    <MobileActivityProvider key={`${user.id}:${activeContext.id}`} active={isRefreshing || homeState.loading} offline={user.isOfflineProfile || homeState.stale}>
+    <MobileActivityProvider key={`${user.id}:${activeContext.id}`} active={isRefreshing || homeState.loading} offline={offline}>
     <CoachThemeContext.Provider value={themeContext}>
       <SafeAreaView edges={['top', 'right', 'left']} onTouchStart={markCoachInteraction} onTouchMove={markCoachInteraction} style={styles.appShell}>
         <StatusBar style={themeModel.mode === 'dark' ? 'light' : 'dark'} />
@@ -1238,7 +1268,7 @@ function CoachHome() {
             />
           ) : null}
           {notice ? <Notice message={notice} onDismiss={() => setNotice('')} /> : null}
-          {!isMatchInvitesRoute ? <CoachHeader context={activeContext} notificationState={notificationState} notificationStateStatus={notificationStateStatus} onOpenNotificationSettings={openNotificationSettings} user={selectedMobileUser} /> : <View style={{ height: 36, alignItems: 'flex-end', paddingRight: 16 }}><MobileHeaderActivity live={config.isProduction} test={!config.isProduction} offline={user.isOfflineProfile} styles={styles} /></View>}
+          {!isMatchInvitesRoute ? <CoachHeader context={activeContext} connectionOffline={offline} notificationState={notificationState} notificationStateStatus={notificationStateStatus} onOpenNotificationSettings={openNotificationSettings} user={selectedMobileUser} /> : <View style={{ height: 36, alignItems: 'flex-end', paddingRight: 16 }}><MobileHeaderActivity live={config.isProduction} test={!config.isProduction} connectionOffline={offline} styles={styles} /></View>}
           <ScrollView
             key={scrollBounds.pageKey}
             {...scrollBounds.handlers}
@@ -1829,7 +1859,7 @@ function SettingsScreen({
   )
 }
 
-function CoachHeader({ context, notificationState, notificationStateStatus, onOpenNotificationSettings, user }) {
+function CoachHeader({ context, connectionOffline, notificationState, notificationStateStatus, onOpenNotificationSettings, user }) {
   const { branding, styles } = useCoachTheme()
   const logoUrl = useCoachSavedBadge(user, context, branding.logoUrl)
   const logoKey = `${context.id || context.clubId}:${logoUrl}`
@@ -1864,7 +1894,7 @@ function CoachHeader({ context, notificationState, notificationStateStatus, onOp
         notificationStateStatus={notificationStateStatus}
         onPress={onOpenNotificationSettings}
       />
-      <MobileHeaderActivity live={config.isProduction} test={!config.isProduction} offline={user.isOfflineProfile} styles={styles} />
+      <MobileHeaderActivity live={config.isProduction} test={!config.isProduction} connectionOffline={connectionOffline ?? Boolean(user.isOfflineProfile)} styles={styles} />
     </View>
   )
 }

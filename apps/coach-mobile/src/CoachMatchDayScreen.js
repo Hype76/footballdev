@@ -1112,10 +1112,11 @@ function CoachMatchDayScoped({ context, matchDayTarget, onMatchDayTargetHandled,
     return () => subscription.remove()
   }, [load])
   useEffect(() => {
-    if (!selectedMatchIsLive || reconciling) return undefined
-    const refreshId = setInterval(() => { if (!busyRef.current && appState.current === 'active') void load() }, 15000)
+    const volunteersNeedRefresh = panel === 'volunteers' && fixtureStale && !user.isOfflineProfile && !accessDenied
+    if ((!selectedMatchIsLive && !volunteersNeedRefresh) || reconciling) return undefined
+    const refreshId = setInterval(() => { if (!busyRef.current && appState.current === 'active') void load() }, volunteersNeedRefresh ? 5000 : 15000)
     return () => clearInterval(refreshId)
-  }, [load, match?.id, reconciling, selectedMatchIsLive])
+  }, [accessDenied, fixtureStale, load, match?.id, panel, reconciling, selectedMatchIsLive, user.isOfflineProfile])
 
   const open = async (summary) => {
     selectedMatchId.current = summary.id
@@ -1226,7 +1227,8 @@ function CoachMatchDayScoped({ context, matchDayTarget, onMatchDayTargetHandled,
       return reconcileCoachSquadNotificationResults(choices, results, detail, message)
     } finally { busyRef.current = false; setBusy(false) }
   }
-  const actions = getCoachMatchDayActions({ context, match, reconciling, stale: stale || pendingCount > 0, offlineReady })
+  const volunteerStale = user.isOfflineProfile || fixtureStale || pendingCount > 0
+  const actions = getCoachMatchDayActions({ context, match, reconciling, stale: stale || pendingCount > 0, offlineReady, volunteerStale })
   const finishControl = getCoachMatchDayFinishControl({ context, match, fixtureStale: fixtureStale || user.isOfflineProfile, pendingCount, reconciling })
   finishRef.current = { userId: user.id, contextId: context.id, match, action: finishControl?.action }
   const resolveFinish = async (recovery) => {
@@ -1547,7 +1549,7 @@ function CoachMatchDayScoped({ context, matchDayTarget, onMatchDayTargetHandled,
           )}
         </CoachFormationWorkspace>
       ) : null}
-      {panel === 'volunteers' ? <View style={styles.stack}><CoachGuestScorer key={match.id} match={match} buttonComponent={Button} styles={styles} disabled={stale || busy || reconciling} /><VolunteerPanel actions={actions} busy={busy || stale || reconciling} match={match} onDirectSelect={(parent, role) => { replace(() => selectCoachMatchDayVolunteer(user, match, parent, role, true), (detail) => isCoachMatchDayVolunteerSelectionApplied(detail, parent, role, true)).then((detail) => { if (detail.volunteerSelectionWarning) setNotice((current) => [current, detail.volunteerSelectionWarning].filter(Boolean).join(' ')) }).catch(() => {}) }} onSelect={(request, role, selected) => setPending({ label: `${selected ? 'Assign' : 'Remove'} ${role}`, run: () => replace(() => selectCoachMatchDayVolunteer(user, match, request, role, selected), (detail) => isCoachMatchDayVolunteerSelectionApplied(detail, request, role, selected)) })} styles={styles} /></View> : null}
+      {panel === 'volunteers' ? <View style={styles.stack}><CoachGuestScorer key={match.id} match={match} buttonComponent={Button} styles={styles} disabled={stale || busy || reconciling} /><VolunteerPanel actions={actions} busy={busy || reconciling} match={match} onDirectSelect={(parent, role) => { replace(() => selectCoachMatchDayVolunteer(user, match, parent, role, true), (detail) => isCoachMatchDayVolunteerSelectionApplied(detail, parent, role, true)).then((detail) => { if (detail.volunteerSelectionWarning) setNotice((current) => [current, detail.volunteerSelectionWarning].filter(Boolean).join(' ')) }).catch(() => {}) }} onSelect={(request, role, selected) => setPending({ label: `${selected ? 'Assign' : 'Remove'} ${role}`, run: () => replace(() => selectCoachMatchDayVolunteer(user, match, request, role, selected), (detail) => isCoachMatchDayVolunteerSelectionApplied(detail, request, role, selected)) })} styles={styles} /></View> : null}
       {panel === 'live' ? <LivePanel actions={actions} busy={busy} canReviewConclude={!reconciling} eventForm={eventForm} finishControl={finishControl} match={match} onEventForm={setEventForm} onFinish={runFinish} onExit={() => setPanel('overview')} onPrepare={setPending} onResolveEnd={resolveFinish} onReviewConclude={() => { setPanel('report'); onRequestScrollTop?.() }} onScore={(kind) => kind === 'event' ? submitEvent() : capture('score', { homeScore: Number(scoreDraft.home), awayScore: Number(scoreDraft.away) })} onTimer={runTimer} players={players} scoreDraft={scoreDraft} setScoreDraft={setScoreDraft} styles={styles} /> : null}
       {panel === 'timeline' && match.concludedAt ? <ConcludedTimeline key={match.id} busy={busy} canEdit={canCorrectConcludedMatch} match={match} players={players}
         onSave={(change) => replace(() => saveCoachConcludedMatchEvent(user, serverMatch, change), (detail) => detail.events.some(event => event.requestId === change.changeId || event.correctionId === change.changeId))}
