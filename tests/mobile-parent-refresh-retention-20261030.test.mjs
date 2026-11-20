@@ -155,7 +155,7 @@ function deferred() {
   return { promise, resolve }
 }
 
-function loadFixture({ denyChat = false, attachmentError = null, isOffline = false, warm = false } = {}) {
+function loadFixture({ denyChat = false, attachmentError = null, isOffline = false, warm = false, adultLink = null } = {}) {
   const cache = deferred()
   const details = deferred()
   const notifications = deferred()
@@ -170,7 +170,8 @@ function loadFixture({ denyChat = false, attachmentError = null, isOffline = fal
   const syncSummaryRevisionRef = { current: 0 }
   const published = {}
   const deps = {
-    useCallback: (callback) => callback, requestIdRef, isOffline, resourceNames, resourcesRef,
+    useCallback: (callback) => callback, requestIdRef, isOffline, resourceNames, resourcesRef, adultLink,
+    loadAdultPlayerWorkspace: async () => { requests.push('adult-workspace'); return {} },
     selectedMobileUser: { id: 'parent' }, selectedLink: link, parentLinks: [link],
     hydratedScopeRef: { current: warm ? JSON.stringify(['parent', [['child', 'club', 'team', 'player']], ['child', 'club', 'team', 'player']]) : '' },
     mobileResourceKey: () => 'parent', createResourceState,
@@ -192,9 +193,9 @@ function loadFixture({ denyChat = false, attachmentError = null, isOffline = fal
     discardParentOfflineResources: async () => {}, filterDeniedParentChatHistory,
     prepareParentResourceItems: (_name, items) => items || [], resolveParentResourceFailure, resolveParentCalendarRefresh,
     buildParentCalendarEvents: ({ calendarEvents, matches, invitations }) => [...calendarEvents, ...matches, ...invitations],
-    reconcileAttendance: noop, setMatchDayPlayers: noop, lastDataRefreshAtRef: {},
+    reconcileAttendance: () => { requests.push('reconcile') }, setMatchDayPlayers: noop, lastDataRefreshAtRef: {},
     getParentFriendlyError: (_reason, fallback) => fallback, resourceFallbacks: {},
-    InteractionManager: { runAfterInteractions: (done) => done() }, commitParentRefresh: async () => ({ outboxes: {} }),
+    InteractionManager: { runAfterInteractions: (done) => done() }, commitParentRefresh: async () => { requests.push('commit'); return { outboxes: {} } },
   }
   const load = new Function(...Object.keys(deps), loadSource + '\nreturn loadParentData')(...Object.values(deps))
   const resolveCache = () => cache.resolve({ scorerOutboxes: { match: 'saved' }, sync: { waiting: 0 }, cache: { resources: { messages: ['cached message'], chatRooms: ['cached room'], chatHistory: [{ roomId: 'restricted' }] } } })
@@ -296,4 +297,21 @@ test('late Parent cache cannot overwrite newer scorer or sync state', async () =
   f.notifications.resolve([])
   f.details.resolve([])
   await pending
+})
+
+
+test('adult Player refresh loads one workspace without reading or writing Parent offline state', async () => {
+  const f = loadFixture({ adultLink: { id: 'adult-link' } })
+  const pending = f.load()
+  f.notifications.resolve([])
+  f.details.resolve([])
+  await pending
+  assert.equal(f.requests.filter(name => name === 'adult-workspace').length, 1)
+  for (const name of ['cache', 'commit', 'reconcile']) assert.ok(!f.requests.includes(name), name)
+  assert.deepEqual(f.resourcesRef.current.messages.items, ['live message'])
+  const offline = loadFixture({ adultLink: { id: 'adult-link' }, isOffline: true })
+  await offline.load()
+  assert.deepEqual(offline.requests, [])
+  assert.deepEqual(offline.resourcesRef.current.messages.items, [])
+  assert.match(offline.resourcesRef.current.messages.error, /Connect/)
 })

@@ -70,6 +70,7 @@ test('Parent match fetch applies the selected link club when the RPC omits fixtu
   } }
   const getParentPortalMatchDays = new Function('supabase', 'normalizeMatchDay', 'normalizePersonName', 'withParentMatchReportBranding', `
     const requireSelectedLink = user => user.link
+    const isAdultPlayerLink = link => link?.linkType === 'adult_player'
     const normalizeText = ${normalizeText.toString()}
     ${declarationSource(parentPortalDataSource, 'normalizeParentFormationPlayers')}
     ${declarationSource(parentPortalDataSource, 'normalizeParentMatchFormationPlan')}

@@ -1,3 +1,6 @@
+import { getOwnAdultPlayerInvitations, respondToOwnAdultPlayerInvitation } from '../../../src/lib/adult-player-invitations.js'
+import { isAdultPlayerLink, readAdultPlayerWorkspaceSection, requestAdultPlayerWorkspace } from '../../mobile-core/src/adultPlayerWorkspace'
+import { loadAdultPlayerInbox, updateAdultPlayerInbox } from './adultPlayerInbox.js'
 import { normalizeFormationBoardShirtKit } from '../../../src/lib/formation-board-shirt.js'
 import { applyParentInvitationCancellations } from '../../mobile-core/src/parentCalendarCore.js'
 import { excludeDeletedParentOccurrences, expandCancelledParentSeries } from '../../../src/lib/parent-cancelled-series.js'
@@ -43,6 +46,12 @@ function requireSelectedLink(user) {
   const link = getSelectedParentLink(user)
   if (!link?.id) throw new Error('Choose a linked player before continuing.')
   return link
+}
+
+async function adultPlayerChatRpc(name, args) {
+  const { data, error } = await supabase.rpc(name, args)
+  if (error) throw error
+  return data
 }
 
 function createRequestId(value = '') {
@@ -101,6 +110,7 @@ function wakeParentChatNotifications() {
 export function normalizeParentInvitation(row = {}) {
   const invitationType = normalizeText(row.invitation_type ?? row.invitationType).toLowerCase()
   return {
+    adultPlayerLinkId: row.adult_player_link_id ?? row.adultPlayerLinkId ?? '',
     cancellationReason: normalizeText(row.cancellation_reason ?? row.cancellationReason),
     showCancelled: row.show_cancelled === true || row.showCancelled === true,
     canChangeResponse: normalizeBoolean(row.can_change_response ?? row.canChangeResponse),
@@ -158,7 +168,7 @@ export function getInvitationResponseOptions(invitation = {}) {
   if (invitation.invitationType === 'match_role') {
     return [{ label: 'Accept offer', value: 'yes' }, { label: 'Decline offer', value: 'no' }]
   }
-  if (invitation.invitationType === 'training_attendance') {
+  if (invitation.invitationType === 'training_attendance' || (invitation.adultPlayerLinkId && invitation.invitationType === 'calendar_attendance')) {
     return [{ label: 'Attending', value: 'available' }, { label: 'Not attending', value: 'unavailable' }, { label: 'Maybe', value: 'maybe' }]
   }
   if (invitation.invitationType === 'match_attendance') {
@@ -374,8 +384,11 @@ export function normalizeParentMatchDay(row = {}) {
   }
 }
 
-export async function getParentPortalMatchDays(user) {
+export async function getParentPortalMatchDays(user, adultWorkspace) {
   const link = requireSelectedLink(user)
+  if (isAdultPlayerLink(link)) {
+    return (await readAdultPlayerWorkspaceSection(user, adultWorkspace, 'matches')).map(row => normalizeParentMatchDay({ ...row, is_scorer: false, isScorer: false }))
+  }
   const [baseResult, extendedResult, teamResult, scorerResult, shirtResult, reviewResult, transportResult, formationPlanResult] = await Promise.all([
     supabase.rpc('get_parent_portal_match_days', { parent_link_id_value: link.id }),
     supabase.rpc('get_parent_portal_match_day_extended_state', { parent_link_id_value: link.id }),
@@ -439,8 +452,11 @@ export async function getParentPortalMatchDays(user) {
   })
 }
 
-export async function getParentPortalMatchDayPlayers(user) {
+export async function getParentPortalMatchDayPlayers(user, adultWorkspace) {
   const link = requireSelectedLink(user)
+  if (isAdultPlayerLink(link)) {
+    return (await readAdultPlayerWorkspaceSection(user, adultWorkspace, 'players'))
+  }
   const { data, error } = await supabase.rpc('get_parent_portal_match_day_players', { parent_link_id_value: link.id })
   if (error) throw error
   return (data || []).map((row) => ({
@@ -453,6 +469,18 @@ export async function getParentPortalMatchDayPlayers(user) {
 
 export async function getParentInvitations(user) {
   const link = requireSelectedLink(user)
+  if (isAdultPlayerLink(link)) {
+    const invitations = await getOwnAdultPlayerInvitations(supabase)
+    return prepareParentInvitations(invitations.map(invitation => ({
+      ...invitation,
+      adultPlayerLinkId: link.id,
+      childId: link.playerId,
+      childName: link.playerName,
+      canChangeResponse: invitation.canRespond && invitation.responseState !== 'awaiting_response',
+      isPending: invitation.canRespond && invitation.responseState === 'awaiting_response',
+      sourceEventType: invitation.eventType === 'match_day' ? 'match_day' : 'calendar_event',
+    })))
+  }
   const [invitationResult, shirtResult, transportResult, sessionResult, calendarInviteResult] = await Promise.all([
     supabase.rpc('get_parent_portal_invitation_summary', { parent_link_id_value: link.id }),
     supabase.rpc('get_parent_portal_match_shirt_choices', { parent_link_id_value: link.id }),
@@ -516,6 +544,10 @@ export async function respondToParentInvitation(user, invitation, responseState)
   const response = normalizeText(responseState).toLowerCase()
   if (!invitation?.sourceRecordId) throw new Error('This invitation could not be opened.')
   if (!isParentInvitationActionable(invitation)) throw new Error('This invitation is no longer available for response.')
+  if (isAdultPlayerLink(link)) {
+    if (invitation.adultPlayerLinkId !== link.id || invitation.childId !== link.playerId) throw new Error('Choose your Player account to answer this invitation.')
+    return respondToOwnAdultPlayerInvitation(supabase, { invitation, responseState: response })
+  }
   if (invitation.invitationType === 'match_attendance' && (link.linkType !== 'parent' || invitation.parentLinkId !== link.id || invitation.childId !== link.playerId)) throw new Error('Choose the Parent account linked to this invitation.')
   if (invitation.invitationType === 'training_attendance') {
     const previousResponse = normalizeText(invitation.responseState).toLowerCase()
@@ -548,14 +580,21 @@ export async function respondToParentInvitation(user, invitation, responseState)
   throw new Error('This invitation does not require a response.')
 }
 
-export async function getParentResources(user) {
+export async function getParentResources(user, adultWorkspace) {
   const link = requireSelectedLink(user)
+  if (isAdultPlayerLink(link)) {
+    return (await readAdultPlayerWorkspaceSection(user, adultWorkspace, 'resources')).map(normalizeParentResource)
+  }
   const { data, error } = await supabase.rpc('get_parent_portal_player_resources', { parent_link_id_value: link.id })
   if (error) throw error
   return (data || []).map(normalizeParentResource)
 }
 
 export async function getLinkedParentPlayerStats(link) {
+  if (isAdultPlayerLink(link)) {
+    const result = await requestAdultPlayerWorkspace('stats', { expectedLinkId: link.id })
+    return result.stats
+  }
   if (link?.linkType !== 'parent' || !link.id) throw new Error('Choose a player linked to your parent account.')
   const accessToken = await getAccessToken()
   if (!accessToken) throw new Error('Sign in again to view player stats.')
@@ -568,8 +607,12 @@ export async function getLinkedParentPlayerStats(link) {
   return result.stats
 }
 
-export async function getParentNotificationInbox(user) {
+export async function getParentNotificationInbox(user, adultWorkspace) {
   const link = requireSelectedLink(user)
+  if (isAdultPlayerLink(link)) {
+    const capabilities = adultWorkspace?.capabilities || link.capabilities || {}
+    return loadAdultPlayerInbox(user.id, link.id, capabilities)
+  }
   const config = getMobileRuntimeConfig('parent')
   const accessToken = await getAccessToken()
   if (!accessToken) throw new Error('Sign in again before opening notifications.')
@@ -596,9 +639,10 @@ export async function getParentChildNotificationBadges(user) {
 
 export async function markParentNotificationRead(user, notificationIds = [], action = 'read') {
   const link = requireSelectedLink(user)
+  const ids = [...new Set((Array.isArray(notificationIds) ? notificationIds : [notificationIds]).map(normalizeText).filter(Boolean))]
+  if (isAdultPlayerLink(link)) return updateAdultPlayerInbox(user.id, link.id, ids, action)
   const config = getMobileRuntimeConfig('parent')
   const accessToken = await getAccessToken()
-  const ids = [...new Set((Array.isArray(notificationIds) ? notificationIds : [notificationIds]).map(normalizeText).filter(Boolean))]
   if (!accessToken) throw new Error('Sign in again before opening notifications.')
   const { ok, result } = await fetchJsonWithTimeout(joinApiPath(config.apiBaseUrl, '/.netlify/functions/parent-mobile-notifications'), {
     method: 'POST',
@@ -676,15 +720,21 @@ export async function changeParentCalendarFeed(user, link, action) {
   return result.url
 }
 
-export async function getParentDevelopmentHistory(user) {
+export async function getParentDevelopmentHistory(user, adultWorkspace) {
   const link = requireSelectedLink(user)
+  if (isAdultPlayerLink(link)) {
+    return (await readAdultPlayerWorkspaceSection(user, adultWorkspace, 'development'))
+  }
   const config = getMobileRuntimeConfig('parent')
   const result = await callParentApi(getParentApiPaths(config).development, { action: 'list', parentLinkId: link.id })
   return Array.isArray(result.reports) ? result.reports : []
 }
 
-export async function getParentCalendarEventResources(user) {
+export async function getParentCalendarEventResources(user, adultWorkspace) {
   const link = requireSelectedLink(user)
+  if (isAdultPlayerLink(link)) {
+    return readAdultPlayerWorkspaceSection(user, adultWorkspace, 'calendarResources')
+  }
   const config = getMobileRuntimeConfig('parent')
   const result = await callParentApi(getParentApiPaths(config).resource, {
     action: 'list_calendar_event_resources',
@@ -704,8 +754,11 @@ export async function getParentCalendarEventResources(user) {
   })).filter((resource) => resource.id && resource.eventId && resource.occurrenceDate)
 }
 
-export async function getParentCalendarEventDetails(user) {
+export async function getParentCalendarEventDetails(user, adultWorkspace) {
   const link = requireSelectedLink(user)
+  if (isAdultPlayerLink(link)) {
+    return readAdultPlayerWorkspaceSection(user, adultWorkspace, 'calendarDetails')
+  }
   const { data, error } = await supabase.rpc('get_parent_portal_calendar_event_details_v2', {
     parent_link_id_value: link.id,
   })
@@ -743,6 +796,11 @@ async function downloadAndShareParentFile({ fileName, mimeType, path }) {
 
 export async function openParentDevelopmentReport(user, reportId) {
   const link = requireSelectedLink(user)
+  if (isAdultPlayerLink(link)) {
+    const result = await requestAdultPlayerWorkspace('openReport', { userId: user.id, expectedLinkId: link.id, reportId })
+    if (!/^https:\/\//i.test(result.accessUrl || '')) throw new Error('This report could not be opened safely.')
+    return { externalUrl: result.accessUrl }
+  }
   const config = getMobileRuntimeConfig('parent')
   const developmentPath = getParentApiPaths(config).development
   await downloadAndShareParentFile({
@@ -756,6 +814,11 @@ export async function openParentDevelopmentReport(user, reportId) {
 export async function openParentResource(user, resourceId, { calendarEventId = '', calendarOccurrenceDate = '', calendarSourceType = 'calendar_event' } = {}) {
   const link = requireSelectedLink(user)
   const config = getMobileRuntimeConfig('parent')
+  if (isAdultPlayerLink(link)) {
+    const result = await requestAdultPlayerWorkspace('openResource', { userId: user.id, expectedLinkId: link.id, resourceId, calendarEventId, calendarOccurrenceDate, calendarSourceType })
+    if (!/^https:\/\//i.test(result.accessUrl || '')) throw new Error('This resource could not be opened safely.')
+    return { externalUrl: result.accessUrl }
+  }
   const resourcePath = getParentApiPaths(config).resource
   const result = await callParentApi(resourcePath, {
     calendarEventId: normalizeText(calendarEventId) || undefined,
@@ -781,6 +844,11 @@ export async function openParentResource(user, resourceId, { calendarEventId = '
 
 export async function getParentChatRooms(user, childOnly = true) {
   const link = requireSelectedLink(user)
+  if (isAdultPlayerLink(link)) {
+    await adultPlayerChatRpc('prepare_own_adult_player_chat')
+    const rows = await adultPlayerChatRpc('get_own_adult_player_chat_rooms')
+    return (rows || []).map(normalizeParentChatRoom)
+  }
   const roomArgs = {
     child_only_value: Boolean(childOnly),
     parent_link_id_value: link.id,
@@ -792,6 +860,12 @@ export async function getParentChatRooms(user, childOnly = true) {
 
 export async function setParentChatRoomNotifications(user, roomId, notificationsMuted, childOnly = true) {
   const link = requireSelectedLink(user)
+  if (isAdultPlayerLink(link)) {
+    return Boolean(await adultPlayerChatRpc('set_own_adult_player_chat_notification_preference', {
+      target_room_id: roomId,
+      notifications_muted_value: notificationsMuted === true,
+    }))
+  }
   const { data, error } = await supabase.rpc('set_parent_portal_chat_room_notifications', {
     child_only_value: Boolean(childOnly),
     notifications_muted_value: notificationsMuted === true,
@@ -804,6 +878,10 @@ export async function setParentChatRoomNotifications(user, roomId, notifications
 
 export async function getParentChatMessages(user, roomId, childOnly = true) {
   const link = requireSelectedLink(user)
+  if (isAdultPlayerLink(link)) {
+    const rows = await adultPlayerChatRpc('get_own_adult_player_chat_messages', { target_room_id: roomId })
+    return (rows || []).map(row => normalizeParentChatMessage(row, user))
+  }
   let lastError
   for (const delayMs of PARENT_CHAT_LOAD_RETRY_DELAYS_MS) {
     await waitForChatRetry(delayMs)
@@ -820,7 +898,12 @@ export async function getParentChatMessages(user, roomId, childOnly = true) {
 }
 
 export function subscribeToParentChatRoom(user, roomId, options = {}) {
-  requireSelectedLink(user)
+  const link = requireSelectedLink(user)
+  if (isAdultPlayerLink(link)) {
+    if (!roomId || typeof options.onChange !== 'function') return () => {}
+    const refresh = setInterval(() => { void Promise.resolve(options.onChange()).catch(() => {}) }, 6000)
+    return () => clearInterval(refresh)
+  }
   return subscribeToMobileChatRoom({
     kind: 'parent',
     onChange: options.onChange,
@@ -844,6 +927,15 @@ export async function sendParentChatMessage(user, roomId, body, childOnly = true
   if (!roomId || !normalizedBody) throw new Error('Choose a Chat room and add a message before sending.')
   if (normalizedBody.length > 2000) throw new Error('Chat messages must be 2000 characters or fewer.')
   const requestId = createRequestId(clientRequestId)
+  if (isAdultPlayerLink(link)) {
+    const receipt = await adultPlayerChatRpc('send_own_adult_player_chat_message', {
+      target_room_id: roomId,
+      body_value: normalizedBody,
+      client_request_id_value: requestId,
+    })
+    wakeParentChatNotifications()
+    return receipt
+  }
   let lastError
   for (let attempt = 0; attempt < 2; attempt += 1) {
     const { data, error } = await supabase.rpc('send_parent_portal_chat_message', {
@@ -865,6 +957,7 @@ export async function sendParentChatMessage(user, roomId, body, childOnly = true
 
 export async function markParentChatRoomRead(user, roomId, childOnly = true) {
   const link = requireSelectedLink(user)
+  if (isAdultPlayerLink(link)) return adultPlayerChatRpc('mark_own_adult_player_chat_room_read', { target_room_id: roomId })
   const { data, error } = await supabase.rpc('mark_parent_portal_chat_room_read', {
     child_only_value: Boolean(childOnly),
     parent_link_id_value: link.id,
@@ -876,6 +969,7 @@ export async function markParentChatRoomRead(user, roomId, childOnly = true) {
 
 export async function deleteParentChatMessage(user, messageId, childOnly = true) {
   const link = requireSelectedLink(user)
+  if (isAdultPlayerLink(link)) return adultPlayerChatRpc('delete_own_adult_player_chat_message', { target_message_id: messageId })
   const { error } = await supabase.rpc('delete_parent_portal_chat_message', {
     child_only_value: Boolean(childOnly),
     parent_link_id_value: link.id,

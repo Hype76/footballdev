@@ -69,8 +69,9 @@ test('shared Netlify helpers do not consume deployable function slots', () => {
   assert.equal(topLevelFunctions.includes('_coach-web-handoff'), false)
   assert.ok(topLevelFunctions.includes('club-matchday-tv'))
   assert.ok(topLevelFunctions.includes('adult-player-setup'))
+  assert.ok(topLevelFunctions.includes('adult-player-workspace'))
   assert.ok(topLevelFunctions.includes('coach-offline-media'))
-  assert.equal(topLevelFunctions.length, 95)
+  assert.equal(topLevelFunctions.length, 96)
 })
 
 test('Chromium packaging is limited to PDF function roots', () => {

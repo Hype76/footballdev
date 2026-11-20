@@ -29,6 +29,7 @@ const mocks = {
   `,
   'expo-secure-store': 'export const getItemAsync = async () => null, setItemAsync = async () => {}, deleteItemAsync = async () => {}',
   './AdultPlayerScreen': 'export const AdultPlayerScreen = () => null',
+  '../../mobile-core/src/adultPlayerWorkspace': 'export const requestAdultPlayerWorkspace = async () => { throw Error("Unlinked Fan loaded Player workspace") }',
   '../../mobile-core/src/supabase': `
     export const supabase = { rpc: async name => {
       if (name !== 'get_own_adult_player_account_state') throw Error('Unexpected RPC: ' + name)

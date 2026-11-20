@@ -98,7 +98,7 @@ function App(){
  window.swapViewerAccount = () => { window.user={...window.user,id:'viewer-second'}; window.rows[0].player_name='Second account player'; refreshAuth(value=>value+1) };
  const [activeActionId,setActiveActionId]=useState('invite:stale'),[notice,setNotice]=useState({message:'stale notice'});
  const parentSyncScopeRef=useRef('parent-test:first'),parentActionScopeRef=useRef(0),requestIdRef=useRef(0);
- const parentLinks=window.user.parentPortalLinks,selectedMobileUser=window.user;
+ const parentLinks=window.user.parentPortalLinks,selectedMobileUser=window.user,adultLink=null;
  const saveParentOfflineSelection=async(_user,id)=>{window.saved=id};const setChildSwitcherOpen=()=>{};
  ${handler}
  useEffect(()=>{${sectionReset}},[selectedLinkId]);
