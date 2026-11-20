@@ -1,3 +1,469 @@
+-- Share canonical Player checks between own-user RPCs and the service worker.
+-- Explicit-user helpers remain private. Own-user wrappers still use auth.uid().
+
+create function app_private.adult_player_account_state_for_user(target_user_id uuid)
+returns table (
+  link_id uuid,
+  user_id uuid,
+  player_id uuid,
+  player_name text,
+  player_status text,
+  date_of_birth date,
+  contact_type text,
+  club_id uuid,
+  club_name text,
+  club_logo_url text,
+  club_contact_email text,
+  team_id uuid,
+  team_name text,
+  theme_mode text,
+  theme_accent text,
+  theme_button_style text,
+  link_status text,
+  verified_at timestamptz,
+  access_mode text,
+  role_label text,
+  access_granted boolean,
+  denial_category text
+)
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+declare
+  active_link_count integer := 0;
+begin
+  if target_user_id is null then
+    return;
+  end if;
+
+  select count(*)
+  into active_link_count
+  from public.adult_player_account_links adult_link
+  where adult_link.user_id = (select target_user_id)
+    and adult_link.status = 'active';
+
+  if active_link_count > 1 then
+    return query
+    select
+      null::uuid,
+      (select target_user_id),
+      null::uuid,
+      ''::text,
+      ''::text,
+      null::date,
+      ''::text,
+      null::uuid,
+      ''::text,
+      ''::text,
+      ''::text,
+      null::uuid,
+      ''::text,
+      ''::text,
+      ''::text,
+      ''::text,
+      'active'::text,
+      null::timestamptz,
+      'player'::text,
+      'Player'::text,
+      false,
+      'ambiguous_active_links'::text;
+    return;
+  end if;
+
+  return query
+  select
+    adult_link.id,
+    adult_link.user_id,
+    adult_link.player_id,
+    coalesce(nullif(player.player_name, ''), 'Player')::text,
+    player.status,
+    player.date_of_birth,
+    player.contact_type,
+    adult_link.club_id,
+    coalesce(nullif(club.name, ''), 'Football club')::text,
+    coalesce(club.logo_url, '')::text,
+    coalesce(club.contact_email, '')::text,
+    adult_link.team_id,
+    coalesce(nullif(team.name, ''), nullif(player.team, ''), 'Team')::text,
+    coalesce(team.theme_mode, '')::text,
+    coalesce(club.theme_accent, team.theme_accent, '')::text,
+    coalesce(club.theme_button_style, team.theme_button_style, '')::text,
+    adult_link.status,
+    adult_link.verified_at,
+    'player'::text,
+    'Player'::text,
+    (
+      adult_link.status = 'active'
+      and player.status = 'active'
+      and player.archived_at is null
+      and player.club_id = adult_link.club_id
+      and player.team_id = adult_link.team_id
+      and team.club_id = adult_link.club_id
+      and player.date_of_birth is not null
+      and player.date_of_birth <= (current_date - interval '18 years')::date
+      and player.contact_type in ('self', 'both')
+    ),
+    case
+      when adult_link.status <> 'active' then 'link_revoked'
+      when player.status <> 'active' or player.archived_at is not null then 'player_inactive'
+      when player.club_id <> adult_link.club_id or player.team_id <> adult_link.team_id then 'scope_changed'
+      when team.id is null or team.club_id <> adult_link.club_id then 'team_access_missing'
+      when player.date_of_birth is null then 'date_of_birth_missing'
+      when player.date_of_birth > (current_date - interval '18 years')::date then 'player_under_18'
+      when player.contact_type not in ('self', 'both') then 'player_not_self_managed'
+      else ''
+    end::text
+  from public.adult_player_account_links adult_link
+  left join public.players player
+    on player.id = adult_link.player_id
+  left join public.clubs club
+    on club.id = adult_link.club_id
+  left join public.teams team
+    on team.id = adult_link.team_id
+  where adult_link.user_id = (select target_user_id)
+  order by
+    case when adult_link.status = 'active' then 0 else 1 end,
+    adult_link.created_at desc
+  limit 1;
+end;
+$$;
+
+revoke all on function app_private.adult_player_account_state_for_user(uuid) from public,anon,authenticated,service_role;
+
+create or replace function public.get_own_adult_player_account_state()
+returns table (
+  link_id uuid,
+  user_id uuid,
+  player_id uuid,
+  player_name text,
+  player_status text,
+  date_of_birth date,
+  contact_type text,
+  club_id uuid,
+  club_name text,
+  club_logo_url text,
+  club_contact_email text,
+  team_id uuid,
+  team_name text,
+  theme_mode text,
+  theme_accent text,
+  theme_button_style text,
+  link_status text,
+  verified_at timestamptz,
+  access_mode text,
+  role_label text,
+  access_granted boolean,
+  denial_category text
+)
+language sql stable security definer set search_path = '' as $$
+  select * from app_private.adult_player_account_state_for_user(auth.uid());
+$$;
+
+create function app_private.adult_player_portal_context_for_user(target_user_id uuid)
+returns table (link_id uuid, user_id uuid, player_id uuid, club_id uuid, team_id uuid,
+  player_name text, history_cutoff timestamptz, email text)
+language sql stable security definer set search_path = '' as $$
+  select state.link_id, state.user_id, state.player_id, state.club_id, state.team_id,
+    state.player_name, date_trunc('day', link.created_at), lower(btrim(account.email))
+  from app_private.adult_player_account_state_for_user(target_user_id) state
+  join public.adult_player_account_links link on link.id = state.link_id and link.user_id = target_user_id
+  join auth.users account on account.id = state.user_id
+  join public.players player on player.id = state.player_id and player.club_id = state.club_id and player.team_id = state.team_id
+  join public.clubs club on club.id = state.club_id and club.status = 'active' and club.archived_at is null
+  join public.teams team on team.id = state.team_id and team.club_id = club.id and team.status = 'active' and team.archived_at is null
+  where state.access_granted and state.access_mode = 'player' and state.user_id = target_user_id
+    and state.link_status = 'active' and state.verified_at is not null
+    and link.status = 'active' and link.revoked_at is null and link.verified_at is not null
+    and account.deleted_at is null and account.email_confirmed_at is not null
+    and (account.banned_until is null or account.banned_until <= statement_timestamp())
+    and nullif(btrim(account.email), '') is not null
+    and player.status = 'active' and player.archived_at is null
+    and player.date_of_birth <= (current_date - interval '18 years')::date
+    and player.contact_type in ('self', 'both')
+    and not exists (select 1 from public.users profile where profile.id = state.user_id
+      and profile.status = 'suspended'
+      and (profile.role in ('parent_portal', 'adult_player') or profile.club_id = state.club_id))
+    and (select count(distinct lower(btrim(contact->>'email')))
+      from jsonb_array_elements(case when jsonb_typeof(player.parent_contacts) = 'array' then player.parent_contacts else '[]'::jsonb end) contact
+      where contact->>'type' = 'self' and nullif(btrim(contact->>'email'), '') is not null) = 1
+    and exists (select 1 from jsonb_array_elements(case when jsonb_typeof(player.parent_contacts) = 'array' then player.parent_contacts else '[]'::jsonb end) contact
+      where contact->>'type' = 'self' and lower(btrim(contact->>'email')) = lower(btrim(account.email)));
+$$;
+
+revoke all on function app_private.adult_player_portal_context_for_user(uuid) from public,anon,authenticated,service_role;
+
+create or replace function app_private.own_adult_player_portal_context()
+returns table (link_id uuid, user_id uuid, player_id uuid, club_id uuid, team_id uuid,
+  player_name text, history_cutoff timestamptz, email text)
+language sql stable security definer set search_path = '' as $$
+  select * from app_private.adult_player_portal_context_for_user(auth.uid());
+$$;
+
+create function app_private.adult_player_chat_context_for_user(target_user_id uuid)
+returns table (link_id uuid, user_id uuid, player_id uuid, club_id uuid, team_id uuid,
+  player_name text, history_cutoff timestamptz, community_type text)
+language sql stable security definer set search_path = '' as $$
+  select state.link_id, state.user_id, state.player_id, state.club_id, state.team_id,
+    state.player_name, state.history_cutoff,
+    case player_type.chat_group when 'team' then 'team' when 'training' then 'team_training'
+      when 'match' then 'team_match' else '' end
+  from app_private.adult_player_portal_context_for_user(target_user_id) state
+  join public.players player on player.id = state.player_id
+  left join public.club_player_types player_type
+    on player_type.club_id = state.club_id and player_type.name = player.section
+  where public.can_use_plan_feature(state.club_id, 'parentChat');
+$$;
+
+revoke all on function app_private.adult_player_chat_context_for_user(uuid) from public,anon,authenticated,service_role;
+
+create or replace function app_private.own_adult_player_chat_context()
+returns table (link_id uuid, user_id uuid, player_id uuid, club_id uuid, team_id uuid,
+  player_name text, history_cutoff timestamptz, community_type text)
+language sql stable security definer set search_path = '' as $$
+  select * from app_private.adult_player_chat_context_for_user(auth.uid());
+$$;
+
+create function app_private.adult_player_chat_can_access_for_user(target_user_id uuid, target_room_id uuid, for_post boolean default false)
+returns boolean language sql stable security definer set search_path = '' as $$
+  select exists (
+    select 1 from app_private.adult_player_chat_context_for_user(target_user_id) actor
+    join public.parent_chat_rooms room on room.id = target_room_id
+      and room.club_id = actor.club_id and room.team_id = actor.team_id
+    where room.status in ('active', 'closed')
+      and (not for_post or room.status = 'active')
+      and (
+        (room.room_type = 'player_staff' and room.player_id = actor.player_id)
+        or (actor.community_type <> '' and room.room_type = actor.community_type)
+        or (room.room_type = 'match_squad' and exists (
+          select 1 from public.match_day_player_squad_decisions decision
+          join public.match_days fixture on fixture.id = decision.match_day_id
+            and fixture.club_id = actor.club_id and fixture.team_id = actor.team_id
+          where decision.match_day_id = room.match_day_id and decision.player_id = actor.player_id
+            and decision.club_id = actor.club_id and decision.team_id = actor.team_id
+            and decision.status = 'selected' and fixture.deleted_at is null
+            and fixture.previous_hidden_at is null
+            and (not for_post or fixture.status in ('scheduled', 'scorer_request', 'live', 'half_time'))
+        ))
+      )
+  );
+$$;
+
+revoke all on function app_private.adult_player_chat_can_access_for_user(uuid,uuid,boolean) from public,anon,authenticated,service_role;
+
+create or replace function app_private.own_adult_player_chat_can_access(target_room_id uuid, for_post boolean default false)
+returns boolean
+language sql stable security definer set search_path = '' as $$
+  select * from app_private.adult_player_chat_can_access_for_user(auth.uid(), target_room_id, for_post);
+$$;
+
+create function app_private.adult_player_invitation_state_for_user(target_user_id uuid)
+returns table (
+  invitation_id text,
+  invitation_type text,
+  source_record_id uuid,
+  event_id uuid,
+  event_type text,
+  event_title text,
+  event_start timestamptz,
+  event_end timestamptz,
+  event_location text,
+  team_name text,
+  response_state text,
+  selection_state text,
+  can_respond boolean,
+  lock_reason text,
+  response_deadline timestamptz,
+  last_responded_at timestamptz
+)
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  with adult_context as (
+    select state.*
+    from app_private.adult_player_account_state_for_user(target_user_id) state
+    where state.access_granted is true
+      and app_private.adult_player_contact_is_current(state.player_id, state.club_id, state.team_id, (select email from auth.users where id = target_user_id))
+    limit 1
+  ),
+  calendar_items as (
+    select
+      concat('calendar:', invite.id)::text as invitation_id,
+      'calendar_attendance'::text as invitation_type,
+      invite.id as source_record_id,
+      event.id as event_id,
+      coalesce(nullif(event.event_type, ''), 'general')::text as event_type,
+      coalesce(nullif(event.title, ''), 'Club event')::text as event_title,
+      event.starts_at as event_start,
+      event.ends_at as event_end,
+      coalesce(event.location, '')::text as event_location,
+      context.team_name,
+      coalesce(invite.adult_response_status, 'awaiting_response')::text as response_state,
+      'not_applicable'::text as selection_state,
+      (invite.invite_status <> 'cancelled' and invite.cancelled_at is null and event.cancelled_at is null and event.starts_at > now()) as can_respond,
+      case
+        when invite.invite_status = 'cancelled' or invite.cancelled_at is not null or event.cancelled_at is not null then 'This event has been cancelled.'
+        when event.starts_at <= now() then 'This event has closed.'
+        else ''
+      end::text as lock_reason,
+      event.starts_at as response_deadline,
+      invite.adult_responded_at as last_responded_at
+    from adult_context context
+    join public.calendar_event_invites invite
+      on invite.club_id = context.club_id
+      and invite.team_id = context.team_id
+      and invite.player_id = context.player_id
+      and invite.recipient_type in ('player', 'parent_and_player')
+    join public.calendar_events event
+      on event.id = invite.calendar_event_id
+      and event.club_id = context.club_id
+      and event.team_id = context.team_id
+    where event.starts_at >= now() - interval '30 days'
+      and event.event_type not in ('training', 'match_day')
+      and lower(btrim(invite.player_contact_email)) = lower(btrim((select email from auth.users where id = target_user_id)))
+  ),
+  training_items as (
+    select
+      concat('training:', request_player.id)::text as invitation_id,
+      'training_attendance'::text as invitation_type,
+      request_player.id as source_record_id,
+      request.calendar_event_id as event_id,
+      'training'::text as event_type,
+      coalesce(nullif(event.title, ''), 'Training')::text as event_title,
+      request.occurrence_starts_at as event_start,
+      request.occurrence_ends_at as event_end,
+      coalesce(event.location, '')::text as event_location,
+      context.team_name,
+      coalesce(response.status, 'awaiting_response')::text as response_state,
+      'not_applicable'::text as selection_state,
+      (
+        request.status not in ('cancelled', 'expired')
+        and request_player.token_revoked_at is null
+        and request_player.status not in ('cancelled', 'expired')
+        and event.cancelled_at is null
+        and coalesce(request_player.response_deadline_at, request.occurrence_starts_at) > now()
+      ) as can_respond,
+      case
+        when request.status = 'cancelled' or request_player.status = 'cancelled' or event.cancelled_at is not null then 'This training session has been cancelled.'
+        when request_player.token_revoked_at is not null then 'This invitation is no longer valid.'
+        when request.status = 'expired' or request_player.status = 'expired' or coalesce(request_player.response_deadline_at, request.occurrence_starts_at) <= now() then 'The response window has closed.'
+        else ''
+      end::text as lock_reason,
+      coalesce(request_player.response_deadline_at, request.occurrence_starts_at) as response_deadline,
+      response.responded_at as last_responded_at
+    from adult_context context
+    join public.training_availability_request_players request_player
+      on request_player.club_id = context.club_id
+      and request_player.team_id = context.team_id
+      and request_player.player_id = context.player_id
+      and request_player.parent_link_id is null
+      and request_player.recipient_type = 'player'
+    join public.training_availability_requests request
+      on request.id = request_player.request_id
+      and request.club_id = context.club_id
+      and request.team_id = context.team_id
+    join public.calendar_events event
+      on event.id = request.calendar_event_id
+      and event.club_id = context.club_id
+      and event.team_id = context.team_id
+    left join public.training_availability_responses response
+      on response.request_player_id = request_player.id
+    where request.occurrence_starts_at >= now() - interval '30 days'
+  ),
+  match_items as (
+    select
+      concat('match:', request.id)::text as invitation_id,
+      'match_attendance'::text as invitation_type,
+      request.id as source_record_id,
+      match_day.id as event_id,
+      'match_day'::text as event_type,
+      concat('Match Day vs ', coalesce(nullif(match_day.opponent, ''), 'opponent'))::text as event_title,
+      case
+        when match_day.match_date is null then null
+        else timezone('Europe/London', match_day.match_date + coalesce(match_day.kickoff_time, time '00:00'))
+      end as event_start,
+      case
+        when match_day.match_date is null then null
+        else timezone('Europe/London', match_day.match_date + coalesce(match_day.kickoff_time, time '00:00')) + interval '2 hours'
+      end as event_end,
+      coalesce(nullif(match_day.venue_address, ''), nullif(match_day.venue_name, ''), '')::text as event_location,
+      context.team_name,
+      coalesce(availability.status, nullif(request.status, 'pending'), 'awaiting_response')::text as response_state,
+      coalesce(decision.status, 'undecided')::text as selection_state,
+      (
+        request.status <> 'expired'
+        and request.token_revoked_at is null
+        and request.expires_at > now()
+        and match_day.status not in ('cancelled', 'postponed', 'full_time')
+        and match_day.concluded_at is null
+        and match_day.deleted_at is null
+      ) as can_respond,
+      case
+        when match_day.status in ('cancelled', 'postponed') then 'This fixture is not active.'
+        when match_day.status = 'full_time' or match_day.concluded_at is not null then 'This fixture has concluded.'
+        when match_day.deleted_at is not null then 'This fixture is no longer available.'
+        when request.token_revoked_at is not null then 'This invitation is no longer valid.'
+        when request.status = 'expired' or request.expires_at <= now() then 'The response deadline has passed.'
+        else ''
+      end::text as lock_reason,
+      request.expires_at as response_deadline,
+      coalesce(availability.selected_at, request.responded_at) as last_responded_at
+    from adult_context context
+    join public.match_day_availability_requests request
+      on request.club_id = context.club_id
+      and request.team_id = context.team_id
+      and request.player_id = context.player_id
+      and request.parent_link_id is null
+      and request.recipient_type = 'player'
+    join public.match_days match_day
+      on match_day.id = request.match_day_id
+      and match_day.club_id = context.club_id
+      and match_day.team_id = context.team_id
+    left join public.match_day_player_availability availability
+      on availability.match_day_id = match_day.id
+      and availability.player_id = context.player_id
+    left join public.match_day_player_squad_decisions decision
+      on decision.match_day_id = match_day.id
+      and decision.player_id = context.player_id
+    where match_day.match_date is null
+      or match_day.match_date >= timezone('Europe/London', now())::date - 30
+  )
+  select * from calendar_items
+  union all
+  select * from training_items
+  union all
+  select * from match_items
+  order by event_start asc nulls last, event_title, invitation_type;
+$$;
+
+revoke all on function app_private.adult_player_invitation_state_for_user(uuid) from public,anon,authenticated,service_role;
+
+create or replace function public.get_own_adult_player_invitation_state()
+returns table (
+  invitation_id text,
+  invitation_type text,
+  source_record_id uuid,
+  event_id uuid,
+  event_type text,
+  event_title text,
+  event_start timestamptz,
+  event_end timestamptz,
+  event_location text,
+  team_name text,
+  response_state text,
+  selection_state text,
+  can_respond boolean,
+  lock_reason text,
+  response_deadline timestamptz,
+  last_responded_at timestamptz
+)
+language sql stable security definer set search_path = '' as $$
+  select * from app_private.adult_player_invitation_state_for_user(auth.uid());
+$$;
+
 -- Player installations never borrow a Parent link or Parent delivery authority.
 create table public.adult_player_mobile_push_installations (
   installation_id uuid primary key,
@@ -147,17 +613,14 @@ create trigger adult_player_calendar_push after insert or update of invite_statu
 create trigger adult_player_training_push after insert or update of status on public.training_availability_request_players for each row execute function app_private.enqueue_adult_player_mobile_push();
 create trigger adult_player_match_push after insert or update of status on public.match_day_availability_requests for each row execute function app_private.enqueue_adult_player_mobile_push();
 
--- This private worker helper evaluates the same authenticated Player access rules
--- as the app. Function-local claim settings restore automatically on return/error.
--- No caller can invoke it; only the service-only claim function below can use it.
+-- This private worker helper evaluates shared checks for the installation user.
+-- It never changes JWT claims, identity, roles or configuration privileges.
+-- Only the service-only claim function below can invoke it.
 create function app_private.adult_player_push_payload(device public.adult_player_mobile_push_installations, kind_value text, source_value text)
-returns jsonb language plpgsql security definer set search_path = ''
-set request.jwt.claim.sub = '' set request.jwt.claims = '{}' as $$
+returns jsonb language plpgsql security definer set search_path = '' as $$
 declare actor record; message_row record; invitation record; data_value jsonb; title_value text; body_value text;
 begin
-  perform set_config('request.jwt.claim.sub',device.user_id::text,true);
-  perform set_config('request.jwt.claims',jsonb_build_object('sub',device.user_id)::text,true);
-  select * into actor from app_private.own_adult_player_portal_context();
+  select * into actor from app_private.adult_player_portal_context_for_user(device.user_id);
   if actor.link_id is distinct from device.adult_link_id or actor.club_id is distinct from device.club_id or actor.team_id is distinct from device.team_id
     or not device.enabled or device.expo_push_token is null or not public.can_use_plan_feature(device.club_id,'parentPortal') then return null; end if;
   if kind_value = 'chat' then
@@ -165,14 +628,14 @@ begin
       join public.parent_chat_rooms room on room.id=message.room_id
       where message.id=source_value::uuid and message.deleted_at is null and message.sender_id is distinct from device.user_id
         and message.created_at >= actor.history_cutoff;
-    if message_row.id is null or not app_private.own_adult_player_chat_can_access(message_row.room_id)
+    if message_row.id is null or not app_private.adult_player_chat_can_access_for_user(device.user_id,message_row.room_id)
       or exists(select 1 from public.adult_player_chat_preferences preference where preference.adult_link_id=device.adult_link_id
         and preference.room_id=message_row.room_id and (preference.notifications_muted or preference.last_read_at >= message_row.created_at)) then return null; end if;
     title_value := 'Football Player Chat'; body_value := 'A new Chat update is available.';
     data_value := jsonb_build_object('route','chat','roomId',message_row.room_id,'messageId',message_row.id,'type','player_chat');
   else
     if source_value like 'calendar:%' and not exists(select 1 from public.calendar_event_invites invite where invite.id=split_part(source_value,':',2)::uuid and invite.notify_requested) then return null; end if;
-    select * into invitation from public.get_own_adult_player_invitation_state() where invitation_id=source_value;
+    select * into invitation from app_private.adult_player_invitation_state_for_user(device.user_id) where invitation_id=source_value;
     if invitation.invitation_id is null or invitation.event_start <= now()
       or (invitation.invitation_type <> 'calendar_information' and not invitation.can_respond)
       or (invitation.invitation_type = 'calendar_information' and invitation.lock_reason <> 'This event is for information. No response is required.')

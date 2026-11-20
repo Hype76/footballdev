@@ -320,3 +320,76 @@ test('same authenticated person retains both valid Parent and Player registratio
   assert.equal((await db.query('select count(*)::int n from parent_mobile_push_installations where enabled')).rows[0].n,0)
  } finally {await db.close()}
 })
+
+test('worker delivery uses explicit installation identity even when request auth cannot be read', async () => {
+ const db=await setup()
+ try {
+  await register(db)
+  await sendChat(db)
+  await db.exec(`insert into calendar_events values('${uuid(800)}','${id.club}','${id.team}','general','Club event',now()+interval '1 day',null,'Ground',null);
+    insert into calendar_event_invites(id,club_id,team_id,calendar_event_id,player_id,recipient_type,notify_requested)
+      values('${uuid(801)}','${id.club}','${id.team}','${uuid(800)}','${id.player}','player',true);`)
+  // Hosted postgres cannot SET request JWT claims. Remove request identity
+  // entirely and make any accidental dependency on auth.uid() fail loudly.
+  await claims(db,'')
+  await db.exec(`create or replace function auth.uid() returns uuid language plpgsql stable as $$
+    begin raise exception 'Worker must not read or impersonate request identity'; end $$;`)
+  const pushed=await claimPush(db)
+  assert.equal(pushed.length,2)
+  assert.ok(pushed.every(row=>row.payload.data.userId===id.user))
+  assert.deepEqual(pushed.map(row=>row.payload.data.route).sort(),['chat','invites'])
+  await assert.rejects(db.query('select * from get_own_adult_player_account_state()'),/must not read or impersonate/)
+  await assert.rejects(db.query('select * from get_own_adult_player_invitation_state()'),/must not read or impersonate/)
+  const settings=(await db.query(`select proconfig from pg_proc where proname in ('adult_player_push_payload','claim_adult_player_mobile_push_intents')`)).rows
+  assert.ok(settings.every(row=>(row.proconfig||[]).every(setting=>!setting.startsWith('request.jwt.'))))
+  const sql=await readFile(new URL('../supabase/migrations/20261120172920_adult_player_mobile_push.sql',import.meta.url),'utf8')
+  assert.doesNotMatch(sql,/set_config|set\s+request\.jwt|alter\s+role|grant\s+set/iu)
+ } finally {await db.close()}
+})
+
+test('own-user wrappers retain authenticated identity while private shared helpers have no application grants',async()=>{
+ const db=await setup()
+ try {
+  const names=[
+   ['public.get_own_adult_player_account_state()','app_private.adult_player_account_state_for_user($1)'],
+   ['app_private.own_adult_player_portal_context()','app_private.adult_player_portal_context_for_user($1)'],
+   ['app_private.own_adult_player_chat_context()','app_private.adult_player_chat_context_for_user($1)'],
+   ['public.get_own_adult_player_invitation_state()','app_private.adult_player_invitation_state_for_user($1)'],
+  ]
+  for(const [own,explicit] of names){
+   assert.deepEqual((await db.query(`select * from ${own}`)).rows,(await db.query(`select * from ${explicit}`,[id.user])).rows,own)
+  }
+  const direct=await room(db,'player_staff')
+  assert.equal((await db.query('select app_private.own_adult_player_chat_can_access($1) allowed',[direct.id])).rows[0].allowed,
+    (await db.query('select app_private.adult_player_chat_can_access_for_user($1,$2) allowed',[id.user,direct.id])).rows[0].allowed)
+  await claims(db,id.denied)
+  assert.equal((await db.query('select * from get_own_adult_player_account_state()')).rows.length,0)
+  assert.equal((await db.query('select * from app_private.own_adult_player_portal_context()')).rows.length,0)
+  assert.equal((await db.query('select * from get_own_adult_player_chat_rooms()')).rows.length,0)
+  assert.equal((await db.query('select * from get_own_adult_player_invitation_state()')).rows.length,0)
+  assert.equal((await db.query('select * from app_private.adult_player_portal_context_for_user($1)',[id.user])).rows.length,1)
+  for(const helper of ['adult_player_account_state_for_user(uuid)','adult_player_portal_context_for_user(uuid)','adult_player_chat_context_for_user(uuid)','adult_player_chat_can_access_for_user(uuid,uuid,boolean)','adult_player_invitation_state_for_user(uuid)']){
+   for(const role of ['anon','authenticated','service_role']) assert.equal((await db.query('select has_function_privilege($1,$2,\'execute\') allowed',[role,`app_private.${helper}`])).rows[0].allowed,false,`${role}: ${helper}`)
+  }
+ }finally{await db.close()}
+})
+
+test('shared explicit-user helpers preserve the canonical permission predicates byte-for-byte',async()=>{
+ const changed=await readFile(new URL('../supabase/migrations/20261120172920_adult_player_mobile_push.sql',import.meta.url),'utf8')
+ const sources=[
+  ['20260730110000_adult_player_account_foundation.sql','public.get_own_adult_player_account_state','app_private.adult_player_account_state_for_user'],
+  ['20261120112557_adult_player_shared_chat.sql','app_private.own_adult_player_portal_context','app_private.adult_player_portal_context_for_user'],
+  ['20261120112557_adult_player_shared_chat.sql','app_private.own_adult_player_chat_context','app_private.adult_player_chat_context_for_user'],
+  ['20261120112557_adult_player_shared_chat.sql','app_private.own_adult_player_chat_can_access','app_private.adult_player_chat_can_access_for_user'],
+  ['20261118101012_adult_player_calendar_rsvp_and_token_identity.sql','public.get_own_adult_player_invitation_state','app_private.adult_player_invitation_state_for_user'],
+ ]
+ const body=(text,name)=>text.slice(text.indexOf(`function ${name}(`)).match(/\bas\s+\$\$([\s\S]*?)\$\$/iu)[1]
+ for(const [file,own,helper] of sources){
+  let expected=body(await readFile(new URL(`../supabase/migrations/${file}`,import.meta.url),'utf8'),own)
+  expected=expected.replaceAll('public.get_own_adult_player_account_state()','app_private.adult_player_account_state_for_user(target_user_id)')
+    .replaceAll('app_private.own_adult_player_portal_context()','app_private.adult_player_portal_context_for_user(target_user_id)')
+    .replaceAll('app_private.own_adult_player_chat_context()','app_private.adult_player_chat_context_for_user(target_user_id)')
+    .replaceAll('auth.uid()','target_user_id')
+  assert.equal(body(changed,helper),expected,helper)
+ }
+})
