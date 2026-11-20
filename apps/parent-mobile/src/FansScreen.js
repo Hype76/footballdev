@@ -111,7 +111,7 @@ export async function clearFanNotificationDevice() {
   const userId = data?.session?.user?.id
   if (userId) await disableFanDeviceNotifications({ userId, apiBaseUrl: getMobileRuntimeConfig('parent').apiBaseUrl, secureStore: SecureStore, request })
 }
-function FansScreenContent({ embedded = false, themeTokens, themeMode, onBack, selectedParentLinkId, onSelectedParentLinkChange, scrollViewRef }) {
+function FansScreenContent({ embedded = false, themeTokens, themeMode, onBack, backLabel = 'Back to Parent app', selectedParentLinkId, onSelectedParentLinkChange, scrollViewRef }) {
   const [savedMode, setSavedMode] = useState(parentThemePreference.peek)
   const systemTheme = useColorScheme()
   useEffect(() => { let active = true; parentThemePreference.read().then(() => { if (active) setSavedMode(parentThemePreference.peek()) }).catch(() => {}); return () => { active = false } }, [])
@@ -316,7 +316,7 @@ function FansScreenContent({ embedded = false, themeTokens, themeMode, onBack, s
       {state.contentError && !state.content ? <View><Text accessibilityRole="alert" style={styles.error}>{state.contentError}</Text><Action label="Try again" onPress={() => state.open(state.view.connectionId, state.view.action, state.view.matchId ? { matchId: state.view.matchId } : {})} /></View> : !state.content ? <MobileLoadingStatus message="Loading shared items" /> : <FanContent suppressParentFormation={parents.length > 0} key={`${state.view.connectionId}:${state.view.action}`} connection={brandSource} view={state.view} content={state.content} formation={formation} onCloseFormation={() => setFormation(null)} onOpenResource={openResource} onOpenLink={(url) => run(() => Linking.openURL(url))} onOpen={(action, details) => state.open(state.view.connectionId, action, details)} themeTokens={tokens} />}
       <MobileFailureNotice message={state.content && state.contentError ? state.contentError : ''} scopeKey={`${user.id}:${state.view.connectionId}:${state.view.action}`} onRetry={() => state.open(state.view.connectionId, state.view.action, state.view.matchId ? { matchId: state.view.matchId } : {})} />
     </> : <>
-    {onBack ? <Action label="Back to Parent app" icon="action.back" onPress={onBack} /> : null}
+    {onBack ? <Action label={backLabel} icon="action.back" onPress={onBack} /> : null}
     {!viewerShell ? <View style={styles.playersHeading}><View style={styles.copy}><Text accessibilityRole="header" style={styles.title}>Players</Text><Text style={styles.helper}>{parents.length ? 'Players linked to this account.' : 'Follow your players and view what has been shared with you.'}</Text></View>{parents.length ? <Action compact primary icon="person-add" label="Invite a Fan" disabled={busy} onPress={() => begin()} /> : null}</View>
  : null}
     {state.error && !isTransientConnectionMessage(state.error) ? <Text accessibilityRole="alert" style={styles.error}>{state.error}</Text> : null}

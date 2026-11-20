@@ -296,7 +296,7 @@ jobs:
       - name: User feedback and More menu reports
         run: node --test tests/tester-feedback.test.mjs tests/platform-feedback-visibility.test.mjs tests/user-feedback-flow.test.mjs tests/more-partners-banner-order.test.mjs && node tests/user-feedback-screen-browser.mjs && node tests/user-feedback-web-browser.mjs
       - name: Compile Coach and Parent mobile apps
-        run: npm run mobile:export:web
+        run: npm run mobile:export:web && node tests/adult-player-mobile-browser.mjs
       - name: Coach player profile navigation
         run: node tests/coach-player-profile-browser.mjs && node tests/coach-development-selectors-browser.mjs && node tests/coach-sessions-cache-warning-browser.mjs
       - name: Coach Calendar month markers
