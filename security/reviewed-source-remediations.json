@@ -771,7 +771,7 @@
   "implementationHashes": {
     "scripts/security-supply-chain-gate.mjs": "9ef3c2fa9949a270eba3b8d7eefc2f9e303e8fbb2fda3921b2e6e42280e733fc",
     "scripts/security-apply-reviewed-backports.mjs": "ba146641cebf4a835337602d942d3fe9e432dfb44cd178e64e7e5bcabe2cb7b1",
-    "scripts/security-verify-reviewed-backports.mjs": "42290d2fdae37832c11d9d56a3ac95acacb601f47ea8d01908707b3a607434bf",
+    "scripts/security-verify-reviewed-backports.mjs": "797e5a6877639a2b457173d72d305df84ff4ed78b17bfac6596a03998483a3b7",
     "security/patches/braces-3.0.3.patch": "e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699",
     "security/patches/node-forge-1.4.0.patch": "2de065ac998bf58917a14d0935112d97ec2957ac41b5f06958d500934f188ed4",
     "security/patches/reviewed-source-manifest.json": "0507b50c4ce7a772508ed3a0d18290548bb1fd48802db4599a5ec8e47e2eed49",
@@ -1711,7 +1711,7 @@
       "apps/mobile-core/src/ui.js": "2ed9c214bd8f97eba2b008365a0d3167e7ade95906fee534a3ca9fff1ba8dfee",
       "apps/mobile-core/src/useAttendanceOutbox.js": "f578d4cf5c508fa4bdd3607a060ebb5e55f5d72e868004ef772300a2fe9fb6c8",
       "apps/mobile-core/src/useTeamLeagueLink.js": "78945d958af2ba81bab0247dffb844e67003f3e5697c04d5903617d23c9a1951",
-      "apps/parent-mobile/App.js": "29ab957a85711f38945f4b0dac1d087e6c275a416340778e8eb9126a0d03f991",
+      "apps/parent-mobile/App.js": "3dbd0dc8a638289469c4343955db4b8a47eae84ec852915975e2d85883f53cb2",
       "apps/parent-mobile/package-lock.json": "0bd51a5079250746323cea94f936fdfb1bda1f06e7cbaa50558094a4c2f26382",
       "apps/parent-mobile/package.json": "59906be3f4f7d64120c89f8fe9edcd746b35816583e503fa875999e99a802ccf",
       "apps/parent-mobile/parentDevelopment.js": "da85be42f4b1eff315bd4cd5bc626b79899617609b0f94d24bad3a032c42f352",
@@ -4186,7 +4186,7 @@
     },
     "toolingRequalification20261117": "Qualify official minimatch 11.0.9 JavaScript tooling across all three scopes. Lock changes are limited to minimatch; direct and native dependencies, Expo runtime, reviewed package patches and audit rules are retained."
   },
-  "releasePreparationSha256": "a3957829ca64b78a86f28fec2c461505a7da2e575745826a9a42db551387f0ae",
+  "releasePreparationSha256": "dfd316ef7dae6e2719fe99227cb1a6a77ac68c2e35b0ab86302366c6d8918c91",
   "rootOnlyProposalSha256": "45c3b7352c7328c84982e114b7e87e09cf79514d02d102297ae75ec0925812eb",
   "remediationMode": "maintained-source-fixes",
   "officialCompatibilityDependencies": [
