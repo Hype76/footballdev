@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import { readFile } from 'node:fs/promises'
 import { PGlite } from '@electric-sql/pglite'
-import { activeTvSponsors, canViewClubMatchdayTv, clubTvDate, clubTvSlugStatus, clubTvViewerUrl, newTvGoals, normalizeTvMatchDetails, readTvPreferences, toClubTvMatch, TV_SPONSOR_BUCKET, TV_SPONSOR_MAX_BYTES, tvMatchClock, tvMatchSides, tvMatchStatus, tvPitchNumber, validTvDate, tvDateAfter, tvPeriodWindow } from '../src/lib/club-matchday-tv.js'
+import { activeTvSponsors, canViewClubMatchdayTv, clubTvDate, clubTvSlugStatus, clubTvViewerUrl, newTvGoals, normalizeTvMatchDetails, normalizeTvOrderingUrl, readTvPreferences, toClubTvMatch, TV_SPONSOR_BUCKET, TV_SPONSOR_MAX_BYTES, tvMatchClock, tvMatchSides, tvMatchStatus, tvPitchNumber, validTvDate, tvDateAfter, tvPeriodWindow } from '../src/lib/club-matchday-tv.js'
 import { isClubTvLocked, setClubTvLocked } from '../src/lib/club-tv-lock.js'
 
 process.env.VITE_SUPABASE_URL ||= 'https://example.supabase.co'
@@ -310,6 +310,13 @@ test('sponsor dates include both boundaries and exclude disabled or invalid sche
   assert.deepEqual(activeTvSponsors(ads, 'not-a-date'), [])
 })
 
+test('ordering links use a bounded HTTPS URL without credentials', () => {
+  assert.equal(normalizeTvOrderingUrl('  https://ctfc-tournament-online-ordering.square.site/s/order  '), 'https://ctfc-tournament-online-ordering.square.site/s/order')
+  for (const bad of ['http://example.com', 'javascript:alert(1)', 'https://x:y@example.com', 'https:///example.com', 'https://example.com/' + 'a'.repeat(512), { url: 'https://example.com' }]) {
+    assert.equal(normalizeTvOrderingUrl(bad), '')
+  }
+})
+
 test('browser preferences reject executable image types and corrupt storage', () => {
   const original = globalThis.localStorage
   try {
@@ -374,7 +381,7 @@ const artwork = 'data:image/webp;base64,YXJ0'
 const preferences = {
   accessMode: 'admin', appearance: 'dark', bigGoal: false, showMap: true, weatherPostcode: 'CB23 6FY', map: artwork,
   sponsorAds: [{ image: artwork, name: 'Fictional Sponsor', enabled: true, startDate: '2026-11-12', endDate: '2026-11-12' }],
-  sponsorSeconds: 15, showPitchsideOrdering: true, ...normalizeTvMatchDetails(),
+  sponsorSeconds: 15, showPitchsideOrdering: true, pitchsideOrderingUrl: 'https://ctfc-tournament-online-ordering.square.site/s/order', ...normalizeTvMatchDetails(),
 }
 
 test('private Matchday TV settings and aliases are saved atomically by authorized Club Admins', async (t) => {
@@ -490,6 +497,7 @@ test('private Matchday TV settings and aliases are saved atomically by authorize
   assert.equal((await availability(cedarfield, 'AB12C')).availability, 'invalid')
   assert.equal((await save(cedarfield, 'Assets')).status, 400)
   assert.equal((await save(cedarfield, v2Shape)).status, 400)
+  assert.equal((await save(cedarfield, 'cedar-fc', 0, { ...preferences, pitchsideOrderingUrl: 'javascript:alert(1)' })).status, 400)
   assert.equal((await availability(cedarfield, 'CEDAR-FC')).availability, 'available')
   assert.equal((await availability(oakfield, 'cedar-fc')).availability, 'available')
   assert.equal((await save(cedarfield, 'CEDAR-FC')).status, 200)
@@ -527,6 +535,7 @@ test('private Matchday TV settings and aliases are saved atomically by authorize
   const publicView = await view(undefined, 'cedar-fc')
   assert.equal(publicView.status, 200)
   assert.equal(publicView.settings.preferences.accessMode, 'public')
+  assert.equal(publicView.settings.preferences.pitchsideOrderingUrl, preferences.pitchsideOrderingUrl)
   assert.equal(publicView.weatherConfigured, true)
   assert.equal(Object.hasOwn(publicView.settings.preferences, 'weatherPostcode'), false)
   assert.equal((await request(undefined, { action: 'settings', clubId: cedarfield })).status, 401)

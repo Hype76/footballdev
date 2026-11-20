@@ -1,5 +1,6 @@
 import { useEffect, useEffectEvent, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import QRCode from 'qrcode'
 import { createThemeColorTokens } from '../lib/theme.js'
 import { getClubMatchdayTv } from '../lib/domain/club-matchday-tv.js'
 import { ClubTvSponsorImage } from '../components/ClubTvSponsorImage.jsx'
@@ -15,6 +16,27 @@ const fixtureDayLabel = (value) => new Date(`${value}T12:00:00Z`).toLocaleDateSt
 const goalTime = (goal) => Date.parse(goal.event.createdAt) || 0
 const tvEventLabels = { goal: 'Goal', red_card: 'Red card', yellow_card: 'Yellow card' }
 const tvEventClasses = { red_card: 'club-tv-red', yellow_card: 'club-tv-yellow' }
+
+function PitchsideOrdering({ url }) {
+  const [code, setCode] = useState(null)
+  useEffect(() => {
+    if (!url) return undefined
+    let active = true
+    QRCode.toDataURL(url, { errorCorrectionLevel: 'M', margin: 4, width: 512 })
+      .then(data => { if (active) setCode({ url, data }) })
+      .catch(() => { if (active) setCode({ url, error: true }) })
+    return () => { active = false }
+  }, [url])
+  const currentCode = code?.url === url ? code : null
+
+  return <section className="club-tv-ordering">
+    <h2>Pitchside Ordering</h2>
+    {!url ? <span>Coming soon</span> : currentCode?.error ? <span>Ordering QR code unavailable</span> : <>
+      <span>Scan with your phone to order</span>
+      {currentCode?.data ? <img src={currentCode.data} alt="Scan to open pitchside ordering" /> : null}
+    </>}
+  </section>
+}
 
 function BrandCredit() {
   return <div className="club-tv-credit"><img src={fpLogo} alt="Football Player" /><span>footballplayer.online</span></div>
@@ -385,7 +407,7 @@ function ClubDayDisplay({ user, preferences, standalone, preview, date, setDate,
       </section>
       {hasMap || preferences.showPitchsideOrdering ? <aside className="club-tv-side-panel" aria-label="Club information">
         {hasMap ? <section className="club-tv-pitch"><div><h2>Pitch map</h2><span>Find your pitch</span></div><img src={preferences.map} alt={`${club?.name || user.clubName || 'Club'} pitch map`} /></section> : null}
-        {preferences.showPitchsideOrdering ? <section className="club-tv-ordering"><small>MATCHDAY PITCHSIDE</small><strong>Pitchside ordering</strong><span>Coming soon</span></section> : null}
+        {preferences.showPitchsideOrdering ? <PitchsideOrdering url={preferences.pitchsideOrderingUrl} /> : null}
       </aside> : null}
     </div>
     <RoadTicker matches={awayFixtures} clubLogo={club?.logoUrl || user.clubLogoUrl} showDate={rangeView} paused={paused} />
