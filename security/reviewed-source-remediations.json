@@ -559,7 +559,7 @@
   "implementationHashes": {
     "scripts/security-supply-chain-gate.mjs": "dcf722bc6cbf2015da4250ea60cbb81e34d3c5c64ec7bb6059671cbae5ab4207",
     "scripts/security-apply-reviewed-backports.mjs": "7f0e9de0add15a121a0f60f89f71656b503450010b8b9c8d4aaf58bc355fc5ec",
-    "scripts/security-verify-reviewed-backports.mjs": "be67f43131ea0f16544443a4822bb4a0064263c9fd4d357ca4b21c7b5b88f4f3",
+    "scripts/security-verify-reviewed-backports.mjs": "8ab64bc441b405f96812a11c197c972a6c8e6e7c0fcd7f663d77a7105a6db21e",
     "security/patches/braces-3.0.3.patch": "e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699",
     "security/patches/node-forge-1.4.0.patch": "2de065ac998bf58917a14d0935112d97ec2957ac41b5f06958d500934f188ed4",
     "security/patches/reviewed-source-manifest.json": "52d0b296071182c7354d87fdff4140270c59f6de90112eeda9feb6ded66cc600",
@@ -2078,7 +2078,8 @@
       "tests/coach-match-conflict-retry.test.mjs": "b5298ac23e9e128a6bc0061c64e4239b30dcf7b9889cbbf112f3040826a4de73",
       "tests/parent-scorer-conflict-recovery.test.mjs": "ef2bd6710cb92a16a9ce87c4d02cb1d6ea523ab911588d7b8e545be757799d78",
       "tests/parent-scorer-resume-feedback.test.mjs": "5c9bc71aa213d45973f3cf2b3e729cbc2b99c9d10c5ac29ce74bcfe327227442",
-      "apps/parent-mobile/src/parentScorerCore.js": "3938d8ed6b3d41320c04730730bb86190d9a2cc1d60542271063d7010ea0b3ed"
+      "apps/parent-mobile/src/parentScorerCore.js": "3938d8ed6b3d41320c04730730bb86190d9a2cc1d60542271063d7010ea0b3ed",
+      "tests/mobile-gameday-polls-directions-93.test.mjs": "f746be7f49ff12a10147ba19182518b7d218300c907fb019788f1fc77ed68a06"
     },
     "externalTrustInputs": [
       "FOOTBALL_REVIEW_RECEIPT_BASE64",
@@ -3500,7 +3501,7 @@
     },
     "toolingRequalification20261117": "Use official minimatch 11.0.9 JavaScript tooling across all three scopes, with unchanged native dependencies, Expo runtime, maintained patches and audit rules."
   },
-  "releasePreparationSha256": "fb65044b10cc28526a288c3bbab2e3739fd71b74efc664533b32d62dce231954",
+  "releasePreparationSha256": "df7648f27741ad223b59e71112bd0b428bf628ca74d1a1b774762f7119b6e008",
   "rootOnlyProposalSha256": "45c3b7352c7328c84982e114b7e87e09cf79514d02d102297ae75ec0925812eb",
   "remediationMode": "maintained-source-fixes",
   "officialCompatibilityDependencies": [
