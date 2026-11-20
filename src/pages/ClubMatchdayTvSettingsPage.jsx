@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../lib/auth.js'
-import { clubTvSlugStatus, clubTvStorageKey, clubTvViewerUrl, hasLocalTvPreferences, normalizeClubTvSlug, normalizeTvPreferences, readTvPreferences, TV_SPONSOR_EXTENSIONS, TV_SPONSOR_MAX_BYTES, validTvSponsorSchedule } from '../lib/club-matchday-tv.js'
+import { clubTvSlugStatus, clubTvStorageKey, clubTvViewerUrl, hasLocalTvPreferences, normalizeClubTvSlug, normalizeTvOrderingUrl, normalizeTvPreferences, readTvPreferences, TV_ORDERING_URL_MAX_LENGTH, TV_SPONSOR_EXTENSIONS, TV_SPONSOR_MAX_BYTES, validTvSponsorSchedule } from '../lib/club-matchday-tv.js'
 import { getClubMatchdayTv, uploadClubTvSponsor } from '../lib/domain/club-matchday-tv.js'
 import { ClubTvSponsorImage } from '../components/ClubTvSponsorImage.jsx'
 import './club-matchday-tv.css'
@@ -69,7 +69,8 @@ function DisplaySettings({ clubId, settings, storageKey }) {
   const availability = slugStatus !== 'valid' ? slugStatus
     : slug === savedSlug ? 'available' : checked?.slug === slug ? checked.status : 'checking'
   const needsLink = draft.accessMode === 'public' && !slug && !savedSlug
-  const canSave = !saving && !mapUploading && !sponsorsUploading && !needsLink && (!slug || availability === 'available')
+  const orderingUrlInvalid = Boolean(draft.pitchsideOrderingUrl.trim() && !normalizeTvOrderingUrl(draft.pitchsideOrderingUrl))
+  const canSave = !orderingUrlInvalid && !saving && !mapUploading && !sponsorsUploading && !needsLink && (!slug || availability === 'available')
   const link = savedSlug ? clubTvViewerUrl(savedSlug) : ''
 
   useEffect(() => {
@@ -248,8 +249,15 @@ function DisplaySettings({ clubId, settings, storageKey }) {
           <div className="club-tv-sponsor-dates"><label>Start date (optional)<input aria-label={`Sponsor ${index + 1} start date`} type="date" value={ad.startDate || ''} onChange={(event) => updateSponsor(index, { startDate: event.target.value })} /></label><label>End date (optional)<input aria-label={`Sponsor ${index + 1} end date`} type="date" value={ad.endDate || ''} onChange={(event) => updateSponsor(index, { endDate: event.target.value })} /></label></div>
         </div>)}
         {draft.sponsorAds.length ? <small>Dates use UK time and include the whole start and end days. Leave them blank to show an advert at any time.</small> : null}
-        <label className="club-tv-check"><input type="checkbox" checked={draft.showPitchsideOrdering} onChange={(event) => setDraft({ ...draft, showPitchsideOrdering: event.target.checked })} /> Show pitchside ordering</label>
-        <small>When enabled, the display says Coming soon until ordering is available.</small>
+        <fieldset className="club-tv-match-options">
+          <legend>Pitchside Ordering</legend>
+          <label className="club-tv-check"><input type="checkbox" checked={draft.showPitchsideOrdering} onChange={(event) => setDraft({ ...draft, showPitchsideOrdering: event.target.checked })} /> Show pitchside ordering</label>
+          <label htmlFor="club-tv-ordering-url">Kitchen ordering link</label>
+          <input id="club-tv-ordering-url" type="text" inputMode="url" autoComplete="url" placeholder="https://…" maxLength={TV_ORDERING_URL_MAX_LENGTH}
+            value={draft.pitchsideOrderingUrl} aria-invalid={orderingUrlInvalid} aria-describedby="club-tv-ordering-link-help"
+            onChange={(event) => setDraft({ ...draft, pitchsideOrderingUrl: event.target.value })} />
+          <small id="club-tv-ordering-link-help">{orderingUrlInvalid ? 'Enter a valid HTTPS ordering link.' : 'When enabled, Matchday TV shows a QR code for this link. Leave it blank to show Coming soon.'}</small>
+        </fieldset>
         {error ? <p role="alert">{error}</p> : null}
         <p role="status">{message}</p>
         <div className="club-tv-admin-actions"><button type="submit" disabled={!canSave}>{saving ? 'Saving…' : 'Save settings'}</button></div>
