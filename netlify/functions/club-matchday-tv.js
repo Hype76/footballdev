@@ -3,7 +3,7 @@ import { getAuthenticatedPlanProfile, getClubPlanProfile, canUsePlanEntitlement,
 import { supabaseAdmin, createPublicSupabaseClient } from './lib/_supabase.js'
 import { BILLING_ACTION_CATEGORIES, isBillingActionAllowed } from '../../src/lib/billing-access.js'
 import { isClubWorkspace } from '../../src/lib/workspace-scope.js'
-import { activeTvSponsors, clubTvDate, clubTvSlugStatus, isTvSponsorPath, normalizeClubTvSlug, normalizeTvMatchDetails, normalizeTvPreferences, toClubTvMatch, TV_SPONSOR_BUCKET, TV_SPONSOR_EXTENSIONS, TV_SPONSOR_MAX_BYTES, tvPitchNumber, validTvSponsorSchedule, tvDateAfter, tvUpcomingPeriodWindow } from '../../src/lib/club-matchday-tv.js'
+import { activeTvSponsors, clubTvDate, clubTvSlugStatus, isTvSponsorPath, normalizeClubTvSlug, normalizeTvMatchDetails, normalizeTvOrderingUrl, normalizeTvPreferences, toClubTvMatch, TV_SPONSOR_BUCKET, TV_SPONSOR_EXTENSIONS, TV_SPONSOR_MAX_BYTES, tvPitchNumber, validTvSponsorSchedule, tvDateAfter, tvUpcomingPeriodWindow } from '../../src/lib/club-matchday-tv.js'
 import { getClubTvWeather, normaliseWeatherPostcode } from './lib/_club-tv-weather.js'
 
 export const CLUB_TV_MATCH_SELECT = 'id,club_id,team_id,opponent,match_date,kickoff_time,kickoff_time_tbc,home_away,venue_name,status,home_score,away_score,home_shootout_score,away_shootout_score,shootout_winner,timer_status,timer_elapsed_seconds,timer_started_at,phase_started_at,match_clock_mode,match_duration_minutes,concluded_at,deleted_at,teams:team_id(id,club_id,name,tv_public_announcements,tv_goal_celebrations),match_day_events(id,event_type,team_side,minute,stoppage_minute,scorer_shirt_number,event_status,match_phase,created_at)'
@@ -73,6 +73,10 @@ async function handleTvSettings(client, profile, body) {
   if (!body.preferences || typeof body.preferences !== 'object' || Array.isArray(body.preferences)
     || !Number.isInteger(body.revision) || body.revision < 0 || body.revision >= 2147483647) {
     return reply(400, { message: 'Invalid display settings.' })
+  }
+  const orderingUrl = body.preferences.pitchsideOrderingUrl
+  if (orderingUrl != null && !(typeof orderingUrl === 'string' && (!orderingUrl.trim() || normalizeTvOrderingUrl(orderingUrl)))) {
+    return reply(400, { message: 'Enter a valid HTTPS kitchen ordering link.' })
   }
   const preferences = normalizeTvPreferences(body.preferences)
   const sponsorPaths = new Set(preferences.sponsorAds.map(ad => ad.imagePath).filter(Boolean))
@@ -165,6 +169,7 @@ export function createClubMatchdayTvHandler({ authenticate = getAuthenticatedPla
         if (settings.preferences?.accessMode !== 'public') return reply(401, { message: 'Sign in to open the club matchday display.' })
         const { weatherPostcode, ...preferences } = normalizeTvPreferences(settings.preferences)
         preferences.sponsorAds = activeTvSponsors(preferences.sponsorAds)
+        if (!preferences.showPitchsideOrdering) preferences.pitchsideOrderingUrl = ''
         return reply(200, { club: { id: clubId }, settings: { preferences }, weatherConfigured: Boolean(weatherPostcode) })
       }
       if (body.action === 'unlock') {

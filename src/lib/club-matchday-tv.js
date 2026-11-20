@@ -232,6 +232,20 @@ export function normalizeTvMatchDetails(saved) {
   }
 }
 
+export const TV_ORDERING_URL_MAX_LENGTH = 512
+
+export function normalizeTvOrderingUrl(value) {
+  if (typeof value !== 'string') return ''
+  const input = value.trim()
+  if (!/^https:\/\/[^/?#]/i.test(input) || input.length > TV_ORDERING_URL_MAX_LENGTH || /[\s\\\p{Cc}]/u.test(input)) return ''
+  try {
+    const url = new URL(input)
+    return url.hostname && !url.username && !url.password && url.href.length <= TV_ORDERING_URL_MAX_LENGTH
+      ? url.href
+      : ''
+  } catch { return '' }
+}
+
 export function normalizeTvPreferences(value) {
   const saved = value ?? {}
   const map = isTvArtwork(saved.map, 2850000) ? saved.map : ''
@@ -239,5 +253,5 @@ export function normalizeTvPreferences(value) {
     .filter(ad => isTvSponsorPath(ad?.imagePath) || isTvArtwork(ad?.image, 750000))
     .map(ad => ({ ...(isTvSponsorPath(ad.imagePath) ? { imagePath: ad.imagePath } : { image: ad.image }), name: text(ad.name).slice(0, 80), enabled: ad.enabled !== false, startDate: text(ad.startDate), endDate: text(ad.endDate) }))
   const sponsorSeconds = [10, 15, 30, 60].includes(saved.sponsorSeconds) ? saved.sponsorSeconds : 30
-  return { accessMode: saved.accessMode === 'public' ? 'public' : 'admin', appearance: saved.appearance === 'dark' ? 'dark' : 'light', bigGoal: saved.bigGoal !== false, showMap: saved.showMap !== false, weatherPostcode: text(saved.weatherPostcode).slice(0, 10), map, sponsorAds, sponsorSeconds, showPitchsideOrdering: saved.showPitchsideOrdering === true, ...normalizeTvMatchDetails(saved) }
+  return { accessMode: saved.accessMode === 'public' ? 'public' : 'admin', appearance: saved.appearance === 'dark' ? 'dark' : 'light', bigGoal: saved.bigGoal !== false, showMap: saved.showMap !== false, weatherPostcode: text(saved.weatherPostcode).slice(0, 10), map, sponsorAds, sponsorSeconds, showPitchsideOrdering: saved.showPitchsideOrdering === true, pitchsideOrderingUrl: normalizeTvOrderingUrl(saved.pitchsideOrderingUrl), ...normalizeTvMatchDetails(saved) }
 }
