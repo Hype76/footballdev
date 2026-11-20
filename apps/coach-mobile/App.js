@@ -1228,11 +1228,8 @@ function CoachHome() {
   useEffect(() => {
     if (user?.id) void inspectCoachOfflineState(user.id).catch(() => {})
   }, [user?.id])
-  useEffect(() => {
-    if (user && contextReady && contextOwnerUserId === user.id && contextResolution.allowed) {
-      recordCoachStartupScreen(activeContext ? 'workspace' : 'choose', isCoachStartupForeground)
-    }
-  }, [activeContext, contextOwnerUserId, contextReady, contextResolution.allowed, user])
+  useCoachStartupScreen(user && contextReady && contextOwnerUserId === user.id && contextResolution.allowed
+    ? (activeContext ? 'workspace' : 'choose') : null)
 
   if (isProfileLoading && !user?.id) return <LoadingScreen message="Resolving Coach access..." />
   if (!user) {
@@ -2236,8 +2233,14 @@ class CoachRootErrorBoundary extends Component {
   }
 }
 
-function isCoachStartupForeground() {
-  return AppState.currentState !== 'background' && AppState.currentState !== 'inactive'
+function useCoachStartupScreen(destination) {
+  useEffect(() => {
+    if (!destination) return undefined
+    const report = () => recordCoachStartupScreen(destination, () => AppState.currentState)
+    const subscription = AppState.addEventListener('change', report)
+    report()
+    return () => subscription.remove()
+  }, [destination])
 }
 
 function AppContent() {
@@ -2253,11 +2256,8 @@ function AppContent() {
   } = useMobileAuth()
 
   const starting = [MOBILE_STARTUP_STATES.BOOTING, MOBILE_STARTUP_STATES.RESTORING_SESSION, MOBILE_STARTUP_STATES.RESOLVING_STAFF_CONTEXT].includes(startupState)
-  useEffect(() => {
-    if (starting) return
-    const destination = startupState === MOBILE_STARTUP_STATES.RECOVERABLE_ERROR ? 'recovery' : !session?.user ? 'signin' : isLocked ? 'unlock' : null
-    if (destination) recordCoachStartupScreen(destination, isCoachStartupForeground)
-  }, [isLocked, session?.user, starting, startupState])
+  const startupDestination = startupState === MOBILE_STARTUP_STATES.RECOVERABLE_ERROR ? 'recovery' : !session?.user ? 'signin' : isLocked ? 'unlock' : null
+  useCoachStartupScreen(starting ? null : startupDestination)
   if (starting) {
     return <LoadingScreen message={startupState === MOBILE_STARTUP_STATES.RESOLVING_STAFF_CONTEXT ? 'Resolving Coach context...' : 'Loading Football Player Coach...'} />
   }

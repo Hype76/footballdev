@@ -6,18 +6,31 @@ const bundleStartedAt = coachTimingClock()
 export const COACH_STARTUP_DESTINATIONS = Object.freeze({ workspace: 'Coach workspace', choose: 'Team or club picker', signin: 'Sign-in screen', unlock: 'Unlock screen', recovery: 'Startup recovery' })
 
 export function createCoachStartupTiming({ record, now = coachTimingClock, afterFrame = callback => requestAnimationFrame(callback), performance = globalThis.performance, bundleStart = bundleStartedAt }) {
-  let measured = false
-  return (destination, isActive = () => true) => {
+  let measured = false, queued = false, backgrounded = false
+  let foregroundAt, activeDestination
+  return (destination, getState = () => 'active') => {
     if (measured || !Object.hasOwn(COACH_STARTUP_DESTINATIONS, destination)) return
-    // React Native's optional marker shares the clock used by performance.now().
-    const nativeTiming = performance?.rnStartupTiming
-    const start = nativeTiming?.startTime ?? performance?.getEntriesByType?.('navigation')?.[0]?.startTime
-    const hasStartupMarker = Number.isFinite(start) && start >= 0 && start <= bundleStart
-    const source = !hasStartupMarker ? 'bundle' : start === nativeTiming?.initializeRuntimeStart ? 'runtime' : 'launch'
-    measured = true
+    const state = getState()
+    if (state === 'background') { backgrounded = true; foregroundAt = undefined }
+    if (state === 'background' || state === 'inactive') return
+    if (backgrounded && foregroundAt === undefined) foregroundAt = now()
+    activeDestination = destination
+    if (queued) return
+    queued = true
     afterFrame(() => {
-      if (!isActive()) return
-      record({ name: `startup.${destination}`, durationMs: now() - (hasStartupMarker ? start : bundleStart), status: 'success', source })
+      queued = false
+      const frameState = getState()
+      if (frameState === 'background') { backgrounded = true; foregroundAt = undefined }
+      if (frameState === 'background' || frameState === 'inactive') return
+      // React Native's optional marker shares the clock used by performance.now().
+      const nativeTiming = performance?.rnStartupTiming
+      const start = nativeTiming?.startTime ?? performance?.getEntriesByType?.('navigation')?.[0]?.startTime
+      const hasStartupMarker = Number.isFinite(start) && start >= 0 && start <= bundleStart
+      const at = now()
+      const source = backgrounded ? 'foreground' : !hasStartupMarker ? 'bundle' : start === nativeTiming?.initializeRuntimeStart ? 'runtime' : 'launch'
+      const since = backgrounded ? (foregroundAt ?? at) : hasStartupMarker ? start : bundleStart
+      measured = true
+      record({ name: `startup.${activeDestination}`, durationMs: at - since, status: 'success', source })
     })
   }
 }
@@ -104,7 +117,7 @@ export function createCoachPerformanceDiagnostics({ storage, schedule = setTimeo
       durationMs,
       id: String(sample?.id || `${now().getTime()}:${sequence++}`),
       name,
-      source: ['manual', 'tap', 'launch', 'runtime', 'bundle'].includes(sample?.source) ? sample.source : 'automatic',
+      source: ['manual', 'tap', 'launch', 'runtime', 'bundle', 'foreground'].includes(sample?.source) ? sample.source : 'automatic',
       status: ['error', 'saved', 'left', 'cached'].includes(sample?.status) ? sample.status : 'success',
     })
   }

@@ -14,7 +14,7 @@ const LABELS = Object.freeze({
   'home.invites': 'Availability summary',
 })
 const OUTCOMES = Object.freeze({ saved: 'Saved data', left: 'Left before ready', error: 'Failed' })
-const START_MARKERS = Object.freeze({ bundle: 'From app code start', runtime: 'From runtime start' })
+const START_MARKERS = Object.freeze({ bundle: 'From app code start', runtime: 'From runtime start', foreground: 'From foreground activation' })
 
 function formatDuration(value) {
   const duration = Number(value || 0)

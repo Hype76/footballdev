@@ -10,6 +10,9 @@ const app = await readFile('apps/coach-mobile/App.js', 'utf8')
 const navigationStart = app.indexOf('function PrimaryNavigation(')
 const navigationEnd = app.indexOf('\nfunction ', navigationStart + 1)
 assert.ok(navigationStart >= 0 && navigationEnd > navigationStart)
+const startupHookStart = app.indexOf('function useCoachStartupScreen(')
+const startupHookEnd = app.indexOf('\nfunction ', startupHookStart + 1)
+assert.ok(startupHookStart >= 0 && startupHookEnd > startupHookStart)
 
 const result = await build({
   stdin: { resolveDir: root, loader: 'jsx', contents: `
@@ -25,6 +28,14 @@ const result = await build({
     const getCoachBottomNavigationPadding = () => 0
     const getCoachRouteIconKey = route => route
     ${app.slice(navigationStart, navigationEnd)}
+    const AppState = {
+      currentState: 'inactive',
+      addEventListener(_, callback) {
+        window.activateCoach = () => { this.currentState = 'active'; callback('active') }
+        return { remove() {} }
+      },
+    }
+    ${app.slice(startupHookStart, startupHookEnd)}
     const timings = createCoachTabTiming({ record: recordCoachPerformanceSample })
     const tabs = Object.entries(COACH_TIMED_TABS).map(([key, label]) => ({ key, label }))
     function Screen({ route, timing }) {
@@ -40,7 +51,7 @@ const result = await build({
     }
     function App() {
       const [visit, setVisit] = useState({ route: 'more', timing: null })
-      useEffect(() => { recordCoachStartupScreen('workspace') }, [])
+      useCoachStartupScreen('workspace')
       const open = (route, startedAt) => { if (route !== visit.route) setVisit({ route, timing: timings.begin(route, startedAt) }) }
       return <View><PrimaryNavigation activeRoute={visit.route} bottomInset={0} navigation={tabs} onNavigate={open} platform="web"/>
         <Screen key={visit.route} {...visit}/>
@@ -75,6 +86,8 @@ try {
       body: route.request().url().endsWith('/app.js') ? result.outputFiles[0].text : '<meta name="viewport" content="width=device-width, initial-scale=1"><div id="root"></div><script src="/app.js"></script>',
     }))
     await page.goto('http://localhost:9883')
+    await page.waitForFunction(() => typeof window.activateCoach === 'function')
+    await page.evaluate(() => window.activateCoach())
     const open = name => page.getByRole('tab', { name: name + ' tab', exact: true }).click()
     const section = name => page.getByRole('heading', { name, exact: true }).locator('..')
     const timing = async (name, tab) => (await section(name).getByText(tab, { exact: true }).locator('..').innerText()).replace(tab, '').trim()

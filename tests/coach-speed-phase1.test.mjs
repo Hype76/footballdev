@@ -72,8 +72,8 @@ test('Coach startup uses the earliest available marker and measures the first us
   const options = { record: value => samples.push(value), now: () => 2100, bundleStart: 200, afterFrame: fn => frames.push(fn) }
   const native = createCoachStartupTiming({ ...options, performance: { rnStartupTiming: { startTime: 35, initializeRuntimeStart: 80 } } })
   native('workspace')
-  native('signin')
   frames.shift()()
+  native('signin')
   assert.deepEqual(samples, [{ name: 'startup.workspace', durationMs: 2065, status: 'success', source: 'launch' }])
   const runtime = createCoachStartupTiming({ ...options, performance: { rnStartupTiming: { startTime: 80, initializeRuntimeStart: 80 } } })
   runtime('unlock'); frames.shift()()
@@ -81,9 +81,27 @@ test('Coach startup uses the earliest available marker and measures the first us
   const fallback = createCoachStartupTiming({ ...options, performance: { rnStartupTiming: { startTime: 1700000000000 } } })
   fallback('choose'); frames.shift()()
   assert.deepEqual(samples.at(-1), { name: 'startup.choose', durationMs: 1900, status: 'success', source: 'bundle' })
-  const background = createCoachStartupTiming({ ...options, performance: null })
-  background('workspace', () => false); frames.shift()()
-  assert.equal(samples.length, 3)
+})
+
+test('Coach retries an interrupted opening when it reaches a foreground frame', () => {
+  const samples = [], frames = []
+  let state = 'active', time = 500
+  const options = { record: value => samples.push(value), now: () => time, bundleStart: 200, afterFrame: fn => frames.push(fn), performance: null }
+  const getState = () => state
+  const interrupted = createCoachStartupTiming(options)
+  interrupted('workspace', getState)
+  state = 'inactive'; frames.shift()()
+  assert.deepEqual(samples, [])
+  state = 'active'; time = 800; interrupted('workspace', getState)
+  time = 820; frames.shift()()
+  assert.deepEqual(samples, [{ name: 'startup.workspace', durationMs: 620, status: 'success', source: 'bundle' }])
+
+  const warmedInBackground = createCoachStartupTiming(options)
+  warmedInBackground('workspace', getState)
+  state = 'background'; warmedInBackground('workspace', getState)
+  state = 'active'; time = 18000; warmedInBackground('workspace', getState)
+  time = 18023; frames.shift()()
+  assert.deepEqual(samples.at(-1), { name: 'startup.workspace', durationMs: 23, status: 'success', source: 'foreground' })
 })
 
 test('Coach keeps the last startup result after the tab sample history fills', async () => {
