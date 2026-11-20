@@ -771,7 +771,7 @@
   "implementationHashes": {
     "scripts/security-supply-chain-gate.mjs": "9ef3c2fa9949a270eba3b8d7eefc2f9e303e8fbb2fda3921b2e6e42280e733fc",
     "scripts/security-apply-reviewed-backports.mjs": "ba146641cebf4a835337602d942d3fe9e432dfb44cd178e64e7e5bcabe2cb7b1",
-    "scripts/security-verify-reviewed-backports.mjs": "32910fc31006ca48717f4abb73936708ffdfcf32599477579e2e5d3251a4ea36",
+    "scripts/security-verify-reviewed-backports.mjs": "90352fd64510852bb041bcdcd4162e52e8d31c929bfbd66378353f1fd1976300",
     "security/patches/braces-3.0.3.patch": "e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699",
     "security/patches/node-forge-1.4.0.patch": "2de065ac998bf58917a14d0935112d97ec2957ac41b5f06958d500934f188ed4",
     "security/patches/reviewed-source-manifest.json": "0507b50c4ce7a772508ed3a0d18290548bb1fd48802db4599a5ec8e47e2eed49",
@@ -2720,8 +2720,8 @@
       "tests/adult-player-linked-badges-browser.mjs": "94ccb7051607b411d985ca5b4fb779ecab2f18e773999379914a9079b5e7a56f",
       "apps/parent-mobile/src/adultPlayerNotificationsCore.js": "fdf5e494b7f22861b659ca1c91dfb5bd5668a85da13976aa616fe2f706f6ff94",
       "netlify/functions/process-adult-player-mobile-push.js": "4d6215ba6e37a8055287dfd8e50609e736c1faac84fe7148ee3ac2e094dc2c42",
-      "supabase/migrations/20261120172920_adult_player_mobile_push.sql": "a7f1cbf5cf32446d25cd236997705c183abaec4075f6303675d09fff74748060",
-      "tests/adult-player-mobile-push-pglite.test.mjs": "02161a920a4ac279722b696692c0947c5a8a3f47d1f52eef65498752be4b53c8",
+      "supabase/migrations/20261120172920_adult_player_mobile_push.sql": "e3635ddc943271293935212327821b01ffe1fd4e1796e848e3e04442486385dc",
+      "tests/adult-player-mobile-push-pglite.test.mjs": "1402716918faa89e390177c9244f17c3e5c897d2e8a7230873bbb551175550f0",
       "tests/adult-player-mobile-push.test.mjs": "779aa228aac443cf38d8937452e28d8e5ff9ce4fe6c0ed9e812e416a379d9d76",
       "tests/adult-player-push-response-fencing-browser.mjs": "196d66bb8a379936146f57d1d7936b1b4e44a00e3e8d8082dde9e2a1cf5e2f95",
       "tests/adult-player-push-routing-browser.mjs": "d0e554db19ce962a41e971ee291145f65f94b8d9f67e5078f9720c47e2e1874a",
@@ -4210,7 +4210,7 @@
     },
     "toolingRequalification20261117": "Qualify official minimatch 11.0.9 JavaScript tooling across all three scopes. Lock changes are limited to minimatch; direct and native dependencies, Expo runtime, reviewed package patches and audit rules are retained."
   },
-  "releasePreparationSha256": "04f15eb3409ef908d64dc7609744c997373cd8d02167b5fd7e727681b79548fe",
+  "releasePreparationSha256": "d1431e0bcf3dcdba6aaa58faf462425f3ff0ceb60e4bcb63868a030f88ddbd2b",
   "rootOnlyProposalSha256": "45c3b7352c7328c84982e114b7e87e09cf79514d02d102297ae75ec0925812eb",
   "remediationMode": "maintained-source-fixes",
   "officialCompatibilityDependencies": [
