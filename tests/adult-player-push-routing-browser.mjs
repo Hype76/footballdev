@@ -50,6 +50,16 @@ try {
  await page.evaluate(value=>window.tap(value),tap('stale'))
  await page.waitForFunction(()=>window.rejections.includes('stale'))
  assert.equal(await page.getByRole('heading',{name:'Parent Home'}).count(),1)
+ for (const app of ['parent', 'fan']) {
+  await page.evaluate(()=>{window.accessResult={status:'error'};window.tap(null)})
+  await page.evaluate(value=>window.tap(value),tap('interrupted-' + app))
+  await page.waitForTimeout(50)
+  await page.evaluate(value=>window.tap(value),tap('new-' + app,{app}))
+  await page.evaluate(async()=>{window.accessResult={status:'linked',link:window.activeLink};await window.refreshAccess()})
+  await page.waitForTimeout(50)
+  assert.equal(await page.getByRole('heading',{name:'Parent Home'}).count(),1, app + ' tap must not restore an older Player response')
+  assert.equal(await page.evaluate(id=>window.rejections.includes(id),'new-' + app),false)
+ }
  await page.evaluate(()=>{window.accessResult={status:'error'};window.tap(null)})
  await page.evaluate(value=>window.tap(value),tap('retry'))
  await page.waitForTimeout(50)

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { AdultPlayerScreen } from './AdultPlayerScreen'
 import { selectAdultPlayerView } from './adultPlayerAccess.js'
 import { prepareAdultPlayerNotificationMode, resolveAdultPlayerNotificationMode } from './adultPlayerNotificationsCore.js'
@@ -12,6 +12,12 @@ export function AdultPlayerEntry({ userId, links, parentProfilePending, onSignOu
   const pendingPush = useRef(null)
   const responseId = notificationResponse?.notification?.request?.identifier || ''
   const data = notificationResponse?.notification?.request?.content?.data
+  const activeResponse = useRef(null)
+  useLayoutEffect(() => {
+    const active = { responseId, app: data?.app, userId }
+    activeResponse.current = active
+    return () => { if (activeResponse.current === active) activeResponse.current = null }
+  }, [responseId, data?.app, userId])
   useEffect(() => {
     if (!responseId || data?.app !== 'player') return undefined
     let current = true
@@ -29,18 +35,23 @@ export function AdultPlayerEntry({ userId, links, parentProfilePending, onSignOu
       reject: () => { pendingPush.current = null; onRejectPlayerNotification?.(responseId) },
       })
     })().then(outcome => { if (current && outcome === 'retry') pending.retry = true }).catch(() => { if (current) pending.retry = true })
-    return () => { current = false }
+    return () => {
+      current = false
+      if (pendingPush.current === pending) pendingPush.current = null
+    }
   }, [responseId, data, userId, refresh, onRejectPlayerNotification, wasPlayerNotificationHandled])
 
   // A failed check remains pending. Existing foreground/manual access refreshes
   // can finish the switch after connectivity returns without replaying a tap.
   useEffect(() => {
     const pending = pendingPush.current
-    if (!pending?.retry) return
+    if (!pending?.retry || activeResponse.current?.responseId !== pending.responseId
+      || activeResponse.current?.app !== 'player' || activeResponse.current?.userId !== userId) return
     const outcome = resolveAdultPlayerNotificationMode(pending.data, userId, access)
     if (outcome === 'retry') return
     void Promise.resolve().then(() => {
-      if (pendingPush.current !== pending) return
+      if (pendingPush.current !== pending || activeResponse.current?.responseId !== pending.responseId
+        || activeResponse.current?.app !== 'player' || activeResponse.current?.userId !== userId) return
       pendingPush.current = null
       if (outcome === 'player') setPreferredMode('player')
       else onRejectPlayerNotification?.(pending.responseId)
