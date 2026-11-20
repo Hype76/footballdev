@@ -23,6 +23,17 @@
 .club-tv-link-row { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; margin-top: .35rem; }
 .club-tv-link-row input { flex: 1 1 16rem; min-width: 0; }
 .club-tv-admin small { color: var(--text-secondary); }
+.club-tv-ordering-preview {
+  display: grid;
+  justify-items: start;
+  gap: .5rem;
+  margin: .75rem 0 0;
+}
+.club-tv-ordering-preview img {
+  display: block;
+  width: min(100%, 240px);
+  height: auto;
+}
 .club-tv-admin [role=alert] { color: var(--danger-text, #d14343); }
 .club-tv-admin input:not([type=checkbox]):not([type=file]),
 .club-tv-admin select {

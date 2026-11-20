@@ -1,6 +1,6 @@
 import { useEffect, useEffectEvent, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import QRCode from 'qrcode'
+import { useClubTvOrderingQr } from '../lib/use-club-tv-ordering-qr.js'
 import { createThemeColorTokens } from '../lib/theme.js'
 import { getClubMatchdayTv } from '../lib/domain/club-matchday-tv.js'
 import { ClubTvSponsorImage } from '../components/ClubTvSponsorImage.jsx'
@@ -18,16 +18,7 @@ const tvEventLabels = { goal: 'Goal', red_card: 'Red card', yellow_card: 'Yellow
 const tvEventClasses = { red_card: 'club-tv-red', yellow_card: 'club-tv-yellow' }
 
 function PitchsideOrdering({ url }) {
-  const [code, setCode] = useState(null)
-  useEffect(() => {
-    if (!url) return undefined
-    let active = true
-    QRCode.toDataURL(url, { errorCorrectionLevel: 'M', margin: 4, width: 512 })
-      .then(data => { if (active) setCode({ url, data }) })
-      .catch(() => { if (active) setCode({ url, error: true }) })
-    return () => { active = false }
-  }, [url])
-  const currentCode = code?.url === url ? code : null
+  const currentCode = useClubTvOrderingQr(url)
 
   return <section className="club-tv-ordering">
     <h2>Pitchside Ordering</h2>
