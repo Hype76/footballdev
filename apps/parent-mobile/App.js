@@ -114,7 +114,7 @@ import { AttendancePendingRows } from '../mobile-core/src/AttendancePendingRows'
 import { readParentAttendanceCommands, updateParentAttendanceCommands } from './src/offline'
 import { sendCoachTrainingAvailabilityResponsePushSafely } from './src/parentPortalData'
 import { getParentScorerActionLabel, getParentScorerMatches } from './src/parentScorerCore'
-import { getVisibleParentScorerMatch, isRedundantParentStart } from './src/parentScorerOutboxCore'
+import { canArchiveExpiredParentScorerActions, getVisibleParentScorerMatch, isRedundantParentStart } from './src/parentScorerOutboxCore'
 import { getMatchDayShirtChoiceLabel } from '../../src/lib/matchday-model.js'
 import {
   canSubmitParentPoll,
@@ -2127,34 +2127,46 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved }) {
   }
   async function handleReviewScorerActions(match) {
     if (isOffline || activeActionId || !selectedMobileUser?.id || !selectedLink?.id) return
-    const expectedIds = (scorerOutboxes[match.id]?.pending || []).map(command => command.id)
+    const savedJournal = scorerOutboxes[match.id]
+    const expectedIds = (savedJournal?.pending || []).map(command => command.id)
+    const archiveExpiredActions = canArchiveExpiredParentScorerActions(savedJournal)
+    const hasCurrentScorerAccess = latest => latest?.isScorer && !latest.concludedAt
+      && !['full_time', 'cancelled', 'postponed'].includes(latest.status)
     const scope = parentSyncScopeRef.current
     setActiveActionId(`scorer:${match.id}:review`)
     try {
       const latest = (await getParentPortalMatchDays(selectedMobileUser)).find(item => item.id === match.id)
       if (scope !== parentSyncScopeRef.current) return
-      if (!latest?.isScorer || !latest.updatedAt || latest.concludedAt || ['full_time', 'cancelled', 'postponed'].includes(latest.status)) {
+      if (!latest?.updatedAt || (!archiveExpiredActions && !hasCurrentScorerAccess(latest))) {
         setNotice({ message: 'This match is closed or your scorer access changed. Your saved actions remain on this phone. Ask the Coach to review them.', tone: 'error' })
         return
       }
-      const removeStart = isRedundantParentStart(scorerOutboxes[match.id], latest)
-      const question = removeStart
+      const removeStart = !archiveExpiredActions && isRedundantParentStart(savedJournal, latest)
+      const question = archiveExpiredActions
+        ? 'Archive the saved actions on this phone and reload the fixture? You can show the actions to the Coach from this match. The server score will stay as it is.'
+        : removeStart
         ? `The match is already running at ${latest.homeScore} - ${latest.awayScore}. Remove only the rejected saved start and apply the remaining actions shown on screen?`
         : `The current score is ${latest.homeScore} - ${latest.awayScore}. Review the saved actions shown on screen. Apply them to this latest match?`
       Alert.alert('Review saved actions', question, [
         { text: 'Cancel', style: 'cancel' },
-        { text: removeStart ? 'Remove start and apply' : 'Apply actions', onPress: () => { void (async () => {
+        { text: archiveExpiredActions ? 'Archive saved actions' : removeStart ? 'Remove start and apply' : 'Apply actions', onPress: () => { void (async () => {
           if (scope !== parentSyncScopeRef.current) return
           try {
             const confirmed = (await getParentPortalMatchDays(selectedMobileUser)).find(item => item.id === match.id)
             if (scope !== parentSyncScopeRef.current) return
-            if (!confirmed?.isScorer || confirmed.updatedAt !== latest.updatedAt || confirmed.clubId !== latest.clubId || confirmed.teamId !== latest.teamId
-              || confirmed.concludedAt || ['full_time', 'cancelled', 'postponed'].includes(confirmed.status)) {
+            if (!confirmed || confirmed.updatedAt !== latest.updatedAt || confirmed.clubId !== latest.clubId || confirmed.teamId !== latest.teamId
+              || (!archiveExpiredActions && !hasCurrentScorerAccess(confirmed))) {
               setNotice({ message: 'The match or your access changed. Your saved actions remain on this phone. Refresh and review them again.', tone: 'error' })
               return
             }
-            const journal = await reviewParentScorerSavedActions(selectedMobileUser, selectedLink, confirmed, expectedIds, { removeRedundantStart: removeStart })
+            const journal = await reviewParentScorerSavedActions(selectedMobileUser, selectedLink, confirmed, expectedIds, { archiveExpiredActions, removeRedundantStart: removeStart })
             if (scope !== parentSyncScopeRef.current) return
+            if (archiveExpiredActions) {
+              setResources(current => ({ ...current, matches: { ...current.matches, items: current.matches.items.map(item => item.id === match.id
+                && Date.parse(item.updatedAt) <= Date.parse(confirmed.updatedAt) ? { ...confirmed, offlineVerifiedAt: journal.verifiedAt } : item) } }))
+              setScorerOutboxes(current => ({ ...current, [match.id]: journal }))
+              return
+            }
             setScorerOutboxes(current => ({ ...current, [match.id]: journal }))
             const result = await syncParentScorerOutboxes(selectedMobileUser)
             if (scope !== parentSyncScopeRef.current) return
