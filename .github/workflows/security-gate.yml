@@ -306,7 +306,7 @@ jobs:
       - name: Parent access removal and unlisted grants
         run: node --test tests/parent-self-access-revocation-pglite.test.mjs tests/parent-self-access-removal.test.mjs tests/parent-own-access-web.test.mjs tests/parent-unlisted-access.test.mjs && node tests/parent-access-removal-browser.mjs && node tests/parent-own-access-web-browser.mjs
       - name: Coach offline scoring and reconnect
-        run: node --test tests/coach-matchday-conclusion-display.test.mjs && node tests/coach-matchday-offline-browser.mjs && node tests/coach-matchday-offline-browser.mjs --conclude-only
+        run: node --test tests/coach-matchday-conclusion-display.test.mjs tests/coach-match-start-online.test.mjs tests/coach-match-fixture-reconciliation.test.mjs && node tests/coach-matchday-offline-browser.mjs && node tests/coach-matchday-offline-browser.mjs --conclude-only
       - name: Guest and mobile scorer rendering
         run: node tests/guest-scorer-browser.mjs && node tests/mobile-scorer-parity-browser.mjs
       - name: V1 hardening and connection recovery

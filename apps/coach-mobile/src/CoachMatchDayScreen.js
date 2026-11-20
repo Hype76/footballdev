@@ -716,6 +716,7 @@ function CoachMatchDayScoped({ context, matchDayTarget, onMatchDayTargetHandled,
   const backgroundedAt = useRef(0)
   const busyRef = useRef(false)
   const reconciliationPendingRef = useRef(false)
+  const uncertainFixtureIdsRef = useRef(new Set())
   const contextRef = useRef(context)
   const loadInFlight = useRef(false)
   const hasMatchListSnapshot = useRef(false)
@@ -726,6 +727,13 @@ function CoachMatchDayScoped({ context, matchDayTarget, onMatchDayTargetHandled,
   const matchRef = useRef(null)
   const finishRef = useRef(null)
   const selectedMatchId = useRef('')
+  const selectionEpochRef = useRef(0)
+  const selectFixture = useCallback((id) => {
+    if (reconciliationPendingRef.current) busyRef.current = false
+    selectedMatchId.current = id
+    selectionEpochRef.current += 1
+    reconciliationPendingRef.current = uncertainFixtureIdsRef.current.has(id)
+  }, [])
   const targetRequestId = useRef('')
   const userRef = useRef(user)
   const formationReturnPanelRef = useRef('overview')
@@ -735,7 +743,7 @@ function CoachMatchDayScoped({ context, matchDayTarget, onMatchDayTargetHandled,
   const selectedMatchIsLive = isLiveMatch(match)
   if (requestedFixtureId && targetRequestId.current !== matchDayTarget?.requestId) {
     targetRequestId.current = matchDayTarget.requestId
-    selectedMatchId.current = requestedFixtureId
+    selectFixture(requestedFixtureId)
   }
 
   contextRef.current = context
@@ -747,17 +755,20 @@ function CoachMatchDayScoped({ context, matchDayTarget, onMatchDayTargetHandled,
 
   useEffect(() => {
     matchRef.current = match
-    selectedMatchId.current = match?.id || requestedFixtureId || ''
-  }, [match, requestedFixtureId])
+  }, [match])
+
+  useEffect(() => {
+    if (requestedFixtureId) setReconciling(uncertainFixtureIdsRef.current.has(requestedFixtureId))
+  }, [requestedFixtureId, matchDayTarget?.requestId])
 
   const cache = useCallback(async (nextMatches, nextMatch, nextPlayers) => saveCoachOfflineResources(userRef.current.id, contextRef.current, { matchDayDetail: nextMatch || null, matchDayList: nextMatches, matchDayPlayers: nextPlayers }), [])
-  const clearDenied = () => {
+  const clearDenied = useCallback(() => {
     accessDeniedRef.current = true
     setAccessDenied(true)
     hasMatchListSnapshot.current = false; playersStaleRef.current = true
-    matchRef.current = null; selectedMatchId.current = ''; playersRef.current = []
-    setMatches([]); setPlayers([]); setMatch(null); setFixtureFormOpen(false); setFixtureFormMatch(null); setPending(null); setPanel('overview'); setBusy(false); setStale(true)
-  }
+    matchRef.current = null; selectFixture(''); playersRef.current = []
+    setMatches([]); setPlayers([]); setMatch(null); setFixtureFormOpen(false); setFixtureFormMatch(null); setPending(null); setPanel('overview'); setBusy(false); setReconciling(false); setStale(true)
+  }, [selectFixture])
   const load = useCallback(async () => {
     if (loadInFlight.current || (busyRef.current && !reconciliationPendingRef.current) || appState.current !== 'active') return
     loadInFlight.current = true
@@ -767,6 +778,7 @@ function CoachMatchDayScoped({ context, matchDayTarget, onMatchDayTargetHandled,
     const currentContext = contextRef.current
     const isCurrentScope = () => currentUser.id === userRef.current.id && currentUser.activeTeamId === userRef.current.activeTeamId && currentContext.id === contextRef.current.id
     const selectionBeforeLoad = selectedMatchId.current
+    const loadSelectionEpoch = selectionEpochRef.current
     const remote = currentUser.isOfflineProfile ? null : Promise.allSettled([
       readMobileResource(currentUser, 'coach:match-list', () => withMobileAsyncTimeout(() => getCoachMatchDayList(currentUser)), { force: true }),
       readMobileResource(currentUser, 'coach:players', () => withMobileAsyncTimeout(() => getCoachPlayerList(currentUser))),
@@ -819,9 +831,9 @@ function CoachMatchDayScoped({ context, matchDayTarget, onMatchDayTargetHandled,
       if (activeSelectionId) {
         try {
           nextMatch = await withMobileAsyncTimeout(() => getCoachMatchDayDetail(currentUser, activeSelectionId))
-          if (!isCurrentScope()) return
+          if (!isCurrentScope() || selectedMatchId.current !== activeSelectionId || selectionEpochRef.current !== loadSelectionEpoch) return
         } catch (detailError) {
-          if (!isCurrentScope()) return
+          if (!isCurrentScope() || selectedMatchId.current !== activeSelectionId || selectionEpochRef.current !== loadSelectionEpoch) return
           if (isMatchDayAccessDenied(detailError)) { clearDenied(); setError(errorMessage(detailError, 'Fixture access was denied.')); return }
           setStale(true)
           setError(errorMessage(detailError, 'Fixture details could not be refreshed.'))
@@ -842,7 +854,8 @@ function CoachMatchDayScoped({ context, matchDayTarget, onMatchDayTargetHandled,
         matchRef.current = nextMatch
         setMatch(nextMatch)
         setScoreDraft({ away: String(nextMatch.awayScore), home: String(nextMatch.homeScore) })
-        if (reconciliationPendingRef.current) {
+        if (reconciliationPendingRef.current && uncertainFixtureIdsRef.current.has(nextMatch.id)) {
+          uncertainFixtureIdsRef.current.delete(nextMatch.id)
           reconciliationPendingRef.current = false
           busyRef.current = false
           setReconciling(false)
@@ -863,7 +876,7 @@ function CoachMatchDayScoped({ context, matchDayTarget, onMatchDayTargetHandled,
       if (isCurrentScope()) setRefreshing(false)
       if (isCurrentScope()) setLoading(false)
     }
-  }, [cache])
+  }, [cache, clearDenied])
   useEffect(() => { void load() }, [load, user.isOfflineProfile])
   useEffect(() => {
     if (matchDayTarget?.intent !== 'create-fixture' || loading) return
@@ -928,10 +941,13 @@ function CoachMatchDayScoped({ context, matchDayTarget, onMatchDayTargetHandled,
   }, [load, match?.id, reconciling, selectedMatchIsLive])
 
   const open = async (summary) => {
-    selectedMatchId.current = summary.id
+    if (busyRef.current && !reconciliationPendingRef.current) return
+    selectFixture(summary.id)
+    const selectionEpoch = selectionEpochRef.current
+    setReconciling(reconciliationPendingRef.current)
     setBusy(true); setError('')
     const currentScope = context.id
-    const isCurrent = () => contextRef.current.id === currentScope && selectedMatchId.current === summary.id
+    const isCurrent = () => contextRef.current.id === currentScope && selectedMatchId.current === summary.id && selectionEpochRef.current === selectionEpoch
     const savedJournal = await readCoachMatchDayOutbox(user.id, context, summary.id).catch(() => null)
     const savedResources = savedJournal ? null : await readCoachOfflineResources(user.id, context).catch(() => null)
     const cached = savedJournal?.baseMatch || (savedResources?.resources?.matchDayDetail?.id === summary.id ? savedResources.resources.matchDayDetail : null)
@@ -952,6 +968,7 @@ function CoachMatchDayScoped({ context, matchDayTarget, onMatchDayTargetHandled,
       const detail = await withMobileAsyncTimeout(() => getCoachMatchDayDetail(user, summary.id))
       if (!isCurrent()) return
       matchRef.current = detail; setMatch(detail); setStale(playersStaleRef.current)
+      if (uncertainFixtureIdsRef.current.delete(detail.id)) { reconciliationPendingRef.current = false; setReconciling(false) }
       if (!playersStaleRef.current) { accessDeniedRef.current = false; setAccessDenied(false) }
       if (!cached) {
         setScoreDraft({ away: String(detail.awayScore), home: String(detail.homeScore) })
@@ -967,12 +984,16 @@ function CoachMatchDayScoped({ context, matchDayTarget, onMatchDayTargetHandled,
     } finally { if (isCurrent()) setBusy(false) }
   }
   const replace = async (operation, verify) => {
+    const operationMatchId = match.id
+    const operationEpoch = selectionEpochRef.current
+    const isCurrent = () => selectedMatchId.current === operationMatchId && selectionEpochRef.current === operationEpoch
     let reconciliationPending = false
     reconciliationPendingRef.current = false
     busyRef.current = true
     setBusy(true); setError(''); setNotice(''); setReconciling(false)
     try {
       const detail = await operation()
+      if (!isCurrent()) throw new Error('Fixture changed while the action was saving.')
       const nextMatches = matches.map((item) => item.id === detail.id ? detail : item)
       matchRef.current = detail
       setMatch(detail); setMatches(nextMatches); setScoreDraft({ away: String(detail.awayScore), home: String(detail.homeScore) }); setStale(false)
@@ -983,11 +1004,15 @@ function CoachMatchDayScoped({ context, matchDayTarget, onMatchDayTargetHandled,
       })
       return detail
     } catch (operationError) {
+      if (!isCurrent()) { uncertainFixtureIdsRef.current.add(operationMatchId); throw operationError }
       setReconciling(true)
       let detail
       try {
         detail = await getCoachMatchDayDetail(user, match.id)
+        if (!isCurrent()) { uncertainFixtureIdsRef.current.add(operationMatchId); throw operationError }
       } catch {
+        uncertainFixtureIdsRef.current.add(match.id)
+        if (!isCurrent()) throw operationError
         reconciliationPending = true
         reconciliationPendingRef.current = true
         setError(`${errorMessage(operationError, 'The Match Day result is uncertain.')} Refresh to reconcile with the server before retrying.`)
@@ -1083,6 +1108,11 @@ function CoachMatchDayScoped({ context, matchDayTarget, onMatchDayTargetHandled,
   const canQueueFullTime = offlineReady && outbox.journal.baseMatch.updatedAt === match?.updatedAt
   const runTimer = action => {
     if (action === 'start') {
+      if (selectedMatchId.current !== match?.id) {
+        const message = 'The selected fixture changed. Open it again before starting the match.'
+        setError(message)
+        return Promise.reject(new Error(message))
+      }
       const journal = outbox.journal
       if (busyRef.current || reconciling || outbox.syncing || journal?.pending?.length || journal?.error || journal?.errorCode) {
         const message = 'Review saved match actions or wait for syncing before starting this match.'
@@ -1123,7 +1153,7 @@ function CoachMatchDayScoped({ context, matchDayTarget, onMatchDayTargetHandled,
             ? 'Fixture added to Coach and squad calendars. No availability requests or notifications were sent.'
             : 'Fixture created. Match Day controls are ready.'))
     const summary = normalizeCoachMatchDay(result.match)
-    selectedMatchId.current = summary.id
+    selectFixture(summary.id)
     matchRef.current = summary
     invalidateMobileResource(user, 'coach:calendar')
     invalidateMobileResource(user, 'coach:match-list')
@@ -1161,7 +1191,7 @@ function CoachMatchDayScoped({ context, matchDayTarget, onMatchDayTargetHandled,
     setFixtureFormOpen(false)
     setFixtureFormMatch(null)
     setFixtureReturnTarget(null)
-    selectedMatchId.current = ''
+    selectFixture('')
     matchRef.current = null
     setMatch(null)
     setPanel('overview')
@@ -1181,13 +1211,16 @@ function CoachMatchDayScoped({ context, matchDayTarget, onMatchDayTargetHandled,
   }
 
   const closeFixture = () => {
+    if (busy || (busyRef.current && !reconciliationPendingRef.current)) { setNotice('Wait for the current match action to finish before leaving.'); return }
     if (pendingSquadCount) {
       setPanel('squad')
       setNotice('Save or discard your squad selections before leaving this fixture.')
       return
     }
-    selectedMatchId.current = ''
+    selectFixture('')
     matchRef.current = null
+    setReconciling(false)
+    setError('')
     setMatch(null)
     setPanel('overview')
   }
