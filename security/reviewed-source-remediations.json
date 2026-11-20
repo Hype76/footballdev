@@ -559,7 +559,7 @@
   "implementationHashes": {
     "scripts/security-supply-chain-gate.mjs": "dcf722bc6cbf2015da4250ea60cbb81e34d3c5c64ec7bb6059671cbae5ab4207",
     "scripts/security-apply-reviewed-backports.mjs": "7f0e9de0add15a121a0f60f89f71656b503450010b8b9c8d4aaf58bc355fc5ec",
-    "scripts/security-verify-reviewed-backports.mjs": "7819fb855928996456dde64dd919eb8ead2ce1ae51bda73aaf1e56efb2729730",
+    "scripts/security-verify-reviewed-backports.mjs": "2488e477eb67b37c372b76569d4db11339146e9e42178a79fce0f61ac3fbe778",
     "security/patches/braces-3.0.3.patch": "e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699",
     "security/patches/node-forge-1.4.0.patch": "2de065ac998bf58917a14d0935112d97ec2957ac41b5f06958d500934f188ed4",
     "security/patches/reviewed-source-manifest.json": "52d0b296071182c7354d87fdff4140270c59f6de90112eeda9feb6ded66cc600",
@@ -1694,7 +1694,7 @@
       "tests/durable-mobile-action.test.mjs": "da3ddeea9dadf50402d071638faa474e8c855437fa47bda06fb449bba56f04a7",
       "tests/email-send-route-coverage.test.mjs": "4d5ce6c4343926ca9649cf9c03eb466f67225540f3ad42b33ac11ad46800c750",
       "tests/event-response-read-model-06a.test.mjs": "72a657e0074e4653dd0cd0c0b0548ccea8cf50ba106758235233ca04638c4db8",
-      "tests/fan-app-content-browser.mjs": "1ef7c42247b139e043bf4bd72c43c16d9e9d3d32924c2d6848901d3a1ac5773f",
+      "tests/fan-app-content-browser.mjs": "738af76250332f1fb957db8f836c5f6e71ac9e1a18d70a8bc574f1ffeb2f5be0",
       "tests/fans-endpoint.test.mjs": "7b2ab25033190f2f9d99d015a9ee85c8946f10f784db6f102122e13fb7aa575b",
       "tests/fans-mobile-browser.mjs": "081721e90b72726ddcc9ea03e7d12b3e3d058774752c6d5c33b2e934c36301ce",
       "tests/feedback-forms-polish-browser.mjs": "34e1935b78f60a84defcb3f23cd34a3907c79779852328f3b893bfe500e45b19",
@@ -3508,7 +3508,7 @@
     },
     "toolingRequalification20261117": "Use official minimatch 11.0.9 JavaScript tooling across all three scopes, with unchanged native dependencies, Expo runtime, maintained patches and audit rules."
   },
-  "releasePreparationSha256": "f1c45932ea38503c2d4cbcf73ad1eb7ab59e19b1bedb84726e58cdefaa570193",
+  "releasePreparationSha256": "2b04e7fd8ab908c3e4c8978c4db2e4105e7ac80e69af7b6908f915fef1ff5d15",
   "rootOnlyProposalSha256": "45c3b7352c7328c84982e114b7e87e09cf79514d02d102297ae75ec0925812eb",
   "remediationMode": "maintained-source-fixes",
   "officialCompatibilityDependencies": [
