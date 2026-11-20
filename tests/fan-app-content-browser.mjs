@@ -7,7 +7,8 @@ const source=await readFile('apps/parent-mobile/App.js','utf8')
 const extracted=source.slice(source.indexOf('function AppContent() {'),source.indexOf('function StartupRecoveryScreen('))
 assert.ok(extracted.includes('fanLink.route'))
 const root=process.cwd(), modules=path.join(root,'apps/parent-mobile/node_modules')
-const contents=`import {getParentBadgeColours,getParentStatusColours,PARENT_FAN_SIGN_IN_COLOURS,PARENT_POLL_SEPARATOR_COLOUR} from './apps/mobile-core/src/parentStatusColours.js';
+const contents=`import { AdultPlayerEntry } from './apps/parent-mobile/src/AdultPlayerEntry.js';
+import {getParentBadgeColours,getParentStatusColours,PARENT_FAN_SIGN_IN_COLOURS,PARENT_POLL_SEPARATOR_COLOUR} from './apps/mobile-core/src/parentStatusColours.js';
 import React,{useState,useEffect} from 'react';import{createRoot}from'react-dom/client';import{useFanAppLink as realUseFanAppLink}from'./apps/parent-mobile/src/useFanAppLink.js';
 const Notifications={useLastNotificationResponse:()=>null};const MOBILE_STARTUP_STATES={BOOTING:'boot',RESTORING_SESSION:'restore',RECOVERABLE_ERROR:'error'};
 function useFanAppLink(){const link=realUseFanAppLink();window.link=link;return link}function useMobileAuth(){return window.auth}
@@ -17,7 +18,41 @@ const LoginScreen=()=> <p>Login screen</p>;const FansScreen=({onBack})=><section
 const FanInvitationScreen=({token,onSignIn,onClose,onAccepted})=><section>Invite {token}<button onClick={onSignIn}>Invitation sign in</button><button onClick={onClose}>Close invitation</button><button onClick={onAccepted}>Accept invitation</button></section>;
 ${extracted.replace("require('./assets/football-player-logo.png')","null")}
 window.root=createRoot(document.getElementById('root'));window.render=()=>window.root.render(<AppContent/>);window.render();`
-const result=await build({stdin:{contents,resolveDir:root,loader:'jsx'},bundle:true,write:false,jsx:'automatic',loader:{'.js':'jsx'},alias:{react:path.join(modules,'react'),'react-dom':path.join(modules,'react-dom')},define:{'process.env.NODE_ENV':'"production"'},plugins:[{name:'mock-links',setup(b){b.onResolve({filter:/^(react-native|expo-secure-store)$/},args=>({path:args.path,namespace:'mock'}));b.onLoad({filter:/.*/,namespace:'mock'},args=>({contents:args.path==='react-native'?`export const Linking={getInitialURL:async()=>window.url,addEventListener:(_,fn)=>{window.emit=fn;return{remove(){}}}}`:`export const getItemAsync=async()=>null,setItemAsync=async()=>{},deleteItemAsync=async()=>{}`,loader:'js'}))}}]})
+
+const mocks = {
+  'react-native': `
+    export const AppState = { addEventListener: () => ({ remove() {} }) }
+    export const Linking = {
+      getInitialURL: async () => window.url,
+      addEventListener: (_, fn) => { window.emit = fn; return { remove() {} } },
+    }
+  `,
+  'expo-secure-store': 'export const getItemAsync = async () => null, setItemAsync = async () => {}, deleteItemAsync = async () => {}',
+  './AdultPlayerScreen': 'export const AdultPlayerScreen = () => null',
+  '../../mobile-core/src/supabase': `
+    export const supabase = { rpc: async name => {
+      if (name !== 'get_own_adult_player_account_state') throw Error('Unexpected RPC: ' + name)
+      return { data: [] }
+    } }
+  `,
+}
+const result = await build({
+  stdin: { contents, resolveDir: root, loader: 'jsx' },
+  bundle: true,
+  write: false,
+  jsx: 'automatic',
+  loader: { '.js': 'jsx' },
+  alias: { react: path.join(modules, 'react'), 'react-dom': path.join(modules, 'react-dom') },
+  define: { 'process.env.NODE_ENV': '"production"' },
+  plugins: [{
+    name: 'fan-app-services',
+    setup(builder) {
+      builder.onResolve({ filter: /.*/ }, args => Object.hasOwn(mocks, args.path)
+        ? { path: args.path, namespace: 'mock' } : undefined)
+      builder.onLoad({ filter: /.*/, namespace: 'mock' }, args => ({ contents: mocks[args.path] }))
+    },
+  }],
+})
 const browser=await chromium.launch({headless:true})
 try{
  const page=await browser.newPage()
