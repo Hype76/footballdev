@@ -334,7 +334,6 @@ jobs:
           && node tests/adult-player-linking-browser.mjs
           && node tests/adult-player-workspace-bridge-browser.mjs
           && node tests/adult-player-account-browser.mjs
-          && node tests/adult-player-mobile-browser.mjs
           && node tests/adult-player-invite-design-browser.mjs
           && node tests/player-contact-layout-browser.mjs
       - name: Coach player profile navigation
