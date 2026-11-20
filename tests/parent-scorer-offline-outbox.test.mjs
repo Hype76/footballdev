@@ -4,8 +4,9 @@ import { readFile } from 'node:fs/promises'
 import { parse } from '@babel/parser'
 import { normalizeMatchDayShirtChoice } from '../src/lib/matchday-model.js'
 import { normalizePitchType } from '../src/lib/pitch-type.js'
+import { getParentScorerActionLabel, getParentScorerMatches } from '../apps/parent-mobile/src/parentScorerCore.js'
 import { normalizePersonName } from '../src/lib/person-name.js'
-import { appendParentScorerCommand, canRestoreRejectedShootout, canReviewParentScorerActions, getVisibleParentScorerMatch, mergeParentScorerAcknowledgement, projectParentScorerOutbox, restoreRejectedShootout, reviewParentScorerConflict } from '../apps/parent-mobile/src/parentScorerOutboxCore.js'
+import { appendParentScorerCommand, canArchiveExpiredParentScorerActions, canRestoreRejectedShootout, canReviewParentScorerActions, archiveExpiredParentScorerActions, getVisibleParentScorerMatch, mergeParentScorerAcknowledgement, projectParentScorerOutbox, restoreRejectedShootout, reviewParentScorerConflict } from '../apps/parent-mobile/src/parentScorerOutboxCore.js'
 
 test('unfinished shootout cannot enter the offline finish queue and a rejected finish can be restored', () => {
   const shootout = { ...base, status: 'penalties', currentMatchPhase: 'penalties', timerStatus: 'paused',
@@ -61,6 +62,33 @@ test('an explicitly reviewed redundant start can be removed without losing the f
   assert.equal(reviewed.pending[0].expectedUpdatedAt, latest.updatedAt)
   assert.equal(reviewed.pending[0].previousCommandId, null)
   assert.equal(canReviewParentScorerActions({ ...rejected, errorCode: 'P0001', error: 'This saved clock action predates the current clock. Review it before continuing.' }), true)
+})
+
+test('expired local start opens recovery without projecting a live clock or changing the confirmed score', () => {
+  const original = appendParentScorerCommand(journal(), { id: 'start', kind: 'start', capturedAt: startAt })
+  const pending = getVisibleParentScorerMatch(base, original)
+  assert.equal(pending.status, 'scheduled')
+  assert.equal(pending.timerStatus, 'not_started')
+  assert.equal(getParentScorerActionLabel(getParentScorerMatches([pending])[0]), 'Review saved scoring')
+  assert.equal(canArchiveExpiredParentScorerActions(original), false, 'Wait for a definitive server rejection')
+  assert.equal(getVisibleParentScorerMatch({ ...base, isFanView: true }, original).needsSavedScoringReview, undefined)
+  assert.throws(() => appendParentScorerCommand(original, { id: 'finish', kind: 'timer', payload: { action: 'full_time' } }), /Review the expired/)
+  const rejected = { ...original, errorCode: 'P0001', error: 'The saved action is invalid or over 24 hours old. Review it before continuing.' }
+  assert.equal(canArchiveExpiredParentScorerActions(rejected), true)
+  assert.throws(() => archiveExpiredParentScorerActions(rejected, base, ['different']), /changed/)
+  assert.throws(() => archiveExpiredParentScorerActions(rejected, { ...base, teamId: 'other' }, ['start']), /Refresh/)
+  const latest = { ...base, status: 'full_time', homeScore: 2, awayScore: 1, isScorer: false }
+  const recovered = archiveExpiredParentScorerActions(rejected, latest, ['start'])
+  assert.deepEqual(recovered.pending, [])
+  assert.deepEqual(recovered.archivedActions, original.pending)
+  assert.equal(recovered.baseMatch, latest)
+  assert.deepEqual(getVisibleParentScorerMatch(latest, recovered), latest)
+  const withGoal = { ...rejected, pending: [...rejected.pending, { id: 'goal', kind: 'goal' }] }
+  assert.throws(() => archiveExpiredParentScorerActions(withGoal, latest, ['start']), /changed/)
+  const archived = archiveExpiredParentScorerActions(withGoal, latest, ['start', 'goal'])
+  assert.deepEqual(archived.archivedActions, withGoal.pending)
+  assert.deepEqual(archived.pending, [])
+  assert.equal(withGoal.pending.length, 2)
 })
 
 async function actualFunctions(file, names) {
