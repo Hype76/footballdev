@@ -349,7 +349,7 @@ function LoginScreen() {
       emailPlaceholder="you@example.com"
       kicker="Parent and Player access"
       logoSource={require('./assets/football-player-logo.png')}
-      meta="Use your Football Player account."
+      meta="Private family access. Password sign-in only."
       requestPasswordReset={requestPasswordReset}
       signIn={handleSignIn}
       title="Your team in one place"
