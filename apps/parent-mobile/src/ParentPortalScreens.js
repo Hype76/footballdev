@@ -12,7 +12,7 @@ import { ClubKitDisplay } from '../../mobile-core/src/ClubKitDisplay'
 import { groupCoachResources } from '../../mobile-core/src/coachResourceBrowseCore'
 import { getResourceDisplayTitle, getResourceTitleDate } from '../../../src/lib/resource-date-presentation.js'
 import { VenueMapPreview } from '../../mobile-core/src/VenueMapPreview'
-import { canReviewParentScorerActions, describeSavedScorerAction } from './parentScorerOutboxCore.js'
+import { canArchiveExpiredParentScorerActions, canReviewParentScorerActions, describeSavedScorerAction } from './parentScorerOutboxCore.js'
 import { PinnedEventNotes } from '../../mobile-core/src/PinnedEventNotes'
 import * as Crypto from 'expo-crypto'
 import { getGoalScorerSide, oppositeMatchSide } from '../../../src/lib/matchday-goal-credit.js'
@@ -1229,10 +1229,21 @@ export function MatchdayScreen({ suppressParentFormation = false, activeActionId
     const scorerPlayers = Array.isArray(selectedMatch.eventParticipants) ? selectedMatch.eventParticipants : players.filter((player) => confirmedPlayerNames.has(player.playerName))
     return (
       <View style={styles.stack}>
-        {!selectedMatch.isScorer ? <MatchdayAction accessibilityLabel="Back to Matchday" label="Back" iconKey="action.back" onPress={onBack} colors={colors} styles={styles} back /> : null}
+        {!selectedMatch.isScorer || selectedMatch.needsSavedScoringReview ? <MatchdayAction accessibilityLabel="Back to Matchday" label="Back" iconKey="action.back" onPress={onBack} colors={colors} styles={styles} back /> : null}
         {selectedMatch.scorerReviewRequestedAt && !selectedMatch.isScorer ? <View style={styles.card}><Text accessibilityLiveRegion="polite" style={styles.body}>Sent to Coach to conclude. Your scoring access has ended.</Text></View> : null}
-        {selectedMatch.isScorer ? <ScorerControls activeActionId={activeActionId} isOffline={isOffline} match={selectedMatch} onAction={(action, value) => onScorerAction(selectedMatch, action, value)} onReview={() => onReviewScorer?.(selectedMatch)} placeholderColor={colors.muted} players={scorerPlayers} scorerSync={scorerSync} styles={styles} /> : null}
-        {selectedMatch.isScorer ? <MatchdayAction accessibilityLabel="Back to Matchday" label="Back" iconKey="action.back" onPress={onBack} colors={colors} styles={styles} back /> : null}
+        {selectedMatch.needsSavedScoringReview ? <View style={styles.section}>
+          <Text accessibilityRole="alert" style={styles.warning}>Saved scoring is over 24 hours old. The fixture below shows the last confirmed match state.</Text>
+          {scorerSync?.pending?.map(command => <Text key={command.id} style={styles.body}>{describeSavedScorerAction(command)}</Text>)}
+          {canArchiveExpiredParentScorerActions(scorerSync) ? (
+            <Button disabled={isOffline || Boolean(activeActionId)} label="Review expired actions" onPress={() => onReviewScorer?.(selectedMatch)} outline styles={styles} />
+          ) : <Text style={styles.helper}>{isOffline ? 'Reconnect to verify these actions.' : 'These actions remain on this phone. Sync to check their status, or ask the Coach to review them.'}</Text>}
+        </View> : null}
+        {scorerSync?.archivedActions?.length ? <View style={styles.section}>
+          <Text style={styles.cardTitle}>Archived scoring on this phone</Text>
+          {scorerSync.archivedActions.map(command => <Text key={command.id} style={styles.body}>{describeSavedScorerAction(command)}</Text>)}
+        </View> : null}
+        {selectedMatch.isScorer && !selectedMatch.needsSavedScoringReview ? <ScorerControls activeActionId={activeActionId} isOffline={isOffline} match={selectedMatch} onAction={(action, value) => onScorerAction(selectedMatch, action, value)} onReview={() => onReviewScorer?.(selectedMatch)} placeholderColor={colors.muted} players={scorerPlayers} scorerSync={scorerSync} styles={styles} /> : null}
+        {selectedMatch.isScorer && !selectedMatch.needsSavedScoringReview ? <MatchdayAction accessibilityLabel="Back to Matchday" label="Back" iconKey="action.back" onPress={onBack} colors={colors} styles={styles} back /> : null}
         <View style={[styles.gameDayHero, selectedMatchIsLive && styles.gameDayHeroLive]}>
           {['cancelled', 'postponed'].includes(selectedMatch.status) ? <Text style={styles.pill}>{getParentMatchStatusLabel(selectedMatch)}</Text> : null}
           <Text accessibilityRole="header" style={styles.header}>{presentation?.displayName || getMatchDayDisplayName(selectedMatch)}</Text>

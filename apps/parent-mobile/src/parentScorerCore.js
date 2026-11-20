@@ -2,12 +2,13 @@ import { captureMatchEventTime, formatMatchAddedTimeClock } from '../../../src/l
 import { sortCompletedMatchEvents } from '../../../src/lib/matchday-final-report.js'
 
 export function getParentScorerMatches(matches = []) {
-  return matches.filter((match) => match.isScorer && !match.scorerReviewRequestedAt && !match.concludedAt
-    && !['cancelled', 'postponed'].includes(match.status))
+  return matches.filter((match) => match.needsSavedScoringReview || (match.isScorer && !match.scorerReviewRequestedAt && !match.concludedAt
+    && !['cancelled', 'postponed'].includes(match.status)))
     .sort((a, b) => Number(['scheduled', 'scorer_request'].includes(a.status)) - Number(['scheduled', 'scorer_request'].includes(b.status)))
 }
 
 export function getParentScorerActionLabel(match = {}) {
+  if (match.needsSavedScoringReview) return 'Review saved scoring'
   return ['scheduled', 'scorer_request'].includes(match.status) ? 'Open scoring' : match.status === 'full_time' ? 'Review scoring' : 'Resume scoring'
 }
 

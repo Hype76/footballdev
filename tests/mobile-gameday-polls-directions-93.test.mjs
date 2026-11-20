@@ -61,7 +61,7 @@ test('Parent Game Day provides live read-only parity and gates scorer controls w
   assert.match(parentScreens, /timeline\.length > 0 \? <View/)
   assert.match(parentScreens, /matchStarted \? <View/)
   assert.doesNotMatch(parentScreens, /Live match updates from the club appear here/)
-  assert.match(parentScreens, /selectedMatch\.isScorer \? <ScorerControls/)
+  assert.match(parentScreens, /selectedMatch\.isScorer && !selectedMatch\.needsSavedScoringReview \? <ScorerControls/)
   assert.match(parentScreens, /accessibilityLabel="Match scoring"/)
   assert.match(parentApp, /onLiveRefresh=\{refreshParentMatchDay\}/)
   assert.doesNotMatch(parentScreens, /getCoachMatchDayActions|selectCoachMatchDayVolunteer/)
