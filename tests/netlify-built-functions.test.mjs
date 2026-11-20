@@ -38,6 +38,7 @@ test('scheduled function metadata survives bundling', () => {
   assert.equal(byName.get('process-platform-analytics').schedule, '*/15 * * * *')
   assert.equal(byName.get('cleanup-expired-retention').schedule, '@daily')
   assert.equal(byName.get('send-scheduled-emails').schedule, '* * * * *')
+  assert.equal(byName.get('process-adult-player-mobile-push').schedule, '* * * * *')
 })
 
 test('Chromium assets remain in PDF roots and their scheduled email wrapper', async () => {
