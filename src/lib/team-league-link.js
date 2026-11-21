@@ -8,7 +8,10 @@ export function coachTeamLeagueScope(user, teamId = user?.activeTeamId, canMutat
 }
 
 export function parentPlayerTeamLeagueScope(user, link, offline = false) {
-  const kind = link?.linkType === 'parent' ? 'parent' : link?.linkType === 'fan' ? link.relationshipType === 'player' ? 'player' : 'fan' : ''
+  let kind = ''
+  if (link?.linkType === 'parent') kind = 'parent'
+  if (link?.linkType === 'fan') kind = link.relationshipType === 'player' ? 'player' : 'fan'
+  if (link?.linkType === 'adult_player' && user?.role === 'adult_player' && user.selectedParentLinkId === link.id) kind = 'adult_player'
   return { kind, userId: user?.id, clubId: link?.clubId, teamId: link?.teamId, linkId: link?.id, playerId: link?.playerId,
     offline: offline || user?.isOfflineProfile === true,
     active: Boolean(kind && user?.parentPortalLinks?.some(candidate => candidate.id === link.id && candidate.playerId === link.playerId && candidate.teamId === link.teamId && candidate.clubId === link.clubId) && (!user.accountStatus || user.accountStatus === 'active')) }
@@ -32,7 +35,7 @@ export function normalizeTeamLeagueUrl(value) {
 export function teamLeagueScopeKey(scope) {
   if (!scope?.userId || !scope?.teamId || scope.offline || scope.active === false) return ''
   if (scope.kind === 'coach') return JSON.stringify(['coach', scope.userId, scope.clubId, scope.teamId, scope.role, scope.roleRank, scope.canMutate])
-  if (['parent', 'player', 'fan'].includes(scope.kind)) {
+  if (['parent', 'player', 'fan', 'adult_player'].includes(scope.kind)) {
     if (!scope.linkId || !scope.playerId) return ''
     return JSON.stringify([scope.kind, scope.userId, scope.clubId, scope.teamId, scope.linkId, scope.playerId])
   }
@@ -53,10 +56,11 @@ export function normalizeTeamLeagueState(data, scope) {
 
 export async function readTeamLeagueLink(client, scope) {
   if (!teamLeagueScopeKey(scope)) throw new Error('Connect and choose an authorised team or player first.')
-  const coach = scope.kind === 'coach'
-  const { data, error } = await client.rpc(coach ? 'get_team_league_url' : 'get_parent_player_team_league_url', coach
-    ? { team_id_value: scope.teamId }
-    : { link_id_value: scope.linkId, link_type_value: scope.kind })
+  const { data, error } = await (scope.kind === 'coach'
+    ? client.rpc('get_team_league_url', { team_id_value: scope.teamId })
+    : scope.kind === 'adult_player'
+      ? client.rpc('get_own_adult_player_team_league_url', { link_id_value: scope.linkId })
+      : client.rpc('get_parent_player_team_league_url', { link_id_value: scope.linkId, link_type_value: scope.kind }))
   if (error) {
     const failure = new Error('The team league link could not be loaded. Refresh your team access and try again.')
     failure.isNetworkError = !error.code && /failed to fetch|network request failed|networkerror|fetch failed/i.test(String(error.message || ''))

@@ -101,7 +101,7 @@ export function AuthProvider({
 
   useEffect(() => {
     const updateAutoRefresh = (state) => {
-      if (state === 'active') {
+      if (state === 'active' && !requiresSignInRef.current) {
         supabase.auth.startAutoRefresh()
       } else {
         supabase.auth.stopAutoRefresh()
@@ -128,22 +128,42 @@ export function AuthProvider({
     setIsProfileLoading(true)
     setAuthError('')
 
-    let cachedProfile = null
-
-    if (offlineProfileStore?.read) {
+    const readSavedProfile = async () => {
+      if (!offlineProfileStore?.read) return null
       try {
-        cachedProfile = await withStartupTimeout(() => offlineProfileStore.read(nextSession.user.id), offlineProfileStore.readTimeoutMs || 1500, 'PROFILE_CACHE_READ_TIMEOUT')
-        if (!isCurrent()) return null
-        if (cachedProfile && currentUserRef.current?.id !== cachedProfile.id) setUser({ ...cachedProfile, isOfflineProfile: true })
+        return await withStartupTimeout(() => offlineProfileStore.read(nextSession.user.id), offlineProfileStore.readTimeoutMs || 1500, 'PROFILE_CACHE_READ_TIMEOUT')
       } catch (error) {
         console.warn(error)
+        return null
       }
     }
 
+    const readLiveProfile = () => withStartupTimeout(() => fetchMobileProfile(nextSession.user, appRole), DEFAULT_MOBILE_STARTUP_TIMEOUT_MS, `${getMobileStartupDiagnosticPrefix(appRole)}_PROFILE_LOAD_TIMEOUT`)
+    const savedRequest = readSavedProfile()
+    // Coach's encrypted workspace can be large. Its read and optional write
+    // must not delay a verified profile that is already available online.
+    let coachLiveDenial = false
+    const liveRequest = appRole === 'coach' ? readLiveProfile().then(profile => ({ profile }), error => {
+      coachLiveDenial = isAuthoritativeProfileFailure(error)
+      return { error }
+    }) : null
+    const cachedProfile = await (liveRequest
+      ? Promise.race([savedRequest, liveRequest.then(result => result.error && !coachLiveDenial ? savedRequest : null)])
+      : savedRequest)
+    if (!isCurrent()) return null
+    if (cachedProfile && !coachLiveDenial && currentUserRef.current?.id !== cachedProfile.id) setUser({ ...cachedProfile, isOfflineProfile: true })
+
     const refreshProfile = async () => {
       try {
-        const profile = await withStartupTimeout(() => fetchMobileProfile(nextSession.user, appRole), DEFAULT_MOBILE_STARTUP_TIMEOUT_MS, `${getMobileStartupDiagnosticPrefix(appRole)}_PROFILE_LOAD_TIMEOUT`)
+        const liveResult = liveRequest ? await liveRequest : { profile: await readLiveProfile() }
+        if (liveResult.error) throw liveResult.error
+        const { profile } = liveResult
         if (!isCurrent()) return null
+        if (appRole === 'coach') {
+          setUser(profile)
+          if (offlineProfileStore?.write) void offlineProfileStore.write(profile).catch(console.warn)
+          return profile
+        }
         let persistedProfile = profile
         if (offlineProfileStore?.write) {
           try {
@@ -161,7 +181,47 @@ export function AuthProvider({
           console.warn(error)
           return cachedProfile
         }
-        if (cachedProfile && offlineProfileStore?.clear) {
+        if (appRole === 'coach' && coachLiveDenial) {
+          currentUserRef.current = null
+          setUser(null)
+          try {
+            await offlineProfileStore?.revoke?.(nextSession.user.id)
+          } catch (revokeError) {
+            console.warn(revokeError)
+            if (!isCurrent()) return null
+            // Suppress refresh and auth events before clearing credentials so a
+            // local sign-out cannot clear encrypted drafts or restore the session.
+            requiresSignInRef.current = true
+            sessionUserIdRef.current = ''
+            mobileResourceCache.clear()
+            setSession(null)
+            setStartupState(MOBILE_STARTUP_STATES.RESOLVING_STAFF_CONTEXT)
+            const stillRecovering = () => generation === profileGenerationRef.current && requiresSignInRef.current
+            let storageCleared = false
+            try {
+              await withStartupTimeout(async () => {
+                await supabase.auth.stopAutoRefresh()
+                if (!stillRecovering()) return
+                await supabase.auth.signOut({ scope: 'local' }).catch(console.warn)
+                if (!stillRecovering()) return
+                await clearMobileSessionStorage()
+                if (await readSavedMobileSession()) throw new Error('Coach sign-in is still saved on this device')
+              })
+              storageCleared = true
+            } catch (storageError) {
+              console.warn(storageError)
+            }
+            if (stillRecovering()) {
+              setIsProfileLoading(false)
+              setStartupDiagnosticCode(storageCleared ? 'COACH_SAVED_ACCESS_REVOKED' : 'COACH_SAVED_ACCESS_CLEAR_FAILED')
+              setStartupState(MOBILE_STARTUP_STATES.RECOVERABLE_ERROR)
+              setAuthError(storageCleared
+                ? 'Your saved Coach access was removed. Sign in online to verify access again.'
+                : 'Saved Coach access could not be removed. Reconnect and sign in before using Coach.')
+            }
+            throw error
+          }
+        } else if (cachedProfile && offlineProfileStore?.clear) {
           try {
             await offlineProfileStore.clear()
           } catch (clearError) {
@@ -181,7 +241,7 @@ export function AuthProvider({
       }
     }
 
-    if (cachedProfile) {
+    if (cachedProfile && !coachLiveDenial) {
       const diagnosticPrefix = getMobileStartupDiagnosticPrefix(appRole)
       void withStartupTimeout(
         refreshProfile,
@@ -393,6 +453,7 @@ export function AuthProvider({
     }
     if (requiresSignInRef.current) {
       requiresSignInRef.current = false
+      if (AppState.currentState === 'active') supabase.auth.startAutoRefresh()
       setStartupState(MOBILE_STARTUP_STATES.BOOTING)
       setBootstrapAttempt((attempt) => attempt + 1)
     }
@@ -414,9 +475,13 @@ export function AuthProvider({
   }, [])
 
   const retryStartup = useCallback(() => {
+    if (requiresSignInRef.current) {
+      returnToSignIn()
+      return
+    }
     setStartupState(MOBILE_STARTUP_STATES.BOOTING)
     setBootstrapAttempt((attempt) => attempt + 1)
-  }, [])
+  }, [returnToSignIn])
 
   const resetLocalAppData = useCallback(async () => {
     profileGenerationRef.current += 1

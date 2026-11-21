@@ -6,6 +6,7 @@ import { PGlite } from '@electric-sql/pglite'
 const uuid = value => `00000000-0000-4000-8000-${String(value).padStart(12, '0')}`
 const id = { user: uuid(1), denied: uuid(2), staff: uuid(3), club: uuid(10), otherClub: uuid(11), team: uuid(20), otherTeam: uuid(21), player: uuid(30), child: uuid(31), match: uuid(40) }
 const migration = await readFile(new URL('../supabase/migrations/20261120112557_adult_player_shared_chat.sql', import.meta.url), 'utf8')
+const leagueMigration = await readFile(new URL('../supabase/migrations/20261121055818_adult_player_current_league_link.sql', import.meta.url), 'utf8')
 const foundation = (await readFile(new URL('../supabase/migrations/20260730110000_adult_player_account_foundation.sql', import.meta.url), 'utf8')).split('create or replace function public.get_own_adult_player_invitation_state()')[0]
 
 async function setup() {
@@ -97,6 +98,34 @@ async function setup() {
 async function claims(db, user) { await db.query("select set_config('request.jwt.claim.sub', $1, false)", [user || '']) }
 async function rooms(db) { return (await db.query('select * from get_own_adult_player_chat_rooms()')).rows }
 async function room(db, type) { return (await rooms(db)).find(item => item.room_type === type) }
+
+test('Adult Player league exposes only the enabled URL for a current verified link', async () => {
+  const db = await setup()
+  try {
+    await db.exec("alter table teams add column league_url text; alter table teams add column league_link_enabled boolean not null default false")
+    await db.exec(leagueMigration)
+    await db.query('update teams set league_url=$1,league_link_enabled=true where id=$2', ['https://league.example/adult-team', id.team])
+    await claims(db,id.user)
+    const link = (await db.query('select link_id from get_own_adult_player_account_state()')).rows[0].link_id
+    const read = async (target = link) => (await db.query('select * from get_own_adult_player_team_league_url($1)', [target])).rows
+    await db.exec('set role authenticated')
+    assert.deepEqual(await read(), [{ team_id:id.team, team_name:'Team', league_url:'https://league.example/adult-team', league_link_enabled:true }])
+    assert.deepEqual(await read(uuid(999)), [])
+    await claims(db,id.denied)
+    assert.deepEqual(await read(), [])
+    await db.exec('reset role; update teams set league_link_enabled=false')
+    await claims(db,id.user)
+    await db.exec('set role authenticated')
+    assert.equal((await read())[0].league_url, null)
+    await db.exec("reset role; update adult_player_account_links set status='revoked',revoked_at=now(); set role authenticated")
+    assert.deepEqual(await read(), [])
+    await db.exec('reset role')
+    for (const role of ['anon','service_role']) {
+      const {rows} = await db.query('select has_function_privilege($1,$2,$3) as allowed',[role,'public.get_own_adult_player_team_league_url(uuid)','EXECUTE'])
+      assert.equal(rows[0].allowed,false)
+    }
+  } finally { await db.close() }
+})
 
 
 const deviceId = uuid(70)

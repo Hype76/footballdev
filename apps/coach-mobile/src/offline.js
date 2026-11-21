@@ -94,6 +94,36 @@ const underlyingStore = config.isUsable && projectRef === expectedRef
   ? createStore(config.isProduction ? 'live' : 'test', projectRef)
   : unavailableStore()
 const store = { ...underlyingStore }
+function createCoachStartupProfileStore(environment, ref) {
+  return createEncryptedOfflineStore({
+    appRole: 'coach', cryptoProvider, environment, projectRef: ref,
+    keyStore: SecureStore,
+    keyStoreOptions: { keychainAccessible: SecureStore.AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY, requireAuthentication: false },
+    namespaceSuffix: 'coach2.startup-profile', storage: AsyncStorage,
+  })
+}
+const startupProfileStore = config.isUsable && projectRef === expectedRef
+  ? createCoachStartupProfileStore(config.isProduction ? 'live' : 'test', projectRef)
+  : unavailableStore()
+let startupProfileWriteGeneration = 0
+const revokedStartupProfiles = new Set()
+const startupRevocationKey = userScope => `fp.coach.startup-revoked.${config.isProduction ? 'live' : 'test'}.${projectRef}.${userScope}`
+let startupRevocationQueue = Promise.resolve()
+
+function queueStartupRevocationChange(change) {
+  const result = startupRevocationQueue.then(change)
+  startupRevocationQueue = result.catch(() => {})
+  return result
+}
+
+async function readStartupRevocation(userScope) {
+  const key = startupRevocationKey(userScope)
+  const saved = await Promise.allSettled([AsyncStorage.getItem(key), SecureStore.getItemAsync(key)])
+  if (saved.some(result => result.status === 'fulfilled' && result.value)) return true
+  const unavailable = saved.find(result => result.status === 'rejected')
+  if (unavailable) throw unavailable.reason
+  return false
+}
 for (const method of ['clear', 'inspect', 'read', 'readSnapshot', 'update', 'write']) {
   if (typeof underlyingStore[method] !== 'function') continue
   store[method] = (...args) => reportRecoveryFailure(async () => {
@@ -210,35 +240,82 @@ export const coachOfflineProfileStore = {
   async clear() {
     await clearCoachOfflineState()
   },
+  async revoke(userScope) {
+    startupProfileWriteGeneration += 1
+    revokedStartupProfiles.add(userScope)
+    // Both startup readers respect this marker. Leave encrypted match drafts intact.
+    const key = startupRevocationKey(userScope)
+    await queueStartupRevocationChange(async () => {
+      try {
+        await AsyncStorage.setItem(key, '1')
+        if (await AsyncStorage.getItem(key) === '1') return
+      } catch { /* Try the independent secure store below. */ }
+      await SecureStore.setItemAsync(key, '1')
+      if (await SecureStore.getItemAsync(key) !== '1') throw new Error('offline_revocation_readback_failed')
+    })
+  },
   async read(userScope) {
     activateCoachOfflineAccount(userScope)
     store.activate(userScope)
-    return reportRecoveryFailure(async () => getCoachOfflineProfile((await store.read(userScope)).document, userScope))
+    startupProfileStore.activate(userScope)
+    const guard = captureCoachOfflineAccount(userScope)
+    if (revokedStartupProfiles.has(userScope) || await readStartupRevocation(userScope)) return null
+    guard()
+    const snapshot = await startupProfileStore.read(userScope).catch(() => null)
+    guard()
+    if (revokedStartupProfiles.has(userScope)) return null
+    const profile = getCoachOfflineProfile(snapshot?.document, userScope)
+    if (profile) return profile
+    const saved = await reportRecoveryFailure(() => store.read(userScope))
+    guard()
+    return revokedStartupProfiles.has(userScope) ? null : getCoachOfflineProfile(saved.document, userScope)
   },
   async write(profile) {
     const sanitized = sanitizeCoachProfile(profile)
     if (!sanitized.id) throw new Error('offline_profile_scope_mismatch')
     const accountGuard = captureCoachOfflineAccount(sanitized.id)
     accountGuard()
+    startupProfileStore.activate(sanitized.id)
+    // Keep startup independent of the encrypted match, media and team data.
+    // A failed mirror write must not leave an older startup profile eligible.
+    const mirrorGeneration = ++startupProfileWriteGeneration
+    const mirror = startupProfileStore.write(sanitized.id, setCoachOfflineProfile(createCoachOfflineDocument({ userScope: sanitized.id }), sanitized))
+      .catch(async error => {
+        accountGuard()
+        if (mirrorGeneration === startupProfileWriteGeneration) await startupProfileStore.clear()
+        throw error
+      })
+    void mirror.catch(() => {})
     const next = await reportRecoveryFailure(() => store.update(sanitized.id, current => {
       const updated = setCoachOfflineProfile(current || createCoachOfflineDocument({ userScope: sanitized.id }), sanitized)
       return { ...updated, accountPreparation: Object.fromEntries(Object.entries(updated.accountPreparation || {}).filter(([id, entry]) =>
         sanitized.coachContexts.some(context => context.id === id && entry.authority === outboxAuthority(context)))) }
     }))
     accountGuard()
+    await mirror
+    await queueStartupRevocationChange(async () => {
+      if (mirrorGeneration !== startupProfileWriteGeneration) return
+      const revoked = await readStartupRevocation(sanitized.id)
+      if (mirrorGeneration !== startupProfileWriteGeneration) return
+      if (revoked) {
+        const key = startupRevocationKey(sanitized.id)
+        await Promise.all([AsyncStorage.removeItem(key), SecureStore.deleteItemAsync(key)])
+      }
+      if (mirrorGeneration === startupProfileWriteGeneration) revokedStartupProfiles.delete(sanitized.id)
+    })
     return getCoachOfflineProfile(next, sanitized.id)
   },
 }
 
 export async function quarantineIncompatibleCoachOfflineState() {
   if (!incompatibleTestStore) return { quarantined: false }
-  await incompatibleTestStore.clear()
+  await Promise.all([incompatibleTestStore.clear(), createCoachStartupProfileStore('test', APPROVED_MOBILE_TEST.supabaseRef).clear()])
   return { previousEnvironment: 'test', quarantined: true }
 }
 
 export async function clearCoachOfflineState() {
   const previousUserId = invalidateCoachOfflineAccount()
-  const results = await Promise.allSettled([reportRecoveryFailure(() => store.clear()), mediaHooks.clearAccount(previousUserId)])
+  const results = await Promise.allSettled([reportRecoveryFailure(() => store.clear()), startupProfileStore.clear(), mediaHooks.clearAccount(previousUserId)])
   const failed = results.find(result => result.status === 'rejected')
   if (failed) throw failed.reason
 }

@@ -37,6 +37,18 @@ test('RPC read authority derives Parent/Player team from relationship, not calle
   assert.equal(result.canEdit,false)
   await assert.rejects(()=>readTeamLeagueLink({rpc:async()=>({error:{code:'42501'}})},scope),/Refresh your team access/)
 })
+test('Adult Player league reads use only the verified selected Player relationship', async () => {
+  const link = { id: 'adult-link', linkType: 'adult_player', playerId: 'adult', teamId: 'a', clubId: 'club' }
+  const user = { id: 'account', role: 'adult_player', selectedParentLinkId: link.id, parentPortalLinks: [link] }
+  const scope = parentPlayerTeamLeagueScope(user, link)
+  assert.equal(scope.kind, 'adult_player')
+  assert.equal(teamLeagueScopeKey(parentPlayerTeamLeagueScope({ ...user, role: 'parent_portal' }, link)), '')
+  assert.equal(teamLeagueScopeKey(parentPlayerTeamLeagueScope({ ...user, selectedParentLinkId: 'other' }, link)), '')
+  const calls = []
+  const result = await readTeamLeagueLink({ rpc: async (...args) => { calls.push(args); return { data: [row] } } }, scope)
+  assert.deepEqual(calls, [['get_own_adult_player_team_league_url', { link_id_value: link.id }]])
+  assert.equal(result.canEdit, false)
+})
 test('team movement and malformed response fail closed; strict booleans only',()=>{
   assert.throws(()=>normalizeTeamLeagueState({...row,team_id:'b'},coach),/selected team league/)
   assert.throws(()=>normalizeTeamLeagueState(null,coach))

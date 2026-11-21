@@ -23,12 +23,12 @@ import {isParentScorerGuideMatch} from './apps/parent-mobile/src/parentScorerCor
 import {getParentBadgeColours,getParentStatusColours,PARENT_FAN_SIGN_IN_COLOURS,PARENT_POLL_SEPARATOR_COLOUR} from './apps/mobile-core/src/parentStatusColours.js';
 import ParentIcon from './apps/parent-mobile/src/ParentIcon.js';import {useParentHomeSections} from './apps/parent-mobile/src/useParentHomeSections.js';import {createParentMobileTheme,DEFAULT_PARENT_MOBILE_THEME} from './apps/mobile-core/src/parentThemeCore.js';import {getParentHomeFixtureCards,getParentMatchDirectionsUrl,getParentCalendarDirectionsUrl,getParentAgendaResponseBadge} from './apps/parent-mobile/src/parentExperience.js';import {getParentEventPresentation,getParentEventDateTimeLabel,getParentEventKey} from './apps/parent-mobile/src/parentEventPresentation.js';import {countUnreadGeneralNotifications} from './apps/mobile-core/src/parentNotificationInboxCore.js';const getParentScorerMatches=()=>[],ResourceError=()=>null;`;
 const entries={}
-for(const role of ['coach','parent','player','editor','web-editor']){
+for(const role of ['coach','parent','player','adult-player','editor','web-editor']){
   const isCoach=role==='coach'||role==='editor',isWeb=role==='web-editor'
   const definitions=isWeb?webEditor:isCoach?coach:parent
   const imports=isWeb?'':isCoach?coachImports:parentImports
   entries[role]=common+imports+definitions+`
-function App(){const[team,setTeam]=useState('a'),[account,setAccount]=useState('account'),[offline,setOffline]=useState(false),[mode,setMode]=useState('light');window.team=setTeam;window.account=setAccount;window.offline=setOffline;window.mode=setMode;const link={id:'link-'+team,linkType:'${role==='player'?'fan':'parent'}',relationshipType:'${role==='player'?'player':'parent'}',playerId:'child-'+team,teamId:team,clubId:'club'};const user={id:account,clubId:'club',activeTeamId:team,role:'head_manager',roleRank:70,hasActivePlanAccess:true,isOfflineProfile:offline,parentPortalLinks:[link],matchdayPolicy:{flags:{teamCalendar:true,fixtures:true,matchDay:true,parentPortal:true,parentInvitations:true}}};const scope=coachTeamLeagueScope(user);
+function App(){const[team,setTeam]=useState('a'),[account,setAccount]=useState('account'),[offline,setOffline]=useState(false),[mode,setMode]=useState('light');window.team=setTeam;window.account=setAccount;window.offline=setOffline;window.mode=setMode;const link={id:'link-'+team,linkType:'${role==='adult-player'?'adult_player':role==='player'?'fan':'parent'}',relationshipType:'${role==='player'?'player':'parent'}',playerId:'child-'+team,teamId:team,clubId:'club'};const user={id:account,clubId:'club',activeTeamId:team,role:'${role==='adult-player'?'adult_player':'head_manager'}',selectedParentLinkId:link.id,roleRank:70,hasActivePlanAccess:true,isOfflineProfile:offline,parentPortalLinks:[link],matchdayPolicy:{flags:{teamCalendar:true,fixtures:true,matchDay:true,parentPortal:true,parentInvitations:true}}};const scope=coachTeamLeagueScope(user);
 ${isWeb?`return <TeamLeagueEditor key={teamLeagueScopeKey(scope)} scope={scope}/>;`:isCoach?`const palette=createCoachTheme({mode}).tokens;theme={palette,styles:createCoachStyles(palette)};return <View style={{padding:16,minHeight:'100vh',backgroundColor:palette.background}}>${role==='editor'?'<TeamLeagueLinkSettings key={teamLeagueScopeKey(scope)} client={client} scope={scope} palette={palette}/>':'<HomeScreen context={{teamId:team,planKey:"team",roleRank:70,role:"head_manager"}} user={user} onNavigate={()=>{}} homeState={{nextCalendar:{id:"event",title:"Monday training",startsAt:"Mon 5 Oct, 18:00"},nextMatch:null,nextSession:null}}/>'}</View>;`:`const tokens=createParentMobileTheme({mode}).tokens,palette=createParentAppPalette(tokens);theme={palette,styles:createParentAppStyles(tokens)};return <View style={{padding:16,minHeight:'100vh',backgroundColor:palette.background}}><HomeScreen userId={account} leagueUser={user} link={link} homeModel={homeModel} calendar={resource} matches={resource} messages={resource} notifications={resource} isOffline={offline} onOpenPolls={()=>{}} onOpenUpdates={()=>{}} onOpenInvites={()=>{}} onOpenMatch={()=>{}}/></View>;`}}
 createRoot(document.getElementById('root')).render(<App/>);`
 }
@@ -37,11 +37,12 @@ const browser=await chromium.launch({headless:true}),errors=[],external=[]
 try{
 for(const role of Object.keys(entries)){
   const page=await browser.newPage({viewport:{width:390,height:844}});page.on('pageerror',error=>errors.push(error.message));await page.route('**/*',route=>{if(route.request().url().startsWith('http://league.test/'))return route.fulfill({contentType:'text/html',body:'<body style="margin:0"><div id="root"></div></body>'});external.push(route.request().url());return route.abort()});await page.goto('http://league.test/');
-  const home = ['coach','parent','player'].includes(role)
+  const home = ['coach','parent','player','adult-player'].includes(role)
   if(home) await page.evaluate(()=>window.startDeferred=true)
   await page.addScriptTag({content:await bundle(entries[role])});
   if(home) {
     await page.waitForFunction(()=>window.pending.length===1)
+    if (role === 'adult-player') assert.deepEqual(await page.evaluate(() => window.calls[0]), {name:'get_own_adult_player_team_league_url',args:{link_id_value:'link-a'}})
     const following = page.getByText(role==='coach'?'Next Calendar item':'Next up',{exact:true})
     const before = await following.boundingBox()
     assert.equal(await page.getByRole('link',{name:/Current league/}).count(),0)
