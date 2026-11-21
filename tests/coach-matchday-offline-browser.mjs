@@ -20,6 +20,11 @@ const entry = `
     homeAway:'away',homeScore:0,awayScore:0,matchDurationMinutes:70,clockMode:'fixed',events:[],squadDecisions:[],isToday:true,hasPresentationState:true,
     eventParticipants:[{id:'scorer-1',teamId:'team',playerName:'FP TEST'},{id:'scorer-2',teamId:'team',playerName:'FP TEST Second'}]};
   window.server=JSON.parse(localStorage.getItem('server')||JSON.stringify(base));
+  if(window.volunteerRefreshTest) {
+    window.server={...window.server,status:'scheduled',currentMatchPhase:'not_started',timerStatus:'not_started',
+      eligibleParents:[{parentLinkId:'eligible-parent',recipientName:'Parent Example',playerName:'Sample Player'}]};
+    localStorage.setItem('resources',JSON.stringify({resources:{matchDayList:[window.server],matchDayDetail:window.server,matchDayPlayers:[]}}));
+  }
   localStorage.setItem('server',JSON.stringify(window.server));
   window.online=localStorage.getItem('offline')!=='1'; window.listeners=[]; window.calls=[];
   window.setSignal=value=>{window.online=value;localStorage.setItem('offline',value?'0':'1');window.listeners.forEach(fn=>fn({isConnected:value,isInternetReachable:value}));};
@@ -34,7 +39,7 @@ const entry = `
       matchDayTarget={target} onMatchDayTargetHandled={()=>setTarget(null)} onNavigate={(route,target)=>{window.navigations.push({route,target});setShow(false)}}/></View>:<div>Home</div>;}
   createRoot(document.getElementById('root')).render(<App/>);
 `
-const implemented = new Set(['createCoachMatchDayCommandId','getCoachMatchDayList','getCoachMatchDayDetail','normalizeCoachMatchDay','syncCoachMatchDayCommand','setCoachMatchDaySquadDecision','setCoachMatchDaySquadDecisions','notifyCoachMatchDaySquadDecisions','runCoachMatchDayTimerAction','endCoachMatchDayWithoutShootoutResult','saveCoachMatchDayFinalReport','saveCoachConcludedMatchEvent'])
+const implemented = new Set(['createCoachMatchDayCommandId','getCoachMatchDayList','getCoachMatchDayDetail','normalizeCoachMatchDay','selectCoachMatchDayVolunteer','syncCoachMatchDayCommand','setCoachMatchDaySquadDecision','setCoachMatchDaySquadDecisions','notifyCoachMatchDaySquadDecisions','runCoachMatchDayTimerAction','endCoachMatchDayWithoutShootoutResult','saveCoachMatchDayFinalReport','saveCoachConcludedMatchEvent'])
 const dataMock = `
   import {projectMatchDayCommand} from './apps/mobile-core/src/matchDayOutboxCore.js';
   export const createCoachMatchDayCommandId=()=>crypto.randomUUID();
@@ -42,6 +47,12 @@ const dataMock = `
   const requireSignal=()=>{if(!window.online){window.failedRefresh=(window.failedRefresh||0)+1;throw new Error('Waiting for a connection.');}};
   export async function getCoachMatchDayList(){requireSignal();if(window.startListOnly)await new Promise(resolve=>window.finishList=resolve);return [window.server]}
   export async function getCoachMatchDayDetail(){window.detailStarted=true;requireSignal();await new Promise(resolve=>setTimeout(resolve,50));if(window.detailDelay)await new Promise(resolve=>window.finishDetail=resolve);if(window.detailFailure)throw new Error(window.detailFailureMessage||'Could not connect');return window.server}
+  export async function selectCoachMatchDayVolunteer(user,match,parent,role,selected) {
+    requireSignal()
+    window.volunteerSelection={fixture:match.id,parent:parent.directParentLinkId,role,selected}
+    window.server={...window.server,roleAssignments:[{id:'assignment',parentLinkId:parent.directParentLinkId,recipientName:parent.recipientName,role}]}
+    return window.server
+  }
   export async function runCoachMatchDayTimerAction(user,match,action){
     if(window.endControlsTest && ['normal_time_complete','full_time','start_penalties'].includes(action)){
       window.timerCalls=[...(window.timerCalls||[]),action];
@@ -94,7 +105,7 @@ const mocks = [
   [/ClubKitDisplay(?:\.js)?$/, 'export const ClubKitDisplay=()=>null;'],
   [/coachSquadTemplateData$/, 'export const createCoachSquadTemplateStore=()=>async()=>[];'],
   [/coachMatchDayData(?:\.js)?$/, dataMock],
-  [/coachPlayersData$/, `export async function getCoachPlayerList(){if(window.performanceTest)await new Promise(resolve=>window.finishPlayers=resolve);return [{id:'squad-a',playerName:'Squad Alex'},{id:'squad-b',playerName:'Squad Bailey'}]}`],
+  [/coachPlayersData$/, `export async function getCoachPlayerList(){if(window.performanceTest||window.volunteerRefreshTest)await new Promise(resolve=>window.finishPlayers=resolve);return [{id:'squad-a',playerName:'Squad Alex'},{id:'squad-b',playerName:'Squad Bailey'}]}`],
   [/\/offline$/, `export async function readCoachOfflineResources(){return JSON.parse(localStorage.getItem('resources')||'null')}
     export async function saveCoachOfflineResources(user,context,resources){localStorage.setItem('resources',JSON.stringify({resources}));}
     export async function readCoachMatchDayOutbox(){if(window.performanceTest&&window.delayJournal)await new Promise(resolve=>window.finishJournal=resolve);return window.readJournal()}
@@ -121,9 +132,20 @@ try {
   const page = await browser.newPage({viewport:{width:390,height:844}})
   const errors=[];page.on('pageerror',error=>{errors.push(error.message);console.error(error.message)})
   await page.route('http://localhost:9876/**',route=>route.fulfill({contentType:'text/html',body:'<html style="scrollbar-gutter:stable"><head><meta name="viewport" content="width=device-width,initial-scale=1"></head><body><div id="root"></div></body></html>'}))
-  const mount = async()=>{await page.goto('http://localhost:9876/');if(process.argv.includes('--layout-only'))await page.evaluate(()=>window.startListOnly=true);if(process.argv.includes('--performance-only'))await page.evaluate(()=>window.performanceTest=true);if(process.argv.includes('--denial-only'))await page.evaluate(()=>{if(localStorage.getItem('denyFixture')==='1'){window.detailFailure=true;window.detailFailureMessage='permission denied'}});await page.addScriptTag({content:result.outputFiles[0].text})}
+  const mount = async()=>{await page.goto('http://localhost:9876/');if(process.argv.includes('--layout-only'))await page.evaluate(()=>window.startListOnly=true);if(process.argv.includes('--performance-only'))await page.evaluate(()=>window.performanceTest=true);if(process.argv.includes('--volunteers-only'))await page.evaluate(()=>{window.volunteerRefreshTest=true;window.detailDelay=true});if(process.argv.includes('--denial-only'))await page.evaluate(()=>{if(localStorage.getItem('denyFixture')==='1'){window.detailFailure=true;window.detailFailureMessage='permission denied'}});await page.addScriptTag({content:result.outputFiles[0].text})}
   await mount()
-  if(process.argv.includes('--performance-only')) {
+  if(process.argv.includes('--volunteers-only')) {
+    await page.getByRole('button',{name:'Volunteers',exact:true}).click()
+    const choose=page.getByText('Choose another parent',{exact:true}).first().locator('..')
+    assert.equal(await choose.isDisabled(),true,'Cached fixture must not enable volunteer changes')
+    await page.waitForFunction(()=>Boolean(window.finishDetail && window.finishPlayers))
+    await page.evaluate(()=>window.finishDetail())
+    await choose.click({timeout:5000})
+    await page.getByRole('button',{name:'Parent Example (Sample Player)',exact:true}).click()
+    assert.deepEqual(await page.evaluate(()=>window.volunteerSelection),{fixture:'fixture',parent:'eligible-parent',role:'scorer',selected:true})
+    assert.deepEqual(errors,[])
+    console.log('PASS Coach volunteers wait for an authorised fixture and can be assigned while the separate roster is still loading.')
+  } else if(process.argv.includes('--performance-only')) {
     await page.waitForFunction(()=>Boolean(window.finishPlayers))
     await page.getByText(/Visitors/).first().waitFor()
     const create=page.getByRole('button',{name:'Create match',exact:true})

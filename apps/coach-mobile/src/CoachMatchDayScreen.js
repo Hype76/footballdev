@@ -342,13 +342,15 @@ function FixtureHero({ clubLogoUrl, match, now, styles }) {
   </View>
 }
 
-function VolunteerPanel({ actions, busy, match, onSelect, onDirectSelect, styles }) {
+function VolunteerPanel({ actions, busy, match, onSelect, onDirectSelect, onRefresh, status, styles }) {
   const [openRole, setOpenRole] = useState('')
   const assignmentByRole = new Map((match.roleAssignments || []).map((item) => [item.role, item]))
   return <View style={styles.stack}>
     <Text style={styles.cardTitle}>Volunteer roles</Text>
     <Text style={styles.body}>{config.isProduction ? 'Choose someone who offered to help, or select another eligible parent. Selecting another parent assigns them immediately without asking them to accept. Email and app alerts follow their notification settings.' : 'This test app does not send scorer requests, availability reminders, email, or push notifications.'}</Text>
+    {status ? <Text accessibilityLiveRegion="polite" style={styles.body}>{status}</Text> : null}
     {match.volunteerEligibilityError ? <Text style={styles.dangerText}>{match.volunteerEligibilityError}</Text> : null}
+    {onRefresh ? <Button disabled={busy} label="Refresh volunteer options" onPress={onRefresh} secondary styles={styles} /> : null}
     {['scorer', 'linesman', 'referee'].map((role) => {
       const assignment = assignmentByRole.get(role)
       const requests = match.availabilityRequests || []
@@ -987,18 +989,6 @@ function CoachMatchDayScoped({ context, matchDayTarget, onMatchDayTargetHandled,
       playersStaleRef.current = true
       setStale(true)
       setMatches(nextMatches); setLoading(false); setTabDataStatus('success')
-      const playersResult = await remotePlayers
-      if (!isCurrentScope()) return
-      if (playersResult.status === 'rejected' && isMatchDayAccessDenied(playersResult.reason)) throw playersResult.reason
-      if (playersResult.status === 'rejected') { playersStaleRef.current = true; setStale(true); setError('Players could not be refreshed. Showing saved information until the connection is restored.') }
-      const fallback = playersResult.status === 'rejected' ? saved || await offline : saved
-      if (!isCurrentScope()) return
-      const nextPlayers = playersResult.status === 'fulfilled'
-        ? playersResult.value
-        : Array.isArray(fallback?.resources?.matchDayPlayers) ? fallback.resources.matchDayPlayers : playersRef.current
-      playersStaleRef.current = playersResult.status === 'rejected'
-      setMatches(nextMatches); setPlayers(nextPlayers)
-      if (!reconciliationPendingRef.current) setReconciling(false)
       const activeSelectionId = selectedMatchId.current
       let nextMatch = null
       if (activeSelectionId) {
@@ -1006,13 +996,13 @@ function CoachMatchDayScoped({ context, matchDayTarget, onMatchDayTargetHandled,
           nextMatch = await withMobileAsyncTimeout(() => getCoachMatchDayDetail(currentUser, activeSelectionId))
           if (!isCurrentScope()) return
         } catch (detailError) {
-          if (!isCurrentScope()) return
+          if (!isCurrentScope() || selectedMatchId.current !== activeSelectionId) return
           if (isMatchDayAccessDenied(detailError)) { clearDenied(); setError(errorMessage(detailError, 'Fixture access was denied.')); return }
           setStale(true)
           setFixtureStale(true)
           setError(errorMessage(detailError, 'Fixture details could not be refreshed.'))
           const fallbackDetail = cachedMatch || (await offline)?.resources?.matchDayDetail
-          if (!isCurrentScope()) return
+          if (!isCurrentScope() || selectedMatchId.current !== activeSelectionId) return
           const exactCachedMatch = fallbackDetail?.id === activeSelectionId ? normalizeCoachMatchDay(fallbackDetail) : null
           if (exactCachedMatch) {
             matchRef.current = exactCachedMatch
@@ -1035,10 +1025,23 @@ function CoachMatchDayScoped({ context, matchDayTarget, onMatchDayTargetHandled,
           setReconciling(false)
         }
       }
+      // A fixture's volunteer choices depend on that fixture's verified detail,
+      // independently of the player roster used for the squad and controller.
+      const playersResult = await remotePlayers
+      if (!isCurrentScope()) return
+      if (playersResult.status === 'rejected' && isMatchDayAccessDenied(playersResult.reason)) throw playersResult.reason
+      const fallback = playersResult.status === 'rejected' ? saved || await offline : saved
+      if (!isCurrentScope()) return
+      const nextPlayers = playersResult.status === 'fulfilled'
+        ? playersResult.value
+        : Array.isArray(fallback?.resources?.matchDayPlayers) ? fallback.resources.matchDayPlayers : playersRef.current
+      playersStaleRef.current = playersResult.status === 'rejected'
+      setPlayers(nextPlayers)
+      if (!reconciliationPendingRef.current) setReconciling(false)
       setStale(playersStaleRef.current)
       if (!playersStaleRef.current && (!accessDeniedRef.current || nextMatch)) { accessDeniedRef.current = false; setAccessDenied(false) }
       if (playersStaleRef.current) setError('Players could not be refreshed. Showing saved information until the connection is restored.')
-      if (!playersStaleRef.current) void cache(nextMatches, nextMatch || matchRef.current, nextPlayers).catch(() => {
+      if (!playersStaleRef.current) void cache(nextMatches, matchRef.current, nextPlayers).catch(() => {
         if (isCurrentScope()) setNotice('Match Day is up to date. Offline storage could not be refreshed.')
       })
     } catch (loadError) {
@@ -1114,6 +1117,7 @@ function CoachMatchDayScoped({ context, matchDayTarget, onMatchDayTargetHandled,
   useEffect(() => {
     const volunteersNeedRefresh = panel === 'volunteers' && fixtureStale && !user.isOfflineProfile && !accessDenied
     if ((!selectedMatchIsLive && !volunteersNeedRefresh) || reconciling) return undefined
+    if (volunteersNeedRefresh) void load()
     const refreshId = setInterval(() => { if (!busyRef.current && appState.current === 'active') void load() }, volunteersNeedRefresh ? 5000 : 15000)
     return () => clearInterval(refreshId)
   }, [accessDenied, fixtureStale, load, match?.id, panel, reconciling, selectedMatchIsLive, user.isOfflineProfile])
@@ -1227,8 +1231,13 @@ function CoachMatchDayScoped({ context, matchDayTarget, onMatchDayTargetHandled,
       return reconcileCoachSquadNotificationResults(choices, results, detail, message)
     } finally { busyRef.current = false; setBusy(false) }
   }
-  const volunteerStale = user.isOfflineProfile || fixtureStale || pendingCount > 0
+  const volunteerStale = user.isOfflineProfile || fixtureStale || Boolean(match?.volunteerEligibilityError) || pendingCount > 0
   const actions = getCoachMatchDayActions({ context, match, reconciling, stale: stale || pendingCount > 0, offlineReady, volunteerStale })
+  let volunteerStatus = ''
+  if (user.isOfflineProfile) volunteerStatus = 'Reconnect to check volunteer options.'
+  else if (pendingCount > 0) volunteerStatus = 'Sync saved Match Day actions before changing volunteers.'
+  else if (fixtureStale) volunteerStatus = refreshing ? 'Checking the latest fixture…' : 'Refresh the fixture to check volunteer options.'
+  else if (!match?.volunteerEligibilityError && !actions.canSelectVolunteers && !reconciling) volunteerStatus = 'Volunteer changes are unavailable for this fixture or role.'
   const finishControl = getCoachMatchDayFinishControl({ context, match, fixtureStale: fixtureStale || user.isOfflineProfile, pendingCount, reconciling })
   finishRef.current = { userId: user.id, contextId: context.id, match, action: finishControl?.action }
   const resolveFinish = async (recovery) => {
@@ -1549,7 +1558,20 @@ function CoachMatchDayScoped({ context, matchDayTarget, onMatchDayTargetHandled,
           )}
         </CoachFormationWorkspace>
       ) : null}
-      {panel === 'volunteers' ? <View style={styles.stack}><CoachGuestScorer key={match.id} match={match} buttonComponent={Button} styles={styles} disabled={stale || busy || reconciling} /><VolunteerPanel actions={actions} busy={busy || reconciling} match={match} onDirectSelect={(parent, role) => { replace(() => selectCoachMatchDayVolunteer(user, match, parent, role, true), (detail) => isCoachMatchDayVolunteerSelectionApplied(detail, parent, role, true)).then((detail) => { if (detail.volunteerSelectionWarning) setNotice((current) => [current, detail.volunteerSelectionWarning].filter(Boolean).join(' ')) }).catch(() => {}) }} onSelect={(request, role, selected) => setPending({ label: `${selected ? 'Assign' : 'Remove'} ${role}`, run: () => replace(() => selectCoachMatchDayVolunteer(user, match, request, role, selected), (detail) => isCoachMatchDayVolunteerSelectionApplied(detail, request, role, selected)) })} styles={styles} /></View> : null}
+      {panel === 'volunteers' ? <View style={styles.stack}>
+        <CoachGuestScorer key={match.id} match={match} buttonComponent={Button} styles={styles} disabled={stale || busy || reconciling} />
+        <VolunteerPanel actions={actions} busy={busy || reconciling || (refreshing && volunteerStale)} match={match}
+          status={volunteerStatus} onRefresh={!user.isOfflineProfile && (fixtureStale || match.volunteerEligibilityError) ? () => void load() : undefined}
+          onDirectSelect={(parent, role) => {
+            replace(() => selectCoachMatchDayVolunteer(user, match, parent, role, true), detail => isCoachMatchDayVolunteerSelectionApplied(detail, parent, role, true))
+              .then(detail => { if (detail.volunteerSelectionWarning) setNotice(current => [current, detail.volunteerSelectionWarning].filter(Boolean).join(' ')) }).catch(() => {})
+          }}
+          onSelect={(request, role, selected) => setPending({
+            label: (selected ? 'Assign ' : 'Remove ') + role,
+            run: () => replace(() => selectCoachMatchDayVolunteer(user, match, request, role, selected), detail => isCoachMatchDayVolunteerSelectionApplied(detail, request, role, selected)),
+          })}
+          styles={styles} />
+      </View> : null}
       {panel === 'live' ? <LivePanel actions={actions} busy={busy} canReviewConclude={!reconciling} eventForm={eventForm} finishControl={finishControl} match={match} onEventForm={setEventForm} onFinish={runFinish} onExit={() => setPanel('overview')} onPrepare={setPending} onResolveEnd={resolveFinish} onReviewConclude={() => { setPanel('report'); onRequestScrollTop?.() }} onScore={(kind) => kind === 'event' ? submitEvent() : capture('score', { homeScore: Number(scoreDraft.home), awayScore: Number(scoreDraft.away) })} onTimer={runTimer} players={players} scoreDraft={scoreDraft} setScoreDraft={setScoreDraft} styles={styles} /> : null}
       {panel === 'timeline' && match.concludedAt ? <ConcludedTimeline key={match.id} busy={busy} canEdit={canCorrectConcludedMatch} match={match} players={players}
         onSave={(change) => replace(() => saveCoachConcludedMatchEvent(user, serverMatch, change), (detail) => detail.events.some(event => event.requestId === change.changeId || event.correctionId === change.changeId))}

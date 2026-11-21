@@ -1100,9 +1100,11 @@ function CoachHome() {
 
   useEffect(() => {
     if (!contextAuthorityOffline || user?.isOfflineProfile || !contextOwnedByCurrentUser || isSwitchingContext) return undefined
-    const retry = setInterval(() => {
+    const retryAuthority = () => {
       if (appStateRef.current === 'active' && contextAuthorityReadyRef.current) void restoreCoachConnection()
-    }, 5000)
+    }
+    retryAuthority()
+    const retry = setInterval(retryAuthority, 5000)
     return () => clearInterval(retry)
   }, [contextAuthorityOffline, contextOwnedByCurrentUser, isSwitchingContext, restoreCoachConnection, user?.isOfflineProfile])
 

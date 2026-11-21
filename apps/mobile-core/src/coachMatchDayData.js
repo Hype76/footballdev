@@ -372,34 +372,41 @@ export async function getCoachMatchDayDetail(user, matchDayId, { includeVoluntee
   })
   if (error) throw error
   if (!data?.id) throw new Error('This match day is not linked to your active Team.')
-  let result = data
-  if (['scheduled', 'scorer_request'].includes(data.status) && Number(user.roleRank || 0) >= 20) {
-    const { data: contacts, error: contactsError } = await supabase.rpc('get_match_day_squad_notification_contacts', { match_id: matchDayId })
-    // Missing contact metadata disables Notify without blocking the fixture or live controller.
-    result = { ...data, squad_notification_contacts: !contactsError && Array.isArray(contacts) ? contacts : [] }
-  }
-  if (includeVolunteerEligibility) {
-    const config = getMobileRuntimeConfig('coach')
-    const accessToken = await getAccessToken()
-    if (!config.apiBaseUrl || !accessToken) throw new Error('Login is required to load volunteer eligibility.')
-    const url = `${joinApiPath(config.apiBaseUrl, '.netlify/functions/select-match-day-volunteer')}?matchDayId=${encodeURIComponent(matchDayId)}`
+  const upcoming = ['scheduled', 'scorer_request'].includes(data.status)
+  const canLoadContacts = upcoming && Number(user.roleRank || 0) >= 20
+  const loadEligibility = async () => {
     try {
+      const config = getMobileRuntimeConfig('coach')
+      const accessToken = await getAccessToken()
+      if (!config.apiBaseUrl || !accessToken) throw new Error('Login is required to load volunteer eligibility.')
+      const url = `${joinApiPath(config.apiBaseUrl, '.netlify/functions/select-match-day-volunteer')}?matchDayId=${encodeURIComponent(matchDayId)}`
       const response = await fetchJsonWithTimeout(url, { headers: { Authorization: `Bearer ${accessToken}` } })
       if (!response.ok || response.result?.success !== true) throw new Error(response.result?.message || 'Volunteer eligibility could not be loaded.')
-      const byRequest = new Map((response.result.eligibility || []).map((item) => [String(item.request_id || ''), item]))
-      result = { ...result, eligibleParents: response.result.eligibleParents || [], match_day_availability_requests: (result.match_day_availability_requests || []).map((item) => ({ ...item, scorer_eligible: byRequest.get(String(item.id))?.eligible === true, scorer_eligibility_reason: byRequest.get(String(item.id))?.reason || '', parent_link_id: byRequest.get(String(item.id))?.parent_link_id || item.parent_link_id, auth_user_id: byRequest.get(String(item.id))?.auth_user_id || item.auth_user_id, recipient_email: byRequest.get(String(item.id))?.recipient_email || item.recipient_email, recipient_name: byRequest.get(String(item.id))?.recipient_name || item.recipient_name })) }
+      return response.result
     } catch (eligibilityError) {
-      result = { ...result, volunteerEligibilityError: normalize(eligibilityError?.message) || 'Volunteer eligibility could not be loaded.' }
+      return { volunteerEligibilityError: normalize(eligibilityError?.message) || 'Volunteer eligibility could not be loaded.' }
     }
   }
-  let presentationState = null
-  const status = normalize(result.status)
-  if (['scheduled', 'scorer_request'].includes(status)) {
-    const { data: states, error: stateError } = await supabase.rpc('get_match_day_presentation_states', { match_day_ids_value: [matchDayId] })
-    if (stateError) throw stateError
-    presentationState = (states || [])[0] || null
+  const [contacts, eligibility, presentation] = await Promise.all([
+    canLoadContacts ? supabase.rpc('get_match_day_squad_notification_contacts', { match_id: matchDayId }) : null,
+    includeVolunteerEligibility && upcoming ? loadEligibility() : null,
+    upcoming ? supabase.rpc('get_match_day_presentation_states', { match_day_ids_value: [matchDayId] }) : null,
+  ])
+  if (presentation?.error) throw presentation.error
+  const result = { ...data }
+  // Missing contact metadata disables Notify without blocking the fixture or live controller.
+  if (canLoadContacts) result.squad_notification_contacts = !contacts?.error && Array.isArray(contacts?.data) ? contacts.data : []
+  if (eligibility && !eligibility.volunteerEligibilityError) {
+    const byRequest = new Map((eligibility.eligibility || []).map(item => [String(item.request_id || ''), item]))
+    result.eligibleParents = eligibility.eligibleParents || []
+    result.match_day_availability_requests = (result.match_day_availability_requests || []).map(item => {
+      const eligible = byRequest.get(String(item.id))
+      return { ...item, scorer_eligible: eligible?.eligible === true, scorer_eligibility_reason: eligible?.reason || '',
+        parent_link_id: eligible?.parent_link_id || item.parent_link_id, auth_user_id: eligible?.auth_user_id || item.auth_user_id,
+        recipient_email: eligible?.recipient_email || item.recipient_email, recipient_name: eligible?.recipient_name || item.recipient_name }
+    })
   }
-  const match = { ...normalizeCoachMatchDay({ ...result, ...(presentationState || {}), clubName: user.clubName }), volunteerEligibilityError: normalize(result.volunteerEligibilityError) }
+  const match = { ...normalizeCoachMatchDay({ ...result, ...(presentation?.data?.[0] || {}), clubName: user.clubName }), volunteerEligibilityError: normalize(eligibility?.volunteerEligibilityError) }
   if (isMatchDayParticipantRosterCurrent(match)) {
     const roster = await supabase.rpc('get_match_day_event_participants', { match_day_id_value: match.id, parent_link_id_value: null })
     if (roster.error) throw roster.error
