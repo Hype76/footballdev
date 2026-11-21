@@ -148,7 +148,7 @@ export function AuthProvider({
       return { error }
     }) : null
     const cachedProfile = await (liveRequest
-      ? Promise.race([savedRequest, liveRequest.then(result => result.error ? savedRequest : null)])
+      ? Promise.race([savedRequest, liveRequest.then(result => result.error && !coachLiveDenial ? savedRequest : null)])
       : savedRequest)
     if (!isCurrent()) return null
     if (cachedProfile && !coachLiveDenial && currentUserRef.current?.id !== cachedProfile.id) setUser({ ...cachedProfile, isOfflineProfile: true })
@@ -182,7 +182,7 @@ export function AuthProvider({
           return cachedProfile
         }
         if (appRole === 'coach' && coachLiveDenial) setUser(null)
-        if (cachedProfile && offlineProfileStore?.clear) {
+        if ((cachedProfile || coachLiveDenial) && offlineProfileStore?.clear) {
           try {
             await offlineProfileStore.clear()
           } catch (clearError) {

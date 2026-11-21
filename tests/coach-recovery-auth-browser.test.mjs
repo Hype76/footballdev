@@ -19,7 +19,7 @@ const mocks = {
   './config': 'export const getMobileRuntimeConfig=()=>({isUsable:true})',
   './liveMatchFollow': 'export const revokeLiveMatchFollowsBeforeSignOut=async()=>{}; export const clearLiveMatchOnSignOut=async()=>{}',
   './notifications': 'export const revokeNativePushDevice=async()=>{}',
-  './profile': `export async function fetchMobileProfile(user){if(window.mode==='startup')throw Error('network unavailable');if(window.mode==='revoked')throw Object.assign(Error('denied'),{code:'42501'});return {id:user.id,role:'coach'}}`,
+  './profile': `export async function fetchMobileProfile(user){if(['startup','offline-reopen'].includes(window.mode))throw Error('network unavailable');if(window.mode==='revoked')throw Object.assign(Error('denied'),{code:'42501'});return {id:user.id,role:'coach'}}`,
   './supabase': `export const supabase={get auth(){return window.mockAuth}};export const clearMobileSessionStorage=async()=>{};export const getAccessToken=async()=>'';export const isSupabaseConfigured=true;export const mobileConfigError='';export const mobileSessionStorageError='';export const readSavedMobileSession=async()=>window.testSession`,
   './mobileResourceCache': 'export const mobileResourceCache={clear(){}}',
 }
@@ -31,6 +31,7 @@ import { AuthProvider, useMobileAuth } from './apps/mobile-core/src/auth.js';
 import { createCoachRecoveryNotice } from './apps/coach-mobile/src/coachRecoveryNotice.js';
 const SafeAreaView = View;
 window.mode = new URLSearchParams(location.search).get('mode');
+if (window.mode === 'revoked') localStorage.setItem('verified-profile','present');
 window.testSession = { user:{id:'test-user'},access_token:'synthetic',expires_at:4102444800 };
 window.mockAuth = {startAutoRefresh(){},stopAutoRefresh(){},getSession:async()=>({data:{session:window.testSession}}),signOut:async()=>({error:null}),onAuthStateChange(){return {data:{subscription:{unsubscribe(){}}}}}};
 const storage = {getItem:async key=>localStorage.getItem(key),setItem:async(key,value)=>localStorage.setItem(key,value)};
@@ -40,10 +41,14 @@ const offlineStore = {
   read: async id => {
     if (window.mode === 'startup') return fail()
     if (['slow-storage','revoked'].includes(window.mode)) return new Promise(resolve => { window.finishCacheRead = () => resolve({id,role:'coach'}) })
+    if (window.mode === 'offline-reopen' && !localStorage.getItem('verified-profile')) return null
     return {id,role:'coach'}
   },
   write: async value => window.mode === 'slow-storage' ? new Promise(resolve => { window.finishCacheWrite = () => resolve(value) }) : value,
-  clear: async () => window.mode === 'revoked' ? undefined : fail(),
+  clear: async () => {
+    if (window.mode !== 'revoked') return fail()
+    localStorage.removeItem('verified-profile')
+  },
 };
 ${source.slice(node.start,node.end)}
 function Screen(){const auth=useMobileAuth();window.testAuth=auth;return <Text>{auth.startupState}</Text>}
@@ -69,12 +74,15 @@ test('Coach enters with a verified live profile before the cache read or write f
   } finally { await page.close() }
 })
 
-test('Coach never opens a saved workspace when the live denial is already known', async () => {
+test('A confirmed denial clears saved Coach access even when the cache read is still stalled', async () => {
   const page = await browser.newPage()
   try {
     await page.goto(`http://127.0.0.1:${server.address().port}/?mode=revoked`)
-    await page.waitForFunction(() => window.finishCacheRead)
+    await page.getByText('RECOVERABLE_ERROR').waitFor()
+    assert.equal(await page.evaluate(() => localStorage.getItem('verified-profile')), null)
     await page.evaluate(() => window.finishCacheRead())
+    assert.equal(await page.evaluate(() => window.testAuth.user), null)
+    await page.goto(`http://127.0.0.1:${server.address().port}/?mode=offline-reopen`)
     await page.getByText('RECOVERABLE_ERROR').waitFor()
     assert.equal(await page.evaluate(() => window.testAuth.user), null)
   } finally { await page.close() }
