@@ -703,6 +703,10 @@ try {
   matches = compactMatches; displayWindow = { kind: 'week', startDate: '2026-10-22', endDate: '2026-10-28' }
   await page.clock.runFor(11000)
   assert.equal(await page.locator('.club-tv-match').count(), 0)
+  const weeklyAdvert = await page.locator('.club-tv-sponsor').boundingBox()
+  const weeklyInfo = await page.locator('.club-tv-side-panel').boundingBox()
+  assert.ok(weeklyAdvert.y + weeklyAdvert.height <= weeklyInfo.y, 'Tall Week ahead view also places the advert above the pitch map')
+  assert.ok(Math.abs(weeklyAdvert.x - weeklyInfo.x) < 1, 'The advert and pitch map share the right column')
   await page.screenshot({ path: `${output}/compact-map-light.png` })
   await openSettings()
   await page.getByLabel('Appearance', { exact: true }).selectOption('dark')
@@ -784,24 +788,30 @@ try {
   const publicQr = page.getByAltText('Scan to open pitchside ordering')
   await publicQr.waitFor()
   assert.equal(await publicQr.getAttribute('src'), savedOrderingQr)
-  for (const viewport of [{ width: 1920, height: 1080 }, { width: 1366, height: 768 }, { width: 1366, height: 650 }, { width: 390, height: 844 }]) {
+  for (const viewport of [{ width: 1920, height: 1080 }, { width: 1919, height: 911 }, { width: 1366, height: 851 }, { width: 1366, height: 850 }, { width: 1366, height: 768 }, { width: 1366, height: 650 }, { width: 390, height: 844 }]) {
     await page.setViewportSize(viewport)
     const layout = await page.evaluate(() => {
       const map = document.querySelector('.club-tv-pitch img').getBoundingClientRect()
+      const advert = document.querySelector('.club-tv-sponsor').getBoundingClientRect()
+      const info = document.querySelector('.club-tv-side-panel').getBoundingClientRect()
       const qr = document.querySelector('.club-tv-ordering img').getBoundingClientRect()
       const ordering = getComputedStyle(document.querySelector('.club-tv-ordering'))
       const panel = document.querySelector('.club-tv-ordering')
       panel.style.display = 'none'
       const mapOnlyHeight = document.querySelector('.club-tv-pitch img').getBoundingClientRect().height
       panel.style.removeProperty('display')
-      return { mapWidth: map.width, mapHeight: map.height, mapOnlyHeight, mapBottom: map.bottom, qrTop: qr.top, qrWidth: qr.width, background: ordering.backgroundColor }
+      return { mapWidth: map.width, mapHeight: map.height, mapOnlyHeight, mapBottom: map.bottom, qrTop: qr.top, qrWidth: qr.width, background: ordering.backgroundColor, advertAboveMap: advert.bottom <= info.top && Math.abs(advert.left - info.left) < 1, advertBesideMap: advert.right <= info.left && Math.abs(advert.top - info.top) < 1 }
     })
     assert.ok(layout.mapHeight >= 100, `Pitch map has usable space at ${viewport.width}x${viewport.height}`)
     console.log(`Pitch map ${viewport.width}x${viewport.height}: ${Math.round(layout.mapWidth)}x${Math.round(layout.mapHeight)} with ordering; ${Math.round(layout.mapOnlyHeight)}px high without ordering; QR ${Math.round(layout.qrWidth)}px`)
-    if (viewport.width === 1366) assert.ok(layout.mapHeight >= layout.mapOnlyHeight * (viewport.height < 700 ? 0.5 : 0.65), `Ordering preserves map height at ${viewport.width}x${viewport.height}`)
+    if (viewport.width === 1366 && viewport.height <= 850) assert.ok(layout.mapHeight >= layout.mapOnlyHeight * (viewport.height < 700 ? 0.5 : 0.65), `Ordering preserves map height at ${viewport.width}x${viewport.height}`)
     assert.ok(layout.qrWidth >= 100, 'Ordering QR remains at least 100 pixels wide')
     assert.ok(layout.mapBottom <= layout.qrTop, 'Pitch map and ordering QR do not overlap')
     assert.equal(layout.background, 'rgba(0, 0, 0, 0)', 'Ordering has no coloured surround')
+    if (viewport.width >= 1250) {
+      if (viewport.height > 850) assert.ok(layout.advertAboveMap, 'Taller screens place the advert above the pitch map')
+      else assert.ok(layout.advertBesideMap, 'Short screens keep the advert beside the pitch map')
+    }
   }
   await page.setViewportSize({ width: 1920, height: 1080 })
   await page.screenshot({ path: `${output}/pitchside-ordering.png` })
