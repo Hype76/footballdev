@@ -17,8 +17,9 @@ const mocks = {
   './MobilePasswordRecovery': 'export const MobilePasswordRecovery=()=>null',
   './biometrics': 'export const getBiometricEnabled=async()=>false; export const setBiometricEnabled=async()=>{}; export const authenticateWithBiometrics=async()=>{}',
   './config': 'export const getMobileRuntimeConfig=()=>({isUsable:true})',
+  './liveMatchFollow': 'export const revokeLiveMatchFollowsBeforeSignOut=async()=>{}; export const clearLiveMatchOnSignOut=async()=>{}',
   './notifications': 'export const revokeNativePushDevice=async()=>{}',
-  './profile': `export async function fetchMobileProfile(user){if(window.mode==='startup')throw Error('network unavailable');return {id:user.id,role:'coach'}}`,
+  './profile': `export async function fetchMobileProfile(user){if(window.mode==='startup')throw Error('network unavailable');if(window.mode==='revoked')throw Object.assign(Error('denied'),{code:'42501'});return {id:user.id,role:'coach'}}`,
   './supabase': `export const supabase={get auth(){return window.mockAuth}};export const clearMobileSessionStorage=async()=>{};export const getAccessToken=async()=>'';export const isSupabaseConfigured=true;export const mobileConfigError='';export const mobileSessionStorageError='';export const readSavedMobileSession=async()=>window.testSession`,
   './mobileResourceCache': 'export const mobileResourceCache={clear(){}}',
 }
@@ -35,7 +36,15 @@ window.mockAuth = {startAutoRefresh(){},stopAutoRefresh(){},getSession:async()=>
 const storage = {getItem:async key=>localStorage.getItem(key),setItem:async(key,value)=>localStorage.setItem(key,value)};
 const coachRecoveryNotice = createCoachRecoveryNotice(storage, 'auth-recovery');
 const fail = () => { const error=Error('offline_storage_file_unavailable'); coachRecoveryNotice.report(error); throw error };
-const offlineStore = {read:async id=>window.mode==='startup'?fail():({id,role:'coach'}),write:async value=>value,clear:async()=>fail()};
+const offlineStore = {
+  read: async id => {
+    if (window.mode === 'startup') return fail()
+    if (['slow-storage','revoked'].includes(window.mode)) return new Promise(resolve => { window.finishCacheRead = () => resolve({id,role:'coach'}) })
+    return {id,role:'coach'}
+  },
+  write: async value => window.mode === 'slow-storage' ? new Promise(resolve => { window.finishCacheWrite = () => resolve(value) }) : value,
+  clear: async () => window.mode === 'revoked' ? undefined : fail(),
+};
 ${source.slice(node.start,node.end)}
 function Screen(){const auth=useMobileAuth();window.testAuth=auth;return <Text>{auth.startupState}</Text>}
 createRoot(document.getElementById('root')).render(<AuthProvider appRole="coach" offlineProfileStore={offlineStore}><RecoveryNoticeBoundary><Screen/></RecoveryNoticeBoundary></AuthProvider>);
@@ -47,6 +56,29 @@ server.listen(0, '127.0.0.1')
 await once(server, 'listening')
 const browser = await chromium.launch({ headless: true })
 test.after(async () => { await browser.close(); await new Promise(resolve => server.close(resolve)) })
+
+test('Coach enters with a verified live profile before the cache read or write finishes', async () => {
+  const page = await browser.newPage()
+  try {
+    await page.goto(`http://127.0.0.1:${server.address().port}/?mode=slow-storage`)
+    await page.getByText('READY_SIGNED_IN').waitFor()
+    assert.equal(await page.evaluate(() => typeof window.finishCacheRead), 'function')
+    assert.equal(await page.evaluate(() => typeof window.finishCacheWrite), 'function')
+    await page.evaluate(() => { window.finishCacheRead(); window.finishCacheWrite() })
+    assert.equal(await page.evaluate(() => window.testAuth.user?.isOfflineProfile), undefined)
+  } finally { await page.close() }
+})
+
+test('Coach never opens a saved workspace when the live denial is already known', async () => {
+  const page = await browser.newPage()
+  try {
+    await page.goto(`http://127.0.0.1:${server.address().port}/?mode=revoked`)
+    await page.waitForFunction(() => window.finishCacheRead)
+    await page.evaluate(() => window.finishCacheRead())
+    await page.getByText('RECOVERABLE_ERROR').waitFor()
+    assert.equal(await page.evaluate(() => window.testAuth.user), null)
+  } finally { await page.close() }
+})
 
 for (const mode of ['startup', 'signout', 'reset']) test(`actual auth flow surfaces recovery warning during ${mode}`, async () => {
   const page = await browser.newPage()

@@ -128,22 +128,42 @@ export function AuthProvider({
     setIsProfileLoading(true)
     setAuthError('')
 
-    let cachedProfile = null
-
-    if (offlineProfileStore?.read) {
+    const readSavedProfile = async () => {
+      if (!offlineProfileStore?.read) return null
       try {
-        cachedProfile = await withStartupTimeout(() => offlineProfileStore.read(nextSession.user.id), offlineProfileStore.readTimeoutMs || 1500, 'PROFILE_CACHE_READ_TIMEOUT')
-        if (!isCurrent()) return null
-        if (cachedProfile && currentUserRef.current?.id !== cachedProfile.id) setUser({ ...cachedProfile, isOfflineProfile: true })
+        return await withStartupTimeout(() => offlineProfileStore.read(nextSession.user.id), offlineProfileStore.readTimeoutMs || 1500, 'PROFILE_CACHE_READ_TIMEOUT')
       } catch (error) {
         console.warn(error)
+        return null
       }
     }
 
+    const readLiveProfile = () => withStartupTimeout(() => fetchMobileProfile(nextSession.user, appRole), DEFAULT_MOBILE_STARTUP_TIMEOUT_MS, `${getMobileStartupDiagnosticPrefix(appRole)}_PROFILE_LOAD_TIMEOUT`)
+    const savedRequest = readSavedProfile()
+    // Coach's encrypted workspace can be large. Its read and optional write
+    // must not delay a verified profile that is already available online.
+    let coachLiveDenial = false
+    const liveRequest = appRole === 'coach' ? readLiveProfile().then(profile => ({ profile }), error => {
+      coachLiveDenial = isAuthoritativeProfileFailure(error)
+      return { error }
+    }) : null
+    const cachedProfile = await (liveRequest
+      ? Promise.race([savedRequest, liveRequest.then(result => result.error ? savedRequest : null)])
+      : savedRequest)
+    if (!isCurrent()) return null
+    if (cachedProfile && !coachLiveDenial && currentUserRef.current?.id !== cachedProfile.id) setUser({ ...cachedProfile, isOfflineProfile: true })
+
     const refreshProfile = async () => {
       try {
-        const profile = await withStartupTimeout(() => fetchMobileProfile(nextSession.user, appRole), DEFAULT_MOBILE_STARTUP_TIMEOUT_MS, `${getMobileStartupDiagnosticPrefix(appRole)}_PROFILE_LOAD_TIMEOUT`)
+        const liveResult = liveRequest ? await liveRequest : { profile: await readLiveProfile() }
+        if (liveResult.error) throw liveResult.error
+        const { profile } = liveResult
         if (!isCurrent()) return null
+        if (appRole === 'coach') {
+          setUser(profile)
+          if (offlineProfileStore?.write) void offlineProfileStore.write(profile).catch(console.warn)
+          return profile
+        }
         let persistedProfile = profile
         if (offlineProfileStore?.write) {
           try {
@@ -161,6 +181,7 @@ export function AuthProvider({
           console.warn(error)
           return cachedProfile
         }
+        if (appRole === 'coach' && coachLiveDenial) setUser(null)
         if (cachedProfile && offlineProfileStore?.clear) {
           try {
             await offlineProfileStore.clear()
@@ -181,7 +202,7 @@ export function AuthProvider({
       }
     }
 
-    if (cachedProfile) {
+    if (cachedProfile && !coachLiveDenial) {
       const diagnosticPrefix = getMobileStartupDiagnosticPrefix(appRole)
       void withStartupTimeout(
         refreshProfile,

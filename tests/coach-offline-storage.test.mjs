@@ -32,6 +32,27 @@ test('new runtime migrates an encrypted legacy profile and pending work without 
   await storage.clearCoachOfflineState()
 })
 
+test('a compact encrypted startup profile reopens without reading the full team cache', async () => {
+  await storage.clearCoachOfflineState()
+  const account = 'fast-startup-coach'
+  await storage.coachOfflineProfileStore.read(account)
+  await storage.coachOfflineProfileStore.write({ id: account, displayName: 'Private name', coachContexts: [] })
+  assert.ok([...globalThis.offlineCiphertext.keys()].some(key => key.includes('startup-profile')))
+  assert.ok(![...globalThis.offlineCiphertext.values()].some(value => String(value).includes('Private name')))
+  const read = storage.testEncryptedStore.read
+  storage.testEncryptedStore.read = async () => { throw Error('Large team data is still busy') }
+  try {
+    assert.equal((await storage.coachOfflineProfileStore.read(account)).id, account)
+  } finally {
+    storage.testEncryptedStore.read = read
+  }
+  assert.equal(await storage.coachOfflineProfileStore.read('other-account'), null)
+  assert.equal((await storage.coachOfflineProfileStore.read(account)).id, account)
+  await storage.clearCoachOfflineState()
+  assert.equal(await storage.coachOfflineProfileStore.read(account), null)
+  await storage.clearCoachOfflineState()
+})
+
 test('saved Coach profiles retain authorised team branding for the header across refresh and restart', async () => {
   await storage.clearCoachOfflineState()
   await storage.coachOfflineProfileStore.read('branding-coach')
