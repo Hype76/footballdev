@@ -110,6 +110,8 @@ test('actual profile write cannot reactivate its old account after awaited stora
  const requested=deferred(),released=deferred()
  const dependencies={clearCoachOfflineState:async()=>{},activateCoachOfflineAccount,captureCoachOfflineAccount,
   sanitizeCoachProfile:profile=>profile,reportRecoveryFailure:operation=>operation(),
+  startupProfileStore:{activate(){},write:async()=>{}},startupProfileWriteGeneration:0,
+  queueStartupRevocationChange:async()=>assert.fail('Old account must not change its startup revocation'),
   store:{update:async()=>{requested.resolve();return released.promise}},setCoachOfflineProfile:()=>{},createCoachOfflineDocument:()=>{},outboxAuthority:()=>'',getCoachOfflineProfile:document=>document}
  const profileStore=new Function(...Object.keys(dependencies),source.slice(start,end).replace('export ','')+';return coachOfflineProfileStore')(...Object.values(dependencies))
  activateCoachOfflineAccount('old')
