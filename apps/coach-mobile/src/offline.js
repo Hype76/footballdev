@@ -106,6 +106,24 @@ const startupProfileStore = config.isUsable && projectRef === expectedRef
   ? createCoachStartupProfileStore(config.isProduction ? 'live' : 'test', projectRef)
   : unavailableStore()
 let startupProfileWriteGeneration = 0
+const revokedStartupProfiles = new Set()
+const startupRevocationKey = userScope => `fp.coach.startup-revoked.${config.isProduction ? 'live' : 'test'}.${projectRef}.${userScope}`
+let startupRevocationQueue = Promise.resolve()
+
+function queueStartupRevocationChange(change) {
+  const result = startupRevocationQueue.then(change)
+  startupRevocationQueue = result.catch(() => {})
+  return result
+}
+
+async function readStartupRevocation(userScope) {
+  const key = startupRevocationKey(userScope)
+  const saved = await Promise.allSettled([AsyncStorage.getItem(key), SecureStore.getItemAsync(key)])
+  if (saved.some(result => result.status === 'fulfilled' && result.value)) return true
+  const unavailable = saved.find(result => result.status === 'rejected')
+  if (unavailable) throw unavailable.reason
+  return false
+}
 for (const method of ['clear', 'inspect', 'read', 'readSnapshot', 'update', 'write']) {
   if (typeof underlyingStore[method] !== 'function') continue
   store[method] = (...args) => reportRecoveryFailure(async () => {
@@ -222,16 +240,35 @@ export const coachOfflineProfileStore = {
   async clear() {
     await clearCoachOfflineState()
   },
+  async revoke(userScope) {
+    startupProfileWriteGeneration += 1
+    revokedStartupProfiles.add(userScope)
+    // Both startup readers respect this marker. Leave encrypted match drafts intact.
+    const key = startupRevocationKey(userScope)
+    await queueStartupRevocationChange(async () => {
+      try {
+        await AsyncStorage.setItem(key, '1')
+        if (await AsyncStorage.getItem(key) === '1') return
+      } catch { /* Try the independent secure store below. */ }
+      await SecureStore.setItemAsync(key, '1')
+      if (await SecureStore.getItemAsync(key) !== '1') throw new Error('offline_revocation_readback_failed')
+    })
+  },
   async read(userScope) {
     activateCoachOfflineAccount(userScope)
     store.activate(userScope)
     startupProfileStore.activate(userScope)
     const guard = captureCoachOfflineAccount(userScope)
+    if (revokedStartupProfiles.has(userScope) || await readStartupRevocation(userScope)) return null
+    guard()
     const snapshot = await startupProfileStore.read(userScope).catch(() => null)
     guard()
+    if (revokedStartupProfiles.has(userScope)) return null
     const profile = getCoachOfflineProfile(snapshot?.document, userScope)
     if (profile) return profile
-    return reportRecoveryFailure(async () => getCoachOfflineProfile((await store.read(userScope)).document, userScope))
+    const saved = await reportRecoveryFailure(() => store.read(userScope))
+    guard()
+    return revokedStartupProfiles.has(userScope) ? null : getCoachOfflineProfile(saved.document, userScope)
   },
   async write(profile) {
     const sanitized = sanitizeCoachProfile(profile)
@@ -256,6 +293,16 @@ export const coachOfflineProfileStore = {
     }))
     accountGuard()
     await mirror
+    await queueStartupRevocationChange(async () => {
+      if (mirrorGeneration !== startupProfileWriteGeneration) return
+      const revoked = await readStartupRevocation(sanitized.id)
+      if (mirrorGeneration !== startupProfileWriteGeneration) return
+      if (revoked) {
+        const key = startupRevocationKey(sanitized.id)
+        await Promise.all([AsyncStorage.removeItem(key), SecureStore.deleteItemAsync(key)])
+      }
+      if (mirrorGeneration === startupProfileWriteGeneration) revokedStartupProfiles.delete(sanitized.id)
+    })
     return getCoachOfflineProfile(next, sanitized.id)
   },
 }

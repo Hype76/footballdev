@@ -101,7 +101,7 @@ export function AuthProvider({
 
   useEffect(() => {
     const updateAutoRefresh = (state) => {
-      if (state === 'active') {
+      if (state === 'active' && !requiresSignInRef.current) {
         supabase.auth.startAutoRefresh()
       } else {
         supabase.auth.stopAutoRefresh()
@@ -181,8 +181,47 @@ export function AuthProvider({
           console.warn(error)
           return cachedProfile
         }
-        if (appRole === 'coach' && coachLiveDenial) setUser(null)
-        if ((cachedProfile || coachLiveDenial) && offlineProfileStore?.clear) {
+        if (appRole === 'coach' && coachLiveDenial) {
+          currentUserRef.current = null
+          setUser(null)
+          try {
+            await offlineProfileStore?.revoke?.(nextSession.user.id)
+          } catch (revokeError) {
+            console.warn(revokeError)
+            if (!isCurrent()) return null
+            // Suppress refresh and auth events before clearing credentials so a
+            // local sign-out cannot clear encrypted drafts or restore the session.
+            requiresSignInRef.current = true
+            sessionUserIdRef.current = ''
+            mobileResourceCache.clear()
+            setSession(null)
+            setStartupState(MOBILE_STARTUP_STATES.RESOLVING_STAFF_CONTEXT)
+            const stillRecovering = () => generation === profileGenerationRef.current && requiresSignInRef.current
+            let storageCleared = false
+            try {
+              await withStartupTimeout(async () => {
+                await supabase.auth.stopAutoRefresh()
+                if (!stillRecovering()) return
+                await supabase.auth.signOut({ scope: 'local' }).catch(console.warn)
+                if (!stillRecovering()) return
+                await clearMobileSessionStorage()
+                if (await readSavedMobileSession()) throw new Error('Coach sign-in is still saved on this device')
+              })
+              storageCleared = true
+            } catch (storageError) {
+              console.warn(storageError)
+            }
+            if (stillRecovering()) {
+              setIsProfileLoading(false)
+              setStartupDiagnosticCode(storageCleared ? 'COACH_SAVED_ACCESS_REVOKED' : 'COACH_SAVED_ACCESS_CLEAR_FAILED')
+              setStartupState(MOBILE_STARTUP_STATES.RECOVERABLE_ERROR)
+              setAuthError(storageCleared
+                ? 'Your saved Coach access was removed. Sign in online to verify access again.'
+                : 'Saved Coach access could not be removed. Reconnect and sign in before using Coach.')
+            }
+            throw error
+          }
+        } else if (cachedProfile && offlineProfileStore?.clear) {
           try {
             await offlineProfileStore.clear()
           } catch (clearError) {
@@ -414,6 +453,7 @@ export function AuthProvider({
     }
     if (requiresSignInRef.current) {
       requiresSignInRef.current = false
+      if (AppState.currentState === 'active') supabase.auth.startAutoRefresh()
       setStartupState(MOBILE_STARTUP_STATES.BOOTING)
       setBootstrapAttempt((attempt) => attempt + 1)
     }
@@ -435,9 +475,13 @@ export function AuthProvider({
   }, [])
 
   const retryStartup = useCallback(() => {
+    if (requiresSignInRef.current) {
+      returnToSignIn()
+      return
+    }
     setStartupState(MOBILE_STARTUP_STATES.BOOTING)
     setBootstrapAttempt((attempt) => attempt + 1)
-  }, [])
+  }, [returnToSignIn])
 
   const resetLocalAppData = useCallback(async () => {
     profileGenerationRef.current += 1

@@ -8,7 +8,7 @@ import { resolveCoachStaffContext } from '../apps/mobile-core/src/coachContextCo
 import { resolveCoachBranding } from '../apps/coach-mobile/src/coachThemeCore.js'
 const mocks = {
   'expo': "const key=p=>'file:'+p.split('/').pop().replace(/\\.json(?=\\.pending$|$)/,'');\nconst nativePaths=new Map(),directories=new Set();const directoryKey=p=>p.replace(/\\/+$/,'');\nexport const requireOptionalNativeModule=()=>({documentDirectory:'file:///documents/',\n getInfoAsync:async p=>directories.has(directoryKey(p))?{exists:true,isDirectory:true,size:0}:{exists:globalThis.offlineCiphertext.has(key(p)),isDirectory:false,size:globalThis.offlineCiphertext.has(key(p))?new TextEncoder().encode(globalThis.offlineCiphertext.get(key(p))).byteLength:undefined},\n readDirectoryAsync:async p=>[...nativePaths.keys()].filter(path=>path.startsWith(directoryKey(p)+'/')&&globalThis.offlineCiphertext.has(key(path))).map(path=>path.slice(directoryKey(p).length+1)),\n makeDirectoryAsync:async p=>{directories.add(directoryKey(p))},readAsStringAsync:async p=>globalThis.offlineCiphertext.get(key(p)),\n writeAsStringAsync:async(p,v)=>{if(globalThis.offlineNativeFailure==='data-write')throw Error('Device storage unavailable');nativePaths.set(p,key(p));globalThis.offlineCiphertext.set(key(p),v)},\n deleteAsync:async p=>{nativePaths.delete(p);globalThis.offlineCiphertext.delete(key(p))},\n moveAsync:async({from,to})=>{const v=globalThis.offlineCiphertext.get(key(from));if(v===undefined)throw Error('Missing native file');nativePaths.delete(from);nativePaths.set(to,key(to));globalThis.offlineCiphertext.delete(key(from));globalThis.offlineCiphertext.set(key(to),v)}\n})",
-  '@react-native-async-storage/async-storage': `globalThis.offlineCiphertext=new Map();export default {getAllKeys:async()=>[...globalThis.offlineCiphertext.keys()],getItem:async k=>globalThis.offlineCiphertext.get(k)||null,setItem:async(k,v)=>{if(globalThis.offlineNativeFailure==='data-write')throw new Error('Device storage unavailable');globalThis.offlineCiphertext.set(k,v)},removeItem:async k=>{globalThis.offlineCiphertext.delete(k)}}`,
+  '@react-native-async-storage/async-storage': `globalThis.offlineCiphertext=new Map();export default {getAllKeys:async()=>[...globalThis.offlineCiphertext.keys()],getItem:async k=>globalThis.offlineCiphertext.get(k)||null,setItem:async(k,v)=>{if(globalThis.offlineNativeFailure==='data-write')throw new Error('Device storage unavailable');globalThis.offlineCiphertext.set(k,v)},removeItem:async k=>{if(k.includes('.startup-revoked.'))await globalThis.offlineBeforeRevocationRemove?.();globalThis.offlineCiphertext.delete(k)}}`,
   'expo-secure-store': `globalThis.offlineKeys=new Map();const keys=globalThis.offlineKeys;export const AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY='device';export const getItemAsync=async k=>keys.get(k)||null;export const setItemAsync=async(k,v)=>{if(globalThis.offlineNativeFailure==='key-write')throw new Error('SecureStore unavailable');keys.set(k,v)};export const deleteItemAsync=async k=>{keys.delete(k)};`,
   'expo-crypto': `import {randomBytes as random,randomUUID as uuid,createHash} from 'node:crypto';export const CryptoDigestAlgorithm={SHA256:'SHA-256'};export const digestStringAsync=async(_,v)=>createHash('sha256').update(v).digest('hex');export const getRandomBytesAsync=async n=>new Uint8Array(random(n));export const randomUUID=uuid;`,
   config: `export const getMobileRuntimeConfig=()=>({isUsable:true,isProduction:false,supabaseUrl:'https://ndohkecigwlwayghsopw.supabase.co'})`,
@@ -75,6 +75,58 @@ test('saved Coach profiles retain authorised team branding for the header across
     assert.equal(headerBranding(denied).logoUrl, '')
     assert.equal(headerBranding(denied).accent, 'green')
   }
+  await storage.clearCoachOfflineState()
+})
+
+test('revoking startup access preserves encrypted pending work and blocks both saved profiles', async () => {
+  await storage.clearCoachOfflineState()
+  const account = 'revoked-startup-coach'
+  const profile = { id: account, displayName: 'Test Coach', coachContexts: [] }
+  await storage.coachOfflineProfileStore.read(account)
+  await storage.coachOfflineProfileStore.write(profile)
+  await storage.testEncryptedStore.update(account, document => ({
+    ...document,
+    matchDayOutboxes: { team: { match: { pending: [{ id: 'unsent' }] } } },
+  }))
+  const read = storage.testEncryptedStore.read
+  const key = name => name.includes('.startup-revoked.') && name.endsWith(account)
+  storage.testEncryptedStore.read = async () => { throw new Error('Full team cache must not be opened') }
+  try {
+    globalThis.offlineNativeFailure = 'data-write'
+    await storage.coachOfflineProfileStore.revoke(account)
+    assert.ok([...globalThis.offlineKeys.keys()].some(key), 'Secure storage preserves denial when ordinary storage fails')
+    globalThis.offlineNativeFailure = null
+    await storage.coachOfflineProfileStore.revoke(account)
+    assert.ok([...globalThis.offlineCiphertext.keys()].some(key))
+    assert.equal(await storage.coachOfflineProfileStore.read(account), null)
+  } finally {
+    globalThis.offlineNativeFailure = null
+    storage.testEncryptedStore.read = read
+  }
+  assert.equal((await read(account)).document.matchDayOutboxes.team.match.pending[0].id, 'unsent')
+
+  let finishRemoval
+  const removalStarted = new Promise(resolve => {
+    globalThis.offlineBeforeRevocationRemove = () => new Promise(finish => {
+      finishRemoval = finish
+      resolve()
+    })
+  })
+  try {
+    const staleWrite = storage.coachOfflineProfileStore.write(profile)
+    await removalStarted
+    const newerDenial = storage.coachOfflineProfileStore.revoke(account)
+    finishRemoval()
+    await Promise.all([staleWrite, newerDenial])
+    assert.ok([...globalThis.offlineCiphertext.keys()].some(key), 'The newer denial must survive an older profile write')
+    assert.equal(await storage.coachOfflineProfileStore.read(account), null)
+  } finally {
+    delete globalThis.offlineBeforeRevocationRemove
+  }
+
+  await storage.coachOfflineProfileStore.write(profile)
+  assert.equal((await storage.coachOfflineProfileStore.read(account)).id, account)
+  assert.equal((await read(account)).document.matchDayOutboxes.team.match.pending[0].id, 'unsent')
   await storage.clearCoachOfflineState()
 })
 
