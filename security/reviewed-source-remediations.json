@@ -771,7 +771,7 @@
   "implementationHashes": {
     "scripts/security-supply-chain-gate.mjs": "9ef3c2fa9949a270eba3b8d7eefc2f9e303e8fbb2fda3921b2e6e42280e733fc",
     "scripts/security-apply-reviewed-backports.mjs": "ba146641cebf4a835337602d942d3fe9e432dfb44cd178e64e7e5bcabe2cb7b1",
-    "scripts/security-verify-reviewed-backports.mjs": "c2b751a0a02053990c429cf1249a276c85fce740e8375e9de2184b73e7dd9cd0",
+    "scripts/security-verify-reviewed-backports.mjs": "e314c00d65c0984a8347da5ddbd24f74fa98f6004e4312eac85dce673cfc56e4",
     "security/patches/braces-3.0.3.patch": "e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699",
     "security/patches/node-forge-1.4.0.patch": "2de065ac998bf58917a14d0935112d97ec2957ac41b5f06958d500934f188ed4",
     "security/patches/reviewed-source-manifest.json": "0507b50c4ce7a772508ed3a0d18290548bb1fd48802db4599a5ec8e47e2eed49",
@@ -2215,7 +2215,7 @@
       "src/lib/paywall-ui.js": "2c2920a44a03eeffd59ad428fa4faf1a7db7494401d6157417fbc9cb5bec23d4",
       "src/lib/recovery-phase.js": "766ddc9a287d3bdff8f8d9fc32efed6c9541bad9c62018f894ee46b95f4e4766",
       "src/pages/ClubMatchdayTvPage.jsx": "26620fb3d5d9d05efbe0a3c24c5360d5338e9a28832bdfe1671768dd0f4899e8",
-      "src/pages/club-matchday-tv.css": "a57fcb74b35425419b1617a97df8a9b50787734412f4722decd2652b7c759099",
+      "src/pages/club-matchday-tv.css": "080022e7653a00789d97f33c041aa25925e9a2ee52730ad5f5399373e28977bb",
       "tests/club-matchday-tv-browser.mjs": "6eafee79bb359686e35476b9c58b3ab80399e7c031824278208818b40f706638",
       "tests/club-matchday-tv-weather.test.mjs": "967df9819b3d087dc3576d9768abd42e18ecdf7cfc2bd4df0e9add545fc854bb",
       "tests/club-matchday-tv.test.mjs": "9e6559dda06cfa0c6cf94f0b37fa986a2f55ca330e929fe5de58946a8c9aa239",
@@ -4211,7 +4211,7 @@
     },
     "toolingRequalification20261117": "Qualify official minimatch 11.0.9 JavaScript tooling across all three scopes. Lock changes are limited to minimatch; direct and native dependencies, Expo runtime, reviewed package patches and audit rules are retained."
   },
-  "releasePreparationSha256": "2a2e474662c222f7a005d90544991ce1bc25c717be3e683e05fab38e2a39854b",
+  "releasePreparationSha256": "05ac601a83a3fcd56fb760ce79736500c1bb9208e4cc933ceea6096fa612da15",
   "rootOnlyProposalSha256": "45c3b7352c7328c84982e114b7e87e09cf79514d02d102297ae75ec0925812eb",
   "remediationMode": "maintained-source-fixes",
   "officialCompatibilityDependencies": [
