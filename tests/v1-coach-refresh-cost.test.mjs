@@ -41,8 +41,13 @@ test('instrumented live Coach refresh includes authorised roster and player type
   assert.equal(detail.status, 'live')
   assert.deepEqual(detail.eventParticipants, [])
   assert.deepEqual(detail.substitutionParticipants, [])
-  assert.deepEqual(calls.sort(), ['match_days','club_player_types','get_match_day_presentation_states','get_team_players','get_team_parent_app_installation_status','get_staff_match_day_detail','get_match_day_event_participants','volunteer eligibility'].sort())
-  assert.equal(calls.length * 4, 32, 'four 15-second refreshes use 32 reads per minute before retries')
+  assert.deepEqual(calls.sort(), ['match_days','club_player_types','get_match_day_presentation_states','get_team_players','get_team_parent_app_installation_status','get_staff_match_day_detail','get_match_day_event_participants'].sort())
+  assert.equal(calls.length * 4, 28, 'four live refreshes use 28 reads per minute before retries')
+  match.status = 'scheduled'
+  calls.length = 0
+  await api.getCoachMatchDayDetail(user, 'match')
+  assert.deepEqual(calls.sort(), ['get_staff_match_day_detail', 'get_match_day_squad_notification_contacts', 'volunteer eligibility', 'get_match_day_presentation_states', 'get_match_day_event_participants'].sort())
+  match.status = 'live'
   const original = supabase.rpc
   supabase.rpc = (name,args) => name === 'get_match_day_event_participants' ? {data:{matchId:'match',teamId:'team',players:[]}} : original(name,args)
   await assert.rejects(api.getCoachMatchDayDetail(user,'match'), /could not be verified/)
