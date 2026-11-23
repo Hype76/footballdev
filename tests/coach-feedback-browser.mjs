@@ -14,7 +14,7 @@ const selected = ['FixtureDetailRow', 'FixtureHero', 'MatchList', 'ShootoutPanel
 const modules = path.resolve('apps/coach-mobile/node_modules')
 const entry = `import React,{useState,useEffect,useRef} from 'react';import{createRoot}from'react-dom/client';
 import {MobileFailureNotice} from './apps/mobile-core/src/MobileFailureNotice.js';
-import{View,Text,Pressable,StyleSheet}from'react-native';import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import{Image,View,Text,Pressable,StyleSheet}from'react-native';import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import{getMobileIconName}from'./apps/mobile-core/src/mobileIconSystem.js';
 import{getCoachMatchDayPresentation,filterCoachMatchDays,buildCoachFinalMatchReport}from'./apps/mobile-core/src/coachMatchDayCore.js';
 import{MatchTeamsLine}from'./apps/mobile-core/src/MatchTeamsLine.js';
@@ -24,6 +24,7 @@ import{createCoachTheme}from'./apps/coach-mobile/src/coachThemeCore.js';
 import{CoachNotificationHistoryScreen}from'./apps/coach-mobile/src/CoachNotificationHistoryScreen.js';
 const Chips=()=>null,getMatchDayFilterIconKey=()=> 'event',supportsCoachMatchReportPdf=()=>false;
 const normalize=v=>String(v??'').trim(),label=v=>normalize(v).replaceAll('_',' ');
+const matchdayStadium=require('./apps/mobile-core/assets/matchday-stadium.png');
 ${selected}
 function App(){const[status,setStatus]=useState('scheduled'),[mode,setMode]=useState('light'),[history,setHistory]=useState(false);window.setMatchStatus=setStatus;window.mode=setMode;window.setHistoryScreen=setHistory;
 const palette=createCoachTheme({mode}).tokens,styles=createStyles(palette);

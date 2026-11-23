@@ -77,6 +77,7 @@ import {CoachKeyboardFocusContext} from './apps/coach-mobile/src/CoachKeyboardFo
 import {createCoachKeyboardViewport} from './apps/coach-mobile/src/coachKeyboardViewportCore.js';
 import {MobileActivityProvider,useMobileOffline} from './apps/mobile-core/src/MobileActivityContext.js';
 import {MobileHeaderActivity} from './apps/mobile-core/src/MobileHeaderActivity.js';
+import {ClubFeatureWave} from './apps/mobile-core/src/ClubFeatureWave.js';
 const refreshUserProfile=async()=>{};
 
 import React,{useRef,useMemo,useCallback,useEffect,useLayoutEffect,useState} from 'react';import {createRoot} from 'react-dom/client';

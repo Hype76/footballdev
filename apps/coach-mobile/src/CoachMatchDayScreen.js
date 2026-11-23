@@ -20,7 +20,7 @@ import { exportCoachMatchReportPdf, supportsCoachMatchReportPdf } from './coachM
 import MaterialIcons from '@expo/vector-icons/MaterialIcons'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { activateKeepAwakeAsync, deactivateKeepAwake, isAvailableAsync } from 'expo-keep-awake'
-import { AppState, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
+import { AppState, Image, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
 import { buildCompletedMatchEventPresentation, compareCompletedMatchEventsChronologically } from '../../../src/lib/matchday-final-report.js'
 import {
   buildCoachFinalMatchReport,
@@ -90,6 +90,7 @@ import { getCoachFriendlyError } from './coachFriendlyErrors'
 import { getCoachMatchDayOfflineNotice } from './coachOfflineErrors'
 
 const config = getMobileRuntimeConfig('coach')
+const matchdayStadium = require('../../mobile-core/assets/matchday-stadium.png')
 const MATCH_DAY_PANEL_OPTIONS = [
   { label: 'Overview', value: 'overview' },
   { label: 'Squad', value: 'squad' },
@@ -129,7 +130,9 @@ function createStyles(palette) {
     panelTabText: { color: palette.textSecondary, fontSize: 10, fontWeight: '700' },
     fixtureHero: { borderBottomColor: palette.border, borderBottomWidth: 1, gap: 9, paddingVertical: 12 },
     fixtureHeroLive: { borderBottomColor: palette.accentText, borderBottomWidth: 2 },
-    fixtureTitle: { color: palette.textPrimary, fontSize: 22, fontWeight: '900', lineHeight: 28 },
+    fixtureBanner: { backgroundColor: '#092637', minHeight: 94, overflow: 'hidden', paddingHorizontal: 10, paddingVertical: 8 },
+    fixtureStadium: { ...StyleSheet.absoluteFillObject, height: '100%', width: '100%' },
+    fixtureTitle: { color: '#ffffff', fontSize: 14, fontWeight: '900', lineHeight: 19 },
     gameMode: { backgroundColor: palette.surface, borderColor: palette.border, borderRadius: 17, borderWidth: 1, gap: 12, padding: 15 },
     gameModeEyebrow: { color: palette.accentText, fontSize: 11, fontWeight: '900', letterSpacing: 1.3, textTransform: 'uppercase' },
     gameStat: { backgroundColor: palette.surfaceRaised, borderColor: palette.border, borderRadius: 12, borderWidth: 1, flex: 1, gap: 4, minWidth: 88, padding: 11 },
@@ -327,8 +330,13 @@ function FixtureHero({ clubLogoUrl, match, now, styles }) {
   const view = getCoachMatchDayPresentation(match, Number.isFinite(now) ? now : currentNow)
   const live = isLiveMatch(match)
   return <View style={[styles.fixtureHero, live && styles.fixtureHeroLive]}>
+    <View style={styles.fixtureBanner}>
+      <Image accessible={false} pointerEvents="none" resizeMode="cover" source={matchdayStadium}
+        style={styles.fixtureStadium} testID="coach-matchday-stadium-art" />
+      <MatchTeamsLine match={match} clubLogoUrl={clubLogoUrl} hero
+        heroLabelBackground={StyleSheet.flatten(styles.fixtureBanner).backgroundColor} textStyle={styles.fixtureTitle} />
+    </View>
     {live || (normalize(match.status) && normalize(match.status) !== 'scheduled') ? <Text style={styles.liveSync}>{live ? 'Live sync on' : label(match.status)}</Text> : null}
-    <MatchTeamsLine match={match} clubLogoUrl={clubLogoUrl} header singleLine textStyle={styles.fixtureTitle} />
     <FixtureDetailRow icon="calendar-month" styles={styles}>{formatFixtureDate(match.matchDate)} | {match.kickoffTimeTbc ? 'Kick-off TBC' : match.kickoffTime?.slice(0, 5) || 'Time TBC'}</FixtureDetailRow>
     <FixtureDetailRow icon="place" styles={styles}>{match.venueAddress || match.venueName || 'Venue TBC'}</FixtureDetailRow>
     {getMatchDayLifecycleState(match) !== 'not_started' ? <View style={styles.card}>
