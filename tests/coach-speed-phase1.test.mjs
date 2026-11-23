@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import test from 'node:test'
-import { COACH_PERFORMANCE_STORAGE_KEY, createCoachPerformanceDiagnostics, createCoachStartupTiming, createCoachTabTiming, getCoachConnectionLabel } from '../apps/coach-mobile/src/coachPerformanceDiagnosticsCore.js'
+import { COACH_PERFORMANCE_STORAGE_KEY, createCoachPerformanceDiagnostics, createCoachStartupTiming, createCoachTabTiming } from '../apps/coach-mobile/src/coachPerformanceDiagnosticsCore.js'
 import { createMobileResourceCache } from '../apps/mobile-core/src/mobileResourceCache.js'
 import { readAllPages } from '../apps/mobile-core/src/coachAvailabilityData.js'
 import { buildCoachCalendarEvents } from '../apps/mobile-core/src/coachCalendarCore.js'
@@ -62,7 +62,7 @@ test('Coach tab diagnostics measure saved and fresh paints from the tap and fenc
   more.data('success')
   flush(2010)
   abandoned.data('success')
-  assert.deepEqual(samples.slice(-3).map(({name, status, durationMs}) => [name, status, durationMs]), [['tab.matchday.first', 'left', 175], ['tab.matchday.fresh', 'left', 175], ['tab.more.screen', 'success', 10]])
+  assert.deepEqual(samples.slice(-4).map(({name, status, durationMs}) => [name, status, durationMs]), [['tab.matchday.first', 'left', 175], ['tab.matchday.fresh', 'left', 175], ['tab.matchday.create', 'left', 175], ['tab.more.screen', 'success', 10]])
   assert.equal(samples.every(sample => sample.source === 'tap'), true)
   assert.equal(tracker.begin('settings'), null)
 })
@@ -71,10 +71,10 @@ test('Coach startup uses the earliest available marker and measures the first us
   const samples = [], frames = []
   const options = { record: value => samples.push(value), now: () => 2100, bundleStart: 200, afterFrame: fn => frames.push(fn) }
   const native = createCoachStartupTiming({ ...options, performance: { rnStartupTiming: { startTime: 35, initializeRuntimeStart: 80 } } })
-  native('workspace')
+  native('home')
   frames.shift()()
   native('signin')
-  assert.deepEqual(samples, [{ name: 'startup.workspace', durationMs: 2065, status: 'success', source: 'launch' }])
+  assert.deepEqual(samples, [{ name: 'startup.home', durationMs: 2065, status: 'success', source: 'launch' }])
   const runtime = createCoachStartupTiming({ ...options, performance: { rnStartupTiming: { startTime: 80, initializeRuntimeStart: 80 } } })
   runtime('unlock'); frames.shift()()
   assert.deepEqual(samples.at(-1), { name: 'startup.unlock', durationMs: 2020, status: 'success', source: 'runtime' })
@@ -155,10 +155,25 @@ test('Coach tab results retain tap source and failed duration without account co
   assert.equal(diagnostics.record({ name: 'tab.more.data' }), false)
 })
 
-test('Coach connection diagnostics report available browser hints and an honest native fallback', () => {
-  assert.equal(getCoachConnectionLabel({ effectiveType: '4g' }), '4G')
-  assert.equal(getCoachConnectionLabel({ type: 'cellular' }), 'CELLULAR')
-  assert.equal(getCoachConnectionLabel(null), 'Not available in this app build')
+test('Match Day measures when Create match becomes available independently of the fixture list', () => {
+  let time = 100
+  const frames = [], samples = []
+  const tracker = createCoachTabTiming({ record: sample => samples.push(sample), now: () => time, afterFrame: callback => frames.push(callback) })
+  const paint = at => { time = at; for (const frame of frames.splice(0)) frame() }
+  const matchDay = tracker.begin('matchday')
+  matchDay.screen()
+  paint(120)
+  matchDay.actionReady()
+  matchDay.actionReady()
+  paint(160)
+  assert.deepEqual(samples.map(({ name, durationMs }) => [name, durationMs]), [
+    ['tab.matchday.screen', 20], ['tab.matchday.create', 60],
+  ])
+  const cancelled = tracker.begin('matchday')
+  cancelled.actionReady()
+  tracker.begin('more')
+  paint(200)
+  assert.deepEqual(samples.filter(sample => sample.name === 'tab.matchday.create').map(sample => sample.status), ['success', 'left'])
 })
 
 test('Coach Home Calendar retains future occurrences from an older recurring series', () => {

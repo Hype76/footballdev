@@ -545,23 +545,24 @@ export async function getCoachChatRooms(user) {
 
 export async function getCoachHomeChatSummary(user) {
   assertCoachOperationalRead(user, { requiresTeam: true })
-  const [staffRows, parentRows] = await Promise.all([
-    rpc('get_staff_chat_unread_summary', { active_team_id_value: user.activeTeamId }),
+  const loadStaffSummary = async () => {
+    const staffRows = await rpc('get_staff_chat_unread_summary', { active_team_id_value: user.activeTeamId })
+    const ids = (staffRows || []).map(row => normalize(row.id)).filter(Boolean)
+    if (!ids.length) return []
+    // The current room metadata retains the full screen's tighter Club/Team filter.
+    const metadata = await supabase.from('staff_chat_conversations').select('id,type,team_id')
+      .eq('club_id', user.clubId).in('id', ids)
+    if (metadata.error) throw metadata.error
+    const unread = new Map((staffRows || []).map(row => [normalize(row.id), Number(row.unread_count || 0)]))
+    return (metadata.data || []).map(row => ({
+      id: normalize(row.id), kind: 'staff', type: normalize(row.type),
+      teamId: normalize(row.team_id), unreadCount: unread.get(normalize(row.id)) || 0,
+    })).filter(room => unread.has(room.id) && canOpenStaffRoomInContext(user, room)).map(Object.freeze)
+  }
+  const [staff, parentRows] = await Promise.all([
+    loadStaffSummary(),
     rpc('get_parent_chat_rooms', { active_team_id_value: user.activeTeamId }),
   ])
-  const ids = (staffRows || []).map(row => normalize(row.id)).filter(Boolean)
-  // The canonical unread RPC checks current membership and room authority. The
-  // small metadata read retains the full screen's tighter Club/Team filter.
-  const metadata = ids.length
-    ? await supabase.from('staff_chat_conversations').select('id,type,team_id')
-      .eq('club_id', user.clubId).in('id', ids)
-    : { data: [], error: null }
-  if (metadata.error) throw metadata.error
-  const unread = new Map((staffRows || []).map(row => [normalize(row.id), Number(row.unread_count || 0)]))
-  const staff = (metadata.data || []).map(row => ({
-    id: normalize(row.id), kind: 'staff', type: normalize(row.type),
-    teamId: normalize(row.team_id), unreadCount: unread.get(normalize(row.id)) || 0,
-  })).filter(room => unread.has(room.id) && canOpenStaffRoomInContext(user, room)).map(Object.freeze)
   const parent = (parentRows || []).filter(row => normalize(row.team_id) === user.activeTeamId)
     .map(row => Object.freeze({ id: normalize(row.id), kind: 'parent', teamId: normalize(row.team_id), unreadCount: Number(row.unread_count || 0) }))
   return Object.freeze({ staff: Object.freeze(staff), parent: Object.freeze(parent) })
@@ -749,51 +750,52 @@ async function getCoachAvailabilityHomeSummary(user) {
   const today = now.toISOString().slice(0, 10)
   const through = new Date(now.getTime() + 7 * 86400000)
   const throughDate = through.toISOString().slice(0, 10)
-  const [matchesResult, trainingRows] = await Promise.all([
-    supabase.from('match_days')
+  const loadMatchAvailability = async () => {
+    const matchesResult = await supabase.from('match_days')
       .select('id,club_id,team_id,opponent,match_date,status,deleted_at')
       .eq('club_id', user.clubId).eq('team_id', user.activeTeamId)
       .in('status', ['scheduled', 'scorer_request'])
       .gte('match_date', today).lt('match_date', throughDate)
-      .is('deleted_at', null).order('match_date', { ascending: true }).limit(30),
-    readAllPages(() => supabase.from('training_availability_request_players')
+      .is('deleted_at', null).order('match_date', { ascending: true }).limit(30)
+    if (matchesResult.error) throw matchesResult.error
+    const matches = matchesResult.data || []
+    const matchIds = matches.map((match) => match.id).filter(Boolean)
+    if (!matchIds.length) return []
+    const [matchRequests, matchResponses] = await Promise.all([
+      readAllPages(() => supabase.from('match_day_availability_requests')
+        .select('id,club_id,team_id,match_day_id,player_id,player_name,status,sent_at,responded_at,expires_at,token_revoked_at,token_revoked_reason')
+        .eq('club_id', user.clubId).eq('team_id', user.activeTeamId).in('match_day_id', matchIds)),
+      readAllPages(() => supabase.from('match_day_player_availability')
+        .select('match_day_id,player_id,status,selected_at,updated_at')
+        .eq('club_id', user.clubId).eq('team_id', user.activeTeamId).in('match_day_id', matchIds)),
+    ])
+    const matchById = new Map(matches.map((match) => [normalize(match.id), match]))
+    const matchResponseByPlayer = new Map(matchResponses.map((row) => [`${normalize(row.match_day_id)}:${normalize(row.player_id)}`, row]))
+    return matchRequests.map((row) => {
+      const fixture = matchById.get(normalize(row.match_day_id))
+      const response = matchResponseByPlayer.get(`${normalize(row.match_day_id)}:${normalize(row.player_id)}`)
+      return normalizeCoachInvite({ ...row, availability_status: response?.status, match_date: fixture?.match_date, title: fixture?.opponent, cancelled_at: fixture?.status === 'cancelled' ? new Date(0).toISOString() : '', deleted_at: fixture?.deleted_at }, 'match')
+    })
+  }
+  const loadTrainingAvailability = async () => {
+    const trainingRows = await readAllPages(() => supabase.from('training_availability_request_players')
       .select('id,request_id,club_id,team_id,calendar_event_id,player_id,player_name,status,email_sent_at,response_deadline_at,token_revoked_at,token_revoked_reason,training_availability_requests!inner(occurrence_date,occurrence_starts_at,status)')
       .eq('club_id', user.clubId).eq('team_id', user.activeTeamId)
       .gte('training_availability_requests.occurrence_starts_at', now.toISOString())
-      .lt('training_availability_requests.occurrence_starts_at', through.toISOString())),
-  ])
-  const firstError = matchesResult.error
-  if (firstError) throw firstError
-  const matches = matchesResult.data || []
-  const matchIds = matches.map((match) => match.id).filter(Boolean)
-  const trainingRequestIds = [...new Set(trainingRows.map((row) => normalize(row.request_id)).filter(Boolean))]
-  const matchById = new Map(matches.map((match) => [normalize(match.id), match]))
-  const [matchRequests, matchResponses, trainingResponsesRows] = await Promise.all([
-    matchIds.length ? readAllPages(() => supabase.from('match_day_availability_requests')
-      .select('id,club_id,team_id,match_day_id,player_id,player_name,status,sent_at,responded_at,expires_at,token_revoked_at,token_revoked_reason')
-      .eq('club_id', user.clubId).eq('team_id', user.activeTeamId).in('match_day_id', matchIds))
-      : Promise.resolve([]),
-    matchIds.length ? readAllPages(() => supabase.from('match_day_player_availability')
-      .select('match_day_id,player_id,status,selected_at,updated_at')
-      .eq('club_id', user.clubId).eq('team_id', user.activeTeamId).in('match_day_id', matchIds))
-      : Promise.resolve([]),
-    trainingRequestIds.length ? readAllPages(() => supabase.from('training_availability_responses')
+      .lt('training_availability_requests.occurrence_starts_at', through.toISOString()))
+    const trainingRequestIds = [...new Set(trainingRows.map((row) => normalize(row.request_id)).filter(Boolean))]
+    const trainingResponsesRows = trainingRequestIds.length ? await readAllPages(() => supabase.from('training_availability_responses')
       .select('id,request_id,player_id,status,responded_at')
       .eq('club_id', user.clubId).eq('team_id', user.activeTeamId).in('request_id', trainingRequestIds))
-      : Promise.resolve([]),
-  ])
-  const matchResponseByPlayer = new Map(matchResponses.map((row) => [`${normalize(row.match_day_id)}:${normalize(row.player_id)}`, row]))
-  const match = matchRequests.map((row) => {
-    const fixture = matchById.get(normalize(row.match_day_id))
-    const response = matchResponseByPlayer.get(`${normalize(row.match_day_id)}:${normalize(row.player_id)}`)
-    return normalizeCoachInvite({ ...row, availability_status: response?.status, match_date: fixture?.match_date, title: fixture?.opponent, cancelled_at: fixture?.status === 'cancelled' ? new Date(0).toISOString() : '', deleted_at: fixture?.deleted_at }, 'match')
-  })
-  const trainingResponses = new Map(trainingResponsesRows.map((response) => [`${normalize(response.request_id)}:${normalize(response.player_id)}`, response]))
-  const training = trainingRows.map((row) => {
-    const request = Array.isArray(row.training_availability_requests) ? row.training_availability_requests[0] : row.training_availability_requests
-    const response = trainingResponses.get(`${normalize(row.request_id)}:${normalize(row.player_id)}`)
-    return normalizeCoachInvite({ ...row, ...response, occurrence_date: request?.occurrence_date, occurrence_starts_at: request?.occurrence_starts_at, cancelled_at: request?.status === 'cancelled' ? new Date(0).toISOString() : '' }, 'training')
-  })
+      : []
+    const trainingResponses = new Map(trainingResponsesRows.map((response) => [`${normalize(response.request_id)}:${normalize(response.player_id)}`, response]))
+    return trainingRows.map((row) => {
+      const request = Array.isArray(row.training_availability_requests) ? row.training_availability_requests[0] : row.training_availability_requests
+      const response = trainingResponses.get(`${normalize(row.request_id)}:${normalize(row.player_id)}`)
+      return normalizeCoachInvite({ ...row, ...response, occurrence_date: request?.occurrence_date, occurrence_starts_at: request?.occurrence_starts_at, cancelled_at: request?.status === 'cancelled' ? new Date(0).toISOString() : '' }, 'training')
+    })
+  }
+  const [match, training] = await Promise.all([loadMatchAvailability(), loadTrainingAvailability()])
   return Object.freeze({ all: Object.freeze([...match, ...training]) })
 }
 

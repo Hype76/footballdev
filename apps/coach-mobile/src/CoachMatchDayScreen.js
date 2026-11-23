@@ -822,7 +822,7 @@ function isMatchDayAccessDenied(error) {
   return error?.code === '42501' || error?.status === 403 || error?.statusCode === 403 || /permission denied|row.level security|not authori[sz]ed/i.test(String(error?.message || ''))
 }
 
-function CoachMatchDayScoped({ context, matchDayTarget, onMatchDayTargetHandled, onNavigate, onQuickActionHandled, onRequestScrollTo, onRequestScrollTop, onTabData, palette, quickAction, user }) {
+function CoachMatchDayScoped({ context, matchDayTarget, onMatchDayTargetHandled, onNavigate, onQuickActionHandled, onRequestScrollTo, onRequestScrollTop, onTabActionReady, onTabData, palette, quickAction, user }) {
   const templateStore = useMemo(() => createCoachSquadTemplateStore(user), [user])
   const styles = useMemo(() => createStyles(palette), [palette])
   const [busy, setBusy] = useState(false)
@@ -855,11 +855,16 @@ function CoachMatchDayScoped({ context, matchDayTarget, onMatchDayTargetHandled,
   const [fixtureStale, setFixtureStale] = useState(true)
   const [accessDenied, setAccessDenied] = useState(false)
   const [reconciling, setReconciling] = useState(false)
+  const canStartFixture = Boolean(context.teamId && Number(context.roleRank || 0) >= 20 && context.paymentAccess?.canMutate === true)
+  const createFixtureDisabled = !canStartFixture || user.isOfflineProfile || accessDenied || busy || reconciling
   const outbox = useCoachMatchDayOutbox({ user, context, matchId: serverMatch?.id })
   const activity = useMobileActivity(busy || reconciling || loading || refreshing || outbox.syncing)
   useMobileOffline(stale)
   const pendingCount = accessDenied ? 0 : outbox.journal?.pending?.length || 0
   const match = accessDenied ? null : selectCoachMatchDayDisplayMatch(serverMatch, outbox.projected, pendingCount)
+  useEffect(() => {
+    if (canStartFixture && !createFixtureDisabled && !match && !fixtureFormOpen) onTabActionReady?.()
+  }, [canStartFixture, createFixtureDisabled, fixtureFormOpen, match, onTabActionReady])
   const refreshOutbox = outbox.refresh
   const offlineReady = Boolean(!accessDenied && outbox.journal?.baseMatch && Date.now() - Date.parse(outbox.journal.verifiedAt) < MATCH_DAY_OFFLINE_MAX_AGE)
   useEffect(() => {
@@ -1096,6 +1101,11 @@ function CoachMatchDayScoped({ context, matchDayTarget, onMatchDayTargetHandled,
   }, [context, loading, match, matchDayTarget, onMatchDayTargetHandled, onRequestScrollTop, reconciling, requestedFixtureId, serverMatch, stale, user.isOfflineProfile])
   useEffect(() => {
     if (quickAction?.intent !== 'create-match') return
+    if (createFixtureDisabled) {
+      setError('Reconnect with an authorised Team account before creating a fixture.')
+      onQuickActionHandled?.()
+      return
+    }
     setFixtureFormMatch(null)
     setFixtureFormDate('')
     setFixtureFormOpen(true)
@@ -1103,7 +1113,7 @@ function CoachMatchDayScoped({ context, matchDayTarget, onMatchDayTargetHandled,
     setNotice('')
     onRequestScrollTop?.()
     onQuickActionHandled?.()
-  }, [onQuickActionHandled, onRequestScrollTop, quickAction])
+  }, [createFixtureDisabled, onQuickActionHandled, onRequestScrollTop, quickAction])
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (nextState) => {
       const previousState = appState.current
@@ -1458,7 +1468,7 @@ function CoachMatchDayScoped({ context, matchDayTarget, onMatchDayTargetHandled,
     }
   }
 
-  const fixtureChangesBlocked = stale || user.isOfflineProfile || reconciling || pendingCount > 0 || pendingSquadCount > 0
+  const fixtureChangesBlocked = loading || refreshing || stale || user.isOfflineProfile || accessDenied || reconciling || pendingCount > 0 || pendingSquadCount > 0
   const canDeleteCurrentFixture = canDeleteCoachFixture({ context, fixture: serverMatch, stale: fixtureChangesBlocked })
   const canCorrectConcludedMatch = match?.status === 'full_time' && Boolean(match.concludedAt) && canDeleteCurrentFixture
   const deleteFixture = async (fixture) => {
@@ -1499,8 +1509,11 @@ function CoachMatchDayScoped({ context, matchDayTarget, onMatchDayTargetHandled,
 
   return <View style={styles.stack}>
     {!match && !fixtureFormOpen ? <><Text accessibilityRole="header" style={styles.title}>Game Day</Text><Text style={styles.body}>Manage fixtures, squads and live match updates.</Text></> : null}
-    {!match && !fixtureFormOpen && Number(context.roleRank || 0) >= 20 ? <Button compact disabled={stale || loading || busy || reconciling} iconKey="match.create" label="Create match" onPress={() => { setFixtureFormMatch(null); setFixtureFormDate(''); setFixtureFormOpen(true); setError(''); setNotice(''); onRequestScrollTop?.() }} styles={styles} /> : null}
-    {fixtureFormOpen ? <CoachFixtureForm key={fixtureFormMatch?.id || fixtureFormDate || 'new'} changesBlocked={fixtureChangesBlocked} defaultMatchDate={fixtureFormDate} match={fixtureFormMatch} matches={matches} onCancel={cancelFixtureEdit} onCancelled={handleFixtureCancelled} onCreated={handleFixtureCreated} onRequestScrollTo={onRequestScrollTo} onUpdated={handleFixtureUpdated} players={players} styles={styles} user={user} /> : null}
+    {!match && !fixtureFormOpen && Number(context.roleRank || 0) >= 20 ? <Button compact disabled={createFixtureDisabled} iconKey="match.create" label="Create match" onPress={() => { setFixtureFormMatch(null); setFixtureFormDate(''); setFixtureFormOpen(true); setError(''); setNotice(''); onRequestScrollTop?.() }} styles={styles} /> : null}
+    {fixtureFormOpen ? <>
+      {!fixtureFormMatch && (loading || refreshing) ? <Text accessibilityLiveRegion="polite" style={styles.body}>Updating team information before you can save.</Text> : null}
+      <CoachFixtureForm key={fixtureFormMatch?.id || fixtureFormDate || 'new'} changesBlocked={fixtureChangesBlocked || (!fixtureFormMatch && !canStartFixture)} defaultMatchDate={fixtureFormDate} match={fixtureFormMatch} matches={matches} onCancel={cancelFixtureEdit} onCancelled={handleFixtureCancelled} onCreated={handleFixtureCreated} onRequestScrollTo={onRequestScrollTo} onUpdated={handleFixtureUpdated} players={players} styles={styles} user={user} />
+    </> : null}
     {loading ? <MobileLoadingStatus message="Loading Match Day" /> : null}
     {reconciling && !activity ? <View accessibilityLiveRegion="assertive" style={styles.warning}><BrandLoader /><Text style={styles.cardTitle}>Reconciling the last action</Text><Text style={styles.body}>The current fixture remains visible, but changes are blocked until the server result is known.</Text></View> : null}
     {notice && !activity ? <View accessibilityLiveRegion="polite" style={styles.card}><Text style={styles.body}>{notice}</Text></View> : null}

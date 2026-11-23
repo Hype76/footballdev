@@ -3,7 +3,7 @@ const MAX_SAMPLES = 60
 export const COACH_TIMED_TABS = Object.freeze({ home: 'Home', calendar: 'Calendar', players: 'Players', matchday: 'Match Day', more: 'More' })
 export const coachTimingClock = () => typeof globalThis.performance?.now === 'function' ? globalThis.performance.now() : Date.now()
 const bundleStartedAt = coachTimingClock()
-export const COACH_STARTUP_DESTINATIONS = Object.freeze({ workspace: 'Coach workspace', choose: 'Team or club picker', signin: 'Sign-in screen', unlock: 'Unlock screen', recovery: 'Startup recovery' })
+export const COACH_STARTUP_DESTINATIONS = Object.freeze({ home: 'Coach Home', workspace: 'Coach workspace shell', choose: 'Team or club picker', signin: 'Sign-in screen', unlock: 'Unlock screen', recovery: 'Startup recovery' })
 
 export function createCoachStartupTiming({ record, now = coachTimingClock, afterFrame = callback => requestAnimationFrame(callback), performance = globalThis.performance, bundleStart = bundleStartedAt }) {
   let measured = false, queued = false, backgrounded = false
@@ -43,7 +43,7 @@ export function createCoachTabTiming({ record, now = coachTimingClock, afterFram
       current?.leave()
       const hasData = route !== 'more'
       let screenAt, firstData, freshData, pendingData
-      let screenQueued = false, dataQueued = false, firstRecorded = false, freshRecorded = false
+      let screenQueued = false, dataQueued = false, firstRecorded = false, freshRecorded = false, actionQueued = false, actionRecorded = false
       const log = (stage, at, status) => record({ name: `tab.${route}.${stage}`, durationMs: at - startedAt, status, source: 'tap' })
       const finishData = () => {
         if (screenAt === undefined || dataQueued) return
@@ -84,12 +84,22 @@ export function createCoachTabTiming({ record, now = coachTimingClock, afterFram
             finishData()
           })
         },
+        actionReady() {
+          if (route !== 'matchday' || current !== visit || actionQueued) return
+          actionQueued = true
+          afterFrame(() => {
+            if (current !== visit) return
+            actionRecorded = true
+            log('create', now(), 'success')
+          })
+        },
         leave() {
           if (current !== visit) return
           current = null
           if (screenAt === undefined) log('screen', now(), 'left')
           if (hasData && !firstRecorded) log('first', now(), 'left')
           if (hasData && !freshRecorded) log('fresh', now(), 'left')
+          if (route === 'matchday' && !actionRecorded) log('create', now(), 'left')
         },
       }
       current = visit
@@ -100,7 +110,7 @@ export function createCoachTabTiming({ record, now = coachTimingClock, afterFram
 
 const TAB_NAMES = Object.keys(COACH_TIMED_TABS).flatMap(route => (route === 'more' ? ['screen'] : ['screen', 'data', 'first', 'fresh']).map(stage => `tab.${route}.${stage}`))
 const STARTUP_NAMES = Object.keys(COACH_STARTUP_DESTINATIONS).map(destination => `startup.${destination}`)
-const ALLOWED_NAMES = new Set([...TAB_NAMES, ...STARTUP_NAMES, 'home', 'home.matches', 'home.sessions', 'home.calendar', 'home.development', 'home.chatRooms', 'home.polls', 'home.invites'])
+const ALLOWED_NAMES = new Set([...TAB_NAMES, ...STARTUP_NAMES, 'tab.matchday.create', 'home', 'home.matches', 'home.sessions', 'home.calendar', 'home.development', 'home.chatRooms', 'home.polls', 'home.invites'])
 
 export function createCoachPerformanceDiagnostics({ storage, schedule = setTimeout, cancel = clearTimeout, now = () => new Date() }) {
   let samples = []
@@ -170,9 +180,4 @@ export function createCoachPerformanceDiagnostics({ storage, schedule = setTimeo
       await storage.removeItem(COACH_PERFORMANCE_STORAGE_KEY)
     },
   })
-}
-
-export function getCoachConnectionLabel(connection = globalThis.navigator?.connection) {
-  const type = String(connection?.type || connection?.effectiveType || '').trim()
-  return type ? type.toUpperCase() : 'Not available in this app build'
 }

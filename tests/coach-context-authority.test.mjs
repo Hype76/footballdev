@@ -181,7 +181,7 @@ test('Coach connection checks detect network loss and recovery without changing 
  await tick()
  failure = new TypeError('Network request failed')
  await tick()
- assert.deepEqual(statuses, [false], 'A single slow probe keeps the previous status')
+ assert.deepEqual(statuses, [], 'A single slow probe keeps the previous status')
  await tick()
  active = false
  await tick()
@@ -189,11 +189,14 @@ test('Coach connection checks detect network loss and recovery without changing 
  active = true
  failure = Object.assign(new Error('Permission denied'), {status:403})
  await tick()
- assert.deepEqual(statuses, [false, true, false])
+ assert.deepEqual(statuses, [true], 'A single responding probe keeps the offline status')
+ failure = undefined
+ await tick()
+ assert.deepEqual(statuses, [true, false])
  stop()
  await tick()
  assert.equal(cancelled, true)
- assert.equal(probes, 4)
+ assert.equal(probes, 5)
 })
 
 test('same workspace retains verified display cache, shares Home refresh and invalidates on denial', async () => {

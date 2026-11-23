@@ -34,7 +34,7 @@ export async function getCoachPhase31GPrimaryHomeSnapshot(user, onProgress, onTi
   const started = {}
   const timed = (name, loader) => {
     started[name] = Date.now()
-    return Promise.resolve().then(loader).then(
+    return withMobileAsyncTimeout(loader).then(
       value => { onTiming?.(name, Date.now() - started[name], 'success'); return value },
       error => { onTiming?.(name, Date.now() - started[name], 'error'); throw error },
     )
@@ -43,7 +43,7 @@ export async function getCoachPhase31GPrimaryHomeSnapshot(user, onProgress, onTi
     () => getCoachMatchDays(user),
     () => getCoachSessions(user),
     () => getCoachCalendarResources(user, { homeSummary: true, includeDetails: false }),
-  ].map((loader, index) => withMobileAsyncTimeout(() => isMobileRouteAllowed(user, routes[index], user?.matchdayPolicy) ? timed(names[index], loader) : []).then(value => {
+  ].map((loader, index) => (isMobileRouteAllowed(user, routes[index], user?.matchdayPolicy) ? timed(names[index], loader) : Promise.resolve([])).then(value => {
     partial[names[index]] = value
     sourceStates[names[index]] = 'ready'
     publish()
@@ -67,7 +67,7 @@ export async function getCoachPhase31GAttentionSnapshot(user, { force = true, on
   const routes = ['development', 'chat', 'polls', 'invites']
   const timed = (name, loader) => {
     const startedAt = Date.now()
-    return Promise.resolve().then(loader).then(
+    return withMobileAsyncTimeout(loader).then(
       value => { onTiming?.(name, Date.now() - startedAt, 'success'); return value },
       error => { onTiming?.(name, Date.now() - startedAt, 'error'); throw error },
     )
@@ -75,14 +75,14 @@ export async function getCoachPhase31GAttentionSnapshot(user, { force = true, on
   const results = await Promise.allSettled([
     async () => {
       const [development, localDevelopmentDrafts] = await Promise.all([
-        readMobileResource(user, 'coach:development-open-summary', () => getCoachDevelopmentSummary(user), { force, joinPending, isolatePending }),
+        readMobileResource(user, 'coach:development-open-summary', () => withMobileAsyncTimeout(() => getCoachDevelopmentSummary(user)), { force, joinPending, isolatePending }),
         readLocalDevelopmentDrafts(),
       ])
       return { ...development, localDevelopmentDrafts: Object.values(localDevelopmentDrafts || {}) }
     },
-    () => readMobileResource(user, 'coach:home-chat-summary', () => getCoachHomeChatSummary(user), { force, joinPending, isolatePending }),
-    () => readMobileResource(user, 'coach:home-poll-summary', () => getCoachHomePollSummary(user), { force, joinPending, isolatePending }),
-    () => readMobileResource(user, 'coach:home-availability-summary', () => getCoachInvitesAndAvailability(user, { summaryOnly: true }), { force, joinPending, isolatePending, maxAgeMs: 180_000 }),
+    () => readMobileResource(user, 'coach:home-chat-summary', () => withMobileAsyncTimeout(() => getCoachHomeChatSummary(user)), { force, joinPending, isolatePending }),
+    () => readMobileResource(user, 'coach:home-poll-summary', () => withMobileAsyncTimeout(() => getCoachHomePollSummary(user)), { force, joinPending, isolatePending }),
+    () => readMobileResource(user, 'coach:home-availability-summary', () => withMobileAsyncTimeout(() => getCoachInvitesAndAvailability(user, { summaryOnly: true })), { force, joinPending, isolatePending, maxAgeMs: 180_000 }),
   ].map((loader, index) => isMobileRouteAllowed(user, routes[index], user?.matchdayPolicy) ? timed(names[index], loader) : null))
   const values = Object.fromEntries(results.map((result, index) => [names[index], result.status === 'fulfilled' ? result.value : null]))
   const errors = results.map((result, index) => sourceError(names[index], result)).filter(Boolean)

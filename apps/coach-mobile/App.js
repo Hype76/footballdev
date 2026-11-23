@@ -658,6 +658,13 @@ function CoachHome() {
       if (developmentRefreshId !== developmentRefreshIdRef.current) next = preserveCoachDevelopmentSummary(next, current)
       return next
     }
+    const hydrateSavedHome = (saved, current) => {
+      const denials = Object.fromEntries(Object.entries(current.sourceStates || {}).filter(([, status]) => status === 'denied'))
+      return preserveNewerHomeSources({
+        ...saved,
+        sourceStates: { ...saved.sourceStates, ...denials },
+      }, current)
+    }
     const hasCurrentHome = !homeDeniedScopeRef.current && Boolean(homeStateRef.current.hasSnapshot || homeStateRef.current.savedAt || (!homeStateRef.current.loading && !homeStateRef.current.error))
     if (refresh) setIsRefreshing(true)
     setHomeState((current) => ({ ...current, error: '', loading: !hasCurrentHome }))
@@ -706,7 +713,7 @@ function CoachHome() {
       void readCoachStartupHome(user.id, activeContext).then(home => {
         if (!home || requestId !== requestIdRef.current || homeDeniedScopeRef.current || homeStateRef.current.hasSnapshot
           || peekCoachWorkspaceDenied(user.id, activeContext.clubId)) return
-        setHomeState(current => current.hasSnapshot ? current : preserveNewerHomeSources(
+        setHomeState(current => current.hasSnapshot ? current : hydrateSavedHome(
           { ...current, ...home, error: '', hasSnapshot: true, loading: false, stale: true, timingOutcome: null }, current))
       }).catch(() => {})
     }
@@ -738,7 +745,7 @@ function CoachHome() {
       const cachedHome = { ...savedHome, developmentDrafts, developmentRecords: developmentDrafts.length,
         errors: developmentReadFailed ? [...(savedHome.errors || []), 'development:unavailable'] : savedHome.errors,
         error: '', hasSnapshot: true, loading: false, savedAt: savedHome.savedAt || cached.savedAt, stale: true, timingOutcome: null }
-      setHomeState(current => preserveNewerHomeSources(cachedHome, current))
+      setHomeState(current => hydrateSavedHome(cachedHome, current))
       setLastUpdatedAt(savedHome.savedAt || cached.savedAt)
     } else if (Object.keys(localDevelopmentDrafts).length) {
       const developmentDrafts = mergeUnfinishedDevelopmentDrafts([], Object.values(localDevelopmentDrafts))
@@ -780,7 +787,10 @@ function CoachHome() {
       }
       if (retainSource('sessions')) primarySnapshot.sessions = previousPrimary.sessions
       const currentHome = homeStateRef.current
-      publishHome(preserveCoachDevelopmentSummary(preserveCoachChatSummary(preserveCoachAvailabilitySummary({ ...currentHome, ...primarySnapshot, timingOutcome }, currentHome), currentHome), currentHome))
+      const firstHome = preserveCoachDevelopmentSummary(preserveCoachChatSummary(preserveCoachAvailabilitySummary({ ...currentHome, ...primarySnapshot, timingOutcome }, currentHome), currentHome), currentHome)
+      publishHome(firstHome)
+      // Keep the first authorised overview if the coach leaves before attention finishes.
+      if (!hasCurrentHome) void saveCoachStartupHome(user.id, activeContext, firstHome).catch(() => {})
       setLastUpdatedAt(savedAt)
       lastHomeRefreshAtRef.current = Date.now()
 
@@ -1337,8 +1347,9 @@ function CoachHome() {
   useEffect(() => {
     if (user?.id) void inspectCoachOfflineState(user.id).catch(() => {})
   }, [user?.id])
+  const hasUsableHome = !homeState.error && (homeState.hasSnapshot || homeState.nextMatch || homeState.nextSession || homeState.nextCalendar)
   useCoachStartupScreen(user && contextReady && !startupAuthorityPending && contextOwnerUserId === user.id && contextResolution.allowed
-    ? (activeContext ? 'workspace' : 'choose') : null)
+    ? (!activeContext ? 'choose' : activeRoute === 'home' && hasUsableHome ? 'home' : null) : null)
 
   if (isProfileLoading && !user?.id) return <LoadingScreen message="Resolving Coach access..." />
   if (!user) {
@@ -1501,10 +1512,12 @@ function CoachHome() {
               onSelectMore={navigate}
               onSignOut={signOutWithPendingCheck}
               onTabData={currentTabTiming?.data}
+              onTabActionReady={currentTabTiming?.actionReady}
               onToggleBiometrics={toggleBiometrics}
               onToggleAppBadge={toggleAppBadgeEnabled}
               onToggleTheme={toggleTheme}
               reloadHome={loadHome}
+              connectionOffline={offline}
               quickAction={quickActionRequest}
               quickActionVisibility={quickActionVisibility}
               themeMode={themePreference}
@@ -1570,16 +1583,17 @@ function CoachNotificationsScreen(props) {
 
 function HomeScreen({ context, homeState, onNavigate, reloadHome, user }) {
   const { palette, styles } = useCoachTheme()
-  const nextMatch = homeState.nextMatch
-  const nextSession = homeState.nextSession
-  const nextCalendar = homeState.nextCalendar
+  const sourceDenied = source => homeState.sourceStates?.[source] === 'denied'
+  const nextMatch = sourceDenied('matches') ? null : homeState.nextMatch
+  const nextSession = sourceDenied('sessions') || sourceDenied('calendar') ? null : homeState.nextSession
+  const nextCalendar = sourceDenied('calendar') ? null : homeState.nextCalendar
   const hasHomeContent = Boolean(homeState.hasSnapshot || homeState.savedAt || nextMatch || nextSession || nextCalendar)
   const canOpen = route => Boolean(resolveCoachRoute(route, context, user?.matchdayPolicy))
   const attentionVisible = ['invites', 'polls', 'chat', 'development'].some(canOpen)
   const homeValue = (sources, item, format, empty, saved) => {
     const states = sources.map(source => homeState.sourceStates?.[source]).filter(Boolean)
     if (states.includes('denied')) return 'Unavailable'
-    if (states.includes('pending') && !saved) return 'Loading...'
+    if ((states.includes('pending') || homeState.loading) && !saved && !item) return 'Loading...'
     if (states.includes('failed') && !saved) return 'Unavailable'
     return item ? format(item) : empty
   }
@@ -1591,15 +1605,15 @@ function HomeScreen({ context, homeState, onNavigate, reloadHome, user }) {
 
   return (
     <View style={styles.stack}>
-      {homeState.loading ? <LoadingPanel message="Loading your Coach overview..." /> : null}
+      {homeState.loading && !hasHomeContent ? <Text accessibilityLiveRegion="polite" style={styles.helperText}>Loading your Coach overview...</Text> : null}
       {homeState.error ? <StatePanel actionLabel="Try again" message={homeState.error} onAction={reloadHome} title="Overview unavailable" tone="danger" /> : null}
       {homeState.partial && !homeState.stale ? <Pressable accessibilityRole="button" accessibilityLabel="Retry unavailable overview information" onPress={() => reloadHome({ refresh: true })} style={{ paddingVertical: 8 }}><Text style={styles.helperText}>Some overview information could not refresh. Tap to retry.</Text></Pressable> : null}
-      {(!homeState.loading || hasHomeContent) && (!homeState.error || hasHomeContent) ? <><View style={styles.iconList}>
+      {!homeState.error || hasHomeContent ? <><View style={styles.iconList}>
         {user?.id && context.teamId ? <TeamLeagueLinkRow client={coachSupabase} coach palette={palette} scope={coachTeamLeagueScope(user, context.teamId)} styles={styles} /> : null}
         {canOpen('calendar') ? <HomeNextRow
           iconKey="route.calendar"
           label="Next Calendar item"
-          meta={[nextCalendar?.title, homeState.homeSavedSources?.calendar ? 'Saved' : ''].filter(Boolean).join(' | ')}
+          meta={[nextCalendar?.title, !sourceDenied('calendar') && homeState.homeSavedSources?.calendar ? 'Saved' : ''].filter(Boolean).join(' | ')}
           onPress={() => onNavigate('calendar', nextCalendar ? { eventId: nextCalendar.id, sourceId: nextCalendar.sourceId, sourceType: nextCalendar.sourceType, occurrenceDate: nextCalendar.occurrenceDate || nextCalendar.calendarDate } : null)}
           value={homeValue(['calendar'], nextCalendar, item => formatDateTime(item.startsAt), 'No upcoming Calendar item', homeState.homeSavedSources?.calendar)}
         /> : null}
@@ -1608,14 +1622,14 @@ function HomeScreen({ context, homeState, onNavigate, reloadHome, user }) {
             {canOpen('matchday') ? <HomeNextRow
               iconKey="coach.match"
               label="Next match"
-              meta={[nextMatch?.opponent, homeState.homeSavedSources?.matches ? 'Saved' : ''].filter(Boolean).join(' | ')}
+              meta={[nextMatch?.opponent, !sourceDenied('matches') && homeState.homeSavedSources?.matches ? 'Saved' : ''].filter(Boolean).join(' | ')}
               onPress={() => onNavigate('matchday', nextMatch?.id ? { fixtureId: nextMatch.id } : null)}
               value={homeValue(['matches'], nextMatch, formatFixtureDateTime, 'No upcoming match', homeState.homeSavedSources?.matches)}
             /> : null}
             {canOpen('sessions') ? <HomeNextRow
               iconKey="coach.session"
               label="Next session"
-              meta={[nextSession?.title || nextSession?.type, homeState.homeSavedSources?.sessions ? 'Saved' : ''].filter(Boolean).join(' | ')}
+              meta={[nextSession?.title || nextSession?.type, !sourceDenied('sessions') && !sourceDenied('calendar') && homeState.homeSavedSources?.sessions ? 'Saved' : ''].filter(Boolean).join(' | ')}
               onPress={() => onNavigate('sessions')}
               value={homeValue(['sessions', 'calendar'], nextSession, item => formatDateTime(item.startsAt || `${item.sessionDate || item.session_date}${item.startTime || item.start_time ? `T${item.startTime || item.start_time}` : ''}`), 'No upcoming session', homeState.homeSavedSources?.sessions)}
             /> : null}
@@ -1775,6 +1789,7 @@ function SettingsScreen({
   biometricEnabled,
   biometricStateStatus,
   context,
+  connectionOffline,
   isRegisteringPush,
   isUpdatingBiometrics,
   lastUpdatedAt,
@@ -1974,7 +1989,7 @@ function SettingsScreen({
       </SettingsSection>
       <SettingsSection id="speed" label="Speed diagnostics" iconKey="settings.sync">
       <Section compact iconKey="settings.sync" title="Speed diagnostics">
-        <CoachSpeedDiagnostics reloadHome={reloadHome} styles={styles} />
+        <CoachSpeedDiagnostics connectionOffline={connectionOffline} reloadHome={reloadHome} styles={styles} />
       </Section>
       </SettingsSection>
       <SettingsSection id="app" label="App info" iconKey="settings.app">

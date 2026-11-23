@@ -96,6 +96,28 @@ test('Coach Home live result does not wait for a slow phone read and ignores its
   assert.equal(h.state().nextMatch.id, 'live')
 })
 
+test('Coach Home retains a live source denial when either saved view arrives later', async () => {
+  for (const compact of [true, false]) {
+    const h = harness({ loading: true, errors: [] })
+    const saved = deferred()
+    const primary = deferred()
+    h.dependencies.getCoachPhase31GPrimaryHomeSnapshot = (_user, publish) => {
+      publish({ sourceStates: { matches: 'denied', calendar: 'pending' } })
+      return primary.promise
+    }
+    if (compact) h.dependencies.readCoachStartupHome = () => saved.promise
+    else h.dependencies.readCoachHomeOfflineView = () => saved.promise
+    const loading = h.load()()
+    const home = { nextMatch: { id: 'old' }, sourceStates: { matches: 'ready' } }
+    saved.resolve(compact ? home : { cache: { resources: { home } }, developmentDrafts: {} })
+    await new Promise(resolve => setImmediate(resolve))
+    assert.equal(h.state().hasSnapshot, true)
+    assert.equal(h.state().sourceStates.matches, 'denied')
+    primary.resolve({ sourceStates: { matches: 'denied', calendar: 'ready' }, nextMatch: null })
+    await loading
+  }
+})
+
 test('Coach Home permission denial clears retained data and prevents cached rehydration', async () => {
   const h = harness({ savedAt: '2026-01-01', hasSnapshot: true, loading: false, nextMatch: { id: 'protected' }, errors: [] })
   h.dependencies.getCoachPhase31GPrimaryHomeSnapshot = async () => { throw Object.assign(new Error('permission denied'), { code: '42501' }) }
