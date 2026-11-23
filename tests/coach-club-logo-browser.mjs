@@ -19,6 +19,7 @@ const entry = `
 import React,{useState,useEffect} from 'react';import {createRoot} from 'react-dom/client';
 import {View,Text,Image,StyleSheet,AppState} from 'react-native';
 import {createCoachTheme} from './apps/coach-mobile/src/coachThemeCore.js';
+import {ClubFeatureWave} from './apps/mobile-core/src/ClubFeatureWave.js';
 let theme;const useCoachTheme=()=>theme;const config={isProduction:true};
 const NotificationStatusButton=()=>null;
 const useCoachSavedBadge=(_user,_context,remoteUrl)=>remoteUrl;
@@ -27,7 +28,7 @@ AppState.addEventListener=(_event,callback)=>{window.foreground=()=>callback('ac
 ${selected}
 function App(){const[context,setContext]=useState({id:'cambourne',clubId:'club',clubName:'Cambourne Town FC',role:'head_manager',roleRank:70,planKey:'large_club',planStatus:'active',clubLogoUrl:'https://badge.test/good.png'});
 const[mode,setMode]=useState('dark');window.context=patch=>setContext(old=>({...old,...patch}));window.mode=setMode;
-const model=createCoachTheme({context,mode});theme={...model,styles:createCoachStyles(model.tokens)};
+const model=createCoachTheme({context,mode});theme={...model,palette:model.tokens,styles:createCoachStyles(model.tokens)};
 return <View style={{backgroundColor:theme.tokens.background,minHeight:'100vh',padding:16}}><CoachHeader context={context} user={{roleLabel:'Team Admin'}}/></View>}
 createRoot(document.getElementById('root')).render(<App/>);`
 const bundle = await build({ stdin: { contents: entry, resolveDir: root, loader: 'jsx' }, bundle: true, write: false, jsx: 'automatic', loader: { '.js': 'jsx', '.png': 'dataurl' }, alias: { 'react-native': path.join(modules, 'react-native-web'), react: path.join(modules, 'react'), 'react-dom': path.join(modules, 'react-dom') }, define: { 'process.env.NODE_ENV': '"production"', __DEV__: 'false', global: 'globalThis' } })
@@ -46,18 +47,18 @@ try {
   })
   await page.setContent('<meta name="viewport" content="width=device-width,initial-scale=1"><body style="margin:0"><div id="root"></div>')
   await page.addScriptTag({ content: bundle.outputFiles[0].text })
-  const imageUri = () => page.locator('img').getAttribute('src')
+  const badgeSelector = '[data-testid="coach-header-badge"] img'
+  const imageUri = () => page.locator(badgeSelector).getAttribute('src')
   const loaded = async () => {
-    await page.waitForFunction(() => { const image = document.querySelector('img'); return image?.complete && image.naturalWidth > 0 })
+    await page.waitForFunction(selector => { const image = document.querySelector(selector); return image?.complete && image.naturalWidth > 0 }, badgeSelector)
   }
-  await page.waitForFunction(() => document.querySelector('img'))
   await loaded()
   assert.ok((await imageUri()) === 'https://badge.test/good.png', 'Allowed remote logo must be shown')
   // A request/decoding failure must leave visible, correctly labelled fallback artwork.
   for (const mode of ['dark', 'light']) {
     recovered = false
     await page.evaluate(mode => { window.mode(mode); window.context({ clubLogoUrl: 'https://badge.test/bad-' + mode + '.png' }) }, mode)
-    await page.waitForFunction(() => document.querySelector('img')?.src.startsWith('data:image/png'))
+    await page.waitForFunction(selector => document.querySelector(selector)?.src.startsWith('data:image/png'), badgeSelector)
     await loaded()
     assert.equal(await page.getByLabel('Football Player logo', { exact: true }).count(), 1)
     const count = requests
@@ -65,26 +66,30 @@ try {
     assert.equal(requests, count, 'Fallback must not loop remote requests')
     recovered = true
     await page.evaluate(() => window.foreground())
-    await page.waitForFunction(() => document.querySelector('img')?.src.startsWith('https://badge.test/bad'))
+    await page.waitForFunction(selector => document.querySelector(selector)?.src.startsWith('https://badge.test/bad'), badgeSelector)
     await loaded()
     assert.equal(await page.getByLabel('Cambourne Town FC logo', { exact: true }).count(), 1)
   }
   recovered = false
   await page.evaluate(() => window.context({ clubLogoUrl: 'https://badge.test/bad-switch.png' }))
-  await page.waitForFunction(() => document.querySelector('img')?.src.startsWith('data:image/png'))
+  await page.waitForFunction(selector => document.querySelector(selector)?.src.startsWith('data:image/png'), badgeSelector)
   await page.evaluate(() => window.context({ id: 'another-club', clubName: 'Another club', clubLogoUrl: 'https://badge.test/good-other.png' }))
-  await page.waitForFunction(() => document.querySelector('img')?.src.endsWith('good-other.png'))
+  await page.waitForFunction(selector => document.querySelector(selector)?.src.endsWith('good-other.png'), badgeSelector)
   await loaded()
   assert.equal(await page.getByLabel('Another club logo', { exact: true }).count(), 1)
   for (const patch of [{ clubLogoUrl: 'http://badge.test/unsafe.png' }, { clubLogoUrl: '' }, { planKey: 'matchday', clubLogoUrl: 'https://badge.test/denied.png' }]) {
     const count = requests
     await page.evaluate(patch => window.context(patch), patch)
-    await page.waitForFunction(() => document.querySelector('img')?.src.startsWith('data:image/png'))
+    await page.waitForFunction(selector => document.querySelector(selector)?.src.startsWith('data:image/png'), badgeSelector)
     await loaded()
     assert.equal(requests, count, 'Invalid or plan-denied logos must never be requested')
   }
   assert.equal(await page.getByText('LIVE', { exact: true }).count(), 1)
   assert.equal(await page.getByText('Team Admin', { exact: false }).count(), 1)
+  const artwork = page.getByTestId('coach-header-artwork')
+  await artwork.locator('img').waitFor()
+  assert.equal(await artwork.evaluate(element => getComputedStyle(element).pointerEvents), 'none')
+  assert.ok(await artwork.locator('img').evaluate(image => image.complete && image.naturalWidth > 0))
   assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth))
   assert.deepEqual(errors, [])
   console.log('PASS: actual Coach header preserves allowed logos, renders failed-image fallback in both themes, recovers on foreground/context changes, and retains HTTPS and Matchday entitlement gates.')

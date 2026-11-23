@@ -1,5 +1,6 @@
 import { createCoachContextAuthority, watchCoachConnection } from './src/coachContextAuthorityCore'
 import { MobileSwitch as Switch } from '../mobile-core/src/MobileSwitch.js'
+import { ClubFeatureWave } from '../mobile-core/src/ClubFeatureWave.js'
 import { DeviceThemeChoices } from '../mobile-core/src/DeviceThemeChoices'
 import { resolveDeviceThemeMode } from '../mobile-core/src/deviceThemeCore'
 import { MobileSignupScreen } from '../mobile-core/src/MobileSignupScreen'
@@ -2005,7 +2006,7 @@ function SettingsScreen({
 }
 
 function CoachHeader({ context, connectionOffline, notificationState, notificationStateStatus, onOpenNotificationSettings, user }) {
-  const { branding, styles } = useCoachTheme()
+  const { branding, palette, styles } = useCoachTheme()
   const logoUrl = useCoachSavedBadge(user, context, branding.logoUrl)
   const logoKey = `${context.id || context.clubId}:${logoUrl}`
   const [logoState, setLogoState] = useState({ key: logoKey, failed: false })
@@ -2021,6 +2022,10 @@ function CoachHeader({ context, connectionOffline, notificationState, notificati
   const source = showClubLogo ? { uri: logoUrl } : require('./assets/football-player-logo.png')
   return (
     <View style={styles.header}>
+      <View accessible={false} importantForAccessibility="no-hide-descendants" pointerEvents="none"
+        style={styles.headerArtwork} testID="coach-header-artwork">
+        <ClubFeatureWave color={palette.accentText} />
+      </View>
       <Image
         key={showClubLogo ? logoKey : 'football-player'}
         accessibilityIgnoresInvertColors
@@ -2029,6 +2034,7 @@ function CoachHeader({ context, connectionOffline, notificationState, notificati
         resizeMode="contain"
         source={source}
         style={styles.logo}
+        testID="coach-header-badge"
       />
       <View style={styles.headerCopy}>
         <Text numberOfLines={1} style={styles.headerTitle}>{context.clubName}</Text>
@@ -2478,6 +2484,7 @@ function createCoachStyles(palette) {
     disabled: { opacity: 0.48 },
     eyebrow: { color: palette.accentText, fontSize: 12, fontWeight: '900', letterSpacing: 0.9, textTransform: 'uppercase' },
     header: { alignItems: 'center', backgroundColor: palette.surface, borderBottomColor: palette.border, borderBottomWidth: 1, flexDirection: 'row', gap: 12, minHeight: 72, paddingHorizontal: 16, paddingVertical: 10 },
+    headerArtwork: { ...StyleSheet.absoluteFillObject, overflow: 'hidden' },
     headerCopy: { flex: 1, minWidth: 0 },
     headerMeta: { color: palette.textSecondary, fontSize: 12, fontWeight: '700', marginTop: 2 },
     headerTitle: { color: palette.textPrimary, fontSize: 17, fontWeight: '900' },

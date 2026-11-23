@@ -509,6 +509,12 @@ try {
   await page.getByRole('button', { name: 'Back to fixtures', exact: true }).waitFor()
   assert.equal(await page.getByText('scheduled', { exact: true }).count(), 0)
   await page.getByRole('heading', { name: 'Visitors v FP TEST Club', exact: true }).waitFor()
+  const stadium = page.getByTestId('coach-matchday-stadium-art')
+  await page.waitForFunction(() => {
+    const image = document.querySelector('[data-testid="coach-matchday-stadium-art"] img')
+    return image?.complete && image.naturalWidth > 0
+  })
+  assert.equal(await stadium.evaluate(element => getComputedStyle(element).pointerEvents), 'none')
   assert.equal(await page.getByText('Pre-match', { exact: true }).count(), 0)
   assert.equal(await page.getByText('Game Day', { exact: true }).count(),0)
   await page.getByRole('button',{name:'Edit fixture',exact:true}).click()
@@ -526,6 +532,8 @@ try {
     assert.ok(boxes.every(box=>box.width>=44 && box.height>=44))
     assert.ok(boxes.every(box=>Math.abs(box.y-boxes[0].y)<1),'All six tabs fit one row')
     const heading=await page.getByRole('heading',{name:'Visitors v FP TEST Club',exact:true}).boundingBox()
+    const artwork=await stadium.boundingBox()
+    assert.ok(artwork && artwork.width <= width && heading.y >= artwork.y && heading.y + heading.height <= artwork.y + artwork.height)
     assert.ok(heading.y<boxes[0].y,'Match heading precedes navigation')
     assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth))
     await page.screenshot({path:`output/playwright/club-match-name/overview-${mode}-${width}.png`,fullPage:true})
