@@ -127,6 +127,7 @@ const shellBundle = await build({
 })
 
 async function launchSharedShell(page) {
+  await page.clock.setFixedTime(new Date('2026-11-21T12:00:00Z'))
   await page.route('https://fixture.example.test/',route=>route.fulfill({contentType:'text/html',body:'<!doctype html><meta name="viewport" content="width=device-width, initial-scale=1"><div id="root"></div>'}));
   await page.goto('https://fixture.example.test/');
   await page.evaluate(()=>{
@@ -141,6 +142,7 @@ async function launchSharedShell(page) {
 }
 
 async function launchFixture(page, { links = [], state = 'linked' } = {}) {
+  await page.clock.setFixedTime(new Date('2026-11-21T12:00:00Z'))
   await page.route('https://fixture.example.test/', route => route.fulfill({
     contentType: 'text/html',
     body: '<!doctype html><meta name="viewport" content="width=device-width, initial-scale=1"><div id="root"></div>',
