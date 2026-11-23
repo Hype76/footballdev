@@ -8,32 +8,14 @@ import { loadFanMatches, loadFanSchedule, loadPlayerAttendance } from './lib/_fa
 import { loadFanPlayerStats } from './lib/_fan-player-stats.js'
 import { loadHistory } from './lib/_parent-development-history.js'
 import { loadAuthorisedResource } from './parent-resource-access.js'
-import { canReadPlayerEventResources, listFanResources, loadPlayerEventResource } from './lib/_player-event-resources.js'
+import { accountUsesParentFormationView, canReadPlayerDirectResources, canReadPlayerEventResources,
+  filterParentFormationResources, listFanResources, listPlayerDirectResourceTargets, loadPlayerEventResource } from './lib/_player-event-resources.js'
 import { assertParentPlanFeatureForScope } from './lib/_parent-plan-gate.js'
 import { canUsePlanEntitlement } from './lib/_plan-gate.js'
 import { readClubKits } from '../../src/lib/club-kits.js'
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 const json = (statusCode, body) => ({ statusCode, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'private, no-store', 'X-Content-Type-Options': 'nosniff' }, body: JSON.stringify(body) })
-
-async function filterParentFormationResources(client, resources) {
-  const ids = [...new Set(resources.map((item) => item.id).filter(Boolean))]
-  if (!ids.length) return resources
-  const blocked = new Set()
-  for (let offset = 0; offset < ids.length; offset += 100) {
-    const batch = ids.slice(offset, offset + 100)
-    const [items, publications] = await Promise.all([
-      client.from('resource_library_items').select('id,mime_type').in('id', batch),
-      client.from('formation_board_publications').select('resource_id').in('resource_id', batch),
-    ])
-    if (items.error || publications.error || !Array.isArray(items.data) || !Array.isArray(publications.data)) {
-      throw items.error || publications.error || new Error('Resource metadata could not be verified.')
-    }
-    for (const item of items.data) if (item.mime_type === 'application/vnd.footballplayer.formation-board+json') blocked.add(item.id)
-    for (const publication of publications.data) blocked.add(publication.resource_id)
-  }
-  return resources.filter((item) => !blocked.has(item.id))
-}
 
 async function filterParentScheduleResources(client, schedule) {
   const allowed = await filterParentFormationResources(client, schedule.flatMap((item) => item.resources || []))
@@ -101,12 +83,9 @@ export async function handleFans(event, {
     if (!permission) return json(400, { message: 'Choose a valid Fan action.' })
     const scope = await loadFanScope(client, actor, body.connectionId, body.action === 'notifications' ? null : permission)
     if (['schedule', 'matches', 'resources', 'open_resource'].includes(body.action)) {
-      const parentLink = await client.from('parent_player_links').select('id').eq('auth_user_id', actor)
-        .eq('status', 'active').eq('link_type', 'parent').limit(1)
-      if (parentLink.error || !Array.isArray(parentLink.data)) throw parentLink.error || new Error('Account access could not be verified.')
-      scope.suppressParentFormation = parentLink.data.length > 0
+      scope.suppressParentFormation = await accountUsesParentFormationView(client, actor)
     }
-    if (body.action === 'notifications' && !scope.fan.permissions?.game_day && !canReadPlayerEventResources(scope)) {
+    if (body.action === 'notifications' && !scope.fan.permissions?.game_day && !canReadPlayerDirectResources(scope)) {
       return json(403, { message: 'Notification access is not enabled for this player.' })
     }
     const planProfile = await assertPlanFeatureForScope({
@@ -149,16 +128,23 @@ export async function handleFans(event, {
     }
     if (body.action === 'notifications') {
       const canMatches = scope.fan.permissions?.game_day === true && featureAllowed('matchDay')
-      const canResources = canReadPlayerEventResources(scope) && featureAllowed('resourceLibrary') && featureAllowed('teamCalendar')
+      const canResources = canReadPlayerDirectResources(scope) && featureAllowed('resourceLibrary')
+      const canEventResources = canResources && canReadPlayerEventResources(scope) && featureAllowed('teamCalendar')
       if (!canMatches && !canResources) return json(403, { message: 'Notifications are not available for this plan.' })
-      const result = await client.from('fan_notifications').select('id,match_id,calendar_event_id,resource_id,occurrence_date,title,body,created_at').eq('connection_id', scope.fan.id).order('created_at', { ascending: false }).limit(60)
+      const result = await client.from('fan_notifications').select('id,match_id,calendar_event_id,resource_id,occurrence_date,direct_resource_link_id,title,body,created_at').eq('connection_id', scope.fan.id).order('created_at', { ascending: false }).limit(60)
       if (result.error) throw result.error
       const visible = new Set(canMatches ? (await loadFanMatches(client, scope)).map(match => match.id) : [])
-      const schedule = canResources ? await loadFanSchedule(client, scope, new Date(), { featureAllowed }) : []
-      return json(200, { notifications: (result.data || []).filter(item => item.match_id
-        ? visible.has(item.match_id)
-        : canResources && schedule.some(event => event.resources?.some(resource => resource.id === item.resource_id
-          && resource.eventId === item.calendar_event_id && resource.occurrenceDate === item.occurrence_date))) })
+      const candidates = result.data || []
+      const schedule = canEventResources ? await loadFanSchedule(client, scope, new Date(), { featureAllowed }) : []
+      const directLinks = canResources ? await listPlayerDirectResourceTargets(client, scope,
+        [...new Set(candidates.map(item => item.direct_resource_link_id).filter(Boolean))]) : []
+      const directResources = new Map(directLinks.map(link => [link.id, link.resource_id]))
+      return json(200, { notifications: candidates.filter(item => {
+        if (item.match_id) return visible.has(item.match_id)
+        if (item.direct_resource_link_id) return directResources.get(item.direct_resource_link_id) === item.resource_id
+        return canEventResources && schedule.some(event => event.resources?.some(resource => resource.id === item.resource_id
+          && resource.eventId === item.calendar_event_id && resource.occurrenceDate === item.occurrence_date))
+      }) })
     }
     if (body.action === 'matches') {
       await requireFeature('matchDay')

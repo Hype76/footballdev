@@ -28,9 +28,8 @@ function normalizePlanKey(value) {
 
 export function isFanAccessAllowedForPlan(connection, accessKey, matchdayPolicy) {
   if (accessKey === 'notifications' && connection?.relationship_type === 'player'
-    && connection.permissions?.schedule && connection.permissions?.resources && connection.permissions?.development
-    && isFanAccessAllowedForPlan(connection, 'resources', matchdayPolicy)
-    && isFanAccessAllowedForPlan(connection, 'schedule', matchdayPolicy)) return true
+    && connection.permissions?.resources && connection.permissions?.development
+    && isFanAccessAllowedForPlan(connection, 'resources', matchdayPolicy)) return true
   const capability = FAN_ACCESS_CAPABILITIES[String(accessKey ?? '').trim().toLowerCase()]
   if (!capability) return false
   const planKey = normalizePlanKey(connection?.planKey || connection?.plan_key)
@@ -42,17 +41,17 @@ export function isFanAccessAllowedForPlan(connection, accessKey, matchdayPolicy)
 
 export function canViewFanNotifications(connection, matchdayPolicy) {
   return Boolean((connection?.permissions?.game_day && isFanAccessAllowedForPlan(connection, 'matches', matchdayPolicy))
-    || (connection?.relationship_type === 'player' && connection.permissions?.schedule && connection.permissions?.resources
-      && connection.permissions?.development && isFanAccessAllowedForPlan(connection, 'resources', matchdayPolicy)
-      && isFanAccessAllowedForPlan(connection, 'schedule', matchdayPolicy)))
+    || (connection?.relationship_type === 'player' && connection.permissions?.resources
+      && connection.permissions?.development && isFanAccessAllowedForPlan(connection, 'resources', matchdayPolicy)))
 }
 
 export function fanNotificationTarget(connection, data, matchdayPolicy) {
   if (!connection || data?.route !== 'fans' || data.fanConnectionId !== connection.id) return null
   if (data.type === 'resource_shared') {
-    return connection.relationship_type === 'player' && connection.permissions?.schedule && connection.permissions?.resources
+    const scheduleAllowed = data.directResourceLinkId || (connection.permissions?.schedule && isFanAccessAllowedForPlan(connection, 'schedule', matchdayPolicy))
+    return connection.relationship_type === 'player' && connection.permissions?.resources
       && connection.permissions?.development && isFanAccessAllowedForPlan(connection, 'resources', matchdayPolicy)
-      && isFanAccessAllowedForPlan(connection, 'schedule', matchdayPolicy) ? { action: 'resources' } : null
+      && scheduleAllowed ? { action: 'resources' } : null
   }
   return connection.permissions?.game_day && isFanAccessAllowedForPlan(connection, 'matches', matchdayPolicy)
     ? { action: 'matches', ...(data.matchDayId ? { matchId: data.matchDayId } : {}) } : null

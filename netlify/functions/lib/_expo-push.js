@@ -11,12 +11,12 @@ function chunkMessages(messages, size = 100) {
   return chunks
 }
 
-export async function sendExpoPushMessages(messages, { client, signal } = {}) {
+export async function sendExpoPushMessages(messages, { client, signal, expectedFanAuthUserId } = {}) {
   let eligibleMessages = messages
   if (messages.some(message => ['parent', 'coach'].includes(message.data?.app))) {
     const { filterMobileNotificationMessages } = await import('./_mobile-notification-preferences.js')
     const database = client || (await import('./_supabase.js')).supabaseAdmin
-    eligibleMessages = await filterMobileNotificationMessages(messages, database, { signal })
+    eligibleMessages = await filterMobileNotificationMessages(messages, database, { signal, expectedFanAuthUserId })
   }
   const skipped = messages.length - eligibleMessages.length
   const validMessages = eligibleMessages

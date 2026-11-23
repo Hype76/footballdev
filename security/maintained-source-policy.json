@@ -8,7 +8,7 @@
     "proposalSha256": "95f1b5c782335dea22aee6223bbf1426cfe5f2e281dc30e5076f4c7ad0177a91",
     "calendarQualificationExpiry": "2026-10-19T22:59:59Z"
   },
-  "scope": "Three exact source-fixed braces3.0.3 copies, three exact locally corrected deepmerge4.3.1 copies and two unchanged official node-forge1.4.3 copies. Complete package trees, registry integrity, locks and native inputs remain verified. No generic advisory exceptions. Eight exact glob7.2.3 compatibility copies retain callback consumers with official minimatch11.0.4; six official minimatch/glob package trees remain byte-identical to registry artifacts. No new advisory acceptance. Eleven exact picomatch copies receive the separately reviewed repeated-extglob source repair approved by Steve on 17 November 2026. Only GHSA-fc5q-39xc-vjpf at those exact source-fixed copies can be covered.",
+  "scope": "Three exact source-fixed braces3.0.3 copies, three exact locally corrected deepmerge4.3.1 copies and two unchanged official node-forge1.4.4 copies. Complete package trees, registry integrity, locks and native inputs remain verified. No generic advisory exceptions. Eight exact glob7.2.3 compatibility copies retain callback consumers with official minimatch11.0.4; six official minimatch/glob package trees remain byte-identical to registry artifacts. No new advisory acceptance. Eleven exact picomatch copies receive the separately reviewed repeated-extglob source repair approved by Steve on 17 November 2026. Only GHSA-fc5q-39xc-vjpf at those exact source-fixed copies can be covered.",
   "controls": [
     "Independent external receipt SHA256 binds exact clean HEAD, record, policy, implementation, native and release preparation identities.",
     "Every release checks full installed package trees, all sixteen source/security copies and six unchanged official tooling copies, exact registry preimages/postimages, locks and native inputs. Official-maintained copies must remain byte-identical to the reviewed registry tree and receive no local source writes.",
@@ -41,7 +41,7 @@
     },
     {
       "path": "apps/parent-mobile/node_modules/node-forge",
-      "treeSha256": "808be11e152fcde0d82e165e040e45e9f33b0ba9f24cbefe4af99e5f7d0bc865"
+      "treeSha256": "b92ebc38411ecbd2b62ef78814ca280b095e17bd0496547cf8b532321420d001"
     },
     {
       "path": "apps/coach-mobile/node_modules/braces",
@@ -49,7 +49,7 @@
     },
     {
       "path": "apps/coach-mobile/node_modules/node-forge",
-      "treeSha256": "808be11e152fcde0d82e165e040e45e9f33b0ba9f24cbefe4af99e5f7d0bc865"
+      "treeSha256": "b92ebc38411ecbd2b62ef78814ca280b095e17bd0496547cf8b532321420d001"
     },
     {
       "path": "node_modules/deepmerge",
@@ -118,7 +118,7 @@
     ]
   },
   "limitations": [
-    "The three braces copies remain locally maintained source fixes. The two node-forge copies use the compatible official1.4.3 release without source patches; full registry audits remain mandatory.",
+    "The three braces copies remain locally maintained source fixes. The two node-forge copies use the compatible official1.4.4 release without source patches; full registry audits remain mandatory.",
     "Fix ownership and future security maintenance remain necessary. New security evidence can still block releases.",
     "No app feature, publisher path, production data, store binary or handset-acceptance change is approved by this policy.",
     "Eight glob7.2.3 copies carry a local compatibility correction for the fixed official minimatch11 Matcher API. This is not an official glob7 release or an advisory waiver."
@@ -323,5 +323,18 @@
       "summary": "Withdrawn Advisory: picomatch vulnerable to ReDoS through single-branch repeated extglobs"
     },
     "scope": "Refresh only the exact withdrawn picomatch advisory meaning. Retain every existing source correction, all 27 target identities, official tooling proofs, locks and native inputs. Withdrawal grants no generic acceptance; fresh exact upstream verification and all four raw audit passes remain mandatory."
+  },
+  "officialForgeSecurityUpdate144": {
+    "qualifiedOn": "2026-11-23",
+    "authority": "Required release gate for the authorised Player alert and full-time score fixes.",
+    "from": "1.4.3",
+    "to": "1.4.4",
+    "registryUrl": "https://registry.npmjs.org/node-forge/1.4.4",
+    "registryIntegrity": "sha512-T6VRRpF3+czIGcXW/LOeoD7Ej28d8CF1UMEAbJyJRUtYMvyXAgxUPW2kbUibumvV9LiUQAznJOFyeYclzSJMMg==",
+    "gitHead": "7437e75874da8b4cffaf19ab0345696b7b2b1f31",
+    "completeTreeSha256": "b92ebc38411ecbd2b62ef78814ca280b095e17bd0496547cf8b532321420d001",
+    "sourceWritesAllowed": false,
+    "advisoryAcceptanceAllowed": false,
+    "reason": "Official JavaScript security patch with no native dependency or runtime changes."
   }
 }

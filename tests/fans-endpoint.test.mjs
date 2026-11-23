@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { loadFanScope, loadFanInviteForOwner } from '../netlify/functions/lib/_fan-access.js'
+import { processDirectPlayerResourcePushes } from '../netlify/functions/lib/_direct-player-resource-push.js'
 import { sendFanMatchNotifications } from '../netlify/functions/lib/_fan-push.js'
 import { sendPlayerResourceNotifications } from '../netlify/functions/lib/_player-resource-notifications.js'
 import { canViewFanNotifications, fanNotificationTarget } from '../src/lib/fans.js'
@@ -165,6 +166,103 @@ test('player resource push opens resources while ordinary Fans retain match-only
   assert.equal(fanNotificationTarget({ ...connection, relationship_type: 'fan' }, data), null)
   assert.equal(fanNotificationTarget(undefined, data), null)
   assert.equal(fanNotificationTarget({ ...connection, permissions: { ...connection.permissions, resources: false } }, data), null)
+})
+
+function directResourceFixture() {
+  const f = playerResourceFixture()
+  f.tables.fan_connections[0].permissions.schedule = false
+  Object.assign(f.link, { linked_type: 'player', linked_id: id(5), calendar_occurrence_date: null, parent_visible: true })
+  const notice = { id: id(31), connection_id: id(1), resource_id: f.item.id, direct_resource_link_id: f.link.id,
+    direct_push_after: '2026-11-23T07:00:00Z', direct_push_attempts: 1, direct_push_delivered: [] }
+  f.tables.fan_notifications.push(notice)
+  const rpc = f.client.rpc
+  f.client.rpc = name => name === 'claim_direct_player_resource_pushes'
+    ? { data: [{ ...notice }], error: null } : rpc(name)
+  return { ...f, notice }
+}
+
+test('direct shares appear in Player notifications without Schedule and disappear when the exact share is removed', async () => {
+  const f = directResourceFixture()
+  const connection = { ...f.tables.fan_connections[0], plan_key: 'team' }
+  const data = { route: 'fans', fanConnectionId: connection.id, type: 'resource_shared' }
+  assert.equal(canViewFanNotifications(connection), true)
+  assert.equal(fanNotificationTarget(connection, data), null)
+  assert.deepEqual(fanNotificationTarget(connection, { ...data, directResourceLinkId: f.link.id }), { action: 'resources' })
+  assert.equal(JSON.parse((await f.call('notifications')).body).notifications.length, 1)
+  f.tables.resource_library_links.push({ ...f.link, id: id(32) })
+  f.link.removed_at = new Date().toISOString()
+  assert.equal(JSON.parse((await f.call('notifications')).body).notifications.length, 0)
+})
+
+test('direct resource push retries only the failed device and never uses another account’s device', async () => {
+  const f = directResourceFixture()
+  const second = 'ExponentPushToken[retry]'
+  f.tables.fan_devices.push({ token: second, auth_user_id: id(2) }, { token: 'ExponentPushToken[other]', auth_user_id: id(99) })
+  const sent = []
+  const args = { client: f.client, featureCheck: async () => () => true, sendMessages: async ([message]) => {
+    sent.push(message)
+    return message.to === second && f.notice.direct_push_attempts === 1 ? { sent: 0, failed: 1 } : { sent: 1, failed: 0 }
+  } }
+  assert.deepEqual(await processDirectPlayerResourcePushes(args), { claimed: 1, sent: 1, failed: 1 })
+  assert.equal(f.notice.direct_push_delivered.length, 1)
+  assert.equal(f.notice.push_sent_at, undefined)
+  f.notice.direct_push_attempts += 1
+  assert.deepEqual(await processDirectPlayerResourcePushes(args), { claimed: 1, sent: 1, failed: 0 })
+  assert.deepEqual(sent.map(message => message.to), [f.tables.fan_devices[0].token, second, second])
+  assert.ok(f.notice.push_sent_at)
+  assert.equal(f.notice.direct_push_after, null)
+  assert.equal(sent[0].data.directResourceLinkId, f.link.id)
+  assert.ok(!JSON.stringify(sent).includes(f.item.title))
+})
+
+test('direct resource push rechecks the visible player share after discovering devices', async () => {
+  const f = directResourceFixture()
+  const original = f.client.from
+  f.client.from = table => {
+    if (table === 'fan_devices') f.link.parent_visible = false
+    return original(table)
+  }
+  const result = await processDirectPlayerResourcePushes({ client: f.client, featureCheck: async () => () => true,
+    sendMessages: async () => { throw new Error('Must not send after removal') } })
+  assert.deepEqual(result, { claimed: 1, sent: 0, failed: 0 })
+  assert.equal(f.notice.direct_push_after, null)
+})
+
+test('direct resource delivery suppresses a token transferred to another account after device lookup', async t => {
+  const f = directResourceFixture()
+  const token = f.tables.fan_devices[0].token
+  f.tables.parent_mobile_push_installations = [
+    { auth_user_id: id(2), expo_push_token: token, enabled: true, status: 'active', detail_level: 'minimal' },
+  ]
+  const original = f.client.from
+  f.client.from = table => {
+    if (table === 'parent_mobile_push_installations') f.tables.fan_devices[0].auth_user_id = id(99)
+    return original(table)
+  }
+  const provider = t.mock.method(globalThis, 'fetch', async () => {
+    throw new Error('Transferred device must not reach the push provider')
+  })
+  const result = await processDirectPlayerResourcePushes({ client: f.client, featureCheck: async () => () => true })
+  assert.deepEqual(result, { claimed: 1, sent: 0, failed: 0 })
+  assert.equal(provider.mock.callCount(), 0)
+  assert.equal(f.notice.direct_push_after, null)
+})
+
+test('direct Player resource pushes use the account’s resource preference', async t => {
+  const delivered = []
+  t.mock.method(globalThis, 'fetch', async (_url, request) => {
+    delivered.push(...JSON.parse(request.body))
+    return Response.json({ data: [{ status: 'ok' }] })
+  })
+  for (const enabled of [false, true]) {
+    const f = directResourceFixture()
+    f.tables.mobile_notification_preferences = [{ auth_user_id: id(2), app: 'parent', resources: enabled }]
+    const result = await processDirectPlayerResourcePushes({ client: f.client, featureCheck: async () => () => true })
+    assert.deepEqual(result, { claimed: 1, sent: Number(enabled), failed: 0 })
+  }
+  assert.equal(delivered.length, 1)
+  assert.equal(delivered[0].data.type, 'resource_shared')
+  assert.ok(!JSON.stringify(delivered).includes(id(2)))
 })
 
 test('player attachment delivery rechecks revocation, removal and plan before dispatch', async () => {
