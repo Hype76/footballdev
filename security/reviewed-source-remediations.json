@@ -733,11 +733,11 @@
     },
     {
       "scope": "apps/parent-mobile",
-      "normalisedUtf8Sha256": "0bd51a5079250746323cea94f936fdfb1bda1f06e7cbaa50558094a4c2f26382"
+      "normalisedUtf8Sha256": "a8aa8808287aaab2f876f6348267965d2c57b28c8abb1a9bb37bedcbbe258c32"
     },
     {
       "scope": "apps/coach-mobile",
-      "normalisedUtf8Sha256": "f63949f42fc28367722ce7d873347c1b5f9292c8f0b2484793e43c797dbf0a32"
+      "normalisedUtf8Sha256": "e1e29c1d4e21cfc4f5b54c114f770fc14c345a1a0a0276b8b1c425aee3121bd7"
     }
   ],
   "patches": [
