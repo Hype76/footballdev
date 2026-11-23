@@ -688,6 +688,10 @@ try {
   for (const revoked of ['resources','development','schedule','relationship_type','status','is_owner','connection']) {
     await page.evaluate(()=>{
       window.rows=[{id:'training-player',is_owner:false,status:'active',relationship_type:'player',player_name:'FP TEST Player',club_name:'Demo FC',team_name:'Under 14',plan_key:'club',plan_status:'active',permissions:{schedule:true,game_day:false,development:true,resources:true}}]
+      window.responses.notifications={notifications:[
+        {id:'training-resource-notice',title:'FP TEST Training resource shared',body:'Open your shared training card.'},
+        {id:'direct-resource-notice',direct_resource_link_id:'direct-player-share',title:'FP TEST Direct resource shared',body:'A new resource is ready to view.'},
+      ]}
       window.remount()
     })
     await button('View notifications').click()
@@ -700,12 +704,19 @@ try {
       else if (revoked==='status') connection.status='revoked'
       else if (revoked==='is_owner') connection.is_owner=true
       window.rows=revoked==='connection'?[]:[connection]
+      if (revoked==='schedule') window.responses.notifications.notifications=window.responses.notifications.notifications.filter(item=>item.direct_resource_link_id)
     },revoked)
     await page.clock.fastForward(30_001)
     await page.waitForFunction(before=>window.calls.filter(call=>call.name==='list_fan_connections').length>before,beforeRefresh)
     await page.getByRole('heading',{name:'Notifications',exact:true}).waitFor({state:'hidden'})
     assert.equal(await page.getByText('FP TEST Training resource shared',{exact:true}).count(),0,`${revoked} revocation clears the live resource-only inbox without remount or background navigation`)
-    assert.equal(await button('View notifications').count(),0,`${revoked} revocation removes the inbox action`)
+    if (revoked==='schedule') {
+      await button('View notifications').click()
+      await page.getByText('FP TEST Direct resource shared',{exact:true}).waitFor()
+      assert.equal(await page.getByText('FP TEST Training resource shared',{exact:true}).count(),0,'Schedule revocation removes Calendar notices and keeps direct shares available')
+    } else {
+      assert.equal(await button('View notifications').count(),0,`${revoked} revocation removes the inbox action`)
+    }
   }
   await page.evaluate(()=>{
     window.rows=[{id:'ordinary-fan',is_owner:false,status:'active',relationship_type:'fan',player_name:'FP TEST Fan player',club_name:'Demo FC',team_name:'Under 14',plan_key:'club',plan_status:'active',permissions:{schedule:true,game_day:true,development:true,resources:true}}]
@@ -726,7 +737,7 @@ try {
   await page.getByText('FP TEST Thursday training',{exact:true}).waitFor()
   assert.equal(await button('Open FP TEST Training card').count(),0,'Current resource revocation hides cached Calendar attachments')
   console.log('PASS: player training resource opens from Calendar and Resources using the resource ID; Calendar formation viewer and return work; current permission revocation hides attachments.')
-  console.log('PASS: resource-only Player inbox remains open across live refresh; resource, development, schedule, relationship, status, ownership and connection revocations clear it; ordinary Fan Game Day revocation still closes the inbox.')
+  console.log('PASS: resource-only Player inbox survives live refresh. Schedule revocation clears Calendar notices and preserves direct access. Other permission and connection revocations still remove inbox access.')
   assert.deepEqual(errors, [])
   console.log('PASS: Fans and Players can choose System, Light or Dark; live device following, explicit overrides, reload persistence, save retry, contrast and 320px touch targets.')
   console.log('PASS: native Fans child/header sync, persisted selection, invitation renewal, confirmed cancelled/expired deletion, Player-to-Fan conversion, retry after failure, normal child navigation.')

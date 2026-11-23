@@ -771,7 +771,7 @@
   "implementationHashes": {
     "scripts/security-supply-chain-gate.mjs": "9ef3c2fa9949a270eba3b8d7eefc2f9e303e8fbb2fda3921b2e6e42280e733fc",
     "scripts/security-apply-reviewed-backports.mjs": "ecd054578172a4fc6d09720258d2aed1c4a48edd97d6e3b0daa4f635f27f5fcd",
-    "scripts/security-verify-reviewed-backports.mjs": "ed6e858deea146ec57a89a020214410c6fc2afc23b2580484294f9277e5bb320",
+    "scripts/security-verify-reviewed-backports.mjs": "f0219e0458574398929fbafcf4bddf463994413751141fb136dbc39d997d6e58",
     "security/patches/braces-3.0.3.patch": "e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699",
     "security/patches/node-forge-1.4.0.patch": "2de065ac998bf58917a14d0935112d97ec2957ac41b5f06958d500934f188ed4",
     "security/patches/reviewed-source-manifest.json": "0507b50c4ce7a772508ed3a0d18290548bb1fd48802db4599a5ec8e47e2eed49",
@@ -1978,7 +1978,7 @@
       "tests/event-response-read-model-06a.test.mjs": "72a657e0074e4653dd0cd0c0b0548ccea8cf50ba106758235233ca04638c4db8",
       "tests/fan-app-content-browser.mjs": "373414a45f0721020af2d6b6857a52cb7e0efb814f82993d3e542941c6609e6a",
       "tests/fans-endpoint.test.mjs": "095fc0a0bf3e65ab9f1421586487d5695d63e62f148cfe0f6f14eae1611b4315",
-      "tests/fans-mobile-browser.mjs": "b495fcad159b49f4097da04933a7f78909db34a116663c87771ebc855dc997aa",
+      "tests/fans-mobile-browser.mjs": "1114e2ea65657b3cb7906edd415658e571e9124fe1b5d4c1fc64e8141a55fa55",
       "tests/feedback-forms-polish-browser.mjs": "34e1935b78f60a84defcb3f23cd34a3907c79779852328f3b893bfe500e45b19",
       "tests/first-250-branding-pglite.test.mjs": "dbda750dae01e9a1a65989696609b0154ee85b71ba0ebb5bf1bbcc4f3d1ad2ff",
       "tests/first-250-branding-postgres.mjs": "7f52a617c3cba72b62e265354409bba0719408dcf901210174e33234389b61f0",
@@ -4215,7 +4215,7 @@
     },
     "toolingRequalification20261117": "Qualify official minimatch 11.0.9 JavaScript tooling across all three scopes. Lock changes are limited to minimatch; direct and native dependencies, Expo runtime, reviewed package patches and audit rules are retained."
   },
-  "releasePreparationSha256": "f3257cc783e9b372496fbd27f59978ef2aa2b9fc194a58b6778a0661e7ac82cb",
+  "releasePreparationSha256": "88ecc2513737d7a681f301678b7d19390e4e0087226fdc0dd2e07c0600347774",
   "rootOnlyProposalSha256": "45c3b7352c7328c84982e114b7e87e09cf79514d02d102297ae75ec0925812eb",
   "remediationMode": "maintained-source-fixes",
   "officialCompatibilityDependencies": [
