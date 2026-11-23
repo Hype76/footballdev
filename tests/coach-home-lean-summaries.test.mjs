@@ -27,10 +27,14 @@ function matches(row,filter) {
   assert.ok(field,filter)
   return operator==='is' ? value==='null' && row[field]==null : operator==='gt' ? row[field]!=null && row[field]>value : row[field]===value
 }
-function harness({staff=[],rooms=[],parents=[],polls=[],error=null,metadataError=null}={}) {
+function harness({staff=[],rooms=[],parents=[],polls=[],error=null,metadataError=null,parentWait}={}) {
   const calls=[]
   const supabase={
-    async rpc(name,args){calls.push({rpc:name,args});return {data:name==='get_staff_chat_unread_summary'?staff:parents,error}},
+    async rpc(name,args){
+      calls.push({rpc:name,args})
+      if (name==='get_parent_chat_rooms' && parentWait) await parentWait
+      return {data:name==='get_staff_chat_unread_summary'?staff:parents,error}
+    },
     from(table){const call={table,filters:[]};calls.push(call);return {
       select(fields){call.fields=fields;return this},eq(field,value){call.filters.push(row=>row[field]===value);return this},
       in(field,values){call.filters.push(row=>values.includes(row[field]));return this},
@@ -80,6 +84,24 @@ test('empty and denied Home Chat preserve canonical errors without a metadata re
   assert.deepEqual(await stale.getCoachHomeChatSummary(user),{staff:[],parent:[]},'A current metadata/RLS read removing the room also removes its count')
   const denied={code:'42501',message:'Revoked between reads'}
   await assert.rejects(harness({staff:[{id:'room',unread_count:8}],metadataError:denied}).getCoachHomeChatSummary(user),value=>value===denied)
+})
+
+test('Home Chat starts the staff permission read while Parent rooms are still loading', async () => {
+  let releaseParent
+  const parentWait = new Promise(resolve => { releaseParent = resolve })
+  const h = harness({
+    parentWait,
+    staff: [{ id: 'staff-room', unread_count: 2 }],
+    rooms: [{ id: 'staff-room', club_id: 'club', team_id: 'team', type: 'team_staff' }],
+  })
+  const summary = h.getCoachHomeChatSummary(user)
+  try {
+    await new Promise(resolve => setImmediate(resolve))
+    assert.ok(h.calls.some(call => call.table === 'staff_chat_conversations'))
+  } finally {
+    releaseParent()
+  }
+  assert.deepEqual((await summary).staff.map(room => room.id), ['staff-room'])
 })
 
 test('Home Polls count only current readable open polls without historical payloads, nested votes or truncation',async()=>{

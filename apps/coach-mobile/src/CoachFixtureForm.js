@@ -20,6 +20,7 @@ import {
   updateCoachFixtureKickoff,
 } from '../../mobile-core/src/coachFixtureCore.js'
 import { addCoachFixtureParents, archiveCoachMatchLocation, cancelCoachMatchDayFixture, createCoachMatchDayFixture, getCoachFixtureInvitedPlayerIds, getCoachMatchLocations, updateCoachMatchDayFixture } from '../../mobile-core/src/coachMatchDayData.js'
+import { withMobileAsyncTimeout } from '../../mobile-core/src/http'
 import { commitCoachCalendarChangeNotification, prepareCoachMatchCancellationNotification, prepareCoachMatchChangeNotification } from '../../mobile-core/src/coachCalendarData.js'
 import { CoachDateTimeField } from './CoachDateTimeField'
 import { readCoachFixturePreferences, writeCoachFixturePreferences } from './coachFixturePreferences'
@@ -54,6 +55,7 @@ function Toggle({ label, onValueChange, styles, value }) {
 export function CoachFixtureForm({ changesBlocked = false, defaultMatchDate = '', match = null, matches, onCancel, onCancelled, onCreated, onRequestScrollTo, onUpdated, players, styles, user }) {
   const [locations, setLocations] = useState([])
   const [form, setForm] = useState(null)
+  const [opponentDraft, setOpponentDraft] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [showCancellation, setShowCancellation] = useState(false)
@@ -78,6 +80,7 @@ export function CoachFixtureForm({ changesBlocked = false, defaultMatchDate = ''
   const locationSectionY = useRef(0)
   const isEditing = Boolean(match?.id)
   const isConcluded = Boolean(match?.concludedAt)
+  const formReady = Boolean(form)
   const eligiblePlayers = useMemo(() => players.filter((player) => canPlayerJoinFixture(player, form?.fixtureType || match?.fixtureType)), [form?.fixtureType, match?.fixtureType, players])
 
   useEffect(() => {
@@ -96,7 +99,7 @@ export function CoachFixtureForm({ changesBlocked = false, defaultMatchDate = ''
   }, [isConcluded, isEditing, match, user])
 
   const addParents = async () => {
-    if (busy || !parentInviteReady || !newParentPlayerIds.length) return
+    if (busy || !saveScope.current?.writable || !parentInviteReady || !newParentPlayerIds.length) return
     setBusy(true)
     setError('')
     try {
@@ -126,7 +129,7 @@ export function CoachFixtureForm({ changesBlocked = false, defaultMatchDate = ''
   }, [user, match, isConcluded, isEditing])
 
   async function changeCarpool(enabled) {
-    if (carpoolSaving || !carpoolReady) return
+    if (carpoolSaving || !saveScope.current?.writable || !carpoolReady) return
     setCarpoolSaving(true)
     setError('')
     try { setCarpoolEnabled(await setCoachCarpoolDefault(user, enabled)) }
@@ -143,12 +146,14 @@ export function CoachFixtureForm({ changesBlocked = false, defaultMatchDate = ''
 
   useEffect(() => {
     let active = true
-    void Promise.all([
-      readCoachFixturePreferences(user.id, user.activeTeamId),
+    const devicePreferencesRequest = withMobileAsyncTimeout(() => readCoachFixturePreferences(user.id, user.activeTeamId))
+      .catch(() => ({ duration: 90, location: null }))
+    void withMobileAsyncTimeout(() => Promise.all([
+      devicePreferencesRequest,
       getCoachTeamNotificationDisplayName(user),
       getCoachMatchLocations(user, matches),
       getCoachOwnTeamFixturePreferences(user),
-    ])
+    ]))
       .then(([devicePreferences, notificationTeamName, savedLocations, sharedPreferences]) => {
         if (!active) return
         setLocations(savedLocations)
@@ -168,14 +173,13 @@ export function CoachFixtureForm({ changesBlocked = false, defaultMatchDate = ''
           defaultDuration: preferences.duration,
           defaultLocation: savedLocation,
           defaultMotmPollExpiryDuration: preferences.motmPollExpiryDuration,
-          defaultPlayerIds: eligiblePlayers.map((player) => player.id),
           match,
           notificationTeamName,
         }))
       })
       .catch(async () => {
         if (!active) return
-        const preferences = await readCoachFixturePreferences(user.id, user.activeTeamId).catch(() => ({ duration: 90, location: null }))
+        const preferences = await devicePreferencesRequest
         if (!active) return
         const savedLocation = preferences.location?.name ? preferences.location : null
         setForm((current) => initializeCoachFixtureForm(current, {
@@ -185,21 +189,28 @@ export function CoachFixtureForm({ changesBlocked = false, defaultMatchDate = ''
           defaultDuration: preferences.duration,
           defaultLocation: savedLocation,
           defaultMotmPollExpiryDuration: preferences.motmPollExpiryDuration,
-          defaultPlayerIds: eligiblePlayers.map((player) => player.id),
           match,
           notificationTeamName: deriveTeamNotificationDisplayName(user.activeTeamName || ''),
         }))
       })
     return () => { active = false }
-  }, [defaultMatchDate, eligiblePlayers, match, matches, user, user.activeTeamId, user.id])
+  }, [defaultMatchDate, match, matches, user])
 
   useEffect(() => {
-    if (isEditing || selectionTouched.current || eligiblePlayers.length === 0) return
-    setForm((current) => current?.parentVisible && current.selectedPlayerIds.length === 0
-      ? { ...current, selectedPlayerIds: eligiblePlayers.map((player) => player.id) } : current)
-  }, [eligiblePlayers, isEditing])
+    if (!formReady || isEditing || selectionTouched.current) return
+    const selectedPlayerIds = eligiblePlayers.map(player => player.id)
+    setForm(current => {
+      if (!current?.parentVisible || (current.selectedPlayerIds.length === selectedPlayerIds.length
+        && current.selectedPlayerIds.every((id, index) => id === selectedPlayerIds[index]))) return current
+      return { ...current, selectedPlayerIds }
+    })
+  }, [eligiblePlayers, formReady, isEditing])
 
-  if (!form) return <View style={styles.card}><Text style={styles.body}>Preparing fixture setup...</Text></View>
+  const newFixtureFields = isEditing ? null : <View style={styles.stack}>
+    <Text accessibilityRole="header" style={styles.cardTitle}>Create match</Text>
+    <Field label="Opponent" onChangeText={setOpponentDraft} styles={styles} value={opponentDraft} />
+  </View>
+  if (!form) return <View style={styles.stack}>{newFixtureFields}<Text accessibilityLiveRegion="polite" style={styles.body}>Preparing fixture setup...</Text><Button label="Back" onPress={onCancel} secondary styles={styles} /></View>
 
   const save = async ({ calendarTarget = '', notifyEveryone = false } = {}) => {
     const scope = saveScope.current
@@ -234,8 +245,9 @@ export function CoachFixtureForm({ changesBlocked = false, defaultMatchDate = ''
     const calendarPlayerIds = eligiblePlayers.map((player) => player.id)
     const submittedForm = {
       ...form,
+      opponent: isEditing ? form.opponent : opponentDraft,
       ...(carpoolReady ? { carpoolEnabled } : {}),
-      selectedPlayerIds: calendarTarget === 'squad'
+      selectedPlayerIds: calendarTarget === 'squad' || (!isEditing && form.parentVisible && !selectionTouched.current)
         ? calendarPlayerIds
         : form.selectedPlayerIds.filter((id) => eligiblePlayers.some((player) => player.id === id)),
     }
@@ -318,7 +330,7 @@ export function CoachFixtureForm({ changesBlocked = false, defaultMatchDate = ''
   }
 
   const cancelFixture = async (notifyEveryone) => {
-    if (busy || carpoolSaving || !isEditing) return
+    if (busy || carpoolSaving || !saveScope.current?.writable || !isEditing) return
     setBusy(true)
     setError('')
     try {
@@ -359,6 +371,7 @@ export function CoachFixtureForm({ changesBlocked = false, defaultMatchDate = ''
     if (location) setForm({ ...form, venueAddress: location.address, venueName: location.name })
   }
   const deleteLocation = async () => {
+    if (busy || !saveScope.current?.writable) return
     const location = locations.find((item) => item.id === locationValue)
     if (!location) return
     setBusy(true)
@@ -392,16 +405,17 @@ export function CoachFixtureForm({ changesBlocked = false, defaultMatchDate = ''
 
   return (
     <View style={styles.stack}>
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>{isEditing ? 'Edit fixture' : 'Create match'}</Text>
-        <Text style={styles.body}>{isConcluded ? 'Correct the details for this concluded match.' : isEditing ? 'Update the fixture details before the match starts.' : 'Create the full Match Day fixture first. Squad and live controls remain available after it is saved.'}</Text>
-      </View>
+      {newFixtureFields}
+      {isEditing ? <View style={styles.card}>
+        <Text style={styles.cardTitle}>Edit fixture</Text>
+        <Text style={styles.body}>{isConcluded ? 'Correct the details for this concluded match.' : 'Update the fixture details before the match starts.'}</Text>
+      </View> : null}
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Fixture</Text>
         <Field label="Your Team notification name" onChangeText={(value) => setForm({ ...form, notificationTeamName: value })} placeholder="Example: U14 JPL" styles={styles} value={form.notificationTeamName} />
         <Text style={styles.meta}>This is Your Team, not the opponent. It is used in notifications only. The official Team name does not change.</Text>
         {!isConcluded ? <Toggle label="Remember this name for Your Team" onValueChange={(value) => setForm({ ...form, rememberNotificationTeamName: value })} styles={styles} value={form.rememberNotificationTeamName} /> : null}
-        <Field label="Opponent" onChangeText={(value) => setForm({ ...form, opponent: value })} styles={styles} value={form.opponent} />
+        {isEditing ? <Field label="Opponent" onChangeText={(value) => setForm({ ...form, opponent: value })} styles={styles} value={form.opponent} /> : null}
         <Text style={styles.fieldLabel}>Fixture type</Text>
         <Chips onChange={(value) => setForm({ ...form, fixtureType: value, selectedPlayerIds: form.selectedPlayerIds.filter((id) => players.some((player) => player.id === id && canPlayerJoinFixture(player, value))) })} options={MATCH_DAY_FIXTURE_TYPE_OPTIONS} styles={styles} value={form.fixtureType} />
         {!isConcluded ? <><Text style={styles.fieldLabel}>How this match can finish</Text>
@@ -429,7 +443,7 @@ export function CoachFixtureForm({ changesBlocked = false, defaultMatchDate = ''
         <Text style={styles.fieldLabel}>Pitch type</Text>
         <Chips onChange={(value) => setForm({ ...form, pitchType: value })} options={COACH_PITCH_TYPE_OPTIONS} styles={styles} value={form.pitchType} />
         {locations.length ? <><Text style={styles.fieldLabel}>Saved locations</Text><Chips onChange={selectLocation} options={locations.map((location) => ({ label: location.label, value: location.id }))} styles={styles} value={locationValue} /></> : null}
-        {locationValue ? <Button disabled={busy} label="Delete saved address" onPress={confirmDeleteLocation} secondary styles={styles} /> : null}
+        {locationValue ? <Button disabled={busy || readOnly} label="Delete saved address" onPress={confirmDeleteLocation} secondary styles={styles} /> : null}
         <Field label="Venue" onChangeText={(value) => setForm({ ...form, venueName: value })} styles={styles} value={form.venueName} />
         <Field label="Address" onChangeText={(value) => setForm({ ...form, venueAddress: value })} styles={styles} value={form.venueAddress} />
         <Text style={styles.meta}>Saved venues are offered first, and both fields remain editable.</Text>
@@ -452,12 +466,12 @@ export function CoachFixtureForm({ changesBlocked = false, defaultMatchDate = ''
           </Pressable>
         })}
         {parentInviteReady && eligiblePlayers.every(player => invitedPlayerIds.includes(player.id)) ? <Text style={styles.meta}>All eligible players are already invited.</Text> : null}
-        <Button disabled={busy || !parentInviteReady || !newParentPlayerIds.length} label={`Add selected players and notify parents (${newParentPlayerIds.length})`} onPress={() => void addParents()} styles={styles} />
+        <Button disabled={busy || readOnly || !parentInviteReady || !newParentPlayerIds.length} label={`Add selected players and notify parents (${newParentPlayerIds.length})`} onPress={() => void addParents()} styles={styles} />
       </View> : null}
 
       {!isEditing ? <View style={styles.card}>
         <Text style={styles.cardTitle}>Optional match requests</Text>
-        <View style={styles.row}><Text style={styles.fieldLabel}>Car pool</Text><Switch accessibilityLabel="Car pool" disabled={!carpoolReady || carpoolSaving} value={carpoolEnabled} onValueChange={changeCarpool} /></View>
+        <View style={styles.row}><Text style={styles.fieldLabel}>Car pool</Text><Switch accessibilityLabel="Car pool" disabled={readOnly || !carpoolReady || carpoolSaving} value={carpoolEnabled} onValueChange={changeCarpool} /></View>
         <Text style={styles.meta}>{carpoolSaving ? 'Saving team preference...' : carpoolLoadError ? 'Team default will be used when this match is saved. Car pool cannot be changed here.' : 'Saved for this team. New matches use this setting until you change it again.'}</Text>
         <Toggle label="Request scorer" onValueChange={(value) => setForm({ ...form, requestScorer: value })} styles={styles} value={form.requestScorer} />
         <Toggle label="Request linesman" onValueChange={(value) => setForm({ ...form, requestLinesman: value })} styles={styles} value={form.requestLinesman} />
@@ -466,15 +480,15 @@ export function CoachFixtureForm({ changesBlocked = false, defaultMatchDate = ''
         {form.enableMotmPoll ? <><Field autoCapitalize="none" label="Poll expiry (DD:HH:MM)" onChangeText={(value) => setForm({ ...form, motmPollExpiryDuration: value })} placeholder="00:02:00" styles={styles} value={form.motmPollExpiryDuration} /><Text style={styles.meta}>Days, hours, minutes. Minimum: 00:00:02. Example: 02:06:30.</Text><Toggle label="Save this vote expiry as my default" onValueChange={(value) => setForm({ ...form, saveMotmExpiryAsDefault: value })} styles={styles} value={form.saveMotmExpiryAsDefault} /><Toggle label="Send vote results" onValueChange={(value) => setForm({ ...form, motmNotifyResultsOnClose: value })} styles={styles} value={form.motmNotifyResultsOnClose} /><Text style={styles.meta}>Eligible parents are notified when the vote closes, expires, or everyone has replied.</Text></> : null}
         <Field label="Match notes" multiline onChangeText={(value) => setForm({ ...form, notes: value })} styles={styles} value={form.notes} />
       </View> : <View style={styles.card}><Field label="Match notes" multiline onChangeText={(value) => setForm({ ...form, notes: value })} styles={styles} value={form.notes} /><Text style={styles.meta}>Editing fixture details does not send a new availability request.</Text></View>}
-      {isEditing && !isConcluded ? <View style={styles.card}><View style={styles.row}><Text style={styles.fieldLabel}>Car pool</Text><Switch accessibilityLabel="Car pool" disabled={!carpoolReady || carpoolSaving} value={carpoolEnabled} onValueChange={changeCarpool} /></View><Text style={styles.meta}>{carpoolLoadError || 'Saved as the team default for future matches. Save fixture changes to apply it to this match.'}</Text></View> : null}
+      {isEditing && !isConcluded ? <View style={styles.card}><View style={styles.row}><Text style={styles.fieldLabel}>Car pool</Text><Switch accessibilityLabel="Car pool" disabled={readOnly || !carpoolReady || carpoolSaving} value={carpoolEnabled} onValueChange={changeCarpool} /></View><Text style={styles.meta}>{carpoolLoadError || 'Saved as the team default for future matches. Save fixture changes to apply it to this match.'}</Text></View> : null}
       {error ? <View accessibilityRole="alert" style={styles.warning}><Text style={styles.dangerText}>{error}</Text></View> : null}
       <Button disabled={busy || carpoolSaving || readOnly} label={busy ? (isEditing ? 'Saving fixture...' : 'Creating fixture...') : (isEditing ? 'Save fixture changes' : 'Create fixture and request availability')} onPress={() => void save()} styles={styles} />
       {isEditing && !isConcluded ? <Button disabled={busy || carpoolSaving || readOnly} label="Notify everyone and save" onPress={() => void save({ notifyEveryone: true })} secondary styles={styles} /> : null}
-      {!isEditing ? <Button disabled={busy || carpoolSaving} label="Add to Coach calendars" onPress={() => save({ calendarTarget: 'coach' })} secondary styles={styles} /> : null}
-      {!isEditing ? <Button disabled={busy || carpoolSaving || !hasEligiblePlayers} label="Add to player calendars" onPress={() => save({ calendarTarget: 'squad' })} secondary styles={styles} /> : null}
+      {!isEditing ? <Button disabled={busy || carpoolSaving || readOnly} label="Add to Coach calendars" onPress={() => save({ calendarTarget: 'coach' })} secondary styles={styles} /> : null}
+      {!isEditing ? <Button disabled={busy || carpoolSaving || readOnly || !hasEligiblePlayers} label="Add to player calendars" onPress={() => save({ calendarTarget: 'squad' })} secondary styles={styles} /> : null}
       <Button disabled={busy} label={isEditing ? 'Back without saving' : 'Cancel'} onPress={onCancel} secondary styles={styles} />
       {isEditing && !isConcluded && showCancellation ? <Field label="Cancellation reason (optional)" multiline onChangeText={setCancellationReason} styles={styles} value={cancellationReason} /> : null}
-      {isEditing && !isConcluded ? <Pressable accessibilityRole="button" accessibilityLabel="Cancel fixture" accessibilityState={{ disabled: busy || carpoolSaving }} disabled={busy || carpoolSaving} onPress={() => showCancellation ? confirmCancelFixture() : setShowCancellation(true)} style={({ pressed }) => [styles.compactAction, (busy || carpoolSaving) && styles.actionDisabled, pressed && { opacity: 0.74 }]}><Text style={styles.dangerText}>Cancel fixture</Text></Pressable> : null}
+      {isEditing && !isConcluded ? <Pressable accessibilityRole="button" accessibilityLabel="Cancel fixture" accessibilityState={{ disabled: busy || carpoolSaving || readOnly }} disabled={busy || carpoolSaving || readOnly} onPress={() => showCancellation ? confirmCancelFixture() : setShowCancellation(true)} style={({ pressed }) => [styles.compactAction, (busy || carpoolSaving || readOnly) && styles.actionDisabled, pressed && { opacity: 0.74 }]}><Text style={styles.dangerText}>Cancel fixture</Text></Pressable> : null}
     </View>
   )
 }

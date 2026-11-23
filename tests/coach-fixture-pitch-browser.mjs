@@ -48,7 +48,10 @@ const mocks = [
     };
     export const cancelCoachMatchDayFixture=async(user,match)=>({...match,status:'cancelled'});
   `],
-  [/coachFixturePreferences$/, `export const readCoachFixturePreferences=async()=>({duration:90});export const writeCoachFixturePreferences=async()=>{};`],
+  [/coachFixturePreferences$/, `export const readCoachFixturePreferences=async()=>{
+    if(window.holdDefaults) await new Promise(resolve=>{window.releaseDefaults=resolve});
+    return {duration:90};
+  };export const writeCoachFixturePreferences=async()=>{};`],
   [/coachTeamNotificationData$/, `import {resolveTeamNotificationDisplayName} from './src/lib/team-notification-display.js';export const getCoachTeamNotificationDisplayName=async()=>resolveTeamNotificationDisplayName({name:'Tigers'});export const getCoachOwnTeamFixturePreferences=async()=>({found:false});export const saveCoachOwnTeamFixturePreferences=async()=>{};`],
   [/CoachDateTimeField$/, `export const CoachDateTimeField=({label,onChange,value})=><input aria-label={label} value={value} onChange={event=>onChange(event.target.value)}/>;`],
   [/coachFriendlyErrors$/, `export const getCoachFriendlyError=error=>error.message;`],
@@ -68,11 +71,22 @@ try {
   const errors=[]
   page.on('pageerror',error=>errors.push(error.message))
   await page.setContent('<html><head><meta name="viewport" content="width=device-width,initial-scale=1"></head><body><div id="root"></div></body></html>')
+  await page.evaluate(()=>{window.holdDefaults=true})
   await page.addScriptTag({content:bundle.outputFiles[0].text})
+  const earlyOpponent = page.getByLabel('Opponent',{exact:true})
+  await earlyOpponent.fill('FP TEST early draft')
+  assert.ok(await page.getByText('Preparing fixture setup...',{exact:true}).isVisible())
+  assert.equal(await page.getByRole('button',{name:'Create fixture and request availability',exact:true}).count(),0)
+  await page.waitForFunction(()=>Boolean(window.releaseDefaults))
+  await page.evaluate(()=>{window.holdDefaults=false;window.releaseDefaults()})
   await page.getByLabel('Your Team notification name',{exact:true}).waitFor()
+  assert.equal(await earlyOpponent.inputValue(),'FP TEST early draft')
+  assert.equal(await earlyOpponent.evaluate(element=>document.activeElement===element),true)
   assert.equal(await page.getByRole('switch',{name:'Share with parents'}).isChecked(),true)
   await page.evaluate(()=>window.loadPlayers())
   await page.getByRole('button',{name:'Remove Sample Player'}).waitFor()
+  await page.evaluate(()=>window.addPlayer())
+  await page.getByRole('button',{name:'Remove Second Player'}).waitFor()
   assert.equal(await page.getByLabel('Your Team notification name',{exact:true}).inputValue(), 'Tigers')
   const typeField = async (label, text) => {
     const field = page.getByLabel(label,{exact:true})
@@ -98,13 +112,14 @@ try {
   await page.getByRole('button',{name:'3G',exact:true}).click()
   await page.getByRole('button',{name:'Create fixture and request availability',exact:true}).click()
   await page.waitForFunction(()=>window.saved?.pitchType==='3g').catch(async error=>{throw new Error(`${error.message}; page errors: ${errors.join(' | ')}; screen: ${(await page.locator('body').innerText()).slice(-1500)}`)})
-  assert.deepEqual(await page.evaluate(()=>window.saved.selectedPlayerIds),['player-1'])
+  assert.deepEqual(await page.evaluate(()=>window.saved.selectedPlayerIds),['player-1','player-2'])
   assert.equal(await page.evaluate(()=>window.saved.notificationTeamName), 'Tigers')
   assert.equal(await page.evaluate(()=>window.saved.opponent),'FP TEST Visitors United')
   assert.equal(await page.evaluate(()=>window.saved.venueAddress),'FP TEST Road')
   assert.equal(await page.evaluate(()=>window.saved.notes),'Bring both kits')
   await page.evaluate(()=>window.newFixture())
   await page.getByRole('button',{name:'Clear',exact:true}).click()
+  await page.evaluate(()=>window.loadPlayers())
   await page.evaluate(()=>window.addPlayer())
   await page.getByRole('button',{name:'Add Second Player'}).waitFor()
   await page.evaluate(()=>window.reopen())

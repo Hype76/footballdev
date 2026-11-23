@@ -25,6 +25,7 @@ test('Home summary reads leave full Chat membership and Poll votes in their sepa
   await cache.read('coach:phase31e:polls', async () => fullPolls)
   const dependencies = {
     isMobileRouteAllowed, buildCoachHomeOperationalSnapshot: value => value,
+    withMobileAsyncTimeout: load => Promise.resolve().then(load),
     readMobileResource: (_user, key, loader, options) => { keys.push(key); return cache.read(key, loader, options) },
     getCoachDevelopmentSummary: async () => ({ drafts: [] }),
     getCoachHomeChatSummary: async () => ({ staff: [{ id: 'room', unreadCount: 1 }], parent: [] }),

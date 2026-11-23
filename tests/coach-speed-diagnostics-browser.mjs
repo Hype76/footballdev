@@ -51,7 +51,7 @@ const result = await build({
     }
     function App() {
       const [visit, setVisit] = useState({ route: 'more', timing: null })
-      useCoachStartupScreen('workspace')
+      useCoachStartupScreen('home')
       const open = (route, startedAt) => { if (route !== visit.route) setVisit({ route, timing: timings.begin(route, startedAt) }) }
       return <View><PrimaryNavigation activeRoute={visit.route} bottomInset={0} navigation={tabs} onNavigate={open} platform="web"/>
         <Screen key={visit.route} {...visit}/>
@@ -104,20 +104,20 @@ try {
     await open('Match Day')
     await page.getByText('Loading tab data', { exact: true }).waitFor()
     await open('More')
-    await section('Tap to screen').getByText('Calendar', { exact: true }).waitFor()
-    const screen = await timing('Tap to screen', 'Calendar')
+    await section('Tap to tab layout').getByText('Calendar', { exact: true }).waitFor()
+    const screen = await timing('Tap to tab layout', 'Calendar')
     const saved = await timing('Tap to first data', 'Calendar')
     const fresh = await timing('Tap to fresh data', 'Calendar')
     assert.ok(milliseconds(fresh) > milliseconds(screen), `Expected delayed fresh data after layout, got ${screen} and ${fresh}`)
     assert.match(saved, /Saved data/)
-    assert.match(await timing('App open to first usable screen', 'Coach workspace'), /^\d+(\.\d+)? (ms|s)$/)
-    assert.match(await timing('Tap to fresh data', 'Match Day'), /Left before ready/)
+    assert.match(await timing('App startup to content', 'Coach Home'), /^\d+(\.\d+)? (ms|s)(?: .*From app code start)?$/)
+    assert.match(await timing('Tap to fresh data', 'Match Day'), /Left before this stage/)
     assert.equal(await section('Tap to fresh data').getByText('More', { exact: true }).count(), 0)
     await page.getByRole('button', { name: 'Run speed check', exact: true }).click()
     await page.getByText('17.70 s · Failed', { exact: true }).waitFor()
     await page.getByRole('button', { name: 'Clear saved results', exact: true }).click()
     await page.getByText('Saved speed results cleared from this phone.', { exact: true }).waitFor()
-    assert.equal(await timing('Tap to screen', 'Calendar'), 'Awaiting sample')
+    assert.equal(await timing('Tap to tab layout', 'Calendar'), 'Awaiting sample')
     assert.deepEqual(errors, [])
     console.log(`PASS ${device} ${browser.browserType().name()}: startup, tap to saved and fresh data, interrupted load, failed request duration and clear.`)
     await page.close()

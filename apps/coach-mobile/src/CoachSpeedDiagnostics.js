@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Pressable, Text, View } from 'react-native'
-import { clearCoachPerformanceSamples, getCoachConnectionLabel, readCoachPerformanceSamples } from './coachPerformanceDiagnostics'
+import { clearCoachPerformanceSamples, readCoachPerformanceSamples } from './coachPerformanceDiagnostics'
 import { COACH_STARTUP_DESTINATIONS, COACH_TIMED_TABS } from './coachPerformanceDiagnosticsCore'
 
 const LABELS = Object.freeze({
@@ -13,7 +13,7 @@ const LABELS = Object.freeze({
   'home.polls': 'Poll summary',
   'home.invites': 'Availability summary',
 })
-const OUTCOMES = Object.freeze({ saved: 'Saved data', left: 'Left before ready', error: 'Failed' })
+const OUTCOMES = Object.freeze({ saved: 'Saved data', left: 'Left before this stage', error: 'Failed' })
 const START_MARKERS = Object.freeze({ bundle: 'From app code start', runtime: 'From runtime start', foreground: 'From foreground activation' })
 
 let speedCheckSequence = 0
@@ -37,7 +37,7 @@ function TimingRows({ title, rows, styles }) {
   </View>
 }
 
-export function CoachSpeedDiagnostics({ reloadHome, styles }) {
+export function CoachSpeedDiagnostics({ connectionOffline, reloadHome, styles }) {
   const [running, setRunning] = useState(false)
   const [notice, setNotice] = useState('')
   const [samples, setSamples] = useState([])
@@ -57,7 +57,7 @@ export function CoachSpeedDiagnostics({ reloadHome, styles }) {
     if (!latestHomeRun) return latest
     return new Map(samples.filter(sample => sample.runId === latestHomeRun).reverse().map(sample => [sample.name, sample]))
   }, [latest, latestHomeRun, samples])
-  const startup = samples.find(sample => sample.name.startsWith('startup.'))
+  const startup = samples.find(sample => sample.name.startsWith('startup.') && sample.name !== 'startup.workspace')
   const tapRows = (stage) => Object.entries(COACH_TIMED_TABS)
     .filter(([route]) => stage === 'screen' || route !== 'more')
     .map(([route, label]) => [label, latest.get(`tab.${route}.${stage}`)])
@@ -83,12 +83,13 @@ export function CoachSpeedDiagnostics({ reloadHome, styles }) {
     setNotice('Saved speed results cleared from this phone.')
   }
   return <View style={{ gap: 10, paddingVertical: 4 }}>
-    <Text style={styles.bodyText}>Fully close and reopen Coach to measure startup. Open the bottom tabs and wait for their main content, then return here. Fresh data timing includes the whole wait from your tap. Results stay on this phone.</Text>
-    <TimingRows title="App open to first usable screen" rows={[[COACH_STARTUP_DESTINATIONS[startup?.name.slice('startup.'.length)] || 'Coach workspace', startup]]} styles={styles} />
-    <TimingRows title="Tap to screen" rows={tapRows('screen')} styles={styles} />
+    <Text style={styles.bodyText}>Fully close and reopen Coach to measure startup. Tab layout can appear before results or actions are ready. On devices without a native launch marker the opening measurement starts when app code begins. Results stay on this phone.</Text>
+    <TimingRows title="App startup to content" rows={[[COACH_STARTUP_DESTINATIONS[startup?.name.slice('startup.'.length)] || 'Coach Home', startup]]} styles={styles} />
+    <TimingRows title="Tap to tab layout" rows={tapRows('screen')} styles={styles} />
     <TimingRows title="Tap to first data" rows={tapRows('first')} styles={styles} />
     <TimingRows title="Tap to fresh data" rows={tapRows('fresh')} styles={styles} />
-    <View style={styles.infoRow}><Text style={styles.infoLabel}>Connection reported</Text><Text style={styles.infoValue}>{getCoachConnectionLabel()}</Text></View>
+    <TimingRows title="Tap to available action" rows={[[ 'Open Create match', latest.get('tab.matchday.create') ]]} styles={styles} />
+    <View style={styles.infoRow}><Text style={styles.infoLabel}>Coach connection</Text><Text style={styles.infoValue}>{connectionOffline ? 'Offline' : 'Online'}</Text></View>
     <Pressable accessibilityRole="button" accessibilityState={{ disabled: running }} disabled={running} onPress={run} style={{ minHeight: 48, justifyContent: 'center', paddingVertical: 10 }}>
       <Text style={styles.bodyText}>{running ? 'Checking speed...' : 'Run speed check'}</Text>
     </Pressable>

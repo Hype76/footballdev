@@ -52,6 +52,7 @@ export function watchCoachConnection({ probe, isActive, onOffline, schedule = se
   let pending
   let stopped = false
   let consecutiveFailures = 0
+  let consecutiveSuccesses = 0
   const timer = schedule(async () => {
     if (stopped || pending || !isActive()) return
     const controller = new AbortController()
@@ -64,7 +65,9 @@ export function watchCoachConnection({ probe, isActive, onOffline, schedule = se
     if (stopped || !isActive()) return
     const failed = controller.signal.aborted || isCoachAuthorityConnectionFailure(failure)
     consecutiveFailures = failed ? consecutiveFailures + 1 : 0
-    if (!failed || consecutiveFailures >= 2) onOffline(failed)
+    consecutiveSuccesses = failed ? 0 : consecutiveSuccesses + 1
+    if (consecutiveFailures >= 2) onOffline(true)
+    else if (consecutiveSuccesses >= 2) onOffline(false)
   }, 15000)
   return () => { stopped = true; cancel(timer); pending?.abort() }
 }

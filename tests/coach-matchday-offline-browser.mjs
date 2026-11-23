@@ -114,7 +114,9 @@ const mocks = [
   [/\/config$/, 'export const getMobileRuntimeConfig=()=>({isProduction:true,isUsable:true});'],
   [/BrandLoader$/, 'export const BrandLoader=()=>null;'],
   [/CoachFormationBoard$/, 'export const CoachFormationBoard=()=>null;'],
-  [/CoachFixtureForm$/, `export const CoachFixtureForm=({match,onCancel,onUpdated})=><div><p>Editing fixture {match.id}</p><button onClick={onCancel}>Cancel fixture edit</button><button onClick={()=>onUpdated({...match,matchDate:'2099-09-20'})}>Save fixture edit</button><button onClick={()=>onUpdated({...match,matchDate:'2099-09-20',notificationNotice:'Notification requested for 2 parent contacts.'})}>Notify and save fixture edit</button></div>;`],
+  [/CoachFixtureForm$/, `export const CoachFixtureForm=({changesBlocked,match,onCancel,onUpdated})=>match
+    ? <div><p>Editing fixture {match.id}</p><button onClick={onCancel}>Cancel fixture edit</button><button onClick={()=>onUpdated({...match,matchDate:'2099-09-20'})}>Save fixture edit</button><button onClick={()=>onUpdated({...match,matchDate:'2099-09-20',notificationNotice:'Notification requested for 2 parent contacts.'})}>Notify and save fixture edit</button></div>
+    : <div><button disabled={changesBlocked}>Save new fixture</button><button onClick={onCancel}>Cancel new fixture</button></div>;`],
   [/CoachGuestScorer$/, 'export const CoachGuestScorer=()=>null;'],
   [/LiveMatchFollowAction(?:\.js)?$/, 'export const LiveMatchFollowAction=()=>null;'],
   [/^expo-keep-awake$/, 'export const isAvailableAsync=async()=>false;export const activateKeepAwakeAsync=async()=>{};export const deactivateKeepAwake=async()=>{};'],
@@ -149,21 +151,24 @@ try {
     await page.waitForFunction(()=>Boolean(window.finishPlayers))
     await page.getByText(/Visitors/).first().waitFor()
     const create=page.getByRole('button',{name:'Create match',exact:true})
-    assert.equal(await create.isDisabled(),true,'Editing must wait for the roster')
+    await create.click()
+    const save=page.getByRole('button',{name:'Save new fixture',exact:true})
+    assert.equal(await save.isDisabled(),true,'Starting a draft must not enable saving before the roster loads')
     await page.evaluate(()=>window.finishPlayers())
-    await page.waitForFunction(()=>!document.querySelector('[aria-label="Create match"]').disabled)
+    await save.click()
+    await page.getByRole('button',{name:'Cancel new fixture',exact:true}).click()
     await page.evaluate(()=>window.delayJournal=true)
     await page.getByText(/Visitors/).first().click()
     await page.waitForFunction(()=>Boolean(window.finishJournal))
     await page.waitForFunction(()=>window.detailStarted===true)
     await page.evaluate(()=>window.finishJournal())
     assert.deepEqual(errors,[])
-    console.log('PASS fixtures appear before roster and detail starts before local storage finishes.')
+    console.log('PASS fixtures and draft creation are available before the roster, and detail starts before local storage finishes.')
   } else if(process.argv.includes('--layout-only')) {
     await page.waitForFunction(()=>Boolean(window.finishList))
     const create=page.getByRole('button',{name:'Create match',exact:true})
     assert.equal(await create.isVisible(),true)
-    assert.equal(await create.isDisabled(),true)
+    assert.equal(await create.isEnabled(),true)
     const filter=page.getByRole('button',{name:'Today and live',exact:true})
     const before=await filter.boundingBox()
     await page.evaluate(()=>window.finishList())
@@ -171,7 +176,7 @@ try {
     assert.equal(await create.isEnabled(),true)
     assert.equal((await filter.boundingBox()).y,before.y,'Refreshing cached fixtures must not move their filters')
     assert.deepEqual(errors,[])
-    console.log('PASS authorised Create match stays in place during cached fixture refresh and remains disabled until authority is current.')
+    console.log('PASS authorised Create match stays available and in place during cached fixture refresh.')
   } else {
   await page.waitForFunction(()=>window.readJournal()?.baseMatch?.id==='fixture')
   if(process.argv.includes('--denial-only')) {
