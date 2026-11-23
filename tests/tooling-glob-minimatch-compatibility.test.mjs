@@ -12,6 +12,17 @@ const normalize = files => files.map(file => file.replaceAll('\\', '/')).sort()
 const baseline = 'a891ce5fea782b6f17052a1cee4c65c271717447'
 const toolingPackages = new Set(['glob', 'minimatch', 'path-scurry', 'test-exclude', '@eslint/config-array', '@eslint/object-schema', '@isaacs/nonrecursive-glob-match', '@isaacs/cliui', 'balanced-match', 'brace-expansion', 'concat-map', 'foreground-child', 'jackspeak', 'package-json-from-dist'])
 const liveMatchPackages = new Set(['expo-task-manager', 'football-player-live-match', 'react-native-widget-extension', 'unimodules-app-loader', '@expo/config-plugins', '@expo/config-types', '@expo/plist', '@expo/require-utils', 'semver', 'xcode', 'argparse', 'sprintf-js'])
+const qualifiedForge = {
+  version: '1.4.4',
+  resolved: 'https://registry.npmjs.org/node-forge/-/node-forge-1.4.4.tgz',
+  integrity: 'sha512-T6VRRpF3+czIGcXW/LOeoD7Ej28d8CF1UMEAbJyJRUtYMvyXAgxUPW2kbUibumvV9LiUQAznJOFyeYclzSJMMg==',
+}
+
+function applyQualifiedForgeLock(lock) {
+  const entry = lock.packages['node_modules/node-forge']
+  assert.equal(entry.version, '1.4.3')
+  Object.assign(entry, qualifiedForge)
+}
 
 // The mandatory production audit is now the fourth verified audit in this exact command.
 // Its fixed configuration and failure cases are exercised by security-reviewed-backports.test.mjs.
@@ -121,7 +132,7 @@ test('official tooling updates preserve unrelated dependencies and the exact app
     const { overrides: oldOverrides, ...oldPackage } = before
     const { overrides, ...newPackage } = current
     assert.deepEqual(newPackage, oldPackage, `${scope} direct dependencies and scripts match the exact mobile feature additions`)
-    assert.deepEqual(overrides, { ...oldOverrides, minimatch: '11.0.9', 'glob@>=9.0.0 <=14.0.1': '14.0.6', ...(scope === '.' ? { '@eslint/config-array': '0.23.5' } : { 'test-exclude': '8.0.0', 'node-forge': '1.4.4' }) })
+    assert.deepEqual(overrides, { ...oldOverrides, minimatch: '11.0.9', 'glob@>=9.0.0 <=14.0.1': '14.0.6', ...(scope === '.' ? { '@eslint/config-array': '0.23.5' } : { 'test-exclude': '8.0.0', 'node-forge': qualifiedForge.version }) })
     const oldLock = previousLock.packages
     const newLock = JSON.parse(fs.readFileSync(`${prefix}package-lock.json`)).packages
     for (const file of new Set([...Object.keys(oldLock), ...Object.keys(newLock)])) {
@@ -131,8 +142,8 @@ test('official tooling updates preserve unrelated dependencies and the exact app
       const name = file.split('node_modules/').at(-1)
       assert.ok(toolingPackages.has(name) || liveMatchPackages.has(name) || scope !== '.' && name === 'node-forge' || file === '../mobile-core/modules/live-match', `Unexpected package artifact change: ${scope}/${file}`)
       if (name === 'node-forge') {
-        assert.equal(next.version, '1.4.4')
-        assert.equal(next.integrity, 'sha512-T6VRRpF3+czIGcXW/LOeoD7Ej28d8CF1UMEAbJyJRUtYMvyXAgxUPW2kbUibumvV9LiUQAznJOFyeYclzSJMMg==')
+        assert.equal(next.version, qualifiedForge.version)
+        assert.equal(next.integrity, qualifiedForge.integrity)
       }
       for (const entry of [old, next].filter(Boolean)) {
         assert.notEqual(entry.hasInstallScript, true, `${name} cannot add native installation scripts`)
@@ -154,6 +165,11 @@ test('the current glob and minimatch update changes only reviewed tooling packag
     const oldLock = JSON.parse(execFileSync('git', ['show', `${candidate}:${prefix}package-lock.json`], { encoding: 'utf8', maxBuffer: 8 * 1024 * 1024 }))
     if (scope === '.') applyApprovedXmlParserDelta(oldPackage, oldLock)
     if (scope === 'apps/coach-mobile') applyApprovedCoachFileTools(oldPackage, oldLock)
+    if (scope !== '.') {
+      assert.equal(oldPackage.overrides['node-forge'], '1.4.3')
+      oldPackage.overrides['node-forge'] = qualifiedForge.version
+      applyQualifiedForgeLock(oldLock)
+    }
     oldPackage.overrides.minimatch = '11.0.9'
     oldPackage.overrides['glob@>=9.0.0 <=14.0.1'] = '14.0.6'
     assert.deepEqual(newPackage, oldPackage)
@@ -264,6 +280,7 @@ test('glob 14.0.6 and minimatch 11.0.9 change only the reviewed entries in each 
       resolved: 'https://registry.npmjs.org/minimatch/-/minimatch-11.0.9.tgz',
       integrity: 'sha512-KCFkfyjqerNlSstjlhIGNXIKZGA/6O4V4RlhZ+Dsr621SPPw0mzlypE9D9ZOoPiVefHID+j7/XuMMlqfD/F60Q==',
     }
-    assert.deepEqual(after, before, `${scope}: only the exact glob and minimatch changes are permitted`)
+    if (scope !== '.') applyQualifiedForgeLock(before)
+    assert.deepEqual(after, before, `${scope}: only the exact qualified dependency changes are permitted`)
   }
 })
