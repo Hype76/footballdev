@@ -1,4 +1,4 @@
-import { getMatchDayDisplayName, getMatchDayDisplayScore } from '../../../src/lib/matchday-display.js'
+import { getMatchDayDisplayName, getMatchDayDisplayParts, getMatchDayDisplayScore } from '../../../src/lib/matchday-display.js'
 import { resolveMatchDayNotificationTeamName } from '../../../src/lib/team-notification-display.js'
 
 function normalizeText(value) {
@@ -154,13 +154,14 @@ export function buildParentMatchDayNotificationCopy({ match, type, event = null 
   const matchId = normalizeText(match?.id) || 'unknown'
   const eventId = normalizeText(event?.id)
   const isCard = ['yellow_card', 'red_card'].includes(notificationType)
+  const result = getMatchDayDisplayParts({ ...match, clubName: teamName })
   const detailedScore = isCard && copy.category !== copy.title ? `${matchName}. Score ${score}` : compactScore
   const detailedBody = compactEventDetail
     ? `${compactEventDetail} ${detailedScore}.`
     : isCard
       ? `${copy.detail}. ${matchName}. Score ${score}.`
     : notificationType === 'full_time'
-      ? `Full time: ${teamName} ${score} ${opponentName}.`
+      ? `Full time: ${result.firstTeam} ${result.firstScore} - ${result.secondScore} ${result.secondTeam}.`
     : copy.includeScore === false
       ? `${copy.detail} for ${matchName}.`
       : notificationType === 'match_started'

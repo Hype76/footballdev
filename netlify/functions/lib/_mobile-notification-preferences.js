@@ -2,7 +2,7 @@ import { allowsMobileNotification } from '../../../apps/mobile-core/src/notifica
 
 // Re-check preferences at delivery time, including previously queued alerts.
 // Never include account IDs or preference records in the provider payload.
-export async function filterMobileNotificationMessages(messages, client, { signal } = {}) {
+export async function filterMobileNotificationMessages(messages, client, { signal, expectedFanAuthUserId } = {}) {
   const bounded = query => signal ? query.abortSignal(signal) : query
   const allowed = new Set()
   for (const app of ['parent', 'coach']) {
@@ -17,10 +17,12 @@ export async function filterMobileNotificationMessages(messages, client, { signa
       if (error) throw error
       const installations = [...(installationRows || [])]
       const fanTokens = app === 'parent' ? candidates.filter(message => message.data?.route === 'fans' && tokenBatch.includes(message.to)).map(message => message.to) : []
+      const fanOwners = new Map()
       if (fanTokens.length) {
         const fans = await bounded(client.from('fan_devices').select('auth_user_id,token').in('token', fanTokens))
         if (fans.error) throw fans.error
         for (const fan of fans.data || []) {
+          fanOwners.set(fan.token, fan.auth_user_id)
           if (!(installations || []).some(device => device.expo_push_token === fan.token)) {
             installations.push({ auth_user_id: fan.auth_user_id, expo_push_token: fan.token, enabled: true, status: 'active', detail_level: 'minimal' })
           }
@@ -34,6 +36,8 @@ export async function filterMobileNotificationMessages(messages, client, { signa
       const devices = new Map((installations || []).map(row => [row.expo_push_token, row]))
       for (const message of candidates) {
         const device = devices.get(message.to)
+        if (expectedFanAuthUserId && (fanOwners.get(message.to) !== expectedFanAuthUserId
+          || device?.auth_user_id !== expectedFanAuthUserId)) continue
         if (device?.auth_user_id && device.enabled && device.status === 'active' && device.detail_level !== 'off'
           && allowsMobileNotification(preferences.get(device.auth_user_id), message.data)) allowed.add(message)
       }

@@ -1,5 +1,6 @@
 import { sendExpoPushMessages } from './lib/_expo-push.js'
 import { authorizeNativeScheduledRequest } from './lib/_processor-auth.js'
+import { processDirectPlayerResourcePushes } from './lib/_direct-player-resource-push.js'
 
 export async function processAdultPlayerMobilePush({ client, sendMessages = sendExpoPushMessages }) {
   const { data, error } = await client.rpc('claim_adult_player_mobile_push_intents', { batch_size_value: 10 })
@@ -39,8 +40,18 @@ export default async function scheduledHandler(request) {
   if (!authorization.ok) return authorization.response
   try {
     const { createSupabaseAdminClient } = await import('./lib/_supabase.js')
-    const result = await processAdultPlayerMobilePush({ client: createSupabaseAdminClient({ headers: Object.fromEntries(request.headers.entries()) }) })
-    return Response.json({ success: true, ...result })
+    const client = createSupabaseAdminClient({ headers: Object.fromEntries(request.headers.entries()) })
+    const [adult, direct] = await Promise.allSettled([
+      processAdultPlayerMobilePush({ client }),
+      processDirectPlayerResourcePushes({ client }),
+    ])
+    if (direct.status === 'rejected') {
+      console.error('direct_player_resource_push_processing_failed', { code: String(direct.reason?.code || 'unknown').slice(0, 50) })
+    }
+    if (adult.status === 'rejected') throw adult.reason
+    return Response.json({ success: direct.status === 'fulfilled', ...adult.value,
+      ...(direct.status === 'fulfilled' ? { directResources: direct.value } : {}) },
+    { status: direct.status === 'fulfilled' ? 200 : 500 })
   } catch (error) {
     console.error('adult_player_push_processing_failed', { code: String(error?.code || 'unknown').slice(0, 50) })
     return Response.json({ success: false }, { status: 500 })

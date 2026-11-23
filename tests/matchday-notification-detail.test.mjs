@@ -68,3 +68,12 @@ test('fan notifications persist and deliver the same detailed match event copy',
     matchDayId: 'match-detail',
   })
 })
+
+test('away full-time alerts pair the home and away scores with their teams', () => {
+  const fixture = { ...match, club_name: 'St Neots Town FC', notification_team_name: 'St Neots',
+    opponent: 'Needham Market F.C. U14 EJA', home_away: 'away', home_score: 3, away_score: 0 }
+  const copy = buildParentMatchDayNotificationCopy({ match: fixture, type: 'full_time' })
+  assert.equal(copy.detailedBody, 'Full time: Needham Market F.C. U14 EJA 3 - 0 St Neots.')
+  const fan = buildFanMatchNotificationPayload({ fanConnectionId: 'fan-1', match: fixture, notificationCopy: copy, type: 'full_time' })
+  assert.equal(fan.body, copy.detailedBody)
+})
