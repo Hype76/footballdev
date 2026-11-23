@@ -18,7 +18,7 @@ export function useCoachMatchDayBackgroundSync({ user, contexts, enabled }) {
       try {
         await user.waitForCoachAuthority?.()
         if (stopped) return
-        const pending = await getPendingCoachMatchDays(user.id)
+        const pending = await getPendingCoachMatchDays(user.id, { committedSnapshot: true })
         for (const { contextId, matchId } of pending) {
           if (stopped) return
           const context = contexts.find(item => item.id === contextId)

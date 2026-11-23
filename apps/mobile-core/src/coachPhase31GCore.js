@@ -89,7 +89,10 @@ function preserveCoachHomeSource(next, current, source, patch) {
     ...(next.errors || []).filter(error => !error.startsWith(`${source}:`)),
     ...(current.errors || []).filter(error => error.startsWith(`${source}:`)),
   ]
-  return { ...next, ...patch, errors, partial: errors.length > 0 }
+  const homeSources = Object.hasOwn(current.homeSources || {}, source)
+    ? { ...next.homeSources, [source]: current.homeSources[source] }
+    : next.homeSources
+  return { ...next, ...patch, homeSources, errors, partial: errors.length > 0 }
 }
 
 // Primary data and slower full refreshes must preserve newer source data and health together.

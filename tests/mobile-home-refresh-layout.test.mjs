@@ -46,6 +46,7 @@ function harness(initial = { pendingAvailability: 107, unreadChat: 2, errors: ['
     activeContext: {}, user: { id: 'coach' }, getCoachPhase31GPrimaryHomeSnapshot: async () => ({ pendingAvailability: 0 }),
     setLastUpdatedAt() {}, lastHomeRefreshAtRef: { current: 0 }, saveCoachOfflineResources: async (_user, _context, value) => { offlineWrites.push(value) },
     InteractionManager: { runAfterInteractions() {} },
+    readCoachStartupHome: async () => null, peekCoachWorkspaceDenied: () => false, saveCoachStartupHome: async () => {},
     getCoachPhase31GAttentionSnapshot: async () => ({ pendingAvailability: 107, errors: [] }),
     mergeCoachPhase31GHomeSnapshots: (primary, attention) => ({ ...primary, ...attention }),
     getCoachFriendlyError: () => 'Unavailable',
@@ -310,4 +311,24 @@ test('late preference read never overrides a newer choice and failed writes can 
   fail = false
   await preference.toggle('recentMatches')
   assert.equal(preference.peek().recentMatches, false)
+})
+
+test('compact saved Home appears before a slow account cache read and clears on denial', async () => {
+  const h = harness({ loading: true, savedAt: '', error: '', errors: [] })
+  const disk = deferred()
+  let rejectNetwork
+  const network = new Promise((_resolve, reject) => { rejectNetwork = reject })
+  h.dependencies.readCoachHomeOfflineView = () => disk.promise
+  h.dependencies.readCoachStartupHome = async () => ({ savedAt: '2026-11-23', nextMatch: { id: 'saved' } })
+  h.dependencies.getCoachPhase31GPrimaryHomeSnapshot = () => network
+  const loading = h.load()()
+  await new Promise(resolve => setImmediate(resolve))
+  assert.equal(h.state().nextMatch.id, 'saved')
+  assert.equal(h.state().stale, true)
+  rejectNetwork(Object.assign(new Error('permission denied'), { code: '42501' }))
+  await loading
+  assert.equal(h.state().nextMatch, undefined)
+  disk.resolve({ cache: { resources: { home: { nextMatch: { id: 'stale' } } } }, developmentDrafts: {} })
+  await Promise.resolve()
+  assert.equal(h.state().nextMatch, undefined)
 })

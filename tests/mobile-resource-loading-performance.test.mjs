@@ -117,3 +117,16 @@ test('Calendar dependencies settle before an unrelated slow or failing section a
   assert.equal(results.resources.status, 'rejected')
   assert.deepEqual(results.calendar.value, ['event'])
 })
+
+test('an isolated speed check gets timings even during an already forced refresh', async () => {
+  const cache = createMobileResourceCache()
+  let release
+  const automatic = cache.read('home', () => new Promise(resolve => { release = resolve }), { force: true })
+  await Promise.resolve()
+  let diagnostics = 0
+  assert.equal(await cache.read('home', () => { diagnostics++; return 'diagnostic' }, { force: true, isolatePending: true }), 'diagnostic')
+  assert.equal(diagnostics, 1)
+  release('older')
+  await automatic
+  assert.equal(cache.peek('home'), 'diagnostic')
+})

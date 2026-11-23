@@ -45,7 +45,8 @@ function harness(errors = []) {
     getCoachPhase31GPrimaryHomeSnapshot: async (_user, progress) => { progress(healthy()); return healthy() },
     getCoachPhase31GAttentionSnapshot: async (_user, options) => { attentionOptions.push(options); return healthy() },
     mergeCoachPhase31GHomeSnapshots: mergeCoachHomeOperationalSnapshots,
-    setLastUpdatedAt() {}, lastHomeRefreshAtRef: { current: 0 }, saveCoachOfflineResources: async () => {},
+    setLastUpdatedAt() {}, lastHomeRefreshAtRef: { current: 0 }, saveCoachStartupHome: async () => {}, readCoachStartupHome: async () => null, peekCoachWorkspaceDenied: () => false,
+    saveCoachOfflineResources: async () => {},
     InteractionManager: { runAfterInteractions() {} }, getCoachFriendlyError: () => 'Unavailable',
     recordCoachPerformanceSample() {},
   }
@@ -255,4 +256,25 @@ for (const failure of [false, true]) test(`slow offline Home hydration preserves
   assert.equal(h.state().developmentRecords, newer.developmentRecords)
   assert.deepEqual(h.state().developmentDrafts, newer.developmentDrafts)
   assert.deepEqual(h.state().errors, newer.errors)
+})
+
+test('a newer Development denial is saved identically to full and compact Home', async () => {
+  const h = harness(), attention = deferred(), started = deferred()
+  const full = [], compact = []
+  h.deps.saveCoachOfflineResources = async (_user, _context, value) => { full.push(value.home) }
+  h.deps.saveCoachStartupHome = async (_user, _context, value) => { compact.push(value) }
+  h.deps.getCoachPhase31GAttentionSnapshot = () => { started.resolve(); return attention.promise }
+  h.deps.getCoachDevelopmentSummary = async () => { throw Object.assign(new Error('Denied'), { code: '42501' }) }
+  const loading = h.load({ refresh: true })
+  await started.promise
+  await h.load({ developmentOnly: true })
+  attention.resolve({ ...healthy(), developmentRecords: 27 })
+  await loading
+  assert.equal(h.state().developmentRecords, 0)
+  assert.deepEqual(full, compact)
+  for (const home of [...full, ...compact]) {
+    assert.equal(home.developmentRecords, 0)
+    assert.equal(home.homeSources.development, false)
+    assert.ok(home.errors.includes('development:permission denied'))
+  }
 })

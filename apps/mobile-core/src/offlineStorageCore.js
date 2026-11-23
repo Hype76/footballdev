@@ -477,11 +477,14 @@ export function createEncryptedOfflineStore({
       return copy(select(snapshot.document))
     },
 
-    async readSnapshot(userScope) {
+    async readSnapshot(userScope, select) {
       const state = scopeState()
       if (state.blocked || (state.userScope && state.userScope !== normalize(userScope))) return { document: null, status: 'scope_mismatch' }
-      if (snapshot?.epoch === state.epoch && snapshot.userScope === normalize(userScope)) return { document: copy(snapshot.document), status: 'ready' }
-      return this.read(userScope)
+      if (snapshot?.epoch === state.epoch && snapshot.userScope === normalize(userScope)) {
+        return { document: copy(select ? select(snapshot.document) : snapshot.document), status: 'ready' }
+      }
+      const result = await this.read(userScope)
+      return select && result.document ? { ...result, document: select(result.document) } : result
     },
 
     async write(userScope, value) {

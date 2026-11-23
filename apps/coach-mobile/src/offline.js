@@ -94,17 +94,28 @@ const underlyingStore = config.isUsable && projectRef === expectedRef
   ? createStore(config.isProduction ? 'live' : 'test', projectRef)
   : unavailableStore()
 const store = { ...underlyingStore }
-function createCoachStartupProfileStore(environment, ref) {
+function createCoachStartupProfileStore(environment, ref, record = 'profile') {
   return createEncryptedOfflineStore({
     appRole: 'coach', cryptoProvider, environment, projectRef: ref,
     keyStore: SecureStore,
     keyStoreOptions: { keychainAccessible: SecureStore.AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY, requireAuthentication: false },
-    namespaceSuffix: 'coach2.startup-profile', storage: AsyncStorage,
+    namespaceSuffix: `coach2.startup-${record}`, storage: AsyncStorage,
   })
 }
 const startupProfileStore = config.isUsable && projectRef === expectedRef
   ? createCoachStartupProfileStore(config.isProduction ? 'live' : 'test', projectRef)
   : unavailableStore()
+const startupHomeStore = config.isUsable && projectRef === expectedRef
+  ? createCoachStartupProfileStore(config.isProduction ? 'live' : 'test', projectRef, 'home')
+  : unavailableStore()
+const startupHomeAuthority = context => JSON.stringify([
+  outboxAuthority(context), context.roleRank, context.planKey, context.planStatus,
+  context.clubStatus, context.teamStatus, context.archivedAt, context.hasActivePlanAccess,
+])
+const startupHomeFields = [
+  'nextMatch', 'nextSession', 'nextCalendar', 'activePolls', 'unreadChat', 'pendingAvailability',
+  'developmentRecords', 'homeSources', 'homeSavedSources', 'sourceStates', 'errors', 'partial',
+]
 let startupProfileWriteGeneration = 0
 const revokedStartupProfiles = new Set()
 const startupRevocationKey = userScope => `fp.coach.startup-revoked.${config.isProduction ? 'live' : 'test'}.${projectRef}.${userScope}`
@@ -124,6 +135,51 @@ async function readStartupRevocation(userScope) {
   if (unavailable) throw unavailable.reason
   return false
 }
+const deniedCoachWorkspaces = new Set()
+const checkedCoachWorkspaces = new Set()
+const coachWorkspaceDenialKey = (userId, clubId) => `fp.coach.workspace-denied.${config.isProduction ? 'live' : 'test'}.${projectRef}.${userId}.${clubId}`
+
+export function peekCoachWorkspaceDenied(userId, clubId) {
+  return deniedCoachWorkspaces.has(coachWorkspaceDenialKey(userId, clubId))
+}
+
+export async function isCoachWorkspaceDenied(userId, clubId) {
+  const key = coachWorkspaceDenialKey(userId, clubId)
+  if (deniedCoachWorkspaces.has(key)) return true
+  if (checkedCoachWorkspaces.has(key)) return false
+  const results = await Promise.allSettled([AsyncStorage.getItem(key), SecureStore.getItemAsync(key)])
+  if (deniedCoachWorkspaces.has(key) || results.some(result => result.status === 'fulfilled' && result.value)) {
+    deniedCoachWorkspaces.add(key)
+    return true
+  }
+  if (results.some(result => result.status === 'rejected')) throw new Error('Saved workspace access could not be checked.')
+  checkedCoachWorkspaces.add(key)
+  return false
+}
+
+export async function markCoachWorkspaceDenied(userId, clubId) {
+  const key = coachWorkspaceDenialKey(userId, clubId)
+  deniedCoachWorkspaces.add(key)
+  checkedCoachWorkspaces.delete(key)
+  await queueStartupRevocationChange(async () => {
+    deniedCoachWorkspaces.add(key)
+    checkedCoachWorkspaces.delete(key)
+    const results = await Promise.allSettled([AsyncStorage.setItem(key, '1'), SecureStore.setItemAsync(key, '1')])
+    if (results.every(result => result.status === 'rejected')) throw new Error('Workspace access removal could not be saved.')
+  })
+}
+
+export async function allowVerifiedCoachWorkspace(userId, clubId, isCurrent) {
+  const key = coachWorkspaceDenialKey(userId, clubId)
+  await queueStartupRevocationChange(async () => {
+    if (!isCurrent() || !await isCoachWorkspaceDenied(userId, clubId) || !isCurrent()) return
+    await Promise.all([AsyncStorage.removeItem(key), SecureStore.deleteItemAsync(key)])
+    if (!isCurrent()) return
+    deniedCoachWorkspaces.delete(key)
+    checkedCoachWorkspaces.add(key)
+  })
+}
+
 for (const method of ['clear', 'inspect', 'read', 'readSnapshot', 'update', 'write']) {
   if (typeof underlyingStore[method] !== 'function') continue
   store[method] = (...args) => reportRecoveryFailure(async () => {
@@ -258,6 +314,7 @@ export const coachOfflineProfileStore = {
     activateCoachOfflineAccount(userScope)
     store.activate(userScope)
     startupProfileStore.activate(userScope)
+    startupHomeStore.activate(userScope)
     const guard = captureCoachOfflineAccount(userScope)
     if (revokedStartupProfiles.has(userScope) || await readStartupRevocation(userScope)) return null
     guard()
@@ -286,7 +343,10 @@ export const coachOfflineProfileStore = {
         throw error
       })
     void mirror.catch(() => {})
-    const next = await reportRecoveryFailure(() => store.update(sanitized.id, current => {
+    const matchesProfile = document => JSON.stringify(getCoachOfflineProfile(document, sanitized.id)) === JSON.stringify(sanitized)
+    const unchanged = store.peekSnapshot?.(sanitized.id, matchesProfile)
+    const next = unchanged ? null : await reportRecoveryFailure(() => store.update(sanitized.id, current => {
+      if (matchesProfile(current)) return current
       const updated = setCoachOfflineProfile(current || createCoachOfflineDocument({ userScope: sanitized.id }), sanitized)
       return { ...updated, accountPreparation: Object.fromEntries(Object.entries(updated.accountPreparation || {}).filter(([id, entry]) =>
         sanitized.coachContexts.some(context => context.id === id && entry.authority === outboxAuthority(context)))) }
@@ -303,19 +363,20 @@ export const coachOfflineProfileStore = {
       }
       if (mirrorGeneration === startupProfileWriteGeneration) revokedStartupProfiles.delete(sanitized.id)
     })
-    return getCoachOfflineProfile(next, sanitized.id)
+    return unchanged ? sanitized : getCoachOfflineProfile(next, sanitized.id)
   },
 }
 
 export async function quarantineIncompatibleCoachOfflineState() {
   if (!incompatibleTestStore) return { quarantined: false }
-  await Promise.all([incompatibleTestStore.clear(), createCoachStartupProfileStore('test', APPROVED_MOBILE_TEST.supabaseRef).clear()])
+  await Promise.all([incompatibleTestStore.clear(), createCoachStartupProfileStore('test', APPROVED_MOBILE_TEST.supabaseRef).clear(),
+    createCoachStartupProfileStore('test', APPROVED_MOBILE_TEST.supabaseRef, 'home').clear()])
   return { previousEnvironment: 'test', quarantined: true }
 }
 
 export async function clearCoachOfflineState() {
   const previousUserId = invalidateCoachOfflineAccount()
-  const results = await Promise.allSettled([reportRecoveryFailure(() => store.clear()), startupProfileStore.clear(), mediaHooks.clearAccount(previousUserId)])
+  const results = await Promise.allSettled([reportRecoveryFailure(() => store.clear()), startupProfileStore.clear(), startupHomeStore.clear(), mediaHooks.clearAccount(previousUserId)])
   const failed = results.find(result => result.status === 'rejected')
   if (failed) throw failed.reason
 }
@@ -366,9 +427,56 @@ export async function inspectCoachOfflineState(userId) {
   return result
 }
 
-export async function readCoachOfflineResources(userId, contextId) {
-  const result = await (store.readSnapshot ? store.readSnapshot(userId) : store.read(userId))
-  return getCoachOfflineResources(result.document, contextId)
+// The startup view contains only Home rows and counts. The full account
+// cache and its durable journals remain the source of saved team detail.
+export async function readCoachStartupHome(userId, context) {
+  const guard = captureCoachOfflineAccount(userId)
+  guard()
+  if (revokedStartupProfiles.has(userId) || await readStartupRevocation(userId) || await isCoachWorkspaceDenied(userId, context.clubId)) return null
+  guard()
+  const { document } = await startupHomeStore.read(userId)
+  guard()
+  const saved = document?.startupHome
+  return !revokedStartupProfiles.has(userId) && !peekCoachWorkspaceDenied(userId, context.clubId) && saved?.contextId === context.id
+    && saved.authority === startupHomeAuthority(context) ? saved.home : null
+}
+
+export async function saveCoachStartupHome(userId, context, home) {
+  const guard = captureCoachOfflineAccount(userId)
+  guard()
+  await startupHomeStore.update(userId, document => {
+    guard()
+    if (revokedStartupProfiles.has(userId)) return document
+    const current = document?.startupHome
+    const authority = startupHomeAuthority(context)
+    if (!home) {
+      if (current?.contextId !== context.id || current.authority !== authority) return document
+      const next = { ...document }
+      delete next.startupHome
+      return next
+    }
+    const visible = Object.fromEntries(startupHomeFields.filter(key => Object.hasOwn(home, key)).map(key => [key, home[key]]))
+    const previous = Object.fromEntries(startupHomeFields.filter(key => Object.hasOwn(current?.home || {}, key)).map(key => [key, current.home[key]]))
+    if (current?.contextId === context.id && current.authority === authority && JSON.stringify(previous) === JSON.stringify(visible)) return document
+    return {
+      ...(document || createCoachOfflineDocument({ userScope: userId })),
+      startupHome: { contextId: context.id, authority, home: { ...visible, savedAt: home.savedAt } },
+    }
+  })
+}
+
+export async function readCoachOfflineResources(userId, contextId, resourceKeys) {
+  const select = document => {
+    const cache = getCoachOfflineResources(document, contextId)
+    if (!cache || !resourceKeys) return cache
+    return {
+      ...cache,
+      resources: Object.fromEntries(resourceKeys.filter(key => Object.hasOwn(cache.resources, key)).map(key => [key, cache.resources[key]])),
+      resourceMetadata: Object.fromEntries(resourceKeys.filter(key => Object.hasOwn(cache.resourceMetadata, key)).map(key => [key, cache.resourceMetadata[key]])),
+    }
+  }
+  if (store.readSnapshot) return (await store.readSnapshot(userId, select)).document
+  return select((await store.read(userId)).document)
 }
 
 export async function readCoachOverviewResources(userId, context) {
@@ -383,8 +491,8 @@ export async function readCoachOverviewResources(userId, context) {
   }
   const saved = store.peekSnapshot?.(userId, readOverview)
   if (saved !== undefined) return saved
-  const { document } = await (store.readSnapshot ? store.readSnapshot(userId) : store.read(userId))
-  return readOverview(document)
+  if (store.readSnapshot) return (await store.readSnapshot(userId, readOverview)).document
+  return readOverview((await store.read(userId)).document)
 }
 
 export function peekCoachOfflineResource(userId, context, key) {
@@ -393,8 +501,9 @@ export function peekCoachOfflineResource(userId, context, key) {
 }
 
 export async function readCoachHomeOfflineView(userId, context) {
-  const result = await (store.readSnapshot ? store.readSnapshot(userId) : store.read(userId))
-  return getCoachHomeOfflineView(result.document, userId, context)
+  const select = document => getCoachHomeOfflineView(document, userId, context)
+  if (store.readSnapshot) return (await store.readSnapshot(userId, select)).document
+  return select((await store.read(userId)).document)
 }
 
 export function peekCoachHomeOfflineView(userId, context) {
@@ -411,8 +520,9 @@ function getCoachHomeOfflineView(document, userId, context) {
   assertOutboxContext(document, userId, context)
   const entry = document.developmentDrafts?.[context.id]
   if (entry && entry.authority !== outboxAuthority(context)) throw new Error('Your access to these saved Development drafts changed.')
+  const cache = getCoachOfflineResources(document, context)
   return {
-    cache: getCoachOfflineResources(document, context),
+    cache: cache ? { savedAt: cache.savedAt, resources: { home: cache.resources.home } } : null,
     developmentDrafts: entry?.items || {},
   }
 }
@@ -538,11 +648,11 @@ export async function countPendingCoachMatchDayActions(userId) {
   return Object.values(document.matchDayOutboxes || {}).flatMap(context => Object.values(context)).reduce((count, journal) => count + (journal.pending?.length || 0), 0)
 }
 
-export async function getPendingCoachMatchDays(userId) {
-  const { document } = await store.read(userId)
-  if (!document) return []
-  return Object.entries(document.matchDayOutboxes || {}).flatMap(([contextId, journals]) => Object.entries(journals)
-    .filter(([, journal]) => journal.pending?.length).map(([matchId]) => ({ contextId, matchId })))
+export async function getPendingCoachMatchDays(userId, { committedSnapshot = false } = {}) {
+  const select = document => Object.entries(document?.matchDayOutboxes || {}).flatMap(([contextId, journals]) =>
+    Object.entries(journals).filter(([, journal]) => journal.pending?.length).map(([matchId]) => ({ contextId, matchId })))
+  if (committedSnapshot && store.readSnapshot) return (await store.readSnapshot(userId, select)).document || []
+  return select((await store.read(userId)).document)
 }
 
 export async function updateCoachMatchDayOutbox(userId, context, matchId, change) {
@@ -582,12 +692,15 @@ export async function saveCoachPreparedMatchDays(userId, context, matches, isCur
   })
 }
 
-export async function readCoachDevelopmentDrafts(userId, context) {
-  const { document } = await store.read(userId)
-  assertOutboxContext(document, userId, context)
-  const entry = document.developmentDrafts?.[context.id]
-  if (entry && entry.authority !== outboxAuthority(context)) throw new Error('Your access to these saved Development drafts changed.')
-  return entry?.items || {}
+export async function readCoachDevelopmentDrafts(userId, context, { committedSnapshot = false } = {}) {
+  const select = document => {
+    assertOutboxContext(document, userId, context)
+    const entry = document.developmentDrafts?.[context.id]
+    if (entry && entry.authority !== outboxAuthority(context)) throw new Error('Your access to these saved Development drafts changed.')
+    return entry?.items || {}
+  }
+  if (committedSnapshot && store.readSnapshot) return (await store.readSnapshot(userId, select)).document || {}
+  return select((await store.read(userId)).document)
 }
 
 export async function updateCoachDevelopmentDraft(userId, context, key, change) {

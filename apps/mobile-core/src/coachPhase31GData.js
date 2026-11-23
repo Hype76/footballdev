@@ -62,7 +62,7 @@ export async function getCoachPhase31GPrimaryHomeSnapshot(user, onProgress, onTi
   return { ...buildCoachHomeOperationalSnapshot({ ...values, errors }), sourceStates: { ...sourceStates } }
 }
 
-export async function getCoachPhase31GAttentionSnapshot(user, { force = true, onTiming, readLocalDevelopmentDrafts = async () => ({}) } = {}) {
+export async function getCoachPhase31GAttentionSnapshot(user, { force = true, onTiming, readLocalDevelopmentDrafts = async () => ({}), joinPending = true, isolatePending = false } = {}) {
   const names = ['development', 'chatRooms', 'polls', 'invites']
   const routes = ['development', 'chat', 'polls', 'invites']
   const timed = (name, loader) => {
@@ -75,14 +75,14 @@ export async function getCoachPhase31GAttentionSnapshot(user, { force = true, on
   const results = await Promise.allSettled([
     async () => {
       const [development, localDevelopmentDrafts] = await Promise.all([
-        readMobileResource(user, 'coach:development-open-summary', () => getCoachDevelopmentSummary(user), { force }),
+        readMobileResource(user, 'coach:development-open-summary', () => getCoachDevelopmentSummary(user), { force, joinPending, isolatePending }),
         readLocalDevelopmentDrafts(),
       ])
       return { ...development, localDevelopmentDrafts: Object.values(localDevelopmentDrafts || {}) }
     },
-    () => readMobileResource(user, 'coach:home-chat-summary', () => getCoachHomeChatSummary(user), { force }),
-    () => readMobileResource(user, 'coach:home-poll-summary', () => getCoachHomePollSummary(user), { force }),
-    () => readMobileResource(user, 'coach:home-availability-summary', () => getCoachInvitesAndAvailability(user, { summaryOnly: true }), { force, maxAgeMs: 180_000 }),
+    () => readMobileResource(user, 'coach:home-chat-summary', () => getCoachHomeChatSummary(user), { force, joinPending, isolatePending }),
+    () => readMobileResource(user, 'coach:home-poll-summary', () => getCoachHomePollSummary(user), { force, joinPending, isolatePending }),
+    () => readMobileResource(user, 'coach:home-availability-summary', () => getCoachInvitesAndAvailability(user, { summaryOnly: true }), { force, joinPending, isolatePending, maxAgeMs: 180_000 }),
   ].map((loader, index) => isMobileRouteAllowed(user, routes[index], user?.matchdayPolicy) ? timed(names[index], loader) : null))
   const values = Object.fromEntries(results.map((result, index) => [names[index], result.status === 'fulfilled' ? result.value : null]))
   const errors = results.map((result, index) => sourceError(names[index], result)).filter(Boolean)

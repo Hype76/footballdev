@@ -125,3 +125,25 @@ test('a stalled records request expires without marking its team ready', async t
   t.mock.timers.tick(20000)
   await pending
 })
+
+test('snapshot changes restart exactly the affected family once', async () => {
+  const stale = item('players', 110, { player_name: 'Older snapshot' })
+  const fresh = item('players', 111, { player_name: 'New snapshot' })
+  const cursors = []
+  const changed = { code: '40001', message: 'coach_offline_snapshot_changed' }
+  const result = await readCoachOfflineFamily(user, context, 'players', {
+    rpc: async (_name, params) => {
+      cursors.push(params.cursor_value)
+      if (cursors.length === 1) return { data: envelope('players', [stale], { complete: false, nextCursor: 'stale-page', totalCount: 2 }) }
+      if (cursors.length === 2) return { error: changed }
+      return { data: envelope('players', [fresh], { revision: 'new' }) }
+    },
+  })
+  assert.deepEqual(cursors, [null, 'stale-page', null])
+  assert.deepEqual(result, [fresh])
+  let attempts = 0
+  await assert.rejects(readCoachOfflineFamily(user, context, 'players', {
+    rpc: async () => { attempts++; return { error: changed } },
+  }), { code: '40001' })
+  assert.equal(attempts, 2)
+})

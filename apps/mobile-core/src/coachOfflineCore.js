@@ -146,7 +146,9 @@ export function setCoachOfflineResources(document, contextId, resources, now = n
     const policy = getCoachOfflineReadPolicy(resourceKey)
     if (!policy.cache) continue
     const bounded = boundCoachOfflineResource(resourceKey, value)
-    const fingerprint = getCoachCacheFingerprint(bounded)
+    const fingerprint = getCoachCacheFingerprint(resourceKey === 'home' && bounded
+      ? Object.fromEntries(Object.entries(bounded).filter(([field]) => field !== 'savedAt'))
+      : bounded)
     if (nextMetadata[resourceKey]?.fingerprint === fingerprint) {
       const previousCheck = nextMetadata[resourceKey].checkedAt || nextMetadata[resourceKey].savedAt
       if (Date.parse(now) - Date.parse(previousCheck) >= 30_000) {

@@ -16,6 +16,8 @@ const LABELS = Object.freeze({
 const OUTCOMES = Object.freeze({ saved: 'Saved data', left: 'Left before ready', error: 'Failed' })
 const START_MARKERS = Object.freeze({ bundle: 'From app code start', runtime: 'From runtime start', foreground: 'From foreground activation' })
 
+let speedCheckSequence = 0
+
 function formatDuration(value) {
   const duration = Number(value || 0)
   return duration < 1000 ? `${duration} ms` : `${(duration / 1000).toFixed(2)} s`
@@ -39,13 +41,22 @@ export function CoachSpeedDiagnostics({ reloadHome, styles }) {
   const [running, setRunning] = useState(false)
   const [notice, setNotice] = useState('')
   const [samples, setSamples] = useState([])
-  const refresh = useCallback(() => readCoachPerformanceSamples().then(setSamples).catch(() => setSamples([])), [])
+  const refresh = useCallback(async () => {
+    const next = await readCoachPerformanceSamples().catch(() => [])
+    setSamples(next)
+    return next
+  }, [])
   useEffect(() => { void refresh() }, [refresh])
   const latest = useMemo(() => {
     const byName = new Map()
     for (const sample of samples) if (!byName.has(sample.name)) byName.set(sample.name, sample)
     return byName
   }, [samples])
+  const latestHomeRun = samples.find(sample => sample.runId && sample.name === 'home')?.runId
+  const homeResults = useMemo(() => {
+    if (!latestHomeRun) return latest
+    return new Map(samples.filter(sample => sample.runId === latestHomeRun).reverse().map(sample => [sample.name, sample]))
+  }, [latest, latestHomeRun, samples])
   const startup = samples.find(sample => sample.name.startsWith('startup.'))
   const tapRows = (stage) => Object.entries(COACH_TIMED_TABS)
     .filter(([route]) => stage === 'screen' || route !== 'more')
@@ -55,9 +66,12 @@ export function CoachSpeedDiagnostics({ reloadHome, styles }) {
     setRunning(true)
     setNotice('Running a fresh Home speed check...')
     try {
-      await reloadHome({ diagnostics: true, refresh: true })
-      await refresh()
-      setNotice('Speed check complete. Results stay on this phone.')
+      const diagnosticRunId = `${Date.now().toString(36)}-${++speedCheckSequence}`
+      await reloadHome({ diagnostics: true, diagnosticRunId, refresh: true })
+      const result = (await refresh()).find(sample => sample.runId === diagnosticRunId && sample.name === 'home')
+      setNotice(result?.status === 'success' ? 'Speed check complete. Results stay on this phone.'
+        : result ? 'Some Home information could not refresh. See the timings below.'
+          : 'No new result. Wait for the connection, then try again.')
     } catch {
       await refresh()
       setNotice('The check finished with an unavailable service. Recorded timings are shown below.')
@@ -78,7 +92,7 @@ export function CoachSpeedDiagnostics({ reloadHome, styles }) {
     <Pressable accessibilityRole="button" accessibilityState={{ disabled: running }} disabled={running} onPress={run} style={{ minHeight: 48, justifyContent: 'center', paddingVertical: 10 }}>
       <Text style={styles.bodyText}>{running ? 'Checking speed...' : 'Run speed check'}</Text>
     </Pressable>
-    <TimingRows title="Home refresh requests" rows={Object.entries(LABELS).map(([name, label]) => [label, latest.get(name)])} styles={styles} />
+    <TimingRows title="Home refresh requests" rows={Object.entries(LABELS).map(([name, label]) => [label, homeResults.get(name)])} styles={styles} />
     {samples.length ? <Pressable accessibilityRole="button" onPress={clear} style={{ minHeight: 44, justifyContent: 'center', paddingVertical: 8 }}><Text style={styles.helperText}>Clear saved results</Text></Pressable> : null}
     {notice ? <Text accessibilityLiveRegion="polite" style={styles.helperText}>{notice}</Text> : null}
   </View>

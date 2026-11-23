@@ -34,7 +34,19 @@ async function defaultRpc(name,params) {
   return supabase.rpc(name,params)
 }
 
-export async function readCoachOfflineFamily(user,context,key,{rpc=defaultRpc,isCurrent=()=>true,beforePage}={}) {
+export async function readCoachOfflineFamily(user, context, key, options = {}) {
+  try {
+    return await readCoachOfflinePages(user, context, key, options)
+  } catch (error) {
+    if (error?.code !== '40001' || error?.message !== 'coach_offline_snapshot_changed') throw error
+    // Restart only the changed family from its first page. Earlier completed
+    // families and saved work retain their existing checkpoints.
+    if (options.isCurrent?.() === false) throw new Error('coach_offline_cancelled')
+    return readCoachOfflinePages(user, context, key, options)
+  }
+}
+
+async function readCoachOfflinePages(user,context,key,{rpc=defaultRpc,isCurrent=()=>true,beforePage}={}) {
   assertContext(user,context)
   if (!COACH_OFFLINE_RESOURCE_KEYS.includes(key)) throw new Error('coach_offline_resource_unknown')
   const items=[],identities=new Set(),cursors=new Set()
