@@ -32,7 +32,7 @@ test('Coach fixture edits preserve Car pool when its optional saved default is u
   assert.match(coachForm, /\.\.\.\(carpoolReady \? \{ carpoolEnabled \} : \{\}\)/)
   assert.match(coachForm, /if \(busy \|\| carpoolSaving \|\| !scope\?\.writable \|\| scope\.pending\) return/)
   assert.doesNotMatch(coachForm, /if \(!carpoolReady \|\| carpoolSaving\) return/)
-  assert.match(coachForm, /disabled=\{busy \|\| carpoolSaving\}/)
+  assert.match(coachForm, /<Button disabled=\{busy \|\| carpoolSaving \|\| readOnly\}[^\n]+Save fixture changes/)
 })
 
 test('a fixture notification name overrides the saved Team notification name for that fixture', () => {
