@@ -49,11 +49,12 @@ function harness() {
     user: { id: 'coach' }, activeContext: { id: 'team:team', clubId: 'club', teamId: 'team' },
     requestIdRef: { current: 1 }, developmentRefreshIdRef: { current: 0 },
     homeDeniedScopeRef: { current: false }, contextAuthorityReadyRef: { current: true },
-    homeStateRef: { get current() { return state } },
+    homeStateRef: { get current() { return state }, set current(value) { state = value } },
     setHomeState: update => { state = typeof update === 'function' ? update(state) : update },
     readMobileResource: async (_user, key, load) => { calls.push(key); return load() },
     readCoachDevelopmentDrafts: async () => ({ saved: draft('saved', 'saved', { status: 'synced' }), local: draft('local', 'local', { status: 'pending' }) }),
     getCoachDevelopmentSummary: async () => ({ drafts: [draft('saved')] }),
+    saveCoachStartupHome: async () => {},
     saveCoachOfflineResources: async (_id, _context, value) => { saves.push(value) },
     isMobileRouteAllowed, mergeUnfinishedDevelopmentDrafts, updateCoachHomeSourceState,
   }

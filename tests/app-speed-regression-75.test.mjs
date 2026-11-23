@@ -45,7 +45,7 @@ test('mobile home refreshes are progressive, Coach cache opens once, and Parent 
   assert.match(coach, /getCoachPhase31GPrimaryHomeSnapshot\(selectedMobileUser, partial =>/)
   assert.match(coach, /getCoachPhase31GAttentionSnapshot\(selectedMobileUser, \{ force: refresh,/)
   assert.match(coach, /HOME_REFRESH_MIN_INTERVAL_MS/)
-  assert.match(coach, /const offlineView = await readCoachHomeOfflineView\(user\.id, activeContext\)/)
+  assert.match(coach, /readSavedHome[\s\S]*?\.then\(\(\) => readCoachHomeOfflineView\(user\.id, activeContext\)\)/)
   assert.match(read('apps/coach-mobile/src/offline.js'), /readCoachHomeOfflineView[\s\S]*developmentDrafts: entry\?\.items \|\| \{\}/)
   assert.match(parent, /runPrioritizedMobileLoads\(loaders, \{/)
   assert.match(parent, /onSettled\(name, result, settled\)/)

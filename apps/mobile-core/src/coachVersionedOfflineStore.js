@@ -90,7 +90,7 @@ export function createCoachVersionedOfflineStore({ legacyStore, markerStorage, m
       return active === scope ? qualifiedTarget?.peekSnapshot?.(scope, select) : undefined
     },
     async read(scope) { if (!active) return { document: null, status: 'missing' }; const { target, guard } = await ensure(scope); const result = await target.read(scope); guard(); return result },
-    async readSnapshot(scope) { if (!active) return { document: null, status: 'missing' }; const { target, guard } = await ensure(scope); const result = await target.readSnapshot(scope); guard(); return result },
+    async readSnapshot(scope, select) { if (!active) return { document: null, status: 'missing' }; const { target, guard } = await ensure(scope); const result = await target.readSnapshot(scope, select); guard(); return result },
     async inspect(scope) { if (!active) return { hasDocument: false, status: 'missing' }; const { target, guard } = await ensure(scope); const result = await target.inspect(scope); guard(); return result },
     async update(scope, updater) {
       const { target, checkpoint, guard } = await ensure(scope)

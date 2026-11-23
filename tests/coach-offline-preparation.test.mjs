@@ -168,3 +168,17 @@ test('automatic downloads stay complete for the foreground session and recheck a
   await runner.refresh()
   assert.equal(runs, 2)
 })
+
+test('foregrounding cannot clear a recent download failure cooldown', async () => {
+  let time = 0, runs = 0
+  const runner = createCoachPreparationRunner({ now: () => time, isActive: () => true,
+    refreshAfterSuccess: false, run: async () => { runs += 1; throw new Error('Download failed') } })
+  await runner.refresh()
+  runner.pause()
+  time = 16_000
+  await runner.refresh()
+  assert.equal(runs, 1)
+  time = 30_000
+  await runner.refresh()
+  assert.equal(runs, 2)
+})

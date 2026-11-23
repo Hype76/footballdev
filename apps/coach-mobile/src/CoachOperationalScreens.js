@@ -428,7 +428,7 @@ function CoachCalendarScoped({ calendarTarget, context, contexts, onNavigate, on
       ? Promise.resolve({ value: recent })
       : readMobileResource(user, 'coach:calendar', () => getCoachCalendarResources(user), { force: true })
         .then(value => ({ value }), error => ({ error }))
-    const offline = calendarDenied.current ? Promise.resolve(null) : readCoachOfflineResources(user.id, context).catch(() => null)
+    const offline = calendarDenied.current ? Promise.resolve(null) : readCoachOfflineResources(user.id, context, ['calendar', 'calendarPlayers', 'calendarResourceOptions']).catch(() => null)
     const { result, cached } = await resolveWithOffline(network, hasCalendarSnapshot.current ? Promise.resolve(null) : offline, saved => {
       if (!isCurrent()) return
       if (Array.isArray(saved?.resources?.calendar)) {
@@ -1059,7 +1059,7 @@ function CoachPlayersScoped({ context, onNavigate, onQuickActionHandled, onReque
     let playerSource = 'network'
     const network = readMobileResource(user, 'coach:players', () => getCoachPlayerList(user), { force: !reuseFresh || playersDenied.current, onSource: source => { playerSource = source } })
       .then(value => ({ value }), error => ({ error }))
-    const offline = hasPlayersSnapshot.current || playersDenied.current ? Promise.resolve(null) : readCoachOfflineResources(user.id, context).catch(() => null)
+    const offline = hasPlayersSnapshot.current || playersDenied.current ? Promise.resolve(null) : readCoachOfflineResources(user.id, context, ['players']).catch(() => null)
     const { result } = await resolveWithOffline(network, offline, cached => {
       if (!isCurrent()) return
       if (Array.isArray(cached?.resources?.players)) {
@@ -1072,7 +1072,7 @@ function CoachPlayersScoped({ context, onNavigate, onQuickActionHandled, onReque
       const rows = result.value
       playersDenied.current = false
       hasPlayersSnapshot.current = true
-      setPlayers(rows); setStale(false); setTabDataStatus(playerSource === 'cache' ? 'cached' : 'success')
+      setPlayers(rows); setStale(false); setLoading(false); setTabDataStatus(playerSource === 'cache' ? 'cached' : 'success')
       await saveCoachOfflineResources(user.id, context, { players: rows }).catch(() => { if (isCurrent()) setCacheWarning('Players are up to date, but this phone could not save an offline copy.') })
     } catch (loadError) {
       if (!isCurrent()) return

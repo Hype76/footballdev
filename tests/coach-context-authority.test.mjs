@@ -74,7 +74,7 @@ test('resume uses the real App callback without changing the mounted draft gate'
  assert.ok(start >= 0 && end > start)
  const pending = deferred()
  const readyChanges = []
- const dependencies = { authorityRequestRef: { current: 0 }, user, authorityUserIdRef: { current: user.id }, contextAuthorityReadyRef: { current: true }, setContextReady: value => readyChanges.push(value), requestIdRef: { current: 0 }, contextAuthority: { synchronize: () => pending.promise }, setContextAuthorityOffline() {} }
+ const dependencies = { authorityRequestRef: { current: 0 }, user, authorityUserIdRef: { current: user.id }, contextAuthorityReadyRef: { current: true }, setContextReady: value => readyChanges.push(value), requestIdRef: { current: 0 }, contextAuthority: { synchronize: () => pending.promise }, setContextAuthorityOffline() {}, setIsRefreshing() {}, allowVerifiedCoachWorkspace: async () => {} }
  const synchronize = new Function(...Object.keys(dependencies), 'return (' + source.slice(start, end + 1) + ')')(...Object.values(dependencies))
  const resume = synchronize(context, { preserveView: true })
  assert.deepEqual(readyChanges, [])
@@ -181,9 +181,11 @@ test('Coach connection checks detect network loss and recovery without changing 
  await tick()
  failure = new TypeError('Network request failed')
  await tick()
+ assert.deepEqual(statuses, [false], 'A single slow probe keeps the previous status')
+ await tick()
  active = false
  await tick()
- assert.equal(probes, 2)
+ assert.equal(probes, 3)
  active = true
  failure = Object.assign(new Error('Permission denied'), {status:403})
  await tick()
@@ -191,5 +193,65 @@ test('Coach connection checks detect network loss and recovery without changing 
  stop()
  await tick()
  assert.equal(cancelled, true)
- assert.equal(probes, 3)
+ assert.equal(probes, 4)
+})
+
+test('same workspace retains verified display cache, shares Home refresh and invalidates on denial', async () => {
+ const authority = createCoachContextAuthority(async () => ({}))
+ const scoped = { ...user, waitForCoachAuthority: () => authority.waitForRead(user.id, context.id), getCoachAuthorityGeneration: () => authority.getGeneration() }
+ await authority.synchronize({ user, context })
+ assert.deepEqual(await readMobileResource(scoped, 'coach:players', () => ['saved']), ['saved'])
+ await authority.synchronize({ user, context })
+ assert.deepEqual(await readMobileResource(scoped, 'coach:players', () => assert.fail('Revalidated display should keep a fresh value')), ['saved'])
+ const request = deferred()
+ const normal = readMobileResource(scoped, 'coach:home-primary', () => request.promise)
+ const forced = readMobileResource(scoped, 'coach:home-primary', () => assert.fail('Home should share its current request'), { force: true })
+ request.resolve(['home'])
+ assert.deepEqual(await Promise.all([normal, forced]), [['home'], ['home']])
+ await assert.rejects(readMobileResource(scoped, 'coach:players', () => { throw Object.assign(new Error('Denied'), { status: 403 }) }, { force: true }), /Denied/)
+ assert.deepEqual(await readMobileResource(scoped, 'coach:players', () => ['approved again']), ['approved again'])
+ mobileResourceCache.clear()
+})
+
+test('workspace denial survives restart and clears only after current live verification', async () => {
+ const source = readFileSync('apps/coach-mobile/src/offline.js', 'utf8')
+ const body = source.slice(source.indexOf('const deniedCoachWorkspaces'), source.indexOf("for (const method of ['clear'")).replaceAll('export async function', 'async function').replaceAll('export function', 'function')
+ const primary = new Map(), secure = new Map()
+ const make = () => new Function('config', 'projectRef', 'AsyncStorage', 'SecureStore', 'queueStartupRevocationChange',
+   body + '; return { isCoachWorkspaceDenied, markCoachWorkspaceDenied, allowVerifiedCoachWorkspace };')(
+   { isProduction: true }, 'project', { getItem: async key => primary.get(key), setItem: async (key, value) => primary.set(key, value), removeItem: async key => primary.delete(key) },
+   { getItemAsync: async key => secure.get(key), setItemAsync: async (key, value) => secure.set(key, value), deleteItemAsync: async key => secure.delete(key) }, async change => change())
+ const first = make()
+ await first.markCoachWorkspaceDenied('coach', 'club-a')
+ const restarted = make()
+ assert.equal(await restarted.isCoachWorkspaceDenied('coach', 'club-a'), true)
+ assert.equal(await restarted.isCoachWorkspaceDenied('coach', 'club-b'), false)
+ assert.equal(await restarted.isCoachWorkspaceDenied('other', 'club-a'), false)
+ await restarted.allowVerifiedCoachWorkspace('coach', 'club-a', () => false)
+ assert.equal(await make().isCoachWorkspaceDenied('coach', 'club-a'), true)
+ await restarted.allowVerifiedCoachWorkspace('coach', 'club-a', () => true)
+ assert.equal(await make().isCoachWorkspaceDenied('coach', 'club-a'), false)
+})
+
+test('saved startup renders a preview only and defers external links until workspace verification', () => {
+ const source = readFileSync('apps/coach-mobile/App.js', 'utf8')
+ const preview = source.slice(source.indexOf('  if (startupAuthorityPending) {'), source.indexOf('    <MobileActivityProvider key='))
+ assert.match(preview, /Checking access to your saved workspace/)
+ assert.doesNotMatch(preview, /<CoachRoute|<CoachNavigation|<CoachQuickActions/)
+ assert.match(source, /if \(!pendingCoachLink \|\| !contextReady \|\| startupAuthorityPending \|\| !contextAuthorityReadyRef.current\) return/)
+ assert.match(source, /setReadyAuthorityGeneration\(generation => generation \+ 1\)/)
+})
+
+test('a denial during compact snapshot storage read discards the result', async () => {
+ const source = readFileSync('apps/coach-mobile/src/offline.js', 'utf8')
+ const body = source.slice(source.indexOf('export async function readCoachStartupHome'), source.indexOf('export async function saveCoachStartupHome')).replace('export ', '')
+ const pending = deferred(), entered = deferred()
+ let denied = false
+ const read = new Function('captureCoachOfflineAccount', 'revokedStartupProfiles', 'readStartupRevocation', 'isCoachWorkspaceDenied', 'startupHomeStore', 'peekCoachWorkspaceDenied', 'startupHomeAuthority', body + '; return readCoachStartupHome')(
+   () => () => {}, new Set(), async () => false, async () => denied, { read: () => { entered.resolve(); return pending.promise } }, () => denied, () => 'authority')
+ const result = read(user.id, context)
+ await entered.promise
+ denied = true
+ pending.resolve({ document: { startupHome: { contextId: context.id, authority: 'authority', home: { nextMatch: 'private' } } } })
+ assert.equal(await result, null)
 })

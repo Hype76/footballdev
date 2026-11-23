@@ -117,6 +117,7 @@ export function createCoachPerformanceDiagnostics({ storage, schedule = setTimeo
       durationMs,
       id: String(sample?.id || `${now().getTime()}:${sequence++}`),
       name,
+      ...(/^[a-z0-9-]{1,60}$/.test(sample?.runId || '') ? { runId: sample.runId } : {}),
       source: ['manual', 'tap', 'launch', 'runtime', 'bundle', 'foreground'].includes(sample?.source) ? sample.source : 'automatic',
       status: ['error', 'saved', 'left', 'cached'].includes(sample?.status) ? sample.status : 'success',
     })

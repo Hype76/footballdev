@@ -201,3 +201,17 @@ test('stalled read is bounded and a later account switch rejects the old pending
   assert.equal(result.document, null)
   assert.equal(f.values.size, 0, 'Old account ciphertext must not survive the new scope')
 })
+
+test('scoped snapshots select before copying and preserve account boundaries', async () => {
+  const { store, restart } = harness('offlinesnapshotselector')
+  await store.write('coach', { values: { home: { score: 4 }, otherTeam: Array.from({ length: 200 }, () => 'history') } })
+  const select = document => document.values.home
+  const selected = await store.readSnapshot('coach', select)
+  assert.deepEqual(selected.document, { score: 4 })
+  selected.document.score = 99
+  assert.equal((await store.readSnapshot('coach', select)).document.score, 4)
+  assert.equal((await store.readSnapshot('other-coach', select)).document, null)
+  const cold = restart()
+  cold.activate('coach')
+  assert.deepEqual((await cold.readSnapshot('coach', select)).document, { score: 4 })
+})

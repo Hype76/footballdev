@@ -115,6 +115,7 @@ export function createCoachPreparationRunner({ run, isActive, now = Date.now, re
   let running = false
   let stopped = false
   let retryAt = 0
+  let consecutiveFailures = 0
   let generation = 0
   return {
     async refresh() {
@@ -123,11 +124,18 @@ export function createCoachPreparationRunner({ run, isActive, now = Date.now, re
       const captured = generation
       try {
         const result = await run(() => !stopped && captured === generation && isActive())
+        if (captured !== generation || stopped) return
+        if (!result?.cancelled) consecutiveFailures = 0
         retryAt = result?.cancelled ? 0 : refreshAfterSuccess ? now() + COACH_PREPARATION_REFRESH_MS : Infinity
-      } catch { retryAt = now() + 30_000 }
+      } catch {
+        if (captured === generation) {
+          consecutiveFailures += 1
+          retryAt = now() + Math.min(30_000 * 2 ** (consecutiveFailures - 1), COACH_PREPARATION_REFRESH_MS)
+        }
+      }
       finally { running = false }
     },
-    pause() { generation += 1; retryAt = 0 },
+    pause() { generation += 1; if (!consecutiveFailures) retryAt = 0 },
     stop() { stopped = true },
   }
 }

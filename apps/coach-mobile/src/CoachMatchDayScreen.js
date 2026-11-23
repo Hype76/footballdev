@@ -946,7 +946,7 @@ function CoachMatchDayScoped({ context, matchDayTarget, onMatchDayTargetHandled,
     const remotePlayers = currentUser.isOfflineProfile ? null : Promise.allSettled([
       readMobileResource(currentUser, 'coach:players', () => withMobileAsyncTimeout(() => getCoachPlayerList(currentUser))),
     ]).then(([result]) => result)
-    const offline = accessDeniedRef.current ? Promise.resolve(null) : readCoachOfflineResources(currentUser.id, currentContext).catch(() => null)
+    const offline = accessDeniedRef.current ? Promise.resolve(null) : readCoachOfflineResources(currentUser.id, currentContext, ['matchDayList', 'matchDayDetail', 'matchDayPlayers']).catch(() => null)
     const initialOffline = hasMatchListSnapshot.current ? Promise.resolve(null) : offline
     const saved = remoteMatches ? await Promise.race([initialOffline, remoteMatches.then(result => result.status === 'fulfilled' || isMatchDayAccessDenied(result.reason) ? null : initialOffline)]) : await initialOffline
     if (!isCurrentScope()) { loadInFlight.current = false; setRefreshing(false); return }
@@ -1133,7 +1133,7 @@ function CoachMatchDayScoped({ context, matchDayTarget, onMatchDayTargetHandled,
       withMobileAsyncTimeout(() => getCoachMatchDayDetail(user, summary.id)),
     ]).then(([result]) => result)
     const savedJournal = await readCoachMatchDayOutbox(user.id, context, summary.id).catch(() => null)
-    const savedResources = savedJournal ? null : await readCoachOfflineResources(user.id, context).catch(() => null)
+    const savedResources = savedJournal ? null : await readCoachOfflineResources(user.id, context, ['matchDayDetail']).catch(() => null)
     const cached = savedJournal?.baseMatch || (savedResources?.resources?.matchDayDetail?.id === summary.id ? savedResources.resources.matchDayDetail : null)
     if (!isCurrent()) return
     if (cached) {
