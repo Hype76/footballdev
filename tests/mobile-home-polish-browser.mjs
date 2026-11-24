@@ -11,33 +11,34 @@ const output = 'output/playwright/home-polish'
 await mkdir(output, { recursive: true })
 const source = await readFile('apps/coach-mobile/App.js', 'utf8')
 const functions = parse(source, { sourceType: 'module', plugins: ['jsx'] }).program.body.filter(node => node.type === 'FunctionDeclaration')
-const names = ['HomeScreen', 'HomeNextRow', 'IconSection', 'IconStat', 'IconAction', 'Section', 'CoachIcon', 'LoadingPanel', 'createCoachStyles']
+const names = ['HomeScreen', 'HomeNextRow', 'IconSection', 'IconStat', 'IconAction', 'Section', 'CoachIcon', 'LoadingPanel', 'createCoachStyles', 'PrimaryNavigation']
 const selected = names.map(name => {
   const node = functions.find(node => node.id.name === name)
   assert.ok(node, name)
   return source.slice(node.start, node.end)
 }).join('\n')
 const entry = `import {formatFixtureDateTime} from './src/lib/calendar-datetime-integrity.js';
-import React from 'react';import {createRoot} from 'react-dom/client';
+import React,{useRef} from 'react';import {createRoot} from 'react-dom/client';
 import {View,Text,Pressable,StyleSheet,Platform} from 'react-native';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import {getMobileIconName} from './apps/mobile-core/src/mobileIconSystem.js';
+import {getMobileIconName,getCoachRouteIconKey} from './apps/mobile-core/src/mobileIconSystem.js';
 import {createCoachTheme} from './apps/coach-mobile/src/coachThemeCore.js';
 import {MobileActivityProvider} from './apps/mobile-core/src/MobileActivityContext.js';
 import {MobileHeaderActivity,MobileLoadingStatus} from './apps/mobile-core/src/MobileHeaderActivity.js';
 import {TeamLeagueLinkRow} from './apps/mobile-core/src/TeamLeagueLink.js';
 import {coachTeamLeagueScope} from './src/lib/team-league-link.js';
 const coachSupabase={rpc:async()=>({data:null})};
-import {resolveCoachRoute} from './apps/coach-mobile/src/coachNavigationCore.js';
+import {resolveCoachRoute,getCoachBottomNavigationPadding} from './apps/coach-mobile/src/coachNavigationCore.js';
+import {coachTimingClock} from './apps/coach-mobile/src/coachPerformanceDiagnosticsCore.js';
 Platform.OS='android';let theme;const useCoachTheme=()=>theme;
 const formatDateTime=value=>value;
 ${selected}
-function App(){const[mode,setMode]=React.useState('dark'),[loading,setLoading]=React.useState(false);window.mode=setMode;window.loading=setLoading;
+function App(){const[mode,setMode]=React.useState('dark'),[loading,setLoading]=React.useState(false),[tab,setTab]=React.useState('home');window.mode=setMode;window.loading=setLoading;
 const[plan,setPlan]=React.useState('team'),[flags,setFlags]=React.useState({teamCalendar:true,fixtures:true,matchDay:true,parentPortal:true,parentInvitations:true});window.plan=setPlan;window.flags=setFlags;
 const palette=createCoachTheme({mode,context:{clubAccent:'#2ba7aa'}}).tokens;theme={palette,styles:createCoachStyles(palette)};
 return <MobileActivityProvider active={loading}><View style={{backgroundColor:palette.background,minHeight:'100vh'}}>
 <View style={{height:36,alignItems:'flex-end',paddingRight:16}}><MobileHeaderActivity live styles={theme.styles}/></View>
-<View testID="home-test-content" style={{padding:16}}><HomeScreen context={{teamId:'synthetic-team',planKey:plan,roleRank:70,role:'head_manager'}} user={{matchdayPolicy:{flags}}} onNavigate={(route,target)=>{window.route=route;window.target=target}} homeState={{loading,matches:[],sessions:[],nextCalendar:{id:'event',title:'Training',startsAt:'Thu 10 Sept, 16:00'},nextMatch:{id:'next-fixture',opponent:'Visitors FC',matchDate:'2026-09-20',kickoffTime:'11:00'},nextSession:{title:'Training',startsAt:'Thu 10 Sept, 16:00'}}}/></View></View></MobileActivityProvider>}
+<View testID="home-test-content" style={{padding:16}}><HomeScreen context={{teamId:'synthetic-team',planKey:plan,roleRank:70,role:'head_manager'}} user={{matchdayPolicy:{flags}}} onNavigate={(route,target)=>{window.route=route;window.target=target}} homeState={{loading,matches:[],sessions:[],nextCalendar:{id:'event',title:'Training',startsAt:'Thu 10 Sept, 16:00'},nextMatch:{id:'next-fixture',opponent:'Visitors FC',matchDate:'2026-09-20',kickoffTime:'11:00'},nextSession:{title:'Training',startsAt:'Thu 10 Sept, 16:00'}}}/></View><View style={{marginTop:'auto'}}><PrimaryNavigation platform="android" bottomInset={24} activeRoute={tab} navigation={[['home','Home'],['calendar','Calendar'],['players','Players'],['matchday','Match Day'],['more','More']].map(([key,label])=>({key,label}))} onNavigate={setTab}/></View></View></MobileActivityProvider>}
 createRoot(document.getElementById('root')).render(<App/>);`
 const result = await build({ stdin: { contents: entry, resolveDir: root, loader: 'jsx' }, bundle: true, write: false, jsx: 'automatic', loader: { '.js': 'jsx', '.ttf': 'dataurl', '.png': 'dataurl' }, platform: 'browser', conditions: ['browser'], mainFields: ['browser', 'module', 'main'], nodePaths: [modules], resolveExtensions: ['.web.tsx','.web.ts','.web.js','.tsx','.ts','.jsx','.js','.json'], alias: { react: path.join(modules, 'react'), 'react-dom': path.join(modules, 'react-dom'), 'react-native': path.join(modules, 'react-native-web') }, define: { 'process.env.NODE_ENV': '"production"', __DEV__: 'false', global: 'globalThis' }, banner: { js: 'globalThis.process={env:{NODE_ENV:"production"}};' } })
 const browser = await chromium.launch({ headless: true })
@@ -51,6 +52,13 @@ try {
     await page.evaluate(mode => window.mode(mode), mode)
     await page.setViewportSize({ width, height: 844 })
     await page.getByRole('button', { name: 'Next Calendar item: Thu 10 Sept, 16:00' }).waitFor()
+    const bar=page.getByRole('tablist')
+    assert.ok(parseFloat(await bar.evaluate(el=>getComputedStyle(el).borderTopLeftRadius))>=12)
+    const selectedTab=bar.getByRole('tab',{name:'Calendar tab'})
+    await selectedTab.click()
+    assert.equal(await selectedTab.getAttribute('aria-selected'),'true')
+    assert.ok((await selectedTab.boundingBox()).height>=44)
+    await bar.getByRole('tab',{name:'Home tab'}).click()
     assert.equal(await page.getByText('Quick access', {exact:true}).count(), 0)
     await page.getByRole('button', {name: /Availability next 7 days/}).click()
     assert.equal(await page.evaluate(() => window.route), 'invites')

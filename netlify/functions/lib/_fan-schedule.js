@@ -119,17 +119,21 @@ export async function loadFanMatches(client, scope, matchId = '', { includeSched
   else if (!scheduleAllowed) query = query.in('status', FAN_GAME_DAY_STATUSES)
   if (matchId) query = query.eq('id', matchId)
   const candidates = await rows(query)
-  const [requests, invitations, decisions] = await Promise.all([
+  const [requests, invitations, decisions, ownAvailability] = await Promise.all([
     rows(client.from('match_day_availability_requests').select('match_day_id').eq('club_id', scope.fan.club_id).eq('player_id', scope.player.id).neq('status', 'expired')),
     rows(client.from('calendar_event_invites').select('match_day_id').eq('club_id', scope.fan.club_id).eq('player_id', scope.player.id).neq('invite_status', 'cancelled')),
     rows(client.from('match_day_player_squad_decisions').select('match_day_id,status,notified_at').eq('club_id', scope.fan.club_id).eq('team_id', scope.player.team_id).eq('player_id', scope.player.id)),
+    scope.fan.relationship_type === 'player' ? rows(client.from('match_day_player_availability').select('match_day_id,status').eq('club_id', scope.fan.club_id).eq('player_id', scope.player.id)) : [],
   ])
   const involved = new Set([...requests, ...invitations, ...decisions.filter((d) => d.status === 'selected' || d.notified_at)].map((row) => row.match_day_id))
   const allowed = []
   for (const match of candidates) {
     if (canFanViewMatch(match, scope.parent, involved) && (scheduleAllowed || playerMatchAccess || isFanGameDayMatch(match))) {
       const { parent_visible: _visible, parent_audience: _audience, deleted_at: _deleted, previous_hidden_at: _hidden, ...safe } = match
-      allowed.push({ ...safe, club_name: scope.club.name })
+      const response = ownAvailability.find(row => row.match_day_id === match.id)
+      allowed.push({ ...safe, club_name: scope.club.name, ...(scope.fan.relationship_type === 'player' ? {
+        availability_status: response?.status || (requests.some(row => row.match_day_id === match.id) || invitations.some(row => row.match_day_id === match.id) ? 'pending' : ''),
+      } : {}) })
     }
   }
   const withSquads = await addPlayerSelectedSquads(client, scope, allowed)

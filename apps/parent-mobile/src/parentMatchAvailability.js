@@ -42,6 +42,7 @@ export function getParentMatchAvailability(match = {}, invitation, link = {}, no
   if (['available', 'yes'].includes(status)) return { label: 'Available', tone: 'success', icon: 'check-circle' }
   if (['unavailable', 'no'].includes(status)) return { label: 'Not available', tone: 'danger', icon: 'cancel' }
   if (status === 'maybe') return { label: 'Maybe', tone: 'warning', icon: 'help-outline' }
+  if (match.isPlayerView && ['pending', 'awaiting_response', 'not_responded'].includes(status)) return { label: 'Not responded', tone: 'muted', icon: 'remove-circle-outline' }
   if (canChangeParentMatchAvailability(match, invitation, link, now)) return { label: 'Needs response', tone: 'warning', icon: 'help-outline' }
   if (!invitation && !match.availabilityRespondedAt) return { label: 'No response requested', tone: 'muted', icon: 'remove-circle-outline' }
   return { label: 'Not responded', tone: 'muted', icon: 'remove-circle-outline' }

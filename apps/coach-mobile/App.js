@@ -1759,8 +1759,8 @@ function MoreScreen({ navigation, onSelectMore }) {
   return (
     <ScreenIntro copy="Open the Coach tools available for this role and context." title="More">
       <PartnersBanner onPress={() => onSelectMore('partners')} />
-      <IconMenu accessibilityLabel="More tools" Icon={CoachIcon} palette={palette} onSelect={onSelectMore}
-        items={navigation.more.filter(route => !['club-promotion', 'partners'].includes(route.key)).map(route => ({ key: route.key, label: route.label, iconKey: getCoachRouteIconKey(route.key), hint: route.description || `Opens ${route.label}` }))} />
+      <IconMenu accessibilityLabel="More tools" Icon={CoachIcon} palette={palette} onSelect={onSelectMore} polished
+        items={navigation.more.filter(route => !['club-promotion', 'partners'].includes(route.key)).map(route => ({ key: route.key, label: route.label, iconKey: getCoachRouteIconKey(route.key), hint: route.description || `Opens ${route.label}`, description: route.description }))} />
     </ScreenIntro>
   )
 }
@@ -2145,7 +2145,8 @@ function PrimaryNavigation({ activeRoute, bottomInset, navigation, onNavigate, p
   const { palette, styles } = useCoachTheme()
   const pressStart = useRef(null)
   return (
-    <View accessibilityRole="tablist" style={[styles.tabBar, { paddingBottom: getCoachBottomNavigationPadding(bottomInset, platform) }]}>
+    <View style={{ paddingBottom: getCoachBottomNavigationPadding(bottomInset, platform) }}>
+    <View accessibilityRole="tablist" style={styles.tabBar}>
       {navigation.map((route) => {
         const selected = route.key === activeRoute
         return (
@@ -2153,6 +2154,7 @@ function PrimaryNavigation({ activeRoute, bottomInset, navigation, onNavigate, p
             accessibilityLabel={`${route.label} tab`}
             accessibilityRole="tab"
             accessibilityState={{ selected }}
+            aria-selected={selected}
             key={route.key}
             onPressIn={() => { pressStart.current = { route: route.key, at: coachTimingClock() } }}
             onPressOut={() => {
@@ -2172,6 +2174,7 @@ function PrimaryNavigation({ activeRoute, bottomInset, navigation, onNavigate, p
           </Pressable>
         )
       })}
+    </View>
     </View>
   )
 }
@@ -2198,7 +2201,7 @@ function HomeNextRow({ iconKey, label, meta = '', onPress, value }) {
   const { styles } = useCoachTheme()
   return (
     <Pressable accessibilityLabel={`${label}: ${value}`} accessibilityRole="button" onPress={onPress} style={({ pressed }) => [styles.homeNextRow, pressed && styles.pressed]}>
-      <CoachIcon iconKey={iconKey} size={30} />
+      <View style={styles.homeNextIcon}><CoachIcon iconKey={iconKey} size={25} /></View>
       <View style={styles.homeNextCopy}>
         <Text style={styles.iconEyebrow}>{label}</Text>
         <Text numberOfLines={1} style={styles.homeNextValue}>{value}</Text>
@@ -2498,14 +2501,15 @@ function createCoachStyles(palette) {
     iconActionGrid: { flexDirection: 'row', gap: 4, justifyContent: 'space-between' },
     iconActionLabel: { color: palette.textPrimary, flex: 1, fontSize: 11, fontWeight: '800', lineHeight: 14, textAlign: 'center' },
     iconEyebrow: { color: palette.textMuted, fontSize: 10, fontWeight: '900', letterSpacing: 0.6, textTransform: 'uppercase' },
-    iconList: { borderBottomColor: palette.border, borderBottomWidth: 1, borderTopColor: palette.border, borderTopWidth: 1 },
+    iconList: { gap: 0 },
     iconMeta: { color: palette.textMuted, fontSize: 12, fontWeight: '700', lineHeight: 16 },
     iconStat: { alignItems: 'center', borderRightColor: palette.border, borderRightWidth: 1, flex: 1, gap: 3, justifyContent: 'center', minHeight: 98, minWidth: 70, paddingHorizontal: 3, paddingVertical: 8 },
     iconStatGrid: { flexDirection: 'row', justifyContent: 'space-between' },
     iconStatLabel: { color: palette.textSecondary, fontSize: 10, fontWeight: '800', lineHeight: 13, minHeight: 26, textAlign: 'center' },
     iconStatValue: { color: palette.accentText, fontSize: 24, fontWeight: '900', lineHeight: 28 },
     homeNextCopy: { flex: 1, gap: 1, minWidth: 0 },
-    homeNextRow: { alignItems: 'center', borderBottomColor: palette.border, borderBottomWidth: 1, flexDirection: 'row', gap: 12, minHeight: 78, paddingHorizontal: 2, paddingVertical: 10 },
+    homeNextRow: { alignItems: 'center', borderBottomColor: palette.border, borderBottomWidth: StyleSheet.hairlineWidth, flexDirection: 'row', gap: 12, minHeight: 78, paddingHorizontal: 4, paddingVertical: 8 },
+    homeNextIcon: { alignItems: 'center', justifyContent: 'center', backgroundColor: palette.selected, width: 42, height: 42, borderRadius: 12 },
     homeNextValue: { color: palette.textPrimary, fontSize: 17, fontWeight: '800', lineHeight: 21 },
     keyboardShell: { flex: 1, minHeight: 0, overflow: 'hidden' },
     logo: { height: 44, width: 44 },
@@ -2552,9 +2556,9 @@ function createCoachStyles(palette) {
     stateDanger: { borderColor: palette.danger },
     statePanel: { backgroundColor: palette.surface, borderColor: palette.border, borderRadius: 18, borderWidth: 1, gap: 9, marginHorizontal: 16, marginTop: 12, padding: 16 },
     stateWarning: { borderColor: palette.warning },
-    tab: { alignItems: 'center', borderTopColor: 'transparent', borderTopWidth: 2, flex: 1, gap: 2, justifyContent: 'center', minHeight: 54, paddingHorizontal: 3, paddingVertical: 5 },
-    tabBar: { backgroundColor: palette.surface, borderTopColor: palette.border, borderTopWidth: 1, flexDirection: 'row', flexShrink: 0, gap: 4, paddingBottom: 8, paddingHorizontal: 8, paddingTop: 8 },
-    tabSelected: { borderTopColor: palette.accentText },
+    tab: { alignItems: 'center', borderRadius: 12, flex: 1, gap: 3, justifyContent: 'center', minHeight: 52, minWidth: 0, paddingHorizontal: 3, paddingVertical: 5 },
+    tabBar: { backgroundColor: palette.surface, borderColor: palette.border, borderWidth: 1, borderRadius: 16, elevation: 2, shadowColor: palette.accentText, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.1, shadowRadius: 5, marginHorizontal: 8, flexDirection: 'row', flexShrink: 0, gap: 2, padding: 5 },
+    tabSelected: { backgroundColor: palette.selected },
     tabText: { color: palette.textMuted, fontSize: 10, fontWeight: '800', textAlign: 'center' },
     tabTextSelected: { color: palette.accentText },
     testBadgeText: { color: palette.textPrimary, fontSize: 11, fontWeight: '900', letterSpacing: 0.3 },

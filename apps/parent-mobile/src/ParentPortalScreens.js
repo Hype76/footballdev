@@ -809,7 +809,7 @@ function MatchCard({ colors, invitations, link, match, onOpen, scorerGuide, styl
   const isCompleted = match.status === 'full_time'
   return (
     <View style={styles.listSurface}>
-      {!match.isFanView && !isCompleted ? <View style={styles.fixtureBadges}><MatchStatusBadge compact colors={colors} status={getParentMatchAvailability(match, invitation, link)} prefix="Availability" styles={styles} /><MatchStatusBadge compact colors={colors} status={getParentMatchSquadStatus(match)} prefix="Match squad" styles={styles} /></View> : null}
+      {(!match.isFanView || match.isPlayerView) && !isCompleted ? <View style={styles.fixtureBadges}><MatchStatusBadge compact colors={colors} status={getParentMatchAvailability(match, invitation, link)} prefix="Availability" styles={styles} />{!match.isFanView ? <MatchStatusBadge compact colors={colors} status={getParentMatchSquadStatus(match)} prefix="Match squad" styles={styles} /> : null}</View> : null}
       <Pressable accessibilityLabel={viewerClockNow ? `Open ${getMatchDayDisplayName(match)}` : undefined} accessibilityHint={scorerGuide ? 'Opens the scoring controls' : 'Opens Match Day'} accessibilityRole="button" onPress={() => onOpen(match)} style={{ minHeight: 48, gap: 5, paddingVertical: 3 }}>
         <View style={styles.row}>
           <View style={styles.fixtureStatus}><MaterialIcons accessible={false} color={colors.accentText} name="event" size={14} /><Text style={styles.fixtureStatusText}>{getParentMatchStatusLabel(match)}</Text></View>

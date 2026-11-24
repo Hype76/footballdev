@@ -115,6 +115,12 @@ export function getCoachVolunteerPersonLabel(request = {}, fallback = 'Parent or
     || fallback
 }
 
+export function getCoachVolunteerSelectionLabel(request = {}) {
+  const parent = getCoachVolunteerPersonLabel(request)
+  const child = normalize(request.playerName ?? request.player_name).split(/\s+/)[0]
+  return child ? `${parent} (${child})` : parent
+}
+
 export function getCoachVolunteerAssignmentLabel(assignment = {}, requests = []) {
   if (!assignment?.id) return 'Not assigned'
   const parentLinkId = normalize(assignment.parentLinkId ?? assignment.parent_link_id)

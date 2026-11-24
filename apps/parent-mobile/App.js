@@ -3048,7 +3048,7 @@ function BottomTabs({ activeTab, appLabel = 'Parent', onChange, tabs, theme }) {
   const { palette, styles } = useParentTheme()
   const isLight = theme === 'light'
   return (
-    <View accessibilityLabel={`${appLabel} app navigation`} style={[styles.tabBar, isLight && styles.tabBarLight]}>
+    <View accessibilityRole="tablist" accessibilityLabel={`${appLabel} app navigation`} style={[styles.tabBar, isLight && styles.tabBarLight]}>
       {tabs.map((tab) => {
         const active = activeTab === tab.key
         const showScorerGuide = tab.scorerGuide && !active
@@ -3058,6 +3058,7 @@ function BottomTabs({ activeTab, appLabel = 'Parent', onChange, tabs, theme }) {
             accessibilityHint={showScorerGuide ? 'You are the scorer for a match today' : undefined}
             accessibilityRole="tab"
             accessibilityState={{ selected: active }}
+            aria-selected={active}
             key={tab.key}
             onPress={() => onChange(tab.key)}
             style={({ pressed }) => [styles.tabButton, active && styles.tabButtonActive, isLight && active && styles.tabButtonActiveLight, pressed && styles.pressed]}
@@ -4382,11 +4383,11 @@ function createParentAppStyles(tokens) {
   syncStatusActionText: { color: palette.text, fontSize: 12, fontWeight: '900' },
   syncStatusText: { color: palette.text, flex: 1, fontSize: 13, fontWeight: '800', lineHeight: 18 },
   syncStatusWarning: { backgroundColor: palette.warningBackground, borderColor: palette.warning },
-  tabBar: { ...surface, alignSelf: 'center', borderBottomLeftRadius: 0, borderBottomRightRadius: 0, flexDirection: 'row', gap: 2, maxWidth: 680, paddingBottom: 4, paddingHorizontal: 4, paddingTop: 4, width: '100%' },
+  tabBar: { ...surface, alignSelf: 'center', borderRadius: 16, flexDirection: 'row', gap: 2, maxWidth: 680, marginBottom: 8, padding: 5, width: '96%' },
   tabBarLight: { backgroundColor: palette.card, borderTopColor: palette.border },
-  tabButton: { alignItems: 'center', borderTopColor: 'transparent', borderTopWidth: 2, flex: 1, gap: 3, justifyContent: 'center', minHeight: 52, minWidth: 0, paddingHorizontal: 2, paddingVertical: 7 },
-  tabButtonActive: { borderTopColor: palette.accentText },
-  tabButtonActiveLight: { borderTopColor: palette.accentText },
+  tabButton: { alignItems: 'center', borderRadius: 12, flex: 1, gap: 3, justifyContent: 'center', minHeight: 52, minWidth: 0, paddingHorizontal: 2, paddingVertical: 7 },
+  tabButtonActive: { backgroundColor: palette.selectedSurface },
+  tabButtonActiveLight: { backgroundColor: palette.selectedSurface },
   tabCount: { backgroundColor: palette.accent, borderRadius: 999, color: palette.ink, fontSize: 10, fontWeight: '900', minWidth: 19, overflow: 'hidden', paddingHorizontal: 5, paddingVertical: 2, textAlign: 'center' },
   tabCountActive: { backgroundColor: palette.accent, color: palette.ink },
   tabLabel: { color: palette.textMuted, fontSize: 11, fontWeight: '800', textAlign: 'center', width: '100%' },

@@ -299,10 +299,11 @@ try {
   await page.evaluate(()=>{window.phonePlatform('ios');window.phonePermission={status:'granted',canAskAgain:true};window.remount()});
   await page.getByRole('tab',{name:'More',exact:true}).click();await button('Settings').click();
   await page.getByText('This device is not registered for phone notifications.').waitFor();
-  await button('Enable phone notifications').click();
+  const phoneSwitch = page.getByRole('switch',{name:'Enable phone notifications',exact:true});
+  assert.equal(await phoneSwitch.getAttribute('aria-checked'),'false');
+  await phoneSwitch.click();
   await page.getByText('Phone notifications are enabled on this device.').waitFor();
-  assert.equal(await button('Enable phone notifications').count(),0,'Enabled registration replaces the enable action');
-  await button('Turn off phone notifications').waitFor();
+  assert.equal(await phoneSwitch.getAttribute('aria-checked'),'true','Enabled registration checks the switch');
   await page.screenshot({path:`${out}/phone-notifications-enabled.png`,fullPage:true});
   await page.evaluate(()=>{window.phoneRegistered=false;window.remount()});
   await page.waitForFunction(()=>window.phoneRegistered===true);
@@ -319,15 +320,16 @@ try {
   await page.getByRole('tab',{name:'More',exact:true}).click();await button('Settings').click();
   await page.getByText('Phone notifications are paused in this app.').waitFor();
   assert.equal(await page.evaluate(()=>window.phoneRegistered),false,'A pause made by an older rollback client survives returning to the fix');
-  await button('Enable phone notifications').click();
+  await phoneSwitch.click();
   await page.getByText('Phone notifications are enabled on this device.').waitFor();
-  await button('Turn off phone notifications').click();
+  await phoneSwitch.click();
   await page.getByText('Phone notifications are paused in this app.').waitFor();
   await page.evaluate(()=>{window.background();window.rotatePhoneToken('ExpoPushToken[paused]')});
   await page.getByText('Phone notifications are paused in this app.').waitFor();
   assert.equal(await page.evaluate(()=>window.phoneRegistered),false,'Foreground and token changes respect the explicit pause');
-  await button('Enable phone notifications').waitFor();
-  await button('Enable phone notifications').click();
+  await phoneSwitch.waitFor();
+  assert.equal(await phoneSwitch.getAttribute('aria-checked'),'false');
+  await phoneSwitch.click();
   await page.getByText('Phone notifications are enabled on this device.').waitFor();
   await page.evaluate(()=>{window.phonePermission={status:'denied',canAskAgain:false}});
   await button('Back to More').click();await button('Settings').click();
@@ -388,9 +390,14 @@ try {
       assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
       await assertRenderedTextContrast(page,`Player cards ${mode} ${width}`);
       const developmentBox=await button('Development records').boundingBox();
-      assert.ok(developmentBox.width >= 220 && developmentBox.height >= 56,'Feature rows retain readable width and touch targets');
+      assert.ok(developmentBox.width >= 84 && developmentBox.height >= 94,'Feature tiles retain readable width and touch targets');
       const nav=await page.getByRole('tablist').boundingBox();
       assert.ok(nav.y > 700 && nav.height >= 52,'Navigation stays at bottom of the viewport');
+      const roundedNav=await page.getByRole('tablist').evaluate(el=>getComputedStyle(el).borderTopLeftRadius);
+      assert.ok(parseFloat(roundedNav)>=12,'Navigation matches the rounded floating reference');
+      const selectedTab=page.getByRole('tab',{name:'Home',exact:true});
+      assert.equal(await selectedTab.getAttribute('aria-selected'),'true');
+      assert.ok(parseFloat(await selectedTab.evaluate(el=>getComputedStyle(el).borderTopLeftRadius))>=8,'Selected tab has a rounded highlight');
     }
   }
   await page.setViewportSize({width:390,height:844});
