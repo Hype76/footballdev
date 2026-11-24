@@ -130,9 +130,10 @@ function createStyles(palette) {
     panelTabText: { color: palette.textSecondary, fontSize: 10, fontWeight: '700' },
     fixtureHero: { borderBottomColor: palette.border, borderBottomWidth: 1, gap: 9, paddingVertical: 12 },
     fixtureHeroLive: { borderBottomColor: palette.accentText, borderBottomWidth: 2 },
-    fixtureBanner: { backgroundColor: '#092637', minHeight: 94, overflow: 'hidden', paddingHorizontal: 10, paddingVertical: 8 },
+    fixtureBanner: { backgroundColor: '#092637', minHeight: 94, overflow: 'hidden' },
     fixtureStadium: { ...StyleSheet.absoluteFillObject, height: '100%', width: '100%' },
-    fixtureTitle: { color: '#ffffff', fontSize: 14, fontWeight: '900', lineHeight: 19 },
+    fixtureBannerContent: { paddingHorizontal: 10, paddingVertical: 8 },
+    fixtureTitle: { color: '#ffffff', fontSize: 14, fontWeight: '900', lineHeight: 19, textShadowColor: '#07151f', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 4 },
     gameMode: { backgroundColor: palette.surface, borderColor: palette.border, borderRadius: 17, borderWidth: 1, gap: 12, padding: 15 },
     gameModeEyebrow: { color: palette.accentText, fontSize: 11, fontWeight: '900', letterSpacing: 1.3, textTransform: 'uppercase' },
     gameStat: { backgroundColor: palette.surfaceRaised, borderColor: palette.border, borderRadius: 12, borderWidth: 1, flex: 1, gap: 4, minWidth: 88, padding: 11 },
@@ -333,8 +334,9 @@ function FixtureHero({ clubLogoUrl, match, now, styles }) {
     <View style={styles.fixtureBanner}>
       <Image accessible={false} pointerEvents="none" resizeMode="cover" source={matchdayStadium}
         style={styles.fixtureStadium} testID="coach-matchday-stadium-art" />
-      <MatchTeamsLine match={match} clubLogoUrl={clubLogoUrl} hero
-        heroLabelBackground={StyleSheet.flatten(styles.fixtureBanner).backgroundColor} textStyle={styles.fixtureTitle} />
+      <View style={styles.fixtureBannerContent}>
+        <MatchTeamsLine match={match} clubLogoUrl={clubLogoUrl} hero textStyle={styles.fixtureTitle} />
+      </View>
     </View>
     {live || (normalize(match.status) && normalize(match.status) !== 'scheduled') ? <Text style={styles.liveSync}>{live ? 'Live sync on' : label(match.status)}</Text> : null}
     <FixtureDetailRow icon="calendar-month" styles={styles}>{formatFixtureDate(match.matchDate)} | {match.kickoffTimeTbc ? 'Kick-off TBC' : match.kickoffTime?.slice(0, 5) || 'Time TBC'}</FixtureDetailRow>

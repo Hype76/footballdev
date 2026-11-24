@@ -515,6 +515,22 @@ try {
     return image?.complete && image.naturalWidth > 0
   })
   assert.equal(await stadium.evaluate(element => getComputedStyle(element).pointerEvents), 'none')
+  assert.equal(await stadium.evaluate(element => getComputedStyle(element).opacity), '1')
+  assert.ok(await stadium.evaluate(element => {
+    const image = element.getBoundingClientRect()
+    const banner = element.parentElement.getBoundingClientRect()
+    return Math.abs(image.width - banner.width) < 1 && Math.abs(image.height - banner.height) < 1
+  }), 'Artwork fills the fixture banner')
+  const fixtureHeading = page.getByRole('heading', { name: 'Visitors v FP TEST Club', exact: true })
+  for (const name of ['Visitors', 'v', 'FP TEST Club']) {
+    const label = fixtureHeading.getByText(name, { exact: true })
+    const look = await label.evaluate(element => {
+      const style = getComputedStyle(element)
+      return { background: style.backgroundColor, shadow: style.textShadow }
+    })
+    assert.equal(look.background, 'rgba(0, 0, 0, 0)', 'Fixture text does not cover the artwork')
+    assert.notEqual(look.shadow, 'none', 'Fixture text retains its contrast shadow')
+  }
   assert.equal(await page.getByText('Pre-match', { exact: true }).count(), 0)
   assert.equal(await page.getByText('Game Day', { exact: true }).count(),0)
   await page.getByRole('button',{name:'Edit fixture',exact:true}).click()
