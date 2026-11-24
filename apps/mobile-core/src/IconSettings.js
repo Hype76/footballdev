@@ -5,18 +5,19 @@ export function SettingsSection({ children }) {
   return <View style={styles.section}>{children}</View>
 }
 
-export function IconMenu({ items, palette, Icon: iconComponent, onSelect, accessibilityLabel }) {
+export function IconMenu({ items, palette, Icon: iconComponent, onSelect, accessibilityLabel, polished = false }) {
   const Icon = iconComponent
   const { width, fontScale } = useWindowDimensions()
   const columns = width < 360 || fontScale > 1.3 ? 2 : 3
   const text = palette.textPrimary || palette.text
   const accent = palette.accentText || palette.accent
-  return <View style={styles.menu} accessibilityLabel={accessibilityLabel}>
+  return <View style={[styles.menu, polished && [styles.polishedMenu, { backgroundColor: palette.surface, borderColor: palette.border, shadowColor: accent }]]} accessibilityLabel={accessibilityLabel}>
     {items.map(item => <Pressable key={item.key} accessibilityRole="button" accessibilityLabel={item.label}
       accessibilityHint={item.hint || `Opens ${item.label}`} onPress={() => onSelect(item.key)}
       style={({ pressed }) => [styles.item, { width: `${100 / columns}%` }, pressed && styles.pressed]}>
-      <Icon iconKey={item.iconKey} color={accent} size={32} />
-      <Text style={[styles.label, { color: text }]}>{item.label}</Text>
+      {polished ? <View style={[styles.iconWell, { backgroundColor: palette.selected || palette.surfaceRaised }]}><Icon iconKey={item.iconKey} color={accent} size={26} /></View> : <Icon iconKey={item.iconKey} color={accent} size={32} />}
+      <Text style={[styles.label, { color: text }, polished && styles.polishedLabel]}>{item.label}</Text>
+      {polished && item.hint ? <Text style={[styles.menuHint, { color: palette.textSecondary || palette.textMuted }]}>{item.hint}</Text> : null}
     </Pressable>)}
   </View>
 }
@@ -67,6 +68,10 @@ const styles = StyleSheet.create({
   section: { gap: 16 }, menu: { flexDirection: 'row', flexWrap: 'wrap' },
   item: { minHeight: 96, paddingHorizontal: 6, paddingVertical: 16, gap: 10, alignItems: 'center', justifyContent: 'center' },
   label: { maxWidth: '100%', fontSize: 14, lineHeight: 20, fontWeight: '600', textAlign: 'center' },
+  polishedMenu: { borderRadius: 16, borderWidth: 1, paddingVertical: 5, elevation: 2, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.1, shadowRadius: 6 },
+  iconWell: { width: 42, height: 42, alignItems: 'center', justifyContent: 'center', borderRadius: 12 },
+  polishedLabel: { fontWeight: '800', fontSize: 13, lineHeight: 17 },
+  menuHint: { fontSize: 11, lineHeight: 15, textAlign: 'center' },
   back: { minHeight: 44, flexDirection: 'row', gap: 8, alignItems: 'center', alignSelf: 'flex-start' },
   backLabel: { fontSize: 16, fontWeight: '600' }, pressed: { opacity: 0.65 },
 })

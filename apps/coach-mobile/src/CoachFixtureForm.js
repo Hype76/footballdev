@@ -232,16 +232,17 @@ export function CoachFixtureForm({ changesBlocked = false, defaultMatchDate = ''
     scope.pending = true
     setBusy(true)
     const startedAt = Date.now()
-    let creationPending = !isEditing
+    let creationPending = false
     let slowNotification = null
+    let slowNotice = null
     const notify = (title, body) => Notifications.scheduleNotificationAsync({ content: { title, body }, trigger: null }).catch(() => {})
-    const slowNotice = !isEditing ? setTimeout(() => {
+    const startSlowNotice = () => setTimeout(() => {
       if (creationPending) {
         slowNotification = Notifications.scheduleNotificationAsync({ content: { title: 'Match setup is taking longer', body: 'The fixture is still being checked. Please do not press Create again.' }, trigger: null })
           .then(async (id) => { if (!creationPending) await Notifications.dismissNotificationAsync(id).catch(() => {}); return id })
           .catch(() => '')
       }
-    }, 10000) : null
+    }, 10000)
     const calendarPlayerIds = eligiblePlayers.map((player) => player.id)
     const submittedForm = {
       ...form,
@@ -262,6 +263,11 @@ export function CoachFixtureForm({ changesBlocked = false, defaultMatchDate = ''
       if (submittedForm.saveArrivalAsDefault || submittedForm.saveDurationAsDefault) {
         await saveCoachOwnTeamFixturePreferences(user, user.activeTeamId, submittedForm)
         if (!canContinue()) return
+      }
+      if (!isEditing) {
+        creationPending = true
+        // Only time the actual fixture creation. Saving defaults must not trigger a warning.
+        slowNotice = startSlowNotice()
       }
       const result = isEditing
         ? await updateCoachMatchDayFixture(user, match, submittedForm)

@@ -43,17 +43,17 @@ export function ScorerGuidePulse({ color, rounded = false }) {
     if (reduceMotion || appState !== 'active') return undefined
     const options = { duration: 850, easing: Easing.inOut(Easing.ease), useNativeDriver: true, isInteraction: false }
     const pulse = Animated.loop(Animated.sequence([
-      Animated.timing(opacity, { ...options, toValue: 0.3 }),
+      Animated.timing(opacity, { ...options, toValue: 0.6 }),
       Animated.timing(opacity, { ...options, toValue: 1 }),
     ]))
     pulse.start()
     return () => pulse.stop()
   }, [appState, opacity, reduceMotion])
   return <Animated.View accessible={false} importantForAccessibility="no" pointerEvents="none" testID="parent-scorer-guide"
-    style={[rounded ? styles.inset : styles.underline, { borderColor: color, opacity }]} />
+    style={[rounded ? styles.inset : styles.underline, { borderColor: '#ffb900', backgroundColor: rounded ? 'transparent' : '#ffb900', shadowColor: color, opacity }]} />
 }
 
 const styles = StyleSheet.create({
-  inset: { position: 'absolute', top: 2, right: 2, bottom: 2, left: 2, borderRadius: 10, borderWidth: 2 },
-  underline: { position: 'absolute', bottom: 0, left: 6, right: 6, borderBottomWidth: 3, borderRadius: 2 },
+  inset: { position: 'absolute', top: 1, right: 1, bottom: 1, left: 1, borderRadius: 10, borderWidth: 4, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.85, shadowRadius: 3 },
+  underline: { position: 'absolute', bottom: 1, left: 5, right: 5, height: 5, borderWidth: 1, borderRadius: 3, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.85, shadowRadius: 3 },
 })

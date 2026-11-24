@@ -4,6 +4,7 @@ import { test } from 'node:test'
 import {
   getCoachVolunteerAssignmentLabel,
   getCoachVolunteerPersonLabel,
+  getCoachVolunteerSelectionLabel,
 } from '../apps/mobile-core/src/coachMatchDayCore.js'
 import {
   enrichParentMatchInvitations,
@@ -43,6 +44,8 @@ test('Coach volunteer labels prefer the Parent display name and retain an email 
   assert.equal(getCoachVolunteerPersonLabel(requests[0]), 'Jamie Parent')
   assert.equal(getCoachVolunteerAssignmentLabel({ id: 'assignment-1', parentLinkId: 'parent-1', playerName: 'Child Player' }, requests), 'Jamie Parent')
   assert.equal(getCoachVolunteerPersonLabel({ recipientEmail: 'parent@example.com' }), 'parent@example.com')
+  assert.equal(getCoachVolunteerSelectionLabel({ ...requests[0], playerName: 'Child Player' }), 'Jamie Parent (Child)')
+  assert.equal(getCoachVolunteerSelectionLabel(requests[0]), 'Jamie Parent')
 })
 
 test('Volunteer eligibility enrichment stays within the fixture and club scope', async () => {

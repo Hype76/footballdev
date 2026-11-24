@@ -34,7 +34,7 @@ import {
   getCoachMatchDayOpponentPlayers,
   getCoachMatchDayActions,
   getCoachVolunteerAssignmentLabel,
-  getCoachVolunteerPersonLabel,
+  getCoachVolunteerSelectionLabel,
   getCoachOtherEligibleParents,
   getCoachMatchDayPresentation,
   getCoachMatchDaySelectedPlayers,
@@ -197,6 +197,8 @@ function createStyles(palette) {
     secondaryWarning: { backgroundColor: palette.surfaceRaised, borderColor: palette.warning },
     secondaryWarningText: { color: palette.warning },
     secondaryText: { color: palette.textPrimary, fontSize: 13, fontWeight: '900', textAlign: 'center' },
+    volunteerSelection: { minHeight: 44, paddingVertical: 6, paddingHorizontal: 10 },
+    volunteerRole: { gap: 6, paddingVertical: 10 },
     stack: { gap: 12 },
     tabs: { flexDirection: 'row', flexWrap: 'wrap', gap: 7 },
     title: { color: palette.textPrimary, fontSize: 29, fontWeight: '900' },
@@ -204,9 +206,9 @@ function createStyles(palette) {
   })
 }
 
-function Button({ compact = false, danger = false, disabled = false, iconKey = '', label, onPress, secondary = false, styles, warning = false }) {
+function Button({ compact = false, danger = false, disabled = false, iconKey = '', label, onPress, secondary = false, styles, warning = false, volunteer = false }) {
   const contentStyle = [compact ? styles.compactActionText : secondary ? styles.secondaryText : styles.actionText, danger && (secondary ? styles.secondaryDangerText : styles.actionDangerText), warning && secondary && styles.secondaryWarningText]
-  return <Pressable accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ disabled }} disabled={disabled} onPress={onPress} style={({ pressed }) => [compact ? styles.compactAction : secondary ? styles.secondary : styles.action, danger && (secondary ? styles.secondaryDanger : styles.actionDanger), warning && secondary && styles.secondaryWarning, disabled && styles.actionDisabled, pressed && { opacity: 0.74 }]}>{iconKey ? <MaterialIcons name={getMobileIconName(iconKey)} size={21} style={contentStyle} /> : null}<Text style={contentStyle}>{label}</Text></Pressable>
+  return <Pressable accessibilityRole="button" accessibilityLabel={label} accessibilityState={{ disabled }} disabled={disabled} onPress={onPress} style={({ pressed }) => [compact ? styles.compactAction : secondary ? styles.secondary : styles.action, volunteer && styles.volunteerSelection, danger && (secondary ? styles.secondaryDanger : styles.actionDanger), warning && secondary && styles.secondaryWarning, disabled && styles.actionDisabled, pressed && { opacity: 0.74 }]}>{iconKey ? <MaterialIcons name={getMobileIconName(iconKey)} size={21} style={contentStyle} /> : null}<Text style={contentStyle}>{label}</Text></Pressable>
 }
 
 function Chips({ iconResolver = null, onChange, options, styles, value }) {
@@ -368,15 +370,15 @@ function VolunteerPanel({ actions, busy, match, onSelect, onDirectSelect, onRefr
       const removalTarget = assignment ? { ...(assignmentRequest || {}), parentLinkId: assignment.parentLinkId, requestId: assignmentRequest?.requestId || '' } : null
       const volunteers = requests.filter((request) => role !== 'scorer' || request.scorerEligible).filter((request) => request[`volunteer${role.charAt(0).toUpperCase() + role.slice(1)}Response`] === 'yes')
       const otherParents = getCoachOtherEligibleParents(match.eligibleParents, volunteers, assignment)
-      return <View key={role} style={styles.card}>
+      return <View key={role} style={[styles.card, styles.volunteerRole]}>
         <Text style={styles.cardTitle}>{role.charAt(0).toUpperCase() + role.slice(1)}</Text>
         <Text style={styles.body}>{getCoachVolunteerAssignmentLabel(assignment, requests)}</Text>
         {removalTarget ? <Button disabled={busy || !actions.canSelectVolunteers} label="Remove assignment" onPress={() => onSelect(removalTarget, role, false)} secondary styles={styles} /> : null}
-        {volunteers.map((request) => <Button disabled={busy || !actions.canSelectVolunteers} key={`${role}-${request.id}`} label={`${assignment ? 'Change to' : 'Select'} ${getCoachVolunteerPersonLabel(request)}`} onPress={() => onSelect(request, role, true)} secondary styles={styles} />)}
+        {volunteers.map((request) => <Button disabled={busy || !actions.canSelectVolunteers} key={`${role}-${request.id}`} iconKey="settings.account" volunteer label={`${assignment ? 'Change to' : 'Select'} ${getCoachVolunteerSelectionLabel(request)}`} onPress={() => onSelect(request, role, true)} secondary styles={styles} />)}
         <Pressable accessibilityRole="button" accessibilityState={{ expanded: openRole === role, disabled: busy || !actions.canSelectVolunteers }} disabled={busy || !actions.canSelectVolunteers} onPress={() => setOpenRole(openRole === role ? '' : role)} style={[styles.row, { minHeight: 44 }]}>
           <Text style={styles.fieldLabel}>Choose another parent</Text><MaterialIcons name={openRole === role ? 'expand-less' : 'expand-more'} size={24} color={styles.body.color} />
         </Pressable>
-        {openRole === role ? otherParents.length ? otherParents.map((parent) => <Button compact disabled={busy || !actions.canSelectVolunteers} key={parent.parentLinkId} label={`${getCoachVolunteerPersonLabel(parent)}${parent.playerName ? ` (${parent.playerName})` : ''}`} onPress={() => onDirectSelect({ ...parent, directParentLinkId: parent.parentLinkId }, role)} secondary styles={styles} />) : <Text style={styles.body}>No other eligible parents available.</Text> : null}
+        {openRole === role ? otherParents.length ? otherParents.map((parent) => <Button volunteer iconKey="settings.account" disabled={busy || !actions.canSelectVolunteers} key={parent.parentLinkId} label={`Select ${getCoachVolunteerSelectionLabel(parent)}`} onPress={() => onDirectSelect({ ...parent, directParentLinkId: parent.parentLinkId }, role)} secondary styles={styles} />) : <Text style={styles.body}>No other eligible parents available.</Text> : null}
       </View>
     })}
   </View>

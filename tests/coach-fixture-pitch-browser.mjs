@@ -13,6 +13,7 @@ const entry = `
   const user={id:'staff',activeTeamId:'team'};
   window.saved=null;
   window.notificationCalls=[];
+  window.setupAlerts=[];
   window.focusRequests=0;
   function App(){const [version,setVersion]=React.useState(0);const [match,setMatch]=React.useState(null);const [players,setPlayers]=React.useState([]);
     window.loadPlayers=()=>setPlayers([{id:'player-1',playerName:'Sample Player',section:'squad'}]);
@@ -25,7 +26,7 @@ const entry = `
   createRoot(document.getElementById('root')).render(<CoachKeyboardFocusContext.Provider value={()=>{window.focusRequests++}}><App/></CoachKeyboardFocusContext.Provider>);
 `
 const mocks = [
-  [/^expo-notifications$/, `export const scheduleNotificationAsync=async()=>null;export const dismissNotificationAsync=async()=>null;`],
+  [/^expo-notifications$/, `export const scheduleNotificationAsync=async({content})=>{window.setupAlerts.push(content.title);return 'setup-alert'};export const dismissNotificationAsync=async(id)=>{window.dismissedSetupAlert=id};`],
   [/coachCarpoolData$/, `let enabled=true; export const getCoachCarpoolDefault=async()=>enabled; export const setCoachCarpoolDefault=async(user,value)=>{enabled=value;return value};`],
   [/coachCalendarData(?:\.js)?$/, `export const prepareCoachMatchCancellationNotification=async()=>({preparationId:'prepared'});
     export const prepareCoachMatchChangeNotification=async(match,action)=>{
@@ -40,7 +41,7 @@ const mocks = [
     export const archiveCoachMatchLocation=async()=>{};
     export const getCoachFixtureInvitedPlayerIds=async(user,match)=>match.selectedPlayerIds||[];
     export const addCoachFixtureParents=async(user,match,playerIds)=>({match:{...match,parentVisible:true,selectedPlayerIds:[...(match.selectedPlayerIds||[]),...playerIds]},warning:''});
-    export const createCoachMatchDayFixture=async(user,form)=>({id:'fixture',...validateCoachFixtureForm(form)});
+    export const createCoachMatchDayFixture=async(user,form)=>{if(window.holdCreate)await new Promise(resolve=>{window.releaseCreate=resolve});return {id:'fixture',...validateCoachFixtureForm(form)}};
     export const updateCoachMatchDayFixture=async(user,match,form)=>{
       const saved={id:match.id,...validateCoachFixtureForm({...form,parentVisible:false,selectedPlayerIds:[]})};
       window.notificationCalls.push(['save', match.id]);
@@ -52,7 +53,7 @@ const mocks = [
     if(window.holdDefaults) await new Promise(resolve=>{window.releaseDefaults=resolve});
     return {duration:90};
   };export const writeCoachFixturePreferences=async()=>{};`],
-  [/coachTeamNotificationData$/, `import {resolveTeamNotificationDisplayName} from './src/lib/team-notification-display.js';export const getCoachTeamNotificationDisplayName=async()=>resolveTeamNotificationDisplayName({name:'Tigers'});export const getCoachOwnTeamFixturePreferences=async()=>({found:false});export const saveCoachOwnTeamFixturePreferences=async()=>{};`],
+  [/coachTeamNotificationData$/, `import {resolveTeamNotificationDisplayName} from './src/lib/team-notification-display.js';export const getCoachTeamNotificationDisplayName=async()=>resolveTeamNotificationDisplayName({name:'Tigers'});export const getCoachOwnTeamFixturePreferences=async()=>({found:false});export const saveCoachOwnTeamFixturePreferences=async()=>{if(window.holdSaveDefaults)await new Promise(resolve=>{window.releaseSaveDefaults=resolve})};`],
   [/CoachDateTimeField$/, `export const CoachDateTimeField=({label,onChange,value})=><input aria-label={label} value={value} onChange={event=>onChange(event.target.value)}/>;`],
   [/coachFriendlyErrors$/, `export const getCoachFriendlyError=error=>error.message;`],
 ]
@@ -110,7 +111,25 @@ try {
   await typeField('Address','FP TEST Road')
   await typeField('Match notes','Bring both kits')
   await page.getByRole('button',{name:'3G',exact:true}).click()
+  if(width===390){
+    await page.clock.install()
+    await page.getByRole('switch',{name:'Save this duration as my default'}).check()
+    await page.evaluate(()=>{window.holdSaveDefaults=true;window.holdCreate=true})
+  }
   await page.getByRole('button',{name:'Create fixture and request availability',exact:true}).click()
+  if(width===390){
+    await page.waitForFunction(()=>Boolean(window.releaseSaveDefaults))
+    await page.clock.fastForward(11000)
+    assert.deepEqual(await page.evaluate(()=>window.setupAlerts),[],'Saving defaults does not trigger a setup warning')
+    await page.evaluate(()=>{window.holdSaveDefaults=false;window.releaseSaveDefaults()})
+    await page.waitForFunction(()=>Boolean(window.releaseCreate))
+    await page.clock.fastForward(9000)
+    assert.deepEqual(await page.evaluate(()=>window.setupAlerts),[],'No setup warning before ten seconds of fixture creation')
+    await page.clock.fastForward(1100)
+    assert.deepEqual(await page.evaluate(()=>window.setupAlerts),['Match setup is taking longer'])
+    await page.evaluate(()=>{window.holdCreate=false;window.releaseCreate()})
+    await page.waitForFunction(()=>window.dismissedSetupAlert==='setup-alert')
+  }
   await page.waitForFunction(()=>window.saved?.pitchType==='3g').catch(async error=>{throw new Error(`${error.message}; page errors: ${errors.join(' | ')}; screen: ${(await page.locator('body').innerText()).slice(-1500)}`)})
   assert.deepEqual(await page.evaluate(()=>window.saved.selectedPlayerIds),['player-1','player-2'])
   assert.equal(await page.evaluate(()=>window.saved.notificationTeamName), 'Tigers')

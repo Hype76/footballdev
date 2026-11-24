@@ -31,7 +31,7 @@ export function FanContent({ suppressParentFormation = false, connection, view, 
   }
   if (view.action === 'matches') {
     const isPlayer = connection?.relationship_type === 'player'
-    const matches = (content.matches || []).filter((item) => isFanGameDayMatch(item) || (isPlayer && ['scheduled', 'scorer_request'].includes(item.status))).map((item) => ({ ...normalizeParentMatchDay({ ...item, team_name: connection?.team_name, club_name: item.club_name || connection?.club_name, events: view.matchId === item.id ? content.events || [] : [], is_scorer: false, isScorer: false, request_scorer: false }), isFanView: true, canViewSelectedSquad: isPlayer }))
+    const matches = (content.matches || []).filter((item) => isFanGameDayMatch(item) || (isPlayer && ['scheduled', 'scorer_request'].includes(item.status))).map((item) => ({ ...normalizeParentMatchDay({ ...item, team_name: connection?.team_name, club_name: item.club_name || connection?.club_name, events: view.matchId === item.id ? content.events || [] : [], is_scorer: false, isScorer: false, request_scorer: false }), isFanView: true, isPlayerView: isPlayer, canViewSelectedSquad: isPlayer }))
     const live = matches.filter((item) => isFanGameDayMatch(item) && item.status !== 'full_time')
     const upcoming = isPlayer
       ? matches.filter((item) => ['scheduled', 'scorer_request'].includes(item.status)).sort((a, b) => Date.parse(a.matchDate) - Date.parse(b.matchDate))

@@ -13,7 +13,7 @@ const declarations = parse(source, { sourceType: 'module', plugins: ['jsx'] }).p
 const names = ['MatchPreviewCard', 'CalendarCard', 'CompactIconAction', 'HomeStatusBadges', 'NotificationsScreen', 'PollsScreen',
   'getNotificationTypeLabel', 'getNotificationTypeIcon', 'SectionHeading', 'ScreenIntro', 'ResourceError', 'EmptyPanel',
   'LoadingPanel', 'LoadingLine', 'PrimaryAction', 'Badge', 'createParentAppPalette', 'createParentAppStyles',
-  'formatDateOnly', 'formatDateTime', 'formatTime', 'normalizeText']
+  'formatDateOnly', 'formatDateTime', 'formatTime', 'normalizeText', 'BottomTabs']
 const components = names.map(name => {
   const node = declarations.find(item => item.id.name === name)
   assert.ok(node, `Actual Parent component ${name} exists`)
@@ -26,6 +26,7 @@ import {MobileLoadingStatus} from './apps/mobile-core/src/MobileHeaderActivity.j
 import React,{useState} from 'react';import {createRoot} from 'react-dom/client';
 import {View,Text,Pressable,StyleSheet,Platform} from 'react-native';
 import ParentIcon from './apps/parent-mobile/src/ParentIcon.js';
+import {getParentTabIconKey} from './apps/mobile-core/src/mobileIconSystem.js';
 import {MatchResultIcon} from './apps/parent-mobile/src/MatchResultIcon.js';
 import {getParentMatchResult} from './apps/parent-mobile/src/matchResult.js';
 import {BrandLoader} from './apps/mobile-core/src/BrandLoader.js';
@@ -55,6 +56,7 @@ return <View style={{backgroundColor:tokens.background,minHeight:'100vh',padding
 {state.scene==='home'?<><MatchPreviewCard match={state.match} link={link} invitations={state.invitations} onPress={item=>callback('match',item.id)}/><CalendarCard event={state.event} invitations={state.invitations} onPress={item=>callback('event',item.id)}/><CompactIconAction iconKey='refresh' label='Refresh' onPress={()=>callback('refresh')}/></>:null}
 {state.scene==='notifications'?<NotificationsScreen busy={false} isOffline={state.offline} matches={[]} resource={{items:notifications,loading:false,error:''}} onAction={(action,items)=>callback(action,items.map(item=>item.id))} onOpenNotification={item=>callback('openNotification',item.id)} onRetry={()=>callback('retry')}/>:null}
 {state.scene==='polls'?<PollsScreen activeActionId='' drafts={drafts} link={link} resource={{items:polls,loading:false,error:''}} onDraftChange={(id,option)=>{setDrafts(previous=>({...previous,[id]:option}));callback('draft',id,option)}} onSubmit={poll=>callback('submit',poll.id)} onDismiss={poll=>callback('dismiss',poll.id)} onRetry={()=>callback('retry')}/>:null}
+<View style={{marginTop:'auto'}}><BottomTabs activeTab={state.tab||'home'} theme={state.mode} tabs={['Home','Calendar','Matchday','Chat','More'].map(label=>({key:label.toLowerCase(),label}))} onChange={tab=>setState(previous=>({...previous,tab}))}/></View>
 </View>}
 createRoot(document.getElementById('root')).render(<App/>);`
 const result = await build({ stdin: { contents: entry, resolveDir: root, loader: 'jsx' }, bundle: true, write: false, jsx: 'automatic',
@@ -74,6 +76,13 @@ try {
   const patch = value => page.evaluate(value => window.patch(value), value)
   const checkLayout = async name => {
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `${name}: no horizontal overflow`)
+    const bar = page.getByRole('tablist',{name:'Parent app navigation'})
+    assert.ok(parseFloat(await bar.evaluate(el=>getComputedStyle(el).borderTopLeftRadius))>=12)
+    const tab=bar.getByRole('tab',{name:'Calendar',exact:true})
+    await tab.click()
+    assert.equal(await tab.getAttribute('aria-selected'),'true')
+    assert.ok((await tab.boundingBox()).height>=44)
+    await bar.getByRole('tab',{name:'Home',exact:true}).click()
     await page.screenshot({ path: `${output}/${name}.png`, fullPage: true })
   }
   const checkIconAction = async label => {

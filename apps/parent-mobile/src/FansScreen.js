@@ -284,7 +284,7 @@ function FansScreenContent({ embedded = false, themeTokens, themeMode, onBack, b
   const followed = state.connections.filter(c => !c.is_owner && c.status === 'active')
   const ownedFans = state.connections.filter(c => c.is_owner && c.parent_link_id === parent?.id)
   const showSection = next => { setSection(next); closeContent(); localScrollRef.current?.scrollTo({ y: 0, animated: false }) }
-  const content = <FansTheme.Provider value={tokens}><View style={[styles.container, embedded && styles.embedded]}>{!embedded && !viewerShell && brandSource ? <ClubBrand source={brandSource} matchdayPolicy={matchdayPolicy} /> : null}<MobileFailureNotice message={isTransientConnectionMessage(state.error) ? state.error : ''} scopeKey={user.id} onRetry={state.reload} />
+  const content = <FansTheme.Provider value={tokens}><View style={[styles.container, embedded && styles.embedded]}>{!embedded && viewerShell && (section === 'settings' || (section === 'home' && !state.view)) ? <Image accessible={false} pointerEvents="none" source={require('../../mobile-core/assets/club-feature-wave.png')} resizeMode="stretch" style={styles.viewerWave} /> : null}{!embedded && !viewerShell && brandSource ? <ClubBrand source={brandSource} matchdayPolicy={matchdayPolicy} /> : null}<MobileFailureNotice message={isTransientConnectionMessage(state.error) ? state.error : ''} scopeKey={user.id} onRetry={state.reload} />
     {section === 'more' && !state.view ? <>
       <MoreScreen conciseLabels onOpen={showSection} themeTokens={tokens} visibleKeys={viewerMoreKeys} />
       {embedded ? <Action label="Back to players" icon="action.back" onPress={() => showSection('home')} /> : null}
@@ -296,24 +296,22 @@ function FansScreenContent({ embedded = false, themeTokens, themeMode, onBack, b
       <PartnersScreen appRole="parent" headingStyle={styles.title} textStyle={styles.helper} />
     </> : section === 'settings' && !state.view ? <>
       <Action label="Back to More" icon="action.back" onPress={() => showSection('more')} />
-      <Text accessibilityRole="header" style={styles.title}>Settings</Text>
-      <Text style={styles.helper}>Manage notifications and your linked players.</Text>
+      <View style={styles.row}><View style={styles.settingsIcon}><ParentIcon iconKey="settings" color={tokens.accentText} size={23} /></View><Text accessibilityRole="header" style={styles.title}>Settings</Text></View>
+      <Text style={styles.helper}>Manage notifications, linked players and your account.</Text>
       {state.error && !isTransientConnectionMessage(state.error) ? <Text accessibilityRole="alert" style={styles.error}>{state.error}</Text> : null}
-      {!embedded ? <>
-        <Text accessibilityRole="header" style={styles.heading}>Display</Text>
-        <Text style={styles.helper}>System follows this device's appearance. Your choice is remembered on this device.</Text>
-        <DeviceThemeChoices value={savedMode} onChange={changeDisplayTheme} palette={{ accentText: tokens.accentText, border: tokens.border, textMuted: tokens.textSecondary }} />
-      </> : null}
-      {followed.some(c => canViewFanNotifications(c, matchdayPolicy)) ? <View style={{ gap: 8 }}>
-        <Text style={styles.label}>Phone notifications</Text>
-        <Text accessibilityLiveRegion="polite" style={styles.helper}>{({ checking: 'Checking phone notifications...', enabled: deviceNotifications.quiet ? 'Phone notifications are enabled with quiet delivery in phone settings.' : 'Phone notifications are enabled on this device.', paused: 'Phone notifications are paused in this app.', off: 'Phone notifications are off in phone settings.', not_registered: 'This device is not registered for phone notifications.', unknown: 'Phone notification status could not be checked. Retry to check your saved choice.', web: 'Phone notifications are available in the mobile app.' })[deviceNotifications.status]}</Text>
-        <Text style={styles.helper}>The notification switch on each player chooses which alerts you follow. Phone notifications also need permission and registration on this device.</Text>
-        {deviceNotifications.status === 'enabled' ? <Action icon="notifications" label="Turn off phone notifications" disabled={busy} onPress={disableDevice} /> : deviceNotifications.status === 'off' && deviceNotifications.canAskAgain === false ? <Action icon="settings" label="Open phone settings" disabled={busy} onPress={() => run(() => Linking.openSettings())} /> : deviceNotifications.status === 'unknown' ? <Action icon="notifications" label="Retry phone notifications" disabled={busy} onPress={() => run(() => refreshDeviceNotifications())} /> : ['off', 'paused', 'not_registered'].includes(deviceNotifications.status) ? <Action icon="notifications" label="Enable phone notifications" disabled={busy} onPress={enableDevice} /> : null}
+      {!embedded ? <View style={styles.settingsCard}>
+        <View style={styles.row}><View style={styles.settingsIcon}><ParentIcon iconKey="settings.appearance" color={tokens.accentText} size={22} /></View><View style={styles.copy}><Text accessibilityRole="header" style={styles.settingsHeading}>Display</Text><Text style={styles.settingsMeta}>Choose how the app looks on this device.</Text></View></View>
+        <DeviceThemeChoices polished value={savedMode} onChange={changeDisplayTheme} palette={{ ...tokens, textMuted: tokens.textSecondary }} />
       </View> : null}
-      <Action icon="person-add" label="Open a Fan invitation" onPress={() => { setJoining(true); setInvitationLink('') }} />
-      <Text accessibilityRole="header" style={styles.heading}>Linked players</Text>
-      {followed.map(c => <View key={c.id} style={[styles.person, styles.row]}><View style={styles.copy}><Text style={styles.label}>{c.player_name}</Text><Text style={styles.helper}>{c.club_name} | {c.team_name}</Text></View><Pressable accessibilityRole="button" accessibilityLabel={`Remove my access to ${c.player_name}`} accessibilityHint="Opens a confirmation before removing your access" disabled={busy} onPress={() => remove(c, true)} style={{ minWidth: 44, minHeight: 44, alignItems: "center", justifyContent: "center", opacity: busy ? 0.5 : 1 }}><ParentIcon iconKey="fan.remove" color={tokens.danger} size={22} /></Pressable></View>)}
-      {!embedded ? <View style={styles.account}><Text accessibilityRole="header" style={styles.heading}>Account</Text><Text style={styles.helper}>{user?.email}</Text><Action icon="logout" label="Sign out" disabled={busy} onPress={() => setSignOutConfirm(true)} /></View> : <Action label="Back to players" icon="action.back" onPress={() => showSection('home')} />}
+      {followed.some(c => canViewFanNotifications(c, matchdayPolicy)) ? <View style={styles.settingsCard}>
+        <View style={styles.row}><View style={styles.settingsIcon}><ParentIcon iconKey="notifications" color={tokens.accentText} size={22} /></View><View style={styles.copy}><Text accessibilityRole="header" style={styles.settingsHeading}>Phone notifications</Text><Text style={styles.settingsMeta}>Get alerts for shared team updates and fixtures.</Text></View></View>
+        <Text accessibilityLiveRegion="polite" style={styles.helper}>{({ checking: 'Checking phone notifications...', enabled: deviceNotifications.quiet ? 'Phone notifications are enabled with quiet delivery in phone settings.' : 'Phone notifications are enabled on this device.', paused: 'Phone notifications are paused in this app.', off: 'Phone notifications are off in phone settings.', not_registered: 'This device is not registered for phone notifications.', unknown: 'Phone notification status could not be checked. Retry to check your saved choice.', web: 'Phone notifications are available in the mobile app.' })[deviceNotifications.status]}</Text>
+        {deviceNotifications.status === 'off' && deviceNotifications.canAskAgain === false ? <Action icon="settings" label="Open phone settings" disabled={busy} onPress={() => run(() => Linking.openSettings())} /> : deviceNotifications.status === 'unknown' ? <Action icon="notifications" label="Retry phone notifications" disabled={busy} onPress={() => run(() => refreshDeviceNotifications())} /> : ['enabled', 'off', 'paused', 'not_registered'].includes(deviceNotifications.status) ? <View style={styles.settingsToggle}><Text style={styles.settingsHeading}>Enable phone notifications</Text><Switch accessibilityLabel="Enable phone notifications" disabled={busy} value={deviceNotifications.status === 'enabled'} onValueChange={value => value ? enableDevice() : disableDevice()} trackColor={{ false: tokens.borderStrong, true: '#15803d' }} ios_backgroundColor={tokens.borderStrong} thumbColor="#ffffff" /></View> : null}
+      </View> : null}
+      <Pressable accessibilityRole="button" accessibilityLabel="Open a Fan invitation" onPress={() => { setJoining(true); setInvitationLink('') }} style={[styles.settingsCard, styles.row]}><View style={styles.settingsIcon}><ParentIcon iconKey="person-add" color={tokens.accentText} size={22} /></View><Text style={[styles.settingsHeading, styles.copy]}>Open a Fan invitation</Text><ParentIcon iconKey="action.open" color={tokens.accentText} size={20} /></Pressable>
+      <View style={styles.settingsCard}><View style={styles.row}><View style={styles.settingsIcon}><ParentIcon iconKey="fans" color={tokens.accentText} size={22} /></View><Text accessibilityRole="header" style={styles.settingsHeading}>Linked players</Text></View>
+      {followed.map(c => <View key={c.id} style={[styles.settingsPerson, styles.row]}><View style={styles.settingsIcon}><ParentIcon iconKey="child" color={tokens.accentText} size={22} /></View><View style={styles.copy}><Text style={styles.settingsHeading}>{c.player_name}</Text><Text style={styles.settingsMeta}>{c.club_name} | {c.team_name}</Text></View><Pressable accessibilityRole="button" accessibilityLabel={`Remove my access to ${c.player_name}`} accessibilityHint="Opens a confirmation before removing your access" disabled={busy} onPress={() => remove(c, true)} style={{ minWidth: 44, minHeight: 44, alignItems: "center", justifyContent: "center", opacity: busy ? 0.5 : 1 }}><ParentIcon iconKey="fan.remove" color={tokens.danger} size={22} /></Pressable></View>)}</View>
+      {!embedded ? <View style={[styles.settingsCard, styles.row]}><View style={styles.settingsIcon}><ParentIcon iconKey="settings.account" color={tokens.accentText} size={22} /></View><View style={styles.copy}><Text accessibilityRole="header" style={styles.settingsHeading}>Account</Text><Text style={styles.settingsMeta}>{user?.email}</Text></View><Action icon="logout" label="Sign out" compact disabled={busy} onPress={() => setSignOutConfirm(true)} /></View> : <Action label="Back to players" icon="action.back" onPress={() => showSection('home')} />}
     </> : state.view ? <>
       <Action label="Back to Fans" icon="action.back" onPress={closeContent} />
       {!viewerShell ? <Text style={styles.label}>{brandSource?.player_name}</Text> : null}
@@ -400,7 +398,7 @@ function FansScreenContent({ embedded = false, themeTokens, themeMode, onBack, b
     </Modal>
     <ScrollView ref={localScrollRef} contentContainerStyle={{ flexGrow: 1 }} keyboardShouldPersistTaps="handled">{content}</ScrollView>
     <View accessibilityRole="tablist" style={styles.navigation}>{tabs.map(item => <Pressable key={item.key} accessibilityRole="tab" accessibilityLabel={item.label}
-      accessibilityState={{ selected: activeTab === item.key }} onPress={() => navigateTab(item.key)} style={[styles.navItem, { borderTopWidth: 2, borderTopColor: activeTab === item.key ? tokens.accentText : 'transparent' }]}>
+      accessibilityState={{ selected: activeTab === item.key }} aria-selected={activeTab === item.key} onPress={() => navigateTab(item.key)} style={[styles.navItem, activeTab === item.key && styles.navItemActive]}>
       <ParentIcon iconKey={item.icon} color={activeTab === item.key ? tokens.accentText : tokens.textSecondary} size={24} />
       <Text adjustsFontSizeToFit minimumFontScale={0.8} numberOfLines={1} style={[styles.navLabel, activeTab === item.key && styles.navLabelActive]}>{item.label}</Text>
     </Pressable>)}</View>
@@ -411,6 +409,7 @@ function createStyles(tokens) {
     borderRadius: 15, shadowColor: tokens.accentText, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.1, shadowRadius: 7, elevation: 2 }
   return StyleSheet.create({
   safe: { flex: 1, backgroundColor: tokens.portalBackground },
+  viewerWave: { position: 'absolute', bottom: 0, left: 0, width: '100%', height: 155, tintColor: tokens.accentText, opacity: 0.08 },
   viewerHeader: { alignSelf: 'center', maxWidth: 680, width: '100%', paddingHorizontal: 14, paddingTop: 8, paddingBottom: 10 },
   viewerPlayer: { ...surface, alignItems: 'center', flexDirection: 'row', gap: 10, marginTop: 8, minHeight: 60, paddingHorizontal: 11, paddingVertical: 7 },
   viewerPlayerIcon: { alignItems: 'center', backgroundColor: tokens.buttonPrimary, borderRadius: 18, height: 36, justifyContent: 'center', width: 36 },
@@ -421,11 +420,18 @@ function createStyles(tokens) {
   viewerPlayerChange: { backgroundColor: tokens.accentSoft, borderRadius: 15, color: tokens.accentText, fontSize: 12, fontWeight: '900', paddingHorizontal: 12, paddingVertical: 6 },
   viewerOption: { ...surface, gap: 4, justifyContent: 'center', minHeight: 60, paddingHorizontal: 12, paddingVertical: 8 },
   viewerOptionActive: { borderColor: tokens.accentText, backgroundColor: tokens.accentSoft },
-  navigation: { ...surface, alignSelf: 'center', borderBottomLeftRadius: 0, borderBottomRightRadius: 0, flexDirection: 'row', gap: 2, maxWidth: 680, padding: 4, width: '100%' },
-  navItem: { alignItems: 'center', flex: 1, gap: 3, justifyContent: 'center', minHeight: 52, minWidth: 0, paddingHorizontal: 2, paddingVertical: 7 },
+  navigation: { ...surface, alignSelf: 'center', borderRadius: 16, flexDirection: 'row', gap: 2, maxWidth: 680, marginBottom: 8, padding: 5, width: '96%' },
+  navItem: { alignItems: 'center', borderRadius: 12, flex: 1, gap: 3, justifyContent: 'center', minHeight: 52, minWidth: 0, paddingHorizontal: 2, paddingVertical: 7 },
+  navItemActive: { backgroundColor: tokens.selectedSurface },
   navLabel: { color: tokens.textSecondary, fontSize: 11, fontWeight: '800', textAlign: 'center', width: '100%' },
   navLabelActive: { color: tokens.accentText },
   account: { marginTop: 24, paddingTop: 8, borderTopWidth: 1, borderColor: tokens.border },
+  settingsCard: { ...surface, gap: 6, padding: 10 },
+  settingsIcon: { width: 34, height: 34, borderRadius: 10, backgroundColor: tokens.accentSoft, alignItems: 'center', justifyContent: 'center' },
+  settingsHeading: { color: tokens.textPrimary, fontSize: 15, lineHeight: 19, fontWeight: '800' },
+  settingsMeta: { color: tokens.textSecondary, fontSize: 12, lineHeight: 16 },
+  settingsToggle: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', minHeight: 44 },
+  settingsPerson: { minHeight: 44, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: tokens.border },
   container: { alignSelf: 'center', backgroundColor: tokens.portalBackground, flexGrow: 1, maxWidth: 680, paddingHorizontal: 14, paddingVertical: 6, width: '100%', gap: 12 },
   embedded: { maxWidth: undefined, paddingHorizontal: 0, paddingVertical: 0 },
   title: { fontSize: 26, fontWeight: '800', color: tokens.textPrimary }, heading: { fontSize: 20, fontWeight: '700', marginTop: 16, color: tokens.textPrimary },
