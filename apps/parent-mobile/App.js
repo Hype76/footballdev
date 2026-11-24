@@ -39,7 +39,7 @@ import { buildParentProfileAfterAccessRemoval } from '../mobile-core/src/parentA
 import { IconSettings, SettingsSection } from '../mobile-core/src/IconSettings'
 import { NotificationCategorySettings } from '../mobile-core/src/NotificationCategorySettings'
 import { PitchTypeIcon } from './src/PitchTypeIcon'
-import { getMatchDayDisplayName, getMatchDayDisplayScore } from '../../src/lib/matchday-display.js'
+import { getMatchDayDisplayName, getMatchDayDisplayParts, getMatchDayDisplayScore, getMatchDayShootoutScore } from '../../src/lib/matchday-display.js'
 import NetInfo from '@react-native-community/netinfo'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import * as Application from 'expo-application'
@@ -3266,19 +3266,21 @@ function MatchPreviewCard({ match, onPress, prominent = false, invitations = [],
   const score = isFinished || ['live', 'half_time', 'second_half', 'extra_time', 'penalties'].includes(match.status)
     ? getMatchDayDisplayScore(match)
     : ''
+  const shootoutScore = score ? getMatchDayShootoutScore(match) : ''
+  const { firstScore, secondScore } = getMatchDayDisplayParts(match)
 
   return (
     <Pressable
       accessibilityHint={scorerGuide ? 'Opens the scoring controls' : 'Opens fixture details'}
-      accessibilityLabel={`${getMatchDayDisplayName(match)}, ${status}`}
+      accessibilityLabel={`${getMatchDayDisplayName(match)}, ${status}${score ? `, ${score}` : ''}`}
       accessibilityRole="button"
       onPress={() => onPress(match)}
       style={({ pressed }) => [styles.card, styles.homeCard, prominent && styles.cardProminent, pressed && styles.pressed]}
     >
       <View style={styles.compactRow}>
         <View style={styles.homeItemIcon}>{getParentMatchResult(match) ? <MatchResultIcon match={match} textStyle={styles.cardMeta} /> : <ParentIcon color={palette.accentText} iconKey="football" size={25} />}</View>
-        <View style={styles.compactCopy}><View style={styles.cardTopRow}>{status.toLowerCase() !== 'scheduled' ? <Badge label={status} tone={match.status === 'cancelled' ? 'danger' : match.status === 'live' ? 'accent' : 'neutral'} /> : null}<Text style={styles.cardDate}>{formatDateOnly(match.matchDate)}</Text></View><Text style={styles.cardTitle}>{getMatchDayDisplayName(match)}</Text>{!isFinished && !match.isFanView ? <HomeStatusBadges badges={getParentMatchStatusBadges(match, invitations, link)} /> : null}<Text style={styles.cardMeta}>{match.arrivalTime ? `Arrive ${formatTime(match.arrivalTime)}` : `Kick-off ${formatTime(match.kickoffTime, match.kickoffTimeTbc)}`} | {getMatchDayShirtChoiceLabel(match.shirtChoice)}</Text></View>
-        {score ? <Text style={styles.score}>{score}</Text> : <ParentIcon color={palette.accentText} iconKey="action.open" size={22} />}
+        <View style={styles.compactCopy}><View style={[styles.cardTopRow, shootoutScore && styles.homeShootoutTopRow]}>{status.toLowerCase() !== 'scheduled' ? <Badge label={status} tone={match.status === 'cancelled' ? 'danger' : match.status === 'live' ? 'accent' : 'neutral'} /> : null}<Text style={styles.cardDate}>{formatDateOnly(match.matchDate)}</Text></View><Text style={styles.cardTitle}>{getMatchDayDisplayName(match)}</Text>{!isFinished && !match.isFanView ? <HomeStatusBadges badges={getParentMatchStatusBadges(match, invitations, link)} /> : null}<Text style={styles.cardMeta}>{match.arrivalTime ? `Arrive ${formatTime(match.arrivalTime)}` : `Kick-off ${formatTime(match.kickoffTime, match.kickoffTimeTbc)}`} | {getMatchDayShirtChoiceLabel(match.shirtChoice)}</Text></View>
+        {shootoutScore ? <View style={styles.homeShootoutScoreColumn}><Text numberOfLines={1} adjustsFontSizeToFit style={styles.score}>{firstScore} - {secondScore}</Text><Text numberOfLines={1} adjustsFontSizeToFit style={styles.homeShootoutScore}>({shootoutScore} pens)</Text></View> : score ? <Text style={styles.score}>{score}</Text> : <ParentIcon color={palette.accentText} iconKey="action.open" size={22} />}
       </View>
       {scorerGuide ? <ScorerGuidePulse color={palette.accentText} /> : null}
     </Pressable>
@@ -4260,6 +4262,9 @@ function createParentAppStyles(tokens) {
   cardTitle: { color: palette.text, flexShrink: 1, fontSize: 18, fontWeight: '900', lineHeight: 23 },
   cardTopRow: { alignItems: 'center', flexDirection: 'row', gap: 12, justifyContent: 'space-between' },
   homeCard: { ...surface, gap: 6, paddingHorizontal: 11, paddingVertical: 10 },
+  homeShootoutTopRow: { flexWrap: 'wrap', columnGap: 6, rowGap: 4 },
+  homeShootoutScoreColumn: { alignItems: 'flex-end', flexShrink: 0, maxWidth: '36%', gap: 2 },
+  homeShootoutScore: { color: palette.accentText, fontSize: 13, fontWeight: '700', textAlign: 'right' },
   homeItemIcon: { alignItems: 'center', backgroundColor: palette.selectedSurface, borderRadius: 12, height: 42, justifyContent: 'center', width: 42 },
   trainingItemIcon: { backgroundColor: palette.successBackground },
   listSurface: { ...surface, paddingHorizontal: 12, paddingVertical: 11 },

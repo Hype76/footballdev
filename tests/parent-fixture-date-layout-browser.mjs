@@ -34,7 +34,7 @@ import{createParentMobileTheme,DEFAULT_PARENT_MOBILE_THEME,resolveParentMobileBr
 import{getParentMatchStatusLabel}from'./apps/parent-mobile/src/parentExperience.js';
 import{getParentMatchAvailability,getParentMatchSquadStatus}from'./apps/parent-mobile/src/parentMatchAvailability.js';
 import{formatParentProductDateTime,formatParentProductTime}from'./apps/mobile-core/src/parentDateTimeCore.js';
-import{getMatchDayDisplayName,getMatchDayDisplayScore,getMatchDayShootoutScore}from'./src/lib/matchday-display.js';
+import{getMatchDayDisplayName,getMatchDayDisplayParts,getMatchDayDisplayScore,getMatchDayShootoutScore}from'./src/lib/matchday-display.js';
 import{getMatchDayShirtChoiceLabel}from'./src/lib/matchday-model.js';
 const ParentIcon=()=> <View style={{width:34,height:34}}/>;
 const MatchResultIcon=()=>null,getParentMatchResult=()=>null;
