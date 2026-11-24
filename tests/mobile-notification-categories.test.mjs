@@ -14,7 +14,7 @@ test('Coach suppresses resource announcements while Parent choices remain indepe
 
 test('requested defaults and every Game Day level have independent category behaviour', () => {
   assert.deepEqual(normalizeNotificationCategories(), { gameDay: 'scores_cards', invites: true, chats: true, resources: true, development: true })
-  const scoreTypes = ['goal','score_correction','yellow_card','red_card','live','match_started','half_time','second_half','full_time']
+  const scoreTypes = ['goal','score_correction','yellow_card','red_card','live','match_started','half_time','second_half','penalties','start_penalties','shootout_kick','full_time']
   const fullTypes = ['pause','resume','hydration','conclude','substitution','extra_time','penalty_shootout']
   for (const type of [...scoreTypes, ...fullTypes]) {
     const data = { route: 'matchday', type }
@@ -56,13 +56,13 @@ function database(preferences = []) {
 test('match milestones reach default and saved Score and cards devices in both apps', async () => {
   for (const app of ['coach', 'parent']) {
     const token = app === 'coach' ? 'ExpoPushToken[coach]' : 'ExpoPushToken[one]'
-    const messages = ['live', 'match_started', 'half_time', 'second_half', 'full_time', 'substitution', 'hydration'].map(type => (
+    const messages = ['live', 'match_started', 'half_time', 'second_half', 'penalties', 'start_penalties', 'shootout_kick', 'full_time', 'substitution', 'hydration'].map(type => (
       { to: token, data: { app, route: 'matchday', type } }
     ))
     for (const gameDay of [undefined, 'scores_cards', 'off', 'full']) {
       const client = database(gameDay ? [{ auth_user_id: 'one', app, game_day: gameDay }] : [])
       const delivered = await filterMobileNotificationMessages(messages, client)
-      const expected = gameDay === 'off' ? [] : gameDay === 'full' ? messages : messages.slice(0, 5)
+      const expected = gameDay === 'off' ? [] : gameDay === 'full' ? messages : messages.slice(0, 8)
       assert.deepEqual(delivered, expected, `${app}: ${gameDay || 'default'}`)
     }
   }
@@ -97,11 +97,12 @@ test('Fan-only devices receive permitted Game Day alerts and respect account pre
   const preferences = []
   const client = database(preferences)
   const message = (type, token = 'fan') => ({to:`ExpoPushToken[${token}]`,data:{app:'parent',route:'fans',type}})
-  assert.deepEqual(await filterMobileNotificationMessages([message('goal'),message('half_time'),message('substitution'),message('goal','missing')],client),[message('goal'),message('half_time')])
+  assert.deepEqual(await filterMobileNotificationMessages([message('goal'),message('half_time'),message('penalties'),message('shootout_kick'),message('full_time'),message('substitution'),message('goal','missing')],client),[message('goal'),message('half_time'),message('penalties'),message('shootout_kick'),message('full_time')])
   preferences.push({auth_user_id:'fan',app:'parent',game_day:'full'})
   assert.equal((await filterMobileNotificationMessages([message('half_time')],client)).length,1)
   preferences[0].game_day='off'
   assert.equal((await filterMobileNotificationMessages([message('goal')],client)).length,0)
+  assert.equal((await filterMobileNotificationMessages([message('penalties'),message('shootout_kick'),message('full_time')],client)).length,0)
   assert.equal((await filterMobileNotificationMessages([message('goal','three')],client)).length,0)
 })
 

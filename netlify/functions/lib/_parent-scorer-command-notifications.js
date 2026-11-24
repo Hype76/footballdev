@@ -20,13 +20,14 @@ export async function deliverParentScorerCommands(commandId = null, actorUserId 
       if (command.kind === 'request-review' || command.type === 'coach_review') {
         await deliverCoachMatchReviewOnce({ client, match: { ...match, status: context.status, concluded_at: context.concluded_at }, actorUserId: command.actorUserId, review })
       } else if (command.type === 'shootout_kick') {
-        await deliverShootoutNotifications({ matchDayId: match.id, kickId: command.eventId, client, deliver })
+        const result = await deliverShootoutNotifications({ matchDayId: match.id, kickId: command.eventId, client, deliver })
+        if (result.failed) throw new Error('Shootout notifications will be retried.')
       } else {
         const { data: targets, error: targetError } = await client.rpc('get_match_day_parent_notification_link_ids', { match_day_id_value: command.match.id })
         if (targetError) throw targetError
         deliver ||= (await import('../send-match-day-push.js')).deliverMatchDayNotification
         const result = await deliver({ match, type: command.type, eventId: command.eventId || '', ...(command.type === 'score_correction' ? { notificationId: command.id } : {}), targetParentLinkIds: [...new Set(targets || [])] })
-        if (result.mobileFailed || result.webFailed || result.fanFailed) throw new Error('Some match notifications were not accepted. Delivery will be retried.')
+        if (result.mobileFailed || result.webFailed || result.fanFailed || result.adultPlayerFailed) throw new Error('Some match notifications were not accepted. Delivery will be retried.')
       }
       completed += 1
     } catch (error) { failure = error.message || 'Match notification delivery failed.'; failed += 1 }

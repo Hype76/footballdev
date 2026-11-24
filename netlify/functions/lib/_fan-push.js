@@ -15,7 +15,7 @@ export function buildFanMatchNotificationPayload({ fanConnectionId, match, notif
   }
 }
 
-export async function sendFanMatchNotifications({ client, match, type, eventId, notificationId = '', targetParentLinkIds, notificationCopy, sendPush = (messages) => sendExpoPushMessages(messages, { client }) }) {
+export async function sendFanMatchNotifications({ client, match, type, eventId, notificationId = '', targetParentLinkIds, notificationCopy, sendPush = (messages, options) => sendExpoPushMessages(messages, { client, ...options }) }) {
   if (!isFanMatchNotificationType(type) || !targetParentLinkIds.length) return { fanSent: 0, fanFailed: 0 }
   const result = await client.from('fan_connections').select('id,auth_user_id')
     .eq('club_id', match.club_id).eq('status', 'active').in('relationship_type', ['fan', 'player']).eq('notifications_enabled', true)
@@ -44,11 +44,13 @@ export async function sendFanMatchNotifications({ client, match, type, eventId, 
       const current = await loadFanScope(client, fan.auth_user_id, fan.id, 'game_day')
       if (!current.fan.notifications_enabled) continue
       const tokens = (devices.data || []).map((d) => d.token).filter((token) => !seenTokens.has(token))
-      const delivery = await sendPush(tokens.map((to) => ({ to, ...payload })))
+      const delivery = await sendPush(tokens.map((to) => ({ to, ...payload })), { expectedFanAuthUserId: fan.auth_user_id })
       if (!delivery.failed) {
         tokens.forEach((token) => seenTokens.add(token))
-        const marked = await client.from('fan_notifications').update({ push_sent_at: new Date().toISOString() }).eq('id', record.data.id)
-        if (marked.error) throw marked.error
+        if (delivery.sent > 0) {
+          const marked = await client.from('fan_notifications').update({ push_sent_at: new Date().toISOString() }).eq('id', record.data.id)
+          if (marked.error) throw marked.error
+        }
       }
       if (delivery.invalidTokens?.length) await client.from('fan_devices').delete().in('token', delivery.invalidTokens)
       fanSent += delivery.sent; fanFailed += delivery.failed

@@ -96,6 +96,37 @@ async function setup() {
 }
 
 async function claims(db, user) { await db.query("select set_config('request.jwt.claim.sub', $1, false)", [user || '']) }
+test('Shootout targets are service-only, visible, current Adult Player installations in the match team', async () => {
+ const db=await setup()
+ try {
+  await register(db)
+  await db.exec(`alter table match_days add column parent_visible boolean default true;
+    alter table match_days add column parent_audience text default 'all_team_parents';
+    alter table calendar_event_invites add column match_day_id uuid;
+    alter table match_day_player_squad_decisions add column notified_at timestamptz;
+    create function auth.jwt() returns jsonb language sql stable as $$select jsonb_build_object('role',current_setting('request.jwt.claim.role',true))$$;
+    update match_days set status='penalties',match_date=current_date;`)
+  await db.exec(await readFile(new URL('../supabase/migrations/20261124174904_shootout_adult_player_notification_targets.sql',import.meta.url),'utf8'))
+  const targets=async ()=>(await db.query('select installation_id, user_id, team_id from get_shootout_adult_player_notification_targets($1)',[id.match])).rows
+  assert.deepEqual(await targets(),[])
+  await db.exec("select set_config('request.jwt.claim.role','service_role',false)")
+  assert.deepEqual(await targets(),[{installation_id:deviceId,user_id:id.user,team_id:id.team}])
+  await db.exec("update match_days set parent_visible=false")
+  assert.deepEqual(await targets(),[])
+  await db.exec("update match_days set parent_visible=true,parent_audience='involved_players'; delete from match_day_player_squad_decisions")
+  assert.deepEqual(await targets(),[])
+  await db.query("insert into match_day_player_squad_decisions(match_day_id,club_id,team_id,player_id,status) values($1,$2,$3,$4,'selected')",[id.match,id.club,id.team,id.player])
+  assert.equal((await targets()).length,1)
+  await db.exec("update adult_player_mobile_push_installations set enabled=false")
+  assert.deepEqual(await targets(),[])
+  await db.exec("update adult_player_mobile_push_installations set enabled=true; update adult_player_account_links set status='revoked',revoked_at=now()")
+  assert.deepEqual(await targets(),[])
+  for(const role of ['anon','authenticated','service_role']){
+   const row=(await db.query("select has_function_privilege($1,'public.get_shootout_adult_player_notification_targets(uuid,uuid)','EXECUTE') as allowed",[role])).rows[0]
+   assert.equal(row.allowed,role==='service_role')
+  }
+ } finally {await db.close()}
+})
 async function rooms(db) { return (await db.query('select * from get_own_adult_player_chat_rooms()')).rows }
 async function room(db, type) { return (await rooms(db)).find(item => item.room_type === type) }
 
