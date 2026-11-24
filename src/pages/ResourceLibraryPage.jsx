@@ -14,9 +14,11 @@ import {
   archiveResourceLibraryItem,
   assignResourceLibraryItem,
   createExternalResourceLibraryItem,
+  createResourceLibraryCategory,
   formatResourceLibraryFileSize,
   getFormationBoardThumbnailUrl,
   getResourceLibraryDownloadUrl,
+  getResourceLibraryCategories,
   getResourceLibraryItems,
   getResourceLibraryPlayers,
   uploadResourceLibraryItem,
@@ -108,7 +110,7 @@ function stopTextInputSpacePropagation(event) {
 }
 
 function getCategoryLabel(value) {
-  return RESOURCE_LIBRARY_CATEGORIES.find((category) => category.value === value)?.label || 'General'
+  return RESOURCE_LIBRARY_CATEGORIES.find((category) => category.value === value)?.label || value || 'General'
 }
 
 function getResourceMeta(resource) {
@@ -148,7 +150,7 @@ function FormationResourcePreview({ resource }) {
   )
 }
 
-function ResourceList({ canExportFormationBoards, canManage, downloadingId, isSaving, onArchive, onDownload, onEditAssignment, onFormationExport, resources, editingId, editError, onEdit, onSaveEdit, onCancelEdit }) {
+function ResourceList({ canExportFormationBoards, canManage, categories, downloadingId, isSaving, onArchive, onDownload, onEditAssignment, onFormationExport, resources, editingId, editError, onEdit, onSaveEdit, onCancelEdit }) {
   if (resources.length === 0) {
     return (
       <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-4 py-6 text-sm font-semibold leading-6 text-[#4b5f55] shadow-sm shadow-[#047857]/10">
@@ -212,7 +214,7 @@ function ResourceList({ canExportFormationBoards, canManage, downloadingId, isSa
               ) : null}
             </div>
           </div>
-          {canManage && editingId === resource.id ? <ResourceEditor key={resource.id} resource={resource} categories={RESOURCE_LIBRARY_CATEGORIES} fileAccept={resourceLibraryFileAccept} isSaving={isSaving} error={editError} onSave={onSaveEdit} onCancel={onCancelEdit} /> : null}
+          {canManage && editingId === resource.id ? <ResourceEditor key={resource.id} resource={resource} categories={categories} fileAccept={resourceLibraryFileAccept} isSaving={isSaving} error={editError} onSave={onSaveEdit} onCancel={onCancelEdit} /> : null}
         </article>
       ))}
     </div>
@@ -222,6 +224,10 @@ function ResourceList({ canExportFormationBoards, canManage, downloadingId, isSa
 export function ResourceLibraryPage({ scopedUser } = {}) {
   const { user: authenticatedUser } = useAuth()
   const user = scopedUser || authenticatedUser
+  return <ResourceLibraryWorkspace key={JSON.stringify([user?.id, user?.clubId, user?.activeTeamId])} user={user} />
+}
+
+function ResourceLibraryWorkspace({ user }) {
   const { showToast } = useToast()
   const canOpenResourceLibrary = canUseResourceLibrary(user)
   const canManage = canManageResourceLibrary(user)
@@ -231,6 +237,11 @@ export function ResourceLibraryPage({ scopedUser } = {}) {
   const activeTeamName = String(user?.activeTeamName ?? '').trim() || 'Selected team'
   const [resources, setResources] = useState([])
   const [players, setPlayers] = useState([])
+  const [customCategories, setCustomCategories] = useState([])
+  const [isLoadingCategories, setIsLoadingCategories] = useState(true)
+  const [categoryName, setCategoryName] = useState('')
+  const [addingCategory, setAddingCategory] = useState(false)
+  const categories = useMemo(() => [...RESOURCE_LIBRARY_CATEGORIES, ...customCategories], [customCategories])
   const [filters, setFilters] = useState({ category: '', searchTerm: '' })
   const [uploadDraft, setUploadDraft] = useState(() => createUploadDraft())
   const [isDraggingFiles, setIsDraggingFiles] = useState(false)
@@ -272,6 +283,20 @@ export function ResourceLibraryPage({ scopedUser } = {}) {
   )
   const hasMixedParentVisibility = selectedResourcePlayerLinks.some((link) => link.parentVisible === true)
     && selectedResourcePlayerLinks.some((link) => link.parentVisible !== true)
+
+  useEffect(() => {
+    let current = true
+    if (canOpenResourceLibrary && activeTeamId) {
+      getResourceLibraryCategories({ user }).then(next => {
+        if (current) setCustomCategories(next)
+      }).catch(error => {
+        if (current) setErrorMessage(error.message || 'Could not load custom categories.')
+      }).finally(() => {
+        if (current) setIsLoadingCategories(false)
+      })
+    }
+    return () => { current = false }
+  }, [activeTeamId, canOpenResourceLibrary, user])
 
   useEffect(() => {
     let isMounted = true
@@ -321,6 +346,26 @@ export function ResourceLibraryPage({ scopedUser } = {}) {
   const refreshResources = async () => {
     const nextResources = await getResourceLibraryItems({ user, ...filters, teamId: activeTeamId })
     setResources(nextResources)
+  }
+
+  const handleCreateCategory = async event => {
+    event.preventDefault()
+    if (!canManage || isSaving || isLoadingCategories) return
+    setIsSaving(true)
+    setErrorMessage('')
+    setSuccessMessage('')
+    try {
+      const category = await createResourceLibraryCategory({ user, name: categoryName })
+      setCustomCategories(current => [...current, category].sort((left, right) => left.label.localeCompare(right.label)))
+      setUploadDraft(current => ({ ...current, category: category.value }))
+      setCategoryName('')
+      setAddingCategory(false)
+      setSuccessMessage('Category added to this team.')
+    } catch (error) {
+      setErrorMessage(error.message || 'Could not add the category.')
+    } finally {
+      setIsSaving(false)
+    }
   }
 
   const handleSaveEdit = async (resource, draft) => {
@@ -698,12 +743,13 @@ export function ResourceLibraryPage({ scopedUser } = {}) {
           <label className="block">
             <span className="mb-2 block text-sm font-black text-[#101828]">Category</span>
             <select
+              aria-label="Filter by category"
               value={filters.category}
               onChange={(event) => setFilters((current) => ({ ...current, category: event.target.value }))}
               className={fieldClass}
             >
               <option value="">All categories</option>
-              {RESOURCE_LIBRARY_CATEGORIES.map((category) => (
+              {categories.map((category) => (
                 <option key={category.value} value={category.value}>{category.label}</option>
               ))}
             </select>
@@ -713,6 +759,15 @@ export function ResourceLibraryPage({ scopedUser } = {}) {
             <span className="mt-2 block text-sm font-semibold text-[#4b5f55]">{activeTeamName}</span>
           </div>
         </div>
+        {canManage ? <div className="mt-3">
+          {addingCategory ? <form className="flex flex-wrap items-end gap-2" onSubmit={handleCreateCategory}>
+            <label className="min-w-[12rem] flex-1"><span className="mb-2 block text-sm font-black text-[#101828]">New category name</span>
+              <input className={fieldClass} value={categoryName} required maxLength={60} disabled={isSaving} onChange={event => setCategoryName(event.target.value)} onKeyDown={stopTextInputSpacePropagation} />
+            </label>
+            <button type="submit" className={primaryButtonClass} disabled={isSaving || isLoadingCategories || !categoryName.trim()}>Save category</button>
+            <button type="button" className={secondaryButtonClass} disabled={isSaving} onClick={() => { setAddingCategory(false); setCategoryName('') }}>Cancel</button>
+          </form> : <button type="button" className={secondaryButtonClass} disabled={isSaving || isLoadingCategories || !activeTeamId} onClick={() => setAddingCategory(true)}>Add category</button>}
+        </div> : null}
       </section>
 
       {canManage ? (
@@ -739,11 +794,12 @@ export function ResourceLibraryPage({ scopedUser } = {}) {
               <label className="block">
                 <span className="mb-2 block text-sm font-black text-[#101828]">Category</span>
                 <select
+                  aria-label="Resource category"
                   value={uploadDraft.category}
                   onChange={(event) => setUploadDraft((current) => ({ ...current, category: event.target.value }))}
                   className={fieldClass}
                 >
-                  {RESOURCE_LIBRARY_CATEGORIES.map((category) => (
+                  {categories.map((category) => (
                     <option key={category.value} value={category.value}>{category.label}</option>
                   ))}
                 </select>
@@ -1031,6 +1087,7 @@ export function ResourceLibraryPage({ scopedUser } = {}) {
         <ResourceList
           canExportFormationBoards={canExportFormationBoards}
           canManage={canManage}
+          categories={categories}
           downloadingId={downloadingId}
           isSaving={isSaving}
           onArchive={(resource) => void handleArchive(resource)}

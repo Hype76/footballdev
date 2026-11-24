@@ -77,3 +77,44 @@ test('Resource edits are atomic, scoped, stale-safe and preserve assignments und
     assert.deepEqual(boundary,{prosecdef:false,anon:false})
   } finally { await db.close() }
 })
+
+test('team Resource categories are persistent, manager-created, scoped and compatible with built-ins', async () => {
+  const db = new PGlite()
+  const club = '10000000-0000-4000-8000-000000000001'
+  const team = '20000000-0000-4000-8000-000000000001'
+  const other = '20000000-0000-4000-8000-000000000002'
+  const actor = '30000000-0000-4000-8000-000000000001'
+  try {
+    await db.exec(`
+      create role anon; create role authenticated;
+      create schema auth; create schema private;
+      create function auth.uid() returns uuid language sql as $$ select nullif(current_setting('test.actor',true),'')::uuid $$;
+      create table clubs(id uuid primary key); create table teams(id uuid primary key); create table users(id uuid primary key);
+      insert into clubs values ('${club}'); insert into teams values ('${team}'),('${other}'); insert into users values ('${actor}');
+      create function public.current_user_can_view_resource_library(c uuid,t uuid) returns boolean language sql as $$
+        select auth.uid() is not null and c='${club}' and t = current_setting('test.team',true)::uuid $$;
+      create function public.current_user_can_manage_resource_library(c uuid,t uuid) returns boolean language sql as $$
+        select public.current_user_can_view_resource_library(c,t) and current_setting('test.manager',true)='yes' $$;
+      create table resource_library_items(id uuid primary key default gen_random_uuid(),club_id uuid,team_id uuid, category text not null default 'general',
+        constraint resource_library_items_category_check check(category in ('general','training','match_day','development','admin')));
+      grant usage on schema auth to authenticated;
+      grant select,insert,update on resource_library_items to authenticated;
+    `)
+    await db.exec(await readFile(new URL('../supabase/migrations/20261124112505_team_resource_custom_categories.sql', import.meta.url),'utf8'))
+    await db.exec(`set role authenticated; select set_config('test.actor','${actor}',false); select set_config('test.team','${team}',false); select set_config('test.manager','yes',false)`)
+    const add = name => db.query('insert into resource_library_categories(club_id,team_id,name) values($1,$2,$3)',[club,team,name])
+    await add('Equipment')
+    await assert.rejects(add('equipment'),/duplicate key/)
+    await assert.rejects(add('Training'),/check constraint/)
+    await assert.rejects(db.query('insert into resource_library_categories(club_id,team_id,name) values($1,$2,$3)',[club,other,'Other']),/row-level security/)
+    await db.query('insert into resource_library_items(club_id,team_id,category) values($1,$2,$3),($1,$2,$4)',[club,team,'Equipment','general'])
+    await assert.rejects(db.query('insert into resource_library_items(club_id,team_id,category) values($1,$2,$3)',[club,other,'Equipment']),/registered for this team/)
+    await db.exec("select set_config('test.manager','no',false)")
+    await assert.rejects(add('Kit'),/row-level security/)
+    assert.equal((await db.query('select name from resource_library_categories')).rows[0].name,'Equipment')
+    await db.query("select set_config('test.team',$1,false)",[other])
+    assert.equal((await db.query('select name from resource_library_categories')).rows.length,0)
+    await db.exec('reset role')
+    assert.equal((await db.query("select has_table_privilege('anon','public.resource_library_categories','SELECT') as allowed")).rows[0].allowed,false)
+  } finally { await db.close() }
+})

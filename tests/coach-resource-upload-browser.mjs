@@ -29,6 +29,7 @@ const actualUploader = `
   const Link=({children})=><span>{children}</span>,Navigate=()=>null;
   const NoticeBanner=({title,message})=><div role="status">{title} {message}</div>,PageHeader=({title})=><h2>{title}</h2>;
   const getResourceLibraryItems=async()=>window.f.resources||[],getResourceLibraryPlayers=async()=>[];
+  const getResourceLibraryCategories=async()=>[],createResourceLibraryCategory=async()=>{throw Error('Not used in upload fixture')};
   const uploadResourceLibraryItem=async draft=>{window.f.uploads.push({teamId:draft.teamId,clubId:draft.user.clubId,name:draft.file.name,title:draft.title});const saved={id:'upload-'+window.f.uploads.length,teamId:draft.teamId,clubId:draft.user.clubId,title:draft.title,category:draft.category,resourceType:'file',originalFilename:draft.file.name,links:[]};(window.f.resources||=[]).push(saved);return saved;};
   ${resourceFormHelpers}
   ${resourcePage}

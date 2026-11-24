@@ -10,6 +10,7 @@ import {
   canUseProfilePlayerActions,
   getPlayerDetailsEmptyState,
   getPlayerProfileResolutionDiagnostics,
+  getPlayerProfileSelectorOptions,
   getProfilePlayers,
   getScopedProfilePlayers,
   isSavedPlayerProfileSource,
@@ -25,6 +26,18 @@ const recentlyAddedPlayersSectionUrl = new URL('../src/components/players/Recent
 const playerDetailsSectionUrl = new URL('../src/components/players/PlayerDetailsSection.jsx', import.meta.url)
 const playerProfileActionsUrl = new URL('../src/components/players/PlayerProfileActions.jsx', import.meta.url)
 const coreDomainUrl = new URL('../src/lib/domain/core.js', import.meta.url)
+
+test('profile selection contains every current authorised team player and no archived or other-team players', () => {
+  const players = [
+    { id: '1', playerName: 'Zac', teamId: 'team', clubId: 'club', section: 'Squad' },
+    { id: '2', playerName: 'Amy', teamId: 'team', clubId: 'club', section: 'Trial' },
+    { id: '3', playerName: 'Other team', teamId: 'elsewhere', clubId: 'club' },
+    { id: '4', playerName: 'Archived', teamId: 'team', clubId: 'club', status: 'archived' },
+    { id: '5', playerName: 'Other club', teamId: 'team', clubId: 'other' },
+  ]
+  assert.deepEqual(getPlayerProfileSelectorOptions(players, { clubId: 'club', activeTeamId: 'team' }).map(player => player.id), ['2', '1'])
+  assert.match(buildPlayerProfilePath(players[1]), /source=trial&playerId=2&teamId=team/)
+})
 
 test('squad and trial rows open player profiles with canonical saved player ids', () => {
   assert.equal(getPlayerProfileSourceForSection('Squad'), 'squad')

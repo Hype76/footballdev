@@ -40,7 +40,35 @@ function getResourceLibraryTargetKey(target) {
 
 function normalizeCategory(value) {
   const normalizedValue = normalizeText(value)
-  return RESOURCE_LIBRARY_CATEGORIES.some((category) => category.value === normalizedValue) ? normalizedValue : 'general'
+  return normalizedValue && normalizedValue.length <= 60 && !/\p{Cc}/u.test(normalizedValue) ? normalizedValue : 'general'
+}
+
+export async function getResourceLibraryCategories({ user } = {}) {
+  if (!canUseResourceLibrary(user)) return []
+  const teamId = getActiveResourceTeamId(user)
+  const { data, error } = await supabase.from('resource_library_categories').select('name')
+    .eq('club_id', user.clubId).eq('team_id', teamId).order('name')
+  if (error) throw error
+  return (data || []).map(row => ({ label: row.name, value: row.name }))
+}
+
+export async function createResourceLibraryCategory({ user, name } = {}) {
+  await blockDemoMutation(user)
+  assertResourceLibraryManageAccess(user)
+  const label = normalizeText(name)
+  const reserved = ['general', 'training', 'match_day', 'match day', 'development', 'admin', 'all categories']
+  if (!label || label.length > 60 || /\p{Cc}/u.test(label) || reserved.includes(label.toLowerCase())) {
+    throw new Error('Enter a new category name between 1 and 60 characters.')
+  }
+  const teamId = getActiveResourceTeamId(user)
+  const { data, error } = await supabase.from('resource_library_categories')
+    .insert({ club_id: user.clubId, team_id: teamId, name: label }).select('name').single()
+  if (error) {
+    if (error.code === '23505') throw new Error('That category already exists in this team.')
+    throw error
+  }
+  if (!data?.name) throw new Error('The new category could not be confirmed. Refresh before trying again.')
+  return { label: data.name, value: data.name }
 }
 
 export function formatResourceLibraryFileSize(bytes) {
