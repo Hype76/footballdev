@@ -313,6 +313,16 @@ export function getPlayerProfileTeamScope({ routeTeamId = '', user } = {}) {
   return normalizeScopeValue(routeTeamId) || normalizeScopeValue(user?.activeTeamId)
 }
 
+export function getPlayerProfileSelectorOptions(players = [], user = {}) {
+  const teamId = normalizeScopeValue(user?.activeTeamId)
+  const clubId = normalizeScopeValue(user?.clubId)
+  return [...new Map(players.filter(player =>
+    player?.id && player.playerName && player.status !== 'archived'
+    && (!clubId || !player.clubId || normalizeScopeValue(player.clubId) === clubId)
+    && (!teamId || normalizeScopeValue(player.teamId) === teamId)
+  ).map(player => [String(player.id), player])).values()].sort((left, right) => left.playerName.localeCompare(right.playerName))
+}
+
 export function requiresSavedPlayerTeamScope({
   players,
   profileSource,

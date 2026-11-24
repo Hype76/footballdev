@@ -18,7 +18,10 @@ const NoticeBanner=({title,message})=><div role="status">{title} {message}</div>
 const RESOURCE_LIBRARY_CATEGORIES=[{value:'general',label:'General'},{value:'training',label:'Training'},{value:'match_day',label:'Match day'}],RESOURCE_LIBRARY_SHARE_DESCRIPTION_MAX_LENGTH=500;
 const resources=[{id:'link',clubId:'club',teamId:'team',title:'FP TEST Video',description:'Original description',category:'general',resourceType:'external_link',externalUrl:'https://example.test/old',updatedAt:'original',links:[{id:'shared',linkedType:'player',linkedId:'player',parentVisible:true}]},
 {id:'file',clubId:'club',teamId:'team',title:'FP TEST Handbook',description:'',category:'general',resourceType:'file',originalFilename:'handbook.pdf',updatedAt:'original',links:[]}];
-const getResourceLibraryItems=async()=>resources.slice(),getResourceLibraryPlayers=async()=>[{id:'player',playerName:'FP TEST Player'}],formatResourceLibraryFileSize=()=> '1 KB';
+const getResourceLibraryItems=async({category=''})=>resources.filter(resource=>!category||resource.category===category),getResourceLibraryPlayers=async()=>[{id:'player',playerName:'FP TEST Player'}],formatResourceLibraryFileSize=()=> '1 KB';
+const customCategories=[];
+const getResourceLibraryCategories=async()=>customCategories.slice();
+const createResourceLibraryCategory=async({user:actor,name})=>{if(actor.activeTeamId!=='team')throw Error('wrong team');const item={label:name,value:name};customCategories.push(item);return item};
 window.saves=[];window.setViewer=()=>{user.roleRank=30};
 const updateResourceLibraryItem=async({resource,...draft})=>{
  window.saves.push({id:resource.id,stamp:resource.updatedAt,title:draft.title,file:draft.file?.name||null});
@@ -40,12 +43,17 @@ try {
  await page.setContent('<main id="root" style="max-width:1100px;margin:auto;padding:16px"></main>')
  for(const content of css)await page.addStyleTag({content})
  await page.addScriptTag({content:bundle.outputFiles[0].text})
+ await page.getByRole('button',{name:'Add category',exact:true}).click()
+ await page.getByLabel('New category name').fill('Equipment')
+ await page.getByRole('button',{name:'Save category'}).click()
+ await page.getByText(/Category added to this team\./).waitFor()
+ assert.equal(await page.getByRole('option',{name:'Equipment',exact:true}).count(),2)
  const video=()=>page.locator('article').filter({has:page.getByText('FP TEST Video',{exact:true})})
  await video().getByRole('button',{name:'Edit resource',exact:true}).click()
  let form=page.getByRole('form',{name:'Edit resource'})
  assert.equal(await form.getByLabel('Title',{exact:true}).inputValue(),'FP TEST Video')
  await form.getByLabel('Title',{exact:true}).fill('FP TEST Updated video')
- await form.getByLabel('Category',{exact:true}).selectOption('training')
+ await form.getByLabel('Category',{exact:true}).selectOption('Equipment')
  await form.getByLabel('Resource link').fill('https://example.test/updated')
  await form.getByLabel('Description',{exact:true}).fill('Updated notes')
  await page.evaluate(()=>{window.hold=true;window.fail=true})
@@ -62,7 +70,7 @@ try {
  await updated.getByRole('button',{name:'Edit resource',exact:true}).click()
  form=page.getByRole('form',{name:'Edit resource'})
  assert.equal(await form.getByLabel('Resource link').inputValue(),'https://example.test/updated')
- assert.equal(await form.getByLabel('Category',{exact:true}).inputValue(),'training')
+ assert.equal(await form.getByLabel('Category',{exact:true}).inputValue(),'Equipment')
  assert.equal(await updated.getByText(/1 assignment/).count(),1)
  for(const mode of ['light','dark'])for(const width of [390,1280]){
   await page.setViewportSize({width,height:900});await page.evaluate(mode=>document.body.className='theme-'+mode,mode)
@@ -71,6 +79,11 @@ try {
   await page.screenshot({path:'output/playwright/resource-edit/'+mode+'-'+width+'.png'})
  }
  await form.getByRole('button',{name:'Cancel'}).click()
+ await page.getByLabel('Filter by category',{exact:true}).selectOption('Equipment')
+ await page.getByText('1 active',{exact:true}).waitFor()
+ assert.equal(await page.getByText('FP TEST Handbook',{exact:true}).count(),0)
+ await page.getByLabel('Filter by category',{exact:true}).selectOption('')
+ await page.getByText('2 active',{exact:true}).waitFor()
  const file=page.locator('article').filter({has:page.getByText('FP TEST Handbook',{exact:true})})
  await file.getByRole('button',{name:'Edit resource',exact:true}).click()
  await form.getByLabel('Replace file (optional)',{exact:false}).setInputFiles({name:'replacement.pdf',mimeType:'application/pdf',buffer:Buffer.from('FP TEST')})
@@ -82,6 +95,7 @@ try {
  await page.getByText('2 active',{exact:true}).waitFor()
  await page.getByRole('button',{name:'Edit resource',exact:true}).first().waitFor({state:'hidden'})
  assert.equal(await page.getByRole('button',{name:'Edit resource',exact:true}).count(),0)
+ assert.equal(await page.getByRole('button',{name:'Add category',exact:true}).count(),0)
  assert.deepEqual(errors,[])
  console.log('PASS: actual resource page edit/save/reopen, preserved assignments, failure/retry, pending state, file replacement, viewer restrictions, light/dark at 390/1280px.')
 } finally { await browser.close() }

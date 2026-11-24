@@ -85,6 +85,7 @@ import {
   getExpectedPlayerProfileSection,
   getPlayerDetailsEmptyState,
   getPlayerProfileResolutionDiagnostics,
+  getPlayerProfileSelectorOptions,
   getPlayerProfileTeamScope,
   getProfileContactDetails,
   getScopedProfilePlayers,
@@ -139,6 +140,15 @@ import {
 } from '../lib/supabase.js'
 
 export function PlayerProfile() {
+  const { id } = useParams()
+  const [params] = useSearchParams()
+  const { user } = useAuth()
+  const identity = JSON.stringify([user?.id, user?.clubId, user?.activeTeamId, user?.activeTeamName, id,
+    params.get('source'), params.get('playerId'), params.get('teamId'), params.get('membershipId')])
+  return <PlayerProfileWorkspace key={identity} />
+}
+
+function PlayerProfileWorkspace() {
   const { id } = useParams()
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -2014,6 +2024,29 @@ export function PlayerProfile() {
         eyebrow="Player Profile"
         title={displayPlayerName}
         description="Review the development history for this player with club-scoped visibility."
+        action={<label className="block w-full sm:min-w-56">
+          <span className="mb-2 block text-sm font-black text-[#101828]">Select player</span>
+          <select
+            aria-label="Select player"
+            className="min-h-11 w-full rounded-lg border border-[#d7e5dc] bg-[#f7faf8] px-3 py-2 text-sm font-semibold text-[#101828]"
+            value={routePlayerId || primaryPlayer?.id || ''}
+            disabled={isLoading || isSavingPlayer || Boolean(editingPlayerId) || isRecordingVoiceNote || isSavingNote || isSavingVoiceNote || isDeleting || isMergingEvaluations || Boolean(emailSendingId || isPromotingId || isReassigningId)}
+            onChange={event => {
+              const selected = getPlayerProfileSelectorOptions(allPlayers, user).find(player => String(player.id) === event.target.value)
+              if (!selected) return
+              const path = buildPlayerProfilePath(selected)
+              const [pathname, query] = path.split('?')
+              const params = new URLSearchParams(query)
+              if (activeProfileSection !== 'overview') params.set('view', activeProfileSection)
+              navigate(pathname + '?' + params.toString())
+            }}
+          >
+            <option value="">Choose player</option>
+            {getPlayerProfileSelectorOptions(allPlayers, user).map(player =>
+              <option key={player.id} value={player.id}>{player.playerName}{player.shirtNumber ? ' #' + player.shirtNumber : ''}{!user?.activeTeamId && (player.teamName || player.team) ? ' | ' + (player.teamName || player.team) : ''}</option>
+            )}
+          </select>
+        </label>}
       />
 
       {errorMessage ? (
