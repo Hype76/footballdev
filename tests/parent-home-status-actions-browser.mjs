@@ -31,7 +31,7 @@ import {getParentMatchResult} from './apps/parent-mobile/src/matchResult.js';
 import {BrandLoader} from './apps/mobile-core/src/BrandLoader.js';
 import {createParentMobileTheme} from './apps/mobile-core/src/parentThemeCore.js';
 import {requiresWatchedMatch} from './src/lib/poll-watched-match.js';
-import {getMatchDayDisplayName,getMatchDayDisplayScore} from './src/lib/matchday-display.js';
+import {getMatchDayDisplayName,getMatchDayDisplayParts,getMatchDayDisplayScore,getMatchDayShootoutScore} from './src/lib/matchday-display.js';
 import {getMatchDayShirtChoiceLabel} from './src/lib/matchday-model.js';
 import {formatParentProductDateTime,formatParentProductTime} from './apps/mobile-core/src/parentDateTimeCore.js';
 import {getParentMatchStatusLabel,getParentMatchStatusBadges,getParentAgendaResponseBadge,getPollDraftOption,canSubmitParentPoll,rankParentPollResults} from './apps/parent-mobile/src/parentExperience.js';
@@ -111,6 +111,17 @@ try {
     await page.getByText('Cancelled', { exact: true }).waitFor()
     await page.getByText('2 - 1', { exact: true }).waitFor()
     await checkLayout(`live-cancelled-${mode}-${width}`)
+    await page.evaluate(() => window.patch({ match: { ...window.fixture, clubName: 'Football Player Demo FC', opponent: 'Testing the penalty shootout', status: 'full_time', homeScore: 4, awayScore: 4, homeShootoutScore: 3, awayShootoutScore: 1, shootoutWinner: 'home' } }))
+    const shootout = page.getByRole('button', { name: /Football Player Demo FC v Testing the penalty shootout, Full time/ })
+    const title = shootout.getByText('Football Player Demo FC v Testing the penalty shootout', { exact: true })
+    const fullScore = shootout.getByText('4 - 4', { exact: true })
+    const pens = shootout.getByText('(3 - 1 pens)', { exact: true })
+    await fullScore.waitFor()
+    const [titleBox, scoreBox, pensBox, rowBox] = await Promise.all([title.boundingBox(), fullScore.boundingBox(), pens.boundingBox(), shootout.boundingBox()])
+    assert.ok(titleBox.width >= 110 && titleBox.height <= 160, `Fixture name remains readable: ${mode} ${width}`)
+    assert.ok(pensBox.y >= scoreBox.y + scoreBox.height - 1 && Math.abs(pensBox.x + pensBox.width - (scoreBox.x + scoreBox.width)) < 2, `Penalty score sits below and aligns with regulation score: ${mode} ${width}`)
+    assert.ok(titleBox.x + titleBox.width <= pensBox.x + 1 && pensBox.x + pensBox.width <= rowBox.x + rowBox.width, `Score does not overlap the fixture details: ${mode} ${width}`)
+    await checkLayout(`shootout-${mode}-${width}`)
     await page.evaluate(() => window.patch({ match: { ...window.fixture, status: 'cancelled' }, event: window.event }))
     await page.getByRole('button', { name: /Long Visiting Football Club, Cancelled/ }).getByText('Cancelled', { exact: true }).waitFor()
 

@@ -112,6 +112,19 @@ test('Malformed, oversized, foreign and wrong-club logos fall back without reque
   assert.deepEqual(await prepareParentPdfLogo({ ...match, clubLogoUrl: link.clubLogoUrl }, { storageOrigin: origin, fetchLogo: async () => response(new Uint8Array([1, 2, 3])) }), {})
 })
 
+test('Authorised team-specific badge paths convert, while another team path is rejected', async () => {
+  const teamUrl = `${origin}/storage/v1/object/public/club-logos/teams/${link.teamId}/logos/${'a'.repeat(64)}.png`
+  const selected = { ...link, planKey: 'matchday', teamBrandingDisplay: {
+    clubId: link.clubId, teamId: link.teamId, source: 'team', logoAllowed: true, coloursAllowed: true,
+    logoUrl: teamUrl, accent: 'blue', buttonStyle: 'solid',
+  } }
+  const prepared = withParentMatchReportBranding(match, selected)
+  const branding = await prepareParentPdfLogo(prepared, { storageOrigin: origin, fetchLogo: async url => { assert.equal(url, teamUrl); return response(png) } })
+  assert.match(branding.clubLogoData, /^data:image\/jpeg/)
+  assert.deepEqual(await prepareParentPdfLogo({ ...prepared, clubLogoUrl: teamUrl.replace(link.teamId,'other-team') }, {storageOrigin:origin,fetchLogo:()=>assert.fail('Wrong team badge fetched')}),{})
+  assert.deepEqual(await prepareParentPdfLogo({ ...prepared, teamBrandingDisplay: null }, {storageOrigin:origin,fetchLogo:()=>assert.fail('Unverified team badge fetched')}),{})
+})
+
 test('PNG transparency flattens to white and non-square badges preserve aspect ratio', async () => {
   const jpeg = (await import('../apps/parent-mobile/node_modules/jpeg-js/index.js')).default
   const result = convertParentPdfLogo(png)

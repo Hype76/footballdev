@@ -6,6 +6,7 @@ import {
   buildCompletedReportCsvRows,
   buildCompletedReportBranding,
   buildCompletedReportPdf,
+  resolveCompletedReportBrandingSource,
   getCompletedReportFilename,
   protectSpreadsheetFormulaValue,
 } from '../src/lib/matchday-report-export.js'
@@ -24,6 +25,17 @@ test('Matchday report applies FP branding from workspace context and preserves s
   assert.equal(buildCompletedReportBranding(match).brandingSource, 'club-logo')
   const enabled = { ...context, matchdayPolicy: { flags: { basicLogoBranding: true, customColoursBranding: true } } }
   assert.equal(buildCompletedReportBranding(match, { accessContext: enabled }).brandingSource, 'club-logo')
+})
+
+test('The active club and team context supplies missing report colours and logo only in matching scope', () => {
+  const match = { clubId: 'club', teamId: 'team', clubName: 'Example Club' }
+  const context = { clubId: 'club', teamId: 'team', planKey: 'pilot', clubAccent: '#1eadb9', clubLogoUrl: 'https://example.test/logo.png' }
+  const source = resolveCompletedReportBrandingSource(match, context)
+  assert.equal(source.logoUrl, context.clubLogoUrl)
+  assert.equal(source.themeAccent, '#1eadb9')
+  assert.notEqual(buildCompletedReportBranding(match,{accessContext:context}).primaryColour,buildCompletedReportBranding(match).primaryColour)
+  assert.equal(resolveCompletedReportBrandingSource(match,{...context,teamId:'wrong'}).logoUrl,'')
+  assert.equal(resolveCompletedReportBrandingSource(match,{...context,clubId:'wrong'}).themeAccent,'green')
 })
 
 function completedMatch() {

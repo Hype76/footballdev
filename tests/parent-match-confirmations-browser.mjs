@@ -10,7 +10,7 @@ const section = (source, start, end) => source.slice(source.indexOf(start), sour
 const modules = path.join(process.cwd(), 'apps/parent-mobile/node_modules')
 const shared = `
   import { getParentStatusColours, PARENT_SCORER_ICON_COLOURS } from './apps/mobile-core/src/parentStatusColours.js'
-  import React, { useState, useMemo, useEffect } from 'react'
+  import React, { useState, useMemo, useEffect, useRef } from 'react'
   import { createRoot } from 'react-dom/client'
   import { View, Text, Pressable, ScrollView, StyleSheet, Platform, TextInput, Switch, Modal, KeyboardAvoidingView } from 'react-native'
   import { getGoalScorerSide, setGoalOwnGoal, oppositeMatchSide } from './src/lib/matchday-goal-credit.js'
@@ -48,7 +48,7 @@ const parentCode = `${shared}
   function Preview({ mode, accent }) {
     const tokens = createParentMobileTheme({ mode, selectedLink: { themeAccent: accent } }).tokens
     const { colors, styles } = usePortalStyles(tokens)
-    return <View style={{ backgroundColor: colors.background, padding: 16, minHeight: 900 }}><ScorerControls activeActionId="" isOffline={match.isOffline === true} match={match} players={players} styles={styles} placeholderColor={colors.muted} onAction={async (action, value) => { window.calls.push({ action, value }); return true }} /></View>
+    return <View style={{ backgroundColor: colors.background, padding: 16, minHeight: 900 }}><ScorerControls activeActionId="" isOffline={match.isOffline === true} match={match} players={players} styles={styles} placeholderColor={colors.muted} onAction={async (action, value) => { window.calls.push({ action, value }); return window.failKick && action === 'shootout' ? {saved:false,message:'Kick not saved'} : true }} /></View>
   }
   window.renderPreview = (mode, accent, state) => { match = { ...initialMatch, ...state }; root.render(<Preview key={mode + accent + match.status} mode={mode} accent={accent} />) }
 `
@@ -116,6 +116,17 @@ try {
     await page.getByRole('button',{name:'Alex | Shirt 9',exact:true}).click()
     await page.getByRole('button',{name:'Record shootout kick',exact:true}).click()
     assert.deepEqual(await page.evaluate(() => window.calls.at(-1)),{action:'shootout',value:{teamSide:'club',outcome:'scored',playerName:'Alex'}})
+    await page.getByRole('button',{name:'Opponent',exact:true}).click()
+    await page.getByRole('button',{name:'Missed',exact:true}).click()
+    await page.getByLabel('Shootout player name').fill('Visitor')
+    await page.evaluate(()=>{window.failKick=true})
+    await page.getByRole('button',{name:'Record shootout kick',exact:true}).click()
+    await page.getByText('Kick not saved',{exact:true}).waitFor()
+    assert.equal(await page.getByLabel('Shootout player name').inputValue(),'Visitor')
+    await page.evaluate(()=>{window.failKick=false})
+    await page.getByRole('button',{name:'Record shootout kick',exact:true}).click()
+    await page.getByRole('button',{name:'Record shootout kick',exact:true}).waitFor()
+    assert.deepEqual(await page.evaluate(()=>window.calls.at(-1)),{action:'shootout',value:{teamSide:'opponent',outcome:'missed',playerName:'Visitor'}})
   }
 
   const app = await readFile('apps/parent-mobile/App.js', 'utf8')

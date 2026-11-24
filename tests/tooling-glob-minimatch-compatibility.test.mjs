@@ -115,6 +115,32 @@ function applyApprovedCoachNativeDelta(pkg, lock) {
   delete lock.packages[nested]
 }
 
+function applyApprovedCoachPdfCodecs(pkg, lock) {
+  // Coach PDF badges reuse the existing Parent JavaScript codecs; no native modules.
+  const direct = { buffer: '5.7.1', 'jpeg-js': '0.4.4', 'upng-js': '2.1.0' }
+  const buffer = lock.packages['node_modules/buffer']
+  assert.equal(buffer.version, direct.buffer)
+  assert.equal(buffer.integrity, 'sha512-EHcyIPBQ4BSGlvjB16k5KgAJ27CIsHY/2JBmCRReo48y9rQ3MaUzWX3KVlBa4U7MyX02HdVj0K7C3WaB3ju7FQ==')
+  for (const [name, version] of Object.entries(direct)) {
+    assert.equal(lock.packages[''].dependencies[name], undefined)
+    lock.packages[''].dependencies[name] = version
+    if (pkg) {
+      assert.equal(pkg.dependencies[name], undefined)
+      pkg.dependencies[name] = version
+    }
+  }
+  const entries = {
+    'jpeg-js': { version: '0.4.4', integrity: 'sha512-WZzeDOEtTOBK4Mdsar0IqEU5sMr3vSV2RqkAIzUEV2BHnUfKGyswWFPFwK5EeDo93K3FohSHbLAjj0s1Wzd+dg==', license: 'BSD-3-Clause' },
+    pako: { version: '1.0.11', integrity: 'sha512-4hLB8Py4zZce5s4yd9XzopqwVv/yGNhV1Bl8NTmCq1763HeK2+EwVTv+leGeL13Dnh2wfbqowVPXCIO0z4taYw==', license: '(MIT AND Zlib)' },
+    'upng-js': { version: '2.1.0', integrity: 'sha512-d3xzZzpMP64YkjP5pr8gNyvBt7dLk/uGI67EctzDuVp4lCZyVMo0aJO6l/VDlgbInJYDY6cnClLoBp29eKWI6g==', license: 'MIT', dependencies: { pako: '^1.0.5' } },
+  }
+  for (const [name, entry] of Object.entries(entries)) {
+    const key = `node_modules/${name}`
+    assert.equal(lock.packages[key], undefined)
+    lock.packages[key] = { ...entry, resolved: `https://registry.npmjs.org/${name}/-/${name}-${entry.version}.tgz` }
+  }
+}
+
 test('official tooling updates preserve unrelated dependencies and the exact approved Coach native change', () => {
   for (const scope of ['.', 'apps/coach-mobile', 'apps/parent-mobile']) {
     const prefix = scope === '.' ? '' : `${scope}/`
@@ -125,6 +151,7 @@ test('official tooling updates preserve unrelated dependencies and the exact app
     if (scope === 'apps/coach-mobile') {
       applyApprovedCoachNativeDelta(before, previousLock)
       applyApprovedCoachFileTools(before, previousLock)
+      applyApprovedCoachPdfCodecs(before, previousLock)
     }
     if (scope !== '.') applyLiveMatchDelta(before)
     const current = JSON.parse(fs.readFileSync(`${prefix}package.json`))
@@ -164,7 +191,10 @@ test('the current glob and minimatch update changes only reviewed tooling packag
     if (scope === '.') applyApprovedSupplyChainAuditDelta(oldPackage, newPackage)
     const oldLock = JSON.parse(execFileSync('git', ['show', `${candidate}:${prefix}package-lock.json`], { encoding: 'utf8', maxBuffer: 8 * 1024 * 1024 }))
     if (scope === '.') applyApprovedXmlParserDelta(oldPackage, oldLock)
-    if (scope === 'apps/coach-mobile') applyApprovedCoachFileTools(oldPackage, oldLock)
+    if (scope === 'apps/coach-mobile') {
+      applyApprovedCoachFileTools(oldPackage, oldLock)
+      applyApprovedCoachPdfCodecs(oldPackage, oldLock)
+    }
     if (scope !== '.') {
       assert.equal(oldPackage.overrides['node-forge'], '1.4.3')
       oldPackage.overrides['node-forge'] = qualifiedForge.version
@@ -281,6 +311,7 @@ test('glob 14.0.6 and minimatch 11.0.9 change only the reviewed entries in each 
       integrity: 'sha512-KCFkfyjqerNlSstjlhIGNXIKZGA/6O4V4RlhZ+Dsr621SPPw0mzlypE9D9ZOoPiVefHID+j7/XuMMlqfD/F60Q==',
     }
     if (scope !== '.') applyQualifiedForgeLock(before)
+    if (scope === 'apps/coach-mobile') applyApprovedCoachPdfCodecs(null, before)
     assert.deepEqual(after, before, `${scope}: only the exact qualified dependency changes are permitted`)
   }
 })

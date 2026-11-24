@@ -878,22 +878,31 @@ function getLogoBytes(branding = {}) {
   return Uint8Array.from(decoded, (character) => character.charCodeAt(0))
 }
 
-export function buildCompletedReportBranding(match = {}, override = {}) {
-  const accessContext = override.accessContext || match
+export function resolveCompletedReportBrandingSource(match = {}, accessContext = match) {
   const scoped = getScopedTeamBranding(accessContext)
   const matchTeamId = match.teamId || match.team_id
   const matchClubId = match.clubId || match.club_id
   const display = scoped && scoped.teamId === matchTeamId && scoped.clubId === matchClubId ? scoped : null
   if (scoped && !display) throw new Error('Report branding does not match the authorised team.')
   const explicitPlanKey = String(accessContext.planKey || accessContext.plan_key || '').trim().toLowerCase()
+  const isModernPlan = ['matchday', 'team', 'club'].includes(explicitPlanKey)
+  const customBrandingAllowed = display ? display.logoAllowed : !explicitPlanKey || !isModernPlan || getFeatureAccess({ ...accessContext, teamId: accessContext.teamId || accessContext.team_id || accessContext.activeTeamId }, CAPABILITIES.basicLogoBranding).allowed
+  const customColoursAllowed = display ? display.coloursAllowed : !explicitPlanKey || !isModernPlan || getFeatureAccess(accessContext, CAPABILITIES.customColoursBranding).allowed
+  const contextClubId = accessContext.clubId || accessContext.club_id
+  const contextTeamId = accessContext.teamId || accessContext.team_id || accessContext.activeTeamId
+  const sameContext = Boolean(matchClubId && contextClubId === matchClubId && (!contextTeamId || contextTeamId === matchTeamId))
+  const contextBranding = sameContext ? accessContext : {}
+  const logoUrl = !customBrandingAllowed ? '' : display ? display.logoUrl : firstText(contextBranding.clubLogoUrl, contextBranding.club_logo_url, match.clubLogoUrl, match.club_logo_url)
+  const themeAccent = !customColoursAllowed ? 'green' : display ? display.accent || 'green' : firstText(contextBranding.clubAccent, contextBranding.themeAccent, contextBranding.theme_accent, contextBranding.teamAccent, match.themeAccent, match.theme_accent, match.clubAccent, match.club_accent) || 'green'
+  return { customBrandingAllowed, logoUrl, themeAccent, display }
+}
+
+export function buildCompletedReportBranding(match = {}, override = {}) {
+  const { customBrandingAllowed, themeAccent, display } = resolveCompletedReportBrandingSource(match, override.accessContext || match)
   const fallback = createPdfBrandingFallback({
     clubName: getClubName(match),
     teamName: firstText(match.teamName, match.team_name, match.teams?.name),
   }, getMatchDate(match))
-  const isModernPlan = ['matchday', 'team', 'club'].includes(explicitPlanKey)
-  const customBrandingAllowed = display ? display.logoAllowed : !explicitPlanKey || !isModernPlan || getFeatureAccess({ ...accessContext, teamId: accessContext.teamId || accessContext.team_id }, CAPABILITIES.basicLogoBranding).allowed
-  const customColoursAllowed = display ? display.coloursAllowed : !explicitPlanKey || !isModernPlan || getFeatureAccess(accessContext, CAPABILITIES.customColoursBranding).allowed
-  const themeAccent = display ? display.accent || 'green' : customColoursAllowed ? firstText(match.themeAccent, match.theme_accent, match.clubAccent, match.club_accent) || 'green' : 'green'
   const tokens = createThemeColorTokens(themeAccent, 'light')
   const clubLogoData = customBrandingAllowed ? display ? firstText(override.clubLogoData) : firstText(override.clubLogoData, match.clubLogoData, match.club_logo_data) : ''
 
@@ -1024,9 +1033,7 @@ function loadPdfLogoImage(objectUrl) {
 }
 
 async function resolveBrowserPdfBranding(match = {}, accessContext) {
-  const scoped = getScopedTeamBranding(accessContext)
-  if (scoped && (scoped.teamId !== (match.teamId || match.team_id) || scoped.clubId !== (match.clubId || match.club_id))) throw new Error('Report branding does not match the authorised team.')
-  const logoUrl = scoped ? scoped.logoUrl : firstText(match.clubLogoUrl, match.club_logo_url)
+  const { logoUrl } = resolveCompletedReportBrandingSource(match, accessContext || match)
   if (!logoUrl || typeof document === 'undefined' || typeof fetch !== 'function' || typeof Image === 'undefined') {
     return {}
   }

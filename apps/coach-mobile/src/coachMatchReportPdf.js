@@ -1,15 +1,16 @@
 import { requireOptionalNativeModule } from 'expo'
 import * as FileSystem from 'expo-file-system/legacy'
 import { Platform } from 'react-native'
-import { buildCompletedReportPdf, getCompletedReportFilename } from '../../../src/lib/matchday-report-export.js'
+import { buildCompletedReportPdf, getCompletedReportFilename, resolveCompletedReportBrandingSource } from '../../../src/lib/matchday-report-export.js'
 import { isFinalMatchReportAvailable } from '../../../src/lib/matchday-final-report.js'
 import { bytesToBase64 } from '../../mobile-core/src/offlineStorageCore.js'
+import { prepareCoachPdfLogo } from './coachPdfLogo.js'
 
 export function supportsCoachMatchReportPdf() {
   return Platform.OS !== 'web' && Boolean(requireOptionalNativeModule('ExpoSharing'))
 }
 
-export async function exportCoachMatchReportPdf(match, { context, mode, isCurrent }) {
+export async function exportCoachMatchReportPdf(match, { context, mode, isCurrent, storageOrigin, fetchLogo }) {
   if (!isFinalMatchReportAvailable(match) || match.deletedAt
     || Number(context?.roleRank || 0) < 20 || !context?.teamId
     || context.teamId !== match.teamId || context.clubId !== match.clubId) {
@@ -17,7 +18,10 @@ export async function exportCoachMatchReportPdf(match, { context, mode, isCurren
   }
   if (!isCurrent()) return 'cancelled'
   const filename = getCompletedReportFilename(match)
-  const bytes = buildCompletedReportPdf(match, { audience: 'staff', accessContext: context })
+  const { logoUrl, display } = resolveCompletedReportBrandingSource(match, context)
+  const branding = logoUrl ? await prepareCoachPdfLogo({ ...match, clubLogoUrl: logoUrl, teamBrandingDisplay: display }, { storageOrigin, fetchLogo }) : {}
+  if (!isCurrent()) return 'cancelled'
+  const bytes = buildCompletedReportPdf(match, { audience: 'staff', accessContext: context, branding })
   const base64 = bytesToBase64(bytes)
 
   if (Platform.OS === 'android' && mode === 'save') {

@@ -38,7 +38,7 @@ const section = (source, start, end) => source.slice(source.indexOf(start), sour
 const modules = path.join(process.cwd(), 'apps/parent-mobile/node_modules')
 const shared = `import {getParentStatusColours,PARENT_SCORER_ICON_COLOURS} from './apps/mobile-core/src/parentStatusColours.js';
 
-  import React, { useState, useMemo, useEffect } from 'react'
+  import React, { useState, useMemo, useEffect, useRef } from 'react'
   import { createRoot } from 'react-dom/client'
   import { flushSync } from 'react-dom'
   import { View, Text, Pressable, ScrollView, StyleSheet, Platform, TextInput, Switch, Modal, KeyboardAvoidingView } from 'react-native'

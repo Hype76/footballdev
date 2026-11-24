@@ -1,5 +1,6 @@
 import { getMatchDayDisplayName, getMatchDayDisplayParts, getMatchDayDisplayScore, getMatchDayShootoutScore } from '../../../src/lib/matchday-display.js'
 import { resolveMatchDayNotificationTeamName } from '../../../src/lib/team-notification-display.js'
+import { getGoalScorerSide } from '../../../src/lib/matchday-goal-credit.js'
 
 function normalizeText(value) {
   return String(value ?? '').trim()
@@ -131,10 +132,13 @@ function getCompactEventDetail(notificationType, event, copy) {
   const relatedName = normalizeText(event?.assist_name || event?.assistName || event?.player_on_name || event?.playerOnName)
   const relatedShirt = normalizeText(event?.assist_shirt_number || event?.assistShirtNumber || event?.player_on_shirt_number || event?.playerOnShirtNumber)
   if (notificationType === 'goal') {
-    const scorer = formatPerson(playerName, playerShirt)
+    const ownGoal = event?.is_own_goal === true || event?.isOwnGoal === true
+    const scorerSide = getGoalScorerSide({ teamSide: normalizeType(event?.team_side || event?.teamSide), isOwnGoal: ownGoal })
+    const opponentScorer = scorerSide === 'opponent'
+    const scorer = formatPerson(opponentScorer && /^player$/i.test(playerName.replace(/^Other:\s*/i, '')) ? '' : playerName, playerShirt, opponentScorer ? 'Opponent' : 'Player')
     const minute = formatEventMinute(event)
-    if (event?.is_own_goal === true || event?.isOwnGoal === true) return `Own goal${playerName || playerShirt ? `: ${scorer}` : ''}${minute}.`
-    const assist = relatedName || relatedShirt ? ` Assist: ${formatPerson(relatedName, relatedShirt)}.` : ''
+    if (ownGoal) return `Own goal${playerName || playerShirt || opponentScorer ? `: ${scorer}` : ''}${minute}.`
+    const assist = relatedName || relatedShirt ? ` Assist: ${formatPerson(relatedName, relatedShirt, opponentScorer ? 'Opponent' : 'Player')}.` : ''
     return `Goal: ${scorer}${minute}.${assist}`
   }
   if (['yellow_card', 'red_card'].includes(notificationType) && (playerName || playerShirt)) {

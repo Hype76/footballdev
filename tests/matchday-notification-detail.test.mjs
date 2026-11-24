@@ -69,6 +69,18 @@ test('fan notifications persist and deliver the same detailed match event copy',
   })
 })
 
+test('unnamed opposition goals say Opponent, while named scorers and own-goal credit stay correct', () => {
+  for (const scorer_name of ['', 'Player', 'Other: Player']) {
+    const copy = buildParentMatchDayNotificationCopy({ match, type: 'goal', event: { team_side: 'opponent', scorer_name, minute: 1 } })
+    assert.match(copy.detailedBody, /^Goal: Opponent at 1'/)
+    assert.match(copy.minimalBody, /Opponent/)
+  }
+  const named = buildParentMatchDayNotificationCopy({ match, type: 'goal', event: { team_side: 'opponent', scorer_name: 'Alex', minute: 1 } })
+  assert.match(named.detailedBody, /^Goal: Alex at 1'/)
+  const own = buildParentMatchDayNotificationCopy({ match, type: 'goal', event: { team_side: 'club', is_own_goal: true, minute: 1 } })
+  assert.match(own.detailedBody, /^Own goal: Opponent at 1'/)
+})
+
 test('away full-time alerts pair the home and away scores with their teams', () => {
   const fixture = { ...match, club_name: 'St Neots Town FC', notification_team_name: 'St Neots',
     opponent: 'Needham Market F.C. U14 EJA', home_away: 'away', home_score: 3, away_score: 0 }
