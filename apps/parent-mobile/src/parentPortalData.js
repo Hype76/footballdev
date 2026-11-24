@@ -366,14 +366,19 @@ export function normalizeParentMatchDay(row = {}) {
     formationPlanError: normalizeText(row.formationPlanError),
     homeShootoutScore: Number(row.home_shootout_score ?? row.homeShootoutScore ?? 0),
     awayShootoutScore: Number(row.away_shootout_score ?? row.awayShootoutScore ?? 0),
+    shootoutWinner: normalizeText(row.shootout_winner ?? row.shootoutWinner),
     matchDurationMinutes: Number(row.match_duration_minutes ?? row.matchDurationMinutes ?? 90),
     shootoutEvents: Array.isArray(row.shootout_events ?? row.shootoutEvents)
       ? (row.shootout_events ?? row.shootoutEvents).map((kick) => ({
           createdAt: kick.created_at ?? kick.createdAt ?? '',
           id: kick.id ?? '',
+          kickNumber: Number(kick.kick_number ?? kick.kickNumber ?? 0),
           outcome: normalizeText(kick.outcome),
           playerName: normalizePersonName(kick.player_name ?? kick.playerName),
           teamSide: normalizeText(kick.team_side ?? kick.teamSide),
+          eventStatus: normalizeText(kick.event_status ?? kick.eventStatus) || 'active',
+          homeShootoutScore: Number(kick.home_shootout_score ?? kick.homeShootoutScore ?? 0),
+          awayShootoutScore: Number(kick.away_shootout_score ?? kick.awayShootoutScore ?? 0),
           voidedAt: kick.voided_at ?? kick.voidedAt ?? '',
         }))
       : [],

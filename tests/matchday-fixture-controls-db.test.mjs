@@ -704,6 +704,24 @@ test('Coach fixture lifecycle locks old details, corrects the timeline and keeps
   }])).rows[0].result
   assert.equal(card.event_type, 'red_card')
   assert.equal(card.home_score, 3)
+  const substitution = (await db.query(change, [historic, await updatedAt(), randomUUID(), null, 'save', {
+    eventType: 'substitution', teamSide: 'club', minute: 45, scorerName: 'Player off', assistName: 'Player on', reason: 'Restore substitution',
+  }])).rows[0].result
+  const substitutionVersion = await updatedAt()
+  const fixtureScoreBeforeSubCorrection = (await db.query('select home_score, away_score from public.match_days where id=$1', [historic])).rows[0]
+  const correction = [historic, substitutionVersion, randomUUID(), substitution.id, 'save', {
+    eventType: 'substitution', teamSide: 'club', minute: 63, scorerPlayerId: playerId, assistName: 'Correct player on', reason: 'Correct substitution',
+  }]
+  const correctedSubstitution = (await db.query(change, correction)).rows[0].result
+  assert.equal(correctedSubstitution.id, substitution.id)
+  assert.equal(correctedSubstitution.event_type, 'substitution')
+  assert.equal(correctedSubstitution.event_status, 'corrected')
+  assert.equal(correctedSubstitution.minute, 63)
+  assert.equal(correctedSubstitution.scorer_name, 'New scorer')
+  assert.equal(correctedSubstitution.assist_name, 'Correct player on')
+  assert.deepEqual((await db.query('select home_score, away_score from public.match_days where id=$1', [historic])).rows[0], fixtureScoreBeforeSubCorrection)
+  assert.deepEqual((await db.query(change, correction)).rows[0].result, correctedSubstitution)
+  await assert.rejects(db.query(change, [historic, substitutionVersion, randomUUID(), substitution.id, 'save', correction[5]]), /Refresh it before saving/)
   await db.query(change, [historic, await updatedAt(), randomUUID(), goal.id, 'void', { reason: 'Duplicate goal' }])
   await db.query(change, [historic, await updatedAt(), randomUUID(), null, 'score', { homeScore: 2, awayScore: 1, reason: 'Verified final score' }])
   const state = (await db.query('select match_date::text, status, home_score, away_score, timer_status from public.match_days where id=$1', [historic])).rows[0]
@@ -727,7 +745,7 @@ test('Coach fixture lifecycle locks old details, corrects the timeline and keeps
     (select count(*)::int from public.match_day_events where match_day_id=$1) as retained,
     (select count(*)::int from public.audit_logs where entity_id=$1 and action='match_day_fixture_deleted') as audited
   `, [historic])).rows[0]
-  assert.deepEqual(counts, { visible: 0, retained: 3, audited: 1 })
+  assert.deepEqual(counts, { visible: 0, retained: 4, audited: 1 })
 
   await db.exec(migrationText('20260907112202_coach_match_day_offline_commands').split('create or replace function public.apply_coach_match_day_command(')[0])
   await db.exec(migrationText('20261107193737_coach_match_day_command_no_wait'))

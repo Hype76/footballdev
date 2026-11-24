@@ -1,4 +1,55 @@
 import assert from 'node:assert/strict'
+import { PGlite } from '@electric-sql/pglite'
+import { deliverShootoutNotifications } from '../netlify/functions/lib/_match-day-shootout-notifications.js'
+
+test('saved shootout kicks enqueue once, with restricted claims, retries and revoked kicks excluded', async () => {
+  const db = new PGlite()
+  const match = '00000000-0000-4000-8000-000000000001'
+  const first = '00000000-0000-4000-8000-000000000002'
+  const second = '00000000-0000-4000-8000-000000000003'
+  try {
+    await db.exec(`create role anon; create role authenticated; create role service_role;
+      create schema auth; create schema private;
+      create function auth.jwt() returns jsonb language sql as $$select jsonb_build_object('role',current_setting('request.jwt.claim.role',true))$$;
+      create table public.match_days(id uuid primary key, status text, deleted_at timestamptz);
+      create table public.match_day_shootout_kicks(id uuid primary key, match_day_id uuid references public.match_days(id), event_status text default 'active');
+      create table private.parent_scorer_match_day_commands(kind text, event_id uuid, notification_type text default '');`)
+    await db.exec(await readFile(new URL('../supabase/migrations/20261124094132_match_day_shootout_notification_intents.sql', import.meta.url), 'utf8'))
+    await db.query("insert into public.match_days values($1,'penalties',null)",[match])
+    await db.query('insert into public.match_day_shootout_kicks(id,match_day_id) values($1,$2),($3,$2)',[first,match,second])
+    await db.query("insert into private.parent_scorer_match_day_commands(kind,event_id) values('shootout',$1)",[first])
+    assert.equal((await db.query('select notification_type from private.parent_scorer_match_day_commands')).rows[0].notification_type,'shootout_kick')
+    assert.equal((await db.query("select has_function_privilege('authenticated','public.claim_match_day_shootout_notifications(uuid,uuid)','EXECUTE') allowed")).rows[0].allowed,false)
+    assert.equal((await db.query('select * from public.claim_match_day_shootout_notifications(null,null)')).rows.length,0)
+    await db.query("select set_config('request.jwt.claim.role','service_role',false)")
+    const claimed = (await db.query('select * from public.claim_match_day_shootout_notifications($1,$2)',[match,first])).rows
+    assert.deepEqual(claimed,[{kick_id:first,match_day_id:match,attempt:1}])
+    assert.equal((await db.query('select * from public.claim_match_day_shootout_notifications($1,$2)',[match,first])).rows.length,0)
+    await db.query("select public.complete_match_day_shootout_notification($1,1,'retry')",[first])
+    await db.query("update private.match_day_shootout_notification_intents set claimed_at=now()-interval '3 minutes' where kick_id=$1",[first])
+    await db.query("update public.match_day_shootout_kicks set event_status='voided' where id=$1",[second])
+    assert.deepEqual((await db.query('select * from public.claim_match_day_shootout_notifications(null,null)')).rows,[{kick_id:first,match_day_id:match,attempt:2}])
+    await db.query("select public.complete_match_day_shootout_notification($1,2,'')",[first])
+    assert.equal((await db.query('select * from public.claim_match_day_shootout_notifications(null,null)')).rows.length,0)
+  } finally { await db.close() }
+})
+
+test('shootout delivery uses the saved kick and current authorised parent recipients', async () => {
+  const completed = [], delivered = []
+  const match = { id: 'game', status: 'full_time', home_shootout_score: 3, away_shootout_score: 1 }
+  const kick = { id: 'kick', match_day_id: 'game', event_status: 'active' }
+  const client = {
+    rpc: async (name, args) => {
+      if (name === 'claim_match_day_shootout_notifications') return { data: [{ match_day_id: 'game', kick_id: 'kick', attempt: 1 }] }
+      if (name === 'get_match_day_parent_notification_link_ids') return { data: ['parent', 'parent'] }
+      completed.push(args); return { data: true }
+    },
+    from: table => ({ select() { return this }, eq() { return this }, is() { return this }, maybeSingle: async () => ({ data: table === 'match_days' ? match : kick }) }),
+  }
+  assert.deepEqual(await deliverShootoutNotifications({ client, deliver: async args => { delivered.push(args); return { mobileFailed: 0, webFailed: 0, fanFailed: 0 } } }), { completed: 1, failed: 0 })
+  assert.deepEqual(delivered,[{ match, type: 'shootout_kick', eventId: 'kick', targetParentLinkIds: ['parent'] }])
+  assert.deepEqual(completed,[{ kick_id_value: 'kick', attempt_value: 1, error_value: '' }])
+})
 import { deliverCoachMatchReviewOnce } from '../netlify/functions/lib/_coach-match-review-delivery.js'
 import test from 'node:test'
 import { readFile } from 'node:fs/promises'

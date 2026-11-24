@@ -9,7 +9,7 @@ await mkdir(output, { recursive: true })
 const entry = `
   import React from 'react';
   import { createRoot } from 'react-dom/client';
-  import { FinalMatchReportPanel } from '/src/pages/MatchDayPage.jsx';
+  import { FinalMatchReportPanel, MatchTimelinePanel, SubstitutionCorrectionModal } from '/src/pages/MatchDayPage.jsx';
   import { AuthProvider } from '/src/lib/auth.js';
   import { normalizeMatchDay } from '/src/lib/domain/match-day.js';
   import { applyThemeColorVariables } from '/src/lib/theme.js';
@@ -39,6 +39,17 @@ const entry = `
     status:{tone,message:tone==='error'?'Report could not be saved.':'Final match report saved.'}
   })));
   window.renderReport();
+  window.renderSubstitution = (allowed = true) => {
+    function TimelineTest() {
+      const substitution = match.events.find(event => event.id === 'sub');
+      const [correction, setCorrection] = React.useState(null);
+      const details = { scorerName: substitution.scorerName, assistName: substitution.assistName, scorerPlayerId: '', assistPlayerId: '', scorerShirtNumber: '', assistShirtNumber: '', minute: substitution.minute, stoppageMinute: '', notes: '', reason: '' };
+      return React.createElement(React.Fragment, null,
+        React.createElement(MatchTimelinePanel, { events: [substitution], match: {...match, concludedAt:'2026-09-05T15:00:00Z'}, allowSubstitutionCorrection: allowed, onCorrectGoal: () => setCorrection({details,error:''}), onUndoEvent: () => {} }),
+        correction && React.createElement(SubstitutionCorrectionModal, {correction, event:substitution, players:[{id:'player-new',playerName:'New player',shirtNumber:'12'}], onClose:()=>setCorrection(null), onUpdate:updates=>setCorrection(current=>({...current,details:{...current.details,...updates}})), onSubmit:event=>{event.preventDefault();window.savedSubstitution=correction.details;setCorrection(null)}}));
+    }
+    root.render(React.createElement(TimelineTest));
+  };
 `
 const server = await createServer({
   cacheDir: 'node_modules/.vite-report-theme',
@@ -54,7 +65,7 @@ const server = await createServer({
     resolveId(id) { if (id === '/__report-theme-entry.js') return id },
     load(id) { if (id === '/__report-theme-entry.js') return entry },
     transform(code, id) {
-      if (id.split('?')[0].endsWith('/src/pages/MatchDayPage.jsx')) return `${code}\nexport { FinalMatchReportPanel };`
+      if (id.split('?')[0].endsWith('/src/pages/MatchDayPage.jsx')) return `${code}\nexport { FinalMatchReportPanel, MatchTimelinePanel, SubstitutionCorrectionModal };`
       if (id.split('?')[0].endsWith('/src/index.css')) return code.replace(/^@import url\([^\n]+\);\r?\n/, '')
     },
     configureServer(vite) {
@@ -95,6 +106,22 @@ try {
       await page.evaluate(() => window.renderReport())
     }
   }
+  await page.evaluate(() => window.renderSubstitution())
+  await page.getByRole('button', { name: 'Correct', exact: true }).click()
+  const correction = page.getByRole('dialog', { name: 'Edit substitution' })
+  await correction.getByLabel('Player off', {exact:true}).selectOption('player-new')
+  await correction.getByLabel('Player on name').fill('Correct player on')
+  await correction.getByLabel('Minute', {exact:true}).fill('63')
+  await correction.getByLabel('Correction reason').fill('Wrong substitution recorded')
+  await correction.getByRole('button', {name:'Save substitution correction'}).click()
+  const saved = await page.evaluate(() => window.savedSubstitution)
+  assert.equal(saved.scorerPlayerId, 'player-new')
+  assert.equal(saved.assistName, 'Correct player on')
+  assert.equal(saved.minute, '63')
+  await page.evaluate(() => window.renderSubstitution(false))
+  await page.getByRole('button', {name:'Undo event'}).waitFor()
+  await page.getByRole('button', {name:'Correct',exact:true}).waitFor({state:'detached'})
+  assert.equal(await page.getByRole('button', {name:'Correct',exact:true}).count(), 0)
   assert.deepEqual(errors, [])
   console.log('PASS: real Final Match Report and all five expanded sections meet 4.5:1 text contrast in light/dark themes at desktop/mobile widths, including notes, exports, errors and voided events.')
 } finally {

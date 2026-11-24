@@ -92,6 +92,8 @@ export function GuestScorerPage() {
   const [eventDraft, setEventDraft] = useState(null)
   const [score, setScore] = useState(null)
   const [confirm, setConfirm] = useState(null)
+  const [penaltyTaker, setPenaltyTaker] = useState({ name: '', shirt: '' })
+  const [opponentPenaltyTaker, setOpponentPenaltyTaker] = useState('')
   const [pending, setPending] = useState(session?.command || null)
   const active = useRef(false)
   const dataRevision = useRef(0)
@@ -156,6 +158,10 @@ export function GuestScorerPage() {
       const result = await requestGuestScorer({ ...savedCommand, token: session.token })
       if (!mounted.current || currentToken.current !== tokenAtStart) return
       setData(result); setGoal(null); setScore(null); setEventDraft(null)
+      if (savedCommand.action === 'shootout' && result.saved) {
+        if (savedCommand.details.teamSide === 'club') setPenaltyTaker({ name: '', shirt: '' })
+        else setOpponentPenaltyTaker('')
+      }
       if (result.notificationWarning) { setError(result.notificationWarning) }
       else { setPending(null); saveSession({ ...session, command: null }) }
     } catch (failure) {
@@ -186,9 +192,16 @@ export function GuestScorerPage() {
       <div className="gs-grid">{getParentScorerTimerActions(match).filter((item) => item.action !== 'conclude').map((item) => <button key={item.action} disabled={disabled || item.action === 'start' && !match.isToday} onClick={() => setConfirm({ label: item.label + '?', ...getGuestTimerRequest(item.action) })}>{item.label}</button>)}</div>
       {!match.isToday && match.timerStatus === 'not_started' ? <p>The match can be started on {formatUkDate(match.matchDate)}.</p> : null}
       {match.timerStatus !== 'not_started' ? <>
+        {match.currentMatchPhase !== 'penalties' ? <>
         <div className="gs-grid"><button className="gs-primary" disabled={disabled} onClick={() => setGoal({ teamSide: 'club', scorerName: '', scorerShirtNumber: '', assistName: '', assistShirtNumber: '', notes: '', ...captureMatchEventTime(match) })}>Add goal</button><button disabled={disabled} onClick={() => setScore({ homeScore: match.homeScore, awayScore: match.awayScore, reason: '' })}>Correct score</button></div>
         <div className="gs-grid">{['yellow_card', 'red_card', 'substitution'].map((eventType) => <button key={eventType} disabled={disabled} onClick={() => setEventDraft({ eventType, teamSide: 'club', playerName: '', playerShirtNumber: '', playerOnName: '', playerOnShirtNumber: '', notes: '', ...captureMatchEventTime(match) })}>{eventLabels[eventType]}</button>)}</div>
-        {match.currentMatchPhase === 'penalties' ? <section><h2>Shootout: {match.homeShootoutScore} : {match.awayShootoutScore}</h2><div className="gs-grid">{['club', 'opponent'].flatMap((teamSide) => ['scored', 'missed'].map((outcome) => <button key={teamSide + outcome} disabled={disabled} onClick={() => setConfirm({ label: (teamSide === 'club' ? 'Our team' : 'Opponent') + ' ' + outcome + '?', action: 'shootout', details: { teamSide, outcome } })}>{teamSide === 'club' ? 'Our team' : 'Opponent'} {outcome}</button>))}</div></section> : null}
+        </> : null}
+        {match.currentMatchPhase === 'penalties' ? <section>
+          <h2>Shootout: {match.homeShootoutScore} : {match.awayShootoutScore}</h2>
+          <Person title="Our team's penalty taker" players={match.players || []} name={penaltyTaker.name} shirt={penaltyTaker.shirt} onChange={(name, shirt) => setPenaltyTaker({ name, shirt })} disabled={disabled} />
+          <label>Opponent penalty taker (optional)<input disabled={disabled} value={opponentPenaltyTaker} onChange={event => setOpponentPenaltyTaker(event.target.value)} maxLength={160} /></label>
+          <div className="gs-grid">{['club', 'opponent'].flatMap((teamSide) => ['scored', 'missed'].map((outcome) => <button key={teamSide + outcome} disabled={disabled} onClick={() => setConfirm({ label: (teamSide === 'club' ? 'Our team' : 'Opponent') + ' ' + outcome + '?', action: 'shootout', details: { teamSide, outcome, playerName: teamSide === 'club' ? penaltyTaker.name : opponentPenaltyTaker } })}>{teamSide === 'club' ? 'Our team' : 'Opponent'} {outcome}</button>))}</div>
+        </section> : null}
         <h2>Match events</h2>{match.events.length ? match.events.map((event) => {
           const isGoal = !event.eventType || event.eventType === 'goal'
           return <button className="gs-event" key={event.id} disabled={disabled} onClick={() => isGoal ? setGoal({ ...event, eventId: event.id }) : setConfirm({ label: `Remove this ${eventLabels[event.eventType]?.toLowerCase() || 'event'}?`, action: 'remove_event', details: { eventId: event.id } })}><strong>{event.minute ?? 0}{event.stoppageMinute ? '+' + event.stoppageMinute : ''}' {eventLabels[event.eventType || 'goal']}: {event.scorerName || (event.teamSide === 'club' ? 'Our team' : 'Opponent')}{event.isOwnGoal ? ' (own goal)' : ''}</strong><span>{isGoal ? `Goal for ${event.teamSide === 'club' ? match.teamName : match.opponent}. ` : ''}{event.assistName ? (event.eventType === 'substitution' ? 'Player on: ' : 'Assist: ') + event.assistName + '. ' : ''}{isGoal ? 'Tap to correct or remove' : 'Tap to remove'}</span></button>

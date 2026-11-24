@@ -1,4 +1,5 @@
 import { getMatchEventTime } from './matchday-event-time.js'
+import { getMatchDayDisplayScore, getMatchDayShootoutScore } from './matchday-display.js'
 
 export const MATCH_DAY_FINAL_REPORT_NOTES_MAX_LENGTH = 5000
 
@@ -419,8 +420,8 @@ export function buildCompletedMatchResult(match = {}) {
   const normalTimeAwayScore = normalizeOptionalNumber(match.normalTimeAwayScore ?? match.normal_time_away_score)
   const extraTimeHomeScore = normalizeOptionalNumber(match.extraTimeHomeScore ?? match.extra_time_home_score)
   const extraTimeAwayScore = normalizeOptionalNumber(match.extraTimeAwayScore ?? match.extra_time_away_score)
-  const shootoutEvents = Array.isArray(match.shootoutEvents ?? match.shootout_events)
-    ? (match.shootoutEvents ?? match.shootout_events)
+  const shootoutEvents = Array.isArray(match.shootoutEvents ?? match.shootout_events ?? match.match_day_shootout_kicks)
+    ? (match.shootoutEvents ?? match.shootout_events ?? match.match_day_shootout_kicks)
     : []
   const homeShootoutScore = Math.max(Number(match.homeShootoutScore ?? match.home_shootout_score ?? 0), 0)
   const awayShootoutScore = Math.max(Number(match.awayShootoutScore ?? match.away_shootout_score ?? 0), 0)
@@ -460,10 +461,11 @@ export function buildCompletedMatchResult(match = {}) {
       : '',
     finalScore: `${homeScore} - ${awayScore}`,
     fullTimeScore: `${homeScore} - ${awayScore}`,
+    displayScore: getMatchDayDisplayScore(match),
     hasExtraTime,
     homeShootoutScore,
     awayShootoutScore,
-    shootoutScore: shootoutEvents.length > 0 || winnerSide ? `${homeShootoutScore} - ${awayShootoutScore}` : '',
+    shootoutScore: getMatchDayShootoutScore(match),
     shootoutWinner,
     shootoutEvents: shootoutEvents.slice().sort((left, right) => {
       const createdDifference = getEventTimestamp(left) - getEventTimestamp(right)
@@ -474,6 +476,17 @@ export function buildCompletedMatchResult(match = {}) {
 
 export function isFinalMatchReportAvailable(match) {
   return normalizeText(match?.status) === 'full_time'
+}
+
+export function buildCompletedShootoutKickPresentation(kick, match) {
+  const voided = normalizeEventStatus(kick) === 'voided' || Boolean(kick.voidedAt ?? kick.voided_at)
+  const team = getRecordedTeamSide(kick) === 'opponent' ? getOpponentTeamName(match) : getClubTeamName(match)
+  const outcome = normalizeText(kick.outcome) === 'scored' ? 'Scored' : 'Missed or saved'
+  return {
+    voided,
+    title: `Kick ${kick.kickNumber ?? kick.kick_number ?? ''}: ${outcome}${voided ? ' (voided)' : ''}`,
+    detail: [team, normalizeText(kick.playerName ?? kick.player_name)].filter(Boolean).join(' | '),
+  }
 }
 
 export function buildFinalMatchReportSummary(match = {}) {

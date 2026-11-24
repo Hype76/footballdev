@@ -28,7 +28,7 @@ import ParentIcon from './apps/parent-mobile/src/ParentIcon.js';
 import {IconSettings,SettingsSection} from './apps/mobile-core/src/IconSettings.js';
 import {createParentMobileTheme,DEFAULT_PARENT_MOBILE_THEME} from './apps/mobile-core/src/parentThemeCore.js';
 import {formatParentProductDateTime,formatParentProductTime} from './apps/mobile-core/src/parentDateTimeCore.js';
-import {buildFinalMatchReportSummary,buildCompletedMatchGoalScorerLines,buildCompletedMatchEventPresentation} from './src/lib/matchday-final-report.js';
+import {buildFinalMatchReportSummary,buildCompletedMatchGoalScorerLines,buildCompletedMatchEventPresentation,buildCompletedShootoutKickPresentation} from './src/lib/matchday-final-report.js';
 import {getParentMatchGroups} from './apps/parent-mobile/src/parentExperience.js';
 import {getParentMatchTimeline} from './apps/parent-mobile/src/parentScorerCore.js';
 import {getMatchDayDisplayName} from './src/lib/matchday-display.js';

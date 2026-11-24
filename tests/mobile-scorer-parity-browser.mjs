@@ -43,6 +43,7 @@ const shared = `import {getParentStatusColours,PARENT_SCORER_ICON_COLOURS} from 
   import { flushSync } from 'react-dom'
   import { View, Text, Pressable, ScrollView, StyleSheet, Platform, TextInput, Switch, Modal, KeyboardAvoidingView } from 'react-native'
   import { getGoalScorerSide, setGoalOwnGoal, oppositeMatchSide } from './src/lib/matchday-goal-credit.js'
+  import { getMatchDayDisplayScore, getMatchDayShootoutScore } from './src/lib/matchday-display.js'
   import { createMatchDayGoalCorrectionDraft, getMatchDaySubstitutionPlayers } from './apps/mobile-core/src/matchDayParticipantRoster.js'
   import { buildCompletedMatchEventPresentation } from './src/lib/matchday-final-report.js'
   import { getCoachMatchDayUndoModel, validateCoachMatchDayEventParticipants } from './apps/mobile-core/src/coachMatchDayCore.js'

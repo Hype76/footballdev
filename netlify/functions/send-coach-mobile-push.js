@@ -232,7 +232,7 @@ async function getCoachDevices(match, client = supabaseAdmin, recipientId = '') 
   let query = client
     .from('coach_mobile_push_installations')
     .select(
-      'installation_id, auth_user_id, user_profile_id, club_id, team_id, context_id, expo_push_token, detail_level',
+      'installation_id, auth_user_id, user_profile_id, club_id, team_id, context_id, expo_push_token, detail_level, platform',
     )
     .eq('status', 'active')
     .eq('enabled', true)
@@ -370,7 +370,7 @@ export async function sendCoachMatchReviewPush({ match, adminClient = supabaseAd
     const settled = await Promise.allSettled(pending.map(async device => {
       const payload = buildCoachMatchReviewPayload(match)
       payload.data = { ...payload.data, reviewOperationKey: operationKey }
-      const result = await sendMessages([{ to: device.expo_push_token, title: payload.title, body: payload.body, data: payload.data, sound: 'default' }])
+      const result = await sendMessages([{ to: device.expo_push_token, title: payload.title, body: payload.body, data: payload.data, sound: 'default', priority: 'high', ...(device.platform === 'android' ? { channelId: 'coach-updates' } : {}) }])
       await revokeMobileDeviceTokens(result.invalidTokens || [], adminClient)
       await logNotificationEvents({ client: adminClient, deliveries: [{ device, payload }], match, status: result.failed ? 'failed' : 'sent', requireSaved: true })
       return result
@@ -382,7 +382,7 @@ export async function sendCoachMatchReviewPush({ match, adminClient = supabaseAd
   }
   const deliveries = devices.map((device) => ({ device, payload: buildCoachMatchReviewPayload(match) }))
   const result = await sendMessages(deliveries.map(({ device, payload }) => ({
-    to: device.expo_push_token, title: payload.title, body: payload.body, data: payload.data, sound: 'default',
+    to: device.expo_push_token, title: payload.title, body: payload.body, data: payload.data, sound: 'default', priority: 'high', ...(device.platform === 'android' ? { channelId: 'coach-updates' } : {}),
   })))
   await revokeMobileDeviceTokens(result.invalidTokens || [], adminClient)
   await logNotificationEvents({ client: adminClient, deliveries, match, status: result.failed > 0 && result.sent === 0 ? 'failed' : 'sent' })

@@ -52,7 +52,7 @@ import {getParentEventPresentation} from './apps/parent-mobile/src/parentEventPr
 import {getMatchDayShirtChoiceLabel} from './src/lib/matchday-model.js';
 import {getMatchDayLifecycleState} from './src/lib/matchday-lifecycle.js';
 import {getCoachMatchDayPresentation} from './apps/mobile-core/src/coachMatchDayCore.js';
-import {getMatchDayDisplayName} from './src/lib/matchday-display.js';
+import {getMatchDayDisplayName,getMatchDayShootoutScore} from './src/lib/matchday-display.js';
 import {formatParentProductDateTime,formatParentProductTime} from './apps/mobile-core/src/parentDateTimeCore.js';
 import {formatMatchAddedTimeClock} from './src/lib/matchday-event-time.js';
 import {buildCompletedMatchEventPresentation} from './src/lib/matchday-final-report.js';

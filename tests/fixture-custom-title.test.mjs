@@ -24,6 +24,9 @@ test('fixture editor reopens with its saved custom title and readable legacy fal
     assert.equal(form.title, title === 'Cambourne cup semi-final' ? title : 'Cambourne Town FC v Holbeach United U14')
   }
   assert.equal(getMatchDayDisplayName({ ...fixture, homeAway: 'away' }), 'Holbeach United U14 v Cambourne Town FC')
+  const editedFixture = { ...fixture, title: 'Cambourne Town FC v POSSIBLE CUP MATCH', opponent: 'Kettering Town FC Academy', homeAway: 'away' }
+  assert.equal(getMatchDayDisplayName(editedFixture), 'Kettering Town FC Academy v Cambourne Town FC')
+  assert.equal(reopen({ sourceType: 'match-day', data: normalizeMatchDay(editedFixture) }).title, 'Kettering Town FC Academy v Cambourne Town FC')
 })
 
 test('custom title survives database save, reload and an unrelated edit', async t => {

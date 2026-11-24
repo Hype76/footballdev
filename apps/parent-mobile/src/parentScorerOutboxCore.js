@@ -160,15 +160,16 @@ export function projectParentScorerCommand(match, command) {
       const side = shootoutSide(next, payload.teamSide)
       next[side] = Number(next[side] || 0) + 1
     }
-    next.shootoutEvents.push({ ...payload, id, pendingSync: true, createdAt: capturedAt })
+    const kickNumber = next.shootoutEvents.filter(kick => kick.teamSide === payload.teamSide && !kick.voidedAt && kick.eventStatus !== 'voided').length + 1
+    next.shootoutEvents.push({ ...payload, id, kickNumber, eventStatus: 'active', homeShootoutScore: next.homeShootoutScore, awayShootoutScore: next.awayShootoutScore, pendingSync: true, createdAt: capturedAt })
   } else if (kind === 'void-shootout') {
     const target = next.shootoutEvents.find(event => event.id === payload.kickId)
-    if (target && !target.voidedAt) {
+    if (target && !target.voidedAt && target.eventStatus !== 'voided') {
       if (target.outcome === 'scored') {
         const side = shootoutSide(next, target.teamSide)
         next[side] = Math.max(0, Number(next[side] || 0) - 1)
       }
-      next.shootoutEvents = next.shootoutEvents.map(event => event.id === target.id ? { ...event, voidedAt: capturedAt, pendingSync: true } : event)
+      next.shootoutEvents = next.shootoutEvents.map(event => event.id === target.id ? { ...event, eventStatus: 'voided', voidedAt: capturedAt, pendingSync: true } : event)
     }
   } else if (kind === 'request-review') {
     next.pendingReview = true
@@ -207,7 +208,9 @@ export function getVisibleParentScorerMatch(match, journal) {
     const acknowledged = journal.baseMatch
     // Retain the confirmed score while the fixture refreshes. Authority and
     // participant availability still come from the current linked-player view.
-    return { ...match, homeScore: acknowledged.homeScore, awayScore: acknowledged.awayScore, events: acknowledged.events }
+    return { ...match, homeScore: acknowledged.homeScore, awayScore: acknowledged.awayScore, events: acknowledged.events,
+      homeShootoutScore: acknowledged.homeShootoutScore ?? match.homeShootoutScore, awayShootoutScore: acknowledged.awayShootoutScore ?? match.awayShootoutScore,
+      shootoutWinner: acknowledged.shootoutWinner ?? match.shootoutWinner, shootoutEvents: acknowledged.shootoutEvents ?? match.shootoutEvents }
   }
   return match
 }

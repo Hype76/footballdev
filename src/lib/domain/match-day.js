@@ -2437,6 +2437,27 @@ export async function correctStaffMatchDayGoal({ user, match, event, goal, reaso
   return normalizeGoalCorrectionResult(data)
 }
 
+export async function correctStaffConcludedMatchDaySubstitution({ user, match, event, details, changeId, expectedUpdatedAt }) {
+  await blockDemoMutation(user)
+  assertStaffMatchDayAccess(user)
+  assertMatchInActiveTeamScope(user, match)
+  if (!match.concludedAt || match.status !== 'full_time' || event?.eventType !== 'substitution' || event.eventStatus === 'voided') {
+    throw new Error('Choose an active substitution in a concluded match.')
+  }
+  const { data, error } = await supabase.rpc('save_coach_concluded_match_event', {
+    match_id: match.id,
+    expected_updated_at: expectedUpdatedAt,
+    change_id: createMatchDayRequestId(changeId),
+    event_id: event.id,
+    operation: 'save',
+    details: { ...details, eventType: 'substitution', teamSide: event.teamSide },
+  })
+  if (error) throw error
+  invalidateMemoryCacheByPrefix('match-day:')
+  invalidateMemoryCacheByPrefix('parent-match-day:')
+  return normalizeMatchDayEvent(data)
+}
+
 export async function voidStaffMatchDayGoal({ user, match, event, reason = '' }) {
   await blockDemoMutation(user)
   assertStaffMatchDayAccess(user)

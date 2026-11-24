@@ -13,6 +13,7 @@ import { sendCoachMatchReviewPush } from './send-coach-mobile-push.js'
 import { deliverCoachMatchReviewOnce } from './lib/_coach-match-review-delivery.js'
 import { buildAndroidMatchStartMessage, buildMatchDayNativeMessage } from './lib/_match-day-native-message.js'
 import { deliverLiveMatchChange } from './lib/_deliver-live-match-changes.js'
+import { deliverShootoutNotifications } from './lib/_match-day-shootout-notifications.js'
 
 function jsonResponse(statusCode, payload) {
   return {
@@ -341,10 +342,16 @@ export async function handler(event) {
     const profile = await getProfile(authUser, match, parentLinkId)
     await assertWorkspaceBillingAction({ clubId: match.club_id, profile })
     const authorization = await authorizePush({ authUser, match, parentLinkId,
-      type: type === 'live_clock_refresh' ? match.status : type, eventId })
+      type: type === 'live_clock_refresh' ? match.status : type === 'shootout_kick' ? 'penalties' : type, eventId: type === 'shootout_kick' ? '' : eventId })
 
     if (authorization.allowed !== true) {
       return failureResponse(403, 'You cannot send notifications for this match.')
+    }
+
+    if (type === 'shootout_kick') {
+      if (!eventId) return failureResponse(400, 'A saved shootout kick is required.')
+      const result = await deliverShootoutNotifications({ matchDayId: match.id, kickId: eventId })
+      return jsonResponse(result.failed ? 503 : 200, { success: result.failed === 0, ...result })
     }
 
     if (type === 'live_clock_refresh') {
@@ -418,7 +425,7 @@ export async function deliverMatchDayNotification({ match, type, eventId = '', n
 
     if (eventId) {
       const { data, error } = await supabaseAdmin
-        .from('match_day_events')
+        .from(type === 'shootout_kick' ? 'match_day_shootout_kicks' : 'match_day_events')
         .select('*')
         .eq('id', eventId)
         .eq('match_day_id', match.id)
@@ -429,6 +436,9 @@ export async function deliverMatchDayNotification({ match, type, eventId = '', n
       }
 
       eventRow = data
+    }
+    if (type === 'shootout_kick' && (!eventRow || eventRow.event_status !== 'active')) {
+      return { sent: 0, revoked: 0, webFailed: 0, mobileSent: 0, mobileFailed: 0, fanSent: 0, fanFailed: 0 }
     }
 
     const appNotificationParentLinks = await getAppNotificationParentLinks(targetParentLinkIds)
@@ -445,7 +455,7 @@ export async function deliverMatchDayNotification({ match, type, eventId = '', n
     const club = Array.isArray(match.clubs) ? match.clubs[0] : match.clubs
     const teamName = resolveMatchDayNotificationTeamName(match)
     const clubName = normalizeText(club?.name)
-    const notificationTitle = notificationCopy.matchTitle
+    const notificationTitle = ['penalties', 'shootout_kick'].includes(notificationCopy.notificationType) ? notificationCopy.title : notificationCopy.matchTitle
     const payload = {
       body: notificationCopy.detailedBody,
       renotify: notificationCopy.renotify,
@@ -521,6 +531,10 @@ export async function sendGuestMatchDayNotifications({ tokenHash, requestId }) {
   if (error) throw error
   if (!command) return
   if (command.pending) throw new Error('Notification delivery is still being confirmed. Retry shortly.')
+  if (command.action === 'shootout') {
+    const result = await deliverShootoutNotifications({ matchDayId: command.matchId })
+    if (result.failed) throw new Error('Shootout notifications will be retried.')
+  }
   const type = command.action === 'start' ? 'match_started'
     : command.action === 'timer' || command.action === 'extended' ? command.details.action
       : command.action === 'goal' ? 'goal'

@@ -31,7 +31,7 @@ import {getParentMatchResult} from './apps/parent-mobile/src/matchResult.js';
 import {BrandLoader} from './apps/mobile-core/src/BrandLoader.js';
 import {createParentMobileTheme} from './apps/mobile-core/src/parentThemeCore.js';
 import {requiresWatchedMatch} from './src/lib/poll-watched-match.js';
-import {getMatchDayDisplayName} from './src/lib/matchday-display.js';
+import {getMatchDayDisplayName,getMatchDayDisplayScore} from './src/lib/matchday-display.js';
 import {getMatchDayShirtChoiceLabel} from './src/lib/matchday-model.js';
 import {formatParentProductDateTime,formatParentProductTime} from './apps/mobile-core/src/parentDateTimeCore.js';
 import {getParentMatchStatusLabel,getParentMatchStatusBadges,getParentAgendaResponseBadge,getPollDraftOption,canSubmitParentPoll,rankParentPollResults} from './apps/parent-mobile/src/parentExperience.js';

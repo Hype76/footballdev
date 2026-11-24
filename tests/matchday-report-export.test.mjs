@@ -181,6 +181,7 @@ test('completed report PDF contains accurate visible report data and excludes pr
   assert.match(parentPdf, /Normal time score: 1 - 1/)
   assert.match(parentPdf, /After extra time: 2 - 2/)
   assert.match(parentPdf, /Penalty shootout: 5 - 4/)
+  assert.match(parentPdf, /5 - 4 pens/)
   assert.match(parentPdf, /Shootout winner: Atlético Test/)
   assert.match(parentPdf, /Penalty/)
   assert.match(parentPdf, /María O'Connor-Smith/)

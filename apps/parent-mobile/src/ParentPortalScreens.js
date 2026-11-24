@@ -27,7 +27,7 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons'
 import { activateKeepAwakeAsync, deactivateKeepAwake, isAvailableAsync } from 'expo-keep-awake'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { AppState, BackHandler, FlatList, Image, KeyboardAvoidingView, Linking, Modal, Platform, Pressable, ScrollView, Share, StyleSheet, Text, TextInput, View } from 'react-native'
-import { buildCompletedMatchEventPresentation, buildCompletedMatchGoalScorerLines, buildFinalMatchReportSummary, resolveCompletedMatchPlayerName } from '../../../src/lib/matchday-final-report.js'
+import { buildCompletedMatchEventPresentation, buildCompletedMatchGoalScorerLines, buildCompletedShootoutKickPresentation, buildFinalMatchReportSummary, resolveCompletedMatchPlayerName } from '../../../src/lib/matchday-final-report.js'
 import { getParentCalendarAttendanceInvitation, getParentCalendarMarkerTone, getParentCalendarMonthGrid, getParentCalendarWindow, groupParentCalendarEvents, isParentCalendarEventCancelled } from '../../mobile-core/src/parentCalendarCore'
 import { getNamedParentFormationPlayers, getParentFormationPitchPercent } from '../../mobile-core/src/parentFormationBoardCore'
 import {
@@ -42,7 +42,7 @@ import { getMatchDayShirtChoiceLabel, isContinuousMatchClock, normalizeMatchDura
 import { PitchTypeIcon } from './PitchTypeIcon'
 import { MatchTypeIcon } from './MatchTypeIcon'
 import { HomeAwayIcon } from './HomeAwayIcon'
-import { getMatchDayDisplayName } from '../../../src/lib/matchday-display.js'
+import { getMatchDayDisplayName, getMatchDayDisplayScore, getMatchDayShootoutScore } from '../../../src/lib/matchday-display.js'
 import { useConfirmedConnectionMessage } from '../../mobile-core/src/useConfirmedConnectionIssue'
 import ParentIcon from './ParentIcon'
 import { formatMatchAddedTimeClock, getMatchEventTime } from '../../../src/lib/matchday-event-time.js'
@@ -820,9 +820,9 @@ function MatchCard({ colors, invitations, link, match, onOpen, scorerGuide, styl
         <View style={styles.fixtureListFooter}>
           <View style={styles.fixtureFooterItem}><MaterialIcons accessible={false} color={colors.accentText} name="schedule" size={14} /><Text style={styles.meta}>{match.kickoffTimeTbc ? 'Time TBC' : formatParentProductTime(match.kickoffTime) || 'Time TBC'}</Text></View>
           <View style={styles.fixtureFooterItem}><MaterialIcons accessible={false} color={colors.accentText} name="checkroom" size={14} /><Text style={styles.meta}>{getMatchDayShirtChoiceLabel(match.shirtChoice)}</Text></View>
-          {scoreVisible(match) ? <Text style={styles.score}>{match.homeScore} - {match.awayScore}</Text> : null}
+          {scoreVisible(match) ? <View><Text style={styles.score}>{match.homeScore} - {match.awayScore}</Text>{getMatchDayShootoutScore(match) ? <Text style={styles.meta}>({getMatchDayShootoutScore(match)} pens)</Text> : null}</View> : null}
         </View>
-        {viewerClockNow && scoreVisible(match) ? <Text accessibilityLabel="Match timer" style={styles.meta}>Match timer {formatMatchAddedTimeClock(match, viewerClockNow)}</Text> : null}
+        {viewerClockNow && scoreVisible(match) && !['full_time', 'penalties'].includes(match.status) ? <Text accessibilityLabel="Match timer" style={styles.meta}>Match timer {formatMatchAddedTimeClock(match, viewerClockNow)}</Text> : null}
         {scorerGuide ? <ScorerGuidePulse color={colors.accentText} /> : null}
       </Pressable>
       {match.arrivalTime ? <Text style={styles.meta}>Arrive {formatParentProductTime(match.arrivalTime)}</Text> : null}
@@ -1024,23 +1024,26 @@ function GoalCorrectionForm({ disabled, events, match, onCorrect, onVoid, placeh
   )
 }
 
-function ShootoutControls({ disabled, match, onRecord, onVoid, placeholderColor, styles }) {
+function ShootoutControls({ disabled, match, onRecord, onVoid, placeholderColor, players = [], styles }) {
   const [teamSide, setTeamSide] = useState('club')
   const [outcome, setOutcome] = useState('scored')
   const [playerName, setPlayerName] = useState('')
+  const [playerId, setPlayerId] = useState('')
+  const selectSide = (side) => { setTeamSide(side); setPlayerName(''); setPlayerId('') }
   return (
     <View style={styles.card}>
       <Text style={styles.cardTitle}>Penalty shootout</Text>
       <Text style={styles.meta}>Shootout: {match.homeShootoutScore || 0} - {match.awayShootoutScore || 0}</Text>
       <View style={styles.actionRow}>
-        <Button disabled={disabled} label="Our team" onPress={() => setTeamSide('club')} outline={teamSide !== 'club'} styles={styles} />
-        <Button disabled={disabled} label="Opponent" onPress={() => setTeamSide('opponent')} outline={teamSide !== 'opponent'} styles={styles} />
+        <Button disabled={disabled} label="Our team" onPress={() => selectSide('club')} outline={teamSide !== 'club'} styles={styles} />
+        <Button disabled={disabled} label="Opponent" onPress={() => selectSide('opponent')} outline={teamSide !== 'opponent'} styles={styles} />
         <Button disabled={disabled} label="Scored" onPress={() => setOutcome('scored')} outline={outcome !== 'scored'} styles={styles} />
         <Button disabled={disabled} label="Missed" onPress={() => setOutcome('missed')} outline={outcome !== 'missed'} styles={styles} />
       </View>
-      <TextInput accessibilityLabel="Shootout player name" editable={!disabled} onChangeText={setPlayerName} placeholder="Player name, optional" placeholderTextColor={placeholderColor} style={styles.field} value={playerName} />
-      <Button disabled={disabled} label="Record shootout kick" onPress={() => { onRecord({ outcome, playerName, teamSide }); setPlayerName('') }} styles={styles} />
-      {(match.shootoutEvents || []).filter((kick) => !kick.voidedAt).map((kick) => (
+      {teamSide === 'club' ? <GoalPlayerPicker disabled={disabled} flat label="Penalty taker" players={players} selectedId={playerId} onSelect={player => { setPlayerId(player.id); setPlayerName(player.playerName) }} styles={styles} value={playerName} /> : null}
+      <TextInput accessibilityLabel="Shootout player name" editable={!disabled} onChangeText={value => { setPlayerName(value); setPlayerId('') }} placeholder="Player name, optional" placeholderTextColor={placeholderColor} style={styles.field} value={playerName} />
+      <Button disabled={disabled} label="Record shootout kick" onPress={() => { onRecord({ outcome, playerName, teamSide }); setPlayerName(''); setPlayerId('') }} styles={styles} />
+      {(match.shootoutEvents || []).filter((kick) => !kick.voidedAt && kick.eventStatus !== 'voided').map((kick) => (
         <View key={kick.id} style={styles.row}><Text style={styles.body}>{labelize(kick.teamSide)}: {labelize(kick.outcome)} {kick.playerName}</Text><Button danger disabled={disabled} label="Void kick" onPress={() => onVoid({ kickId: kick.id, reason: 'Corrected shootout kick' })} outline styles={styles} /></View>
       ))}
     </View>
@@ -1093,7 +1096,8 @@ function ScorerControls({ activeActionId, isOffline, match, onAction, onRestore,
   const handedOver = Boolean(match.scorerReviewRequestedAt || match.concludedAt)
   const disabled = busy || handedOver || match.pendingReview
   const timerActions = getParentScorerTimerActions(match).filter((item) => item.action !== 'conclude')
-  const canRecordEvents = canRecordParentScorerEvent(match, 'goal')
+  const isShootout = match.currentMatchPhase === 'penalties'
+  const canRecordEvents = !isShootout && canRecordParentScorerEvent(match, 'goal')
   const canCorrectScore = canCorrectMatchDayScore(match)
   const activeGoals = (match.events || []).filter((event) => event.eventType === 'goal' && !event.voidedAt && event.eventStatus !== 'voided')
   useEffect(() => {
@@ -1158,9 +1162,9 @@ function ScorerControls({ activeActionId, isOffline, match, onAction, onRestore,
     <View style={styles.stack}>
       <View accessibilityLabel="Match scoring" style={styles.stack}>
         <View style={styles.scorerBoard}>
-          <Text accessibilityLabel={`Match timer ${formatMatchAddedTimeClock(match)}`} adjustsFontSizeToFit minimumFontScale={0.6} numberOfLines={1} style={styles.scorerClock} testID="scorer-clock">{formatMatchAddedTimeClock(match)}</Text>
+          {!['full_time', 'penalties'].includes(match.status) ? <Text accessibilityLabel={`Match timer ${formatMatchAddedTimeClock(match)}`} adjustsFontSizeToFit minimumFontScale={0.6} numberOfLines={1} style={styles.scorerClock} testID="scorer-clock">{formatMatchAddedTimeClock(match)}</Text> : null}
           <Text style={styles.scorerPhase}>{getScorerPeriodLabel(match)}</Text>
-          <Text accessibilityLabel={`Score ${match.homeScore || 0} to ${match.awayScore || 0}`} accessibilityLiveRegion="polite" adjustsFontSizeToFit minimumFontScale={0.6} numberOfLines={1} style={styles.scorerScore} testID="scorer-score">{match.homeScore || 0} - {match.awayScore || 0}</Text>
+          <Text accessibilityLabel={`Score ${match.homeScore || 0} to ${match.awayScore || 0}${getMatchDayShootoutScore(match) ? `, penalties ${getMatchDayShootoutScore(match)}` : ''}`} accessibilityLiveRegion="polite" adjustsFontSizeToFit minimumFontScale={0.6} numberOfLines={1} style={styles.scorerScore} testID="scorer-score">{getMatchDayDisplayScore(match)}</Text>
         </View>
         {isOffline ? <Text style={styles.warning}>Offline. Game Day actions save on this phone and sync when connected.</Text> : null}
         {scorerSync?.pending?.length ? <Text accessibilityLiveRegion="polite" style={styles.helper}>{scorerSync.pending.length} saved action{scorerSync.pending.length === 1 ? '' : 's'} waiting to sync.</Text> : null}
@@ -1175,6 +1179,7 @@ function ScorerControls({ activeActionId, isOffline, match, onAction, onRestore,
         {match.pendingReview ? <Text accessibilityLiveRegion="polite" style={styles.helper}>Coach handover saved on this phone and waiting to sync.</Text> : null}
         {!keepAwake ? awakeControl : null}
         <View style={styles.actionGrid} testID="scorer-primary-actions">
+          {isShootout ? <ScorerActionButton disabled={disabled} icon="sports-soccer" label="Penalty shootout" onPress={() => openAction('shootout', 'Penalty shootout')} primary styles={styles} /> : null}
           {canRecordEvents ? <ScorerActionButton disabled={disabled} icon="sports-soccer" label="Goal" onPress={() => openAction('goal', 'Add goal')} primary styles={styles} /> : null}
           {Object.entries(SCORER_EVENT_LABELS).filter(([kind]) => canRecordParentScorerEvent(match, kind)).map(([kind, label]) => <ScorerActionButton disabled={disabled} icon={kind === 'substitution' ? 'swap-horiz' : 'style'} iconColor={kind === 'yellow_card' ? PARENT_SCORER_ICON_COLOURS.yellow : kind === 'red_card' ? PARENT_SCORER_ICON_COLOURS.red : PARENT_SCORER_ICON_COLOURS.substitution} key={kind} label={label} onPress={() => openAction(kind, label)} styles={styles} />)}
           {timerActions.filter((item) => item.action !== 'hydration').map((item) => <ScorerActionButton danger={item.action === 'full_time'} disabled={disabled || item.disabled} icon={item.action === 'pause' ? 'pause' : item.action === 'full_time' ? 'stop' : item.action.includes('half_time') ? 'timer' : 'play-arrow'} key={item.action} label={item.label} onPress={() => chooseTimerAction(item.action)} scorerGuide={scorerGuide && !actionSheet && item.action === 'start'} styles={styles} />)}
@@ -1186,14 +1191,13 @@ function ScorerControls({ activeActionId, isOffline, match, onAction, onRestore,
           <View style={styles.actionGrid}>
             {timerActions.some((item) => item.action === 'hydration') ? <ScorerActionButton disabled={disabled} icon="water-drop" label="Hydration break" onPress={() => chooseTimerAction('hydration')} styles={styles} /> : null}
             {activeGoals.length ? <ScorerActionButton disabled={disabled} icon="edit" label="Correct goal" onPress={() => openAction('correct-goal', 'Correct or remove a goal')} styles={styles} /> : null}
-            {match.currentMatchPhase === 'penalties' ? <ScorerActionButton disabled={disabled} icon="sports-soccer" label="Penalty shootout" onPress={() => openAction('shootout', 'Penalty shootout')} styles={styles} /> : null}
           </View>
           {keepAwake ? awakeControl : null}
         </View>
       </View>
       {actionSheet?.kind === 'confirm-timer' ? <ParentMatchDayActionSheet busy={busy} onClose={() => setActionSheet(null)} styles={styles} title={actionSheet.title}>
         <Text style={styles.body}>{actionSheet.action === 'start' ? 'Start the match clock and publish the live match?' : 'Confirm the score before stopping play. At full time, the Coach can review and conclude the match.'}</Text>
-        <Text style={styles.cardTitle}>{match.homeScore} - {match.awayScore}</Text>
+        <Text style={styles.cardTitle}>{getMatchDayDisplayScore(match)}</Text>
         {actionError ? <Text accessibilityRole="alert" style={styles.error}>{actionError}</Text> : null}
         <Button disabled={disabled} label={actionSheet.action === 'start' ? 'Confirm start' : 'Confirm finish'} onPress={() => { void confirmTimerAction() }} scorerGuide={scorerGuide && actionSheet.action === 'start'} styles={styles} />
         <Button disabled={busy} label="Cancel" onPress={() => setActionSheet(null)} outline styles={styles} />
@@ -1202,7 +1206,7 @@ function ScorerControls({ activeActionId, isOffline, match, onAction, onRestore,
       {actionSheet && SCORER_EVENT_LABELS[actionSheet.kind] ? <ParentMatchDayActionSheet busy={busy} capturedClock={actionSheet.capturedClock} onClose={() => setActionSheet(null)} styles={styles} title={actionSheet.title}>{actionError ? <Text accessibilityRole="alert" style={styles.error}>{actionError}</Text> : null}<ScorerEventForm disabled={disabled} capture={actionSheet} onAdd={(event) => submitAndClose('event', event)} players={['substitution', 'yellow_card', 'red_card'].includes(actionSheet.kind) ? getMatchDaySubstitutionPlayers(match, players) : players} styles={styles} placeholderColor={placeholderColor} /></ParentMatchDayActionSheet> : null}
       {actionSheet?.kind === 'score' ? <ParentMatchDayActionSheet busy={busy} capturedClock={actionSheet.capturedClock} onClose={() => setActionSheet(null)} styles={styles} title="Correct score"><Text style={styles.body}>Use this only when the displayed score is wrong. The correction remains in the Match Day history.</Text><View style={styles.actionRow}><TextInput accessibilityLabel="Home score" editable={!disabled} keyboardType="number-pad" onChangeText={setHomeScore} style={[styles.field, { flex: 1, minWidth: 96 }]} value={homeScore} /><TextInput accessibilityLabel="Away score" editable={!disabled} keyboardType="number-pad" onChangeText={setAwayScore} style={[styles.field, { flex: 1, minWidth: 96 }]} value={awayScore} /></View><Text style={styles.fieldLabel}>Reason, optional</Text><TextInput accessibilityLabel="Score correction reason" editable={!disabled} maxLength={240} multiline onChangeText={setScoreReason} placeholder="Why are you correcting the score?" placeholderTextColor={placeholderColor} style={[styles.field, { minHeight: 88, textAlignVertical: 'top' }]} value={scoreReason} /><Button disabled={disabled} label={busy ? 'Saving...' : 'Save score correction'} onPress={() => submitAndClose('score', { awayScore, homeScore, reason: scoreReason })} styles={styles} /></ParentMatchDayActionSheet> : null}
       {actionSheet?.kind === 'correct-goal' ? <ParentMatchDayActionSheet busy={busy} capturedClock={actionSheet.capturedClock} onClose={() => setActionSheet(null)} styles={styles} title="Correct a goal">{actionError ? <Text accessibilityRole="alert" style={styles.error}>{actionError}</Text> : null}<GoalCorrectionForm disabled={disabled} events={match.events} match={match} players={players} onCorrect={(value) => submitAndClose('correct-goal', value)} onVoid={(value) => submitAndClose('void-goal', value)} placeholderColor={placeholderColor} styles={styles} /></ParentMatchDayActionSheet> : null}
-      {actionSheet?.kind === 'shootout' ? <ParentMatchDayActionSheet busy={busy} capturedClock={actionSheet.capturedClock} onClose={() => setActionSheet(null)} styles={styles} title="Penalty shootout"><ShootoutControls disabled={disabled} match={match} onRecord={(value) => submitAndClose('shootout', value)} onVoid={(value) => submitAndClose('void-shootout', value)} placeholderColor={placeholderColor} styles={styles} /></ParentMatchDayActionSheet> : null}
+      {actionSheet?.kind === 'shootout' ? <ParentMatchDayActionSheet busy={busy} capturedClock={actionSheet.capturedClock} onClose={() => setActionSheet(null)} styles={styles} title="Penalty shootout"><ShootoutControls disabled={disabled} match={match} onRecord={(value) => submitAndClose('shootout', value)} onVoid={(value) => submitAndClose('void-shootout', value)} placeholderColor={placeholderColor} players={players} styles={styles} /></ParentMatchDayActionSheet> : null}
     </View>
   )
 }
@@ -1415,7 +1419,7 @@ export function MatchdayScreen({ suppressParentFormation = false, activeActionId
             <Text style={styles.fieldLabel}>Score</Text>
             <Text accessibilityLiveRegion="polite" style={styles.gameDayScore}>{presentation?.displayScore || `${selectedMatch.homeScore || 0} - ${selectedMatch.awayScore || 0}`}</Text>
             <View style={styles.gameDayStats}>
-              <View style={styles.gameDayStat}><Text style={styles.gameDayStatLabel}>Match timer</Text><Text accessibilityLiveRegion="polite" style={styles.gameDayStatValue}>{formatMatchAddedTimeClock(selectedMatch, now)}</Text></View>
+              {!['full_time', 'penalties'].includes(selectedMatch.status) ? <View style={styles.gameDayStat}><Text style={styles.gameDayStatLabel}>Match timer</Text><Text accessibilityLiveRegion="polite" style={styles.gameDayStatValue}>{formatMatchAddedTimeClock(selectedMatch, now)}</Text></View> : null}
               <View style={styles.gameDayStat}><Text style={styles.gameDayStatLabel}>Period</Text><Text style={styles.gameDayStatValue}>{presentation?.phaseLabel || 'Pre-match'}</Text></View>
             </View>
           </View> : null}
@@ -1549,7 +1553,7 @@ function ParentMatchReportCard({ colors, isDownloading = false, match, onDownloa
     <View style={styles.listSurface}>
       <Pressable accessibilityLabel={expanded ? 'Hide match report' : 'View match report'} accessibilityRole="button" accessibilityState={{ expanded }} onPress={() => setExpanded((current) => !current)} style={styles.compactRow}><ParentIcon color={colors.text} iconKey="football" size={34} /><View style={styles.compactCopy}><View style={styles.row}><Text style={styles.pill}>Full time</Text><Text style={styles.meta}>{formatDate(match.matchDate)}</Text></View><Text style={styles.cardTitle}>{getMatchDayDisplayName(match)}</Text></View><Text style={styles.score}>{report.result.finalScore}</Text><ParentIcon color={colors.accentText} iconKey={expanded ? 'keyboard-arrow-up' : 'keyboard-arrow-down'} size={22} /></Pressable>
       {goalScorerLines.length ? <View accessibilityLabel="Goal scorers" style={{ gap: 3, paddingTop: 2 }}>{goalScorerLines.map((line) => <Text key={`${line.teamName}:${line.label}`} style={styles.meta}>{line.teamLabel ? `${line.teamLabel}: ` : ''}{line.label} {line.minutes.join(', ')}</Text>)}</View> : null}
-      {report.result.shootoutScore ? <Text style={styles.meta}>Shootout: {report.result.shootoutScore}{report.result.shootoutWinner ? ` | ${report.result.shootoutWinner} won` : ''}</Text> : null}
+      {report.result.shootoutScore ? <Text style={styles.meta}>({report.result.shootoutScore} pens){report.result.shootoutWinner ? ` | ${report.result.shootoutWinner} won` : ''}</Text> : null}
       {onDownloadPdf ? <><Button compact iconKey="file-download" disabled={isDownloading} label={isDownloading ? 'Preparing match report...' : 'Download match report PDF'} onPress={() => onDownloadPdf(match)} secondary styles={styles} /><Text style={styles.meta}>{Platform.OS === 'ios' ? 'In the share sheet, choose Save to Files and then Save.' : 'Choose a folder to save the PDF.'}</Text></> : null}
       {expanded ? (
         <View style={styles.section}>
@@ -1563,6 +1567,11 @@ function ParentMatchReportCard({ colors, isDownloading = false, match, onDownloa
           {activeEvents.map((event) => {
             const presentation = buildCompletedMatchEventPresentation(event, match, { includeNotes: false })
             return <View key={event.id} style={styles.section}><View style={styles.row}><Text style={styles.body}>{presentation.minuteLabel} | {presentation.title}</Text><Text style={styles.meta}>{presentation.scoreLabel}</Text></View>{!event.timelineBoundary ? <Text style={styles.meta}>{presentation.team.name}{presentation.detail ? ` | ${presentation.detail}` : ''}</Text> : null}</View>
+          })}
+          {report.result.shootoutEvents.some(kick => !buildCompletedShootoutKickPresentation(kick, match).voided) ? <Text style={styles.cardTitle}>Penalty shootout kicks</Text> : null}
+          {report.result.shootoutEvents.map(kick => {
+            const row = buildCompletedShootoutKickPresentation(kick, match)
+            return row.voided ? null : <View key={kick.id} style={styles.section}><Text style={styles.body}>{row.title}</Text><Text style={styles.meta}>{row.detail}</Text></View>
           })}
         </View>
       ) : null}

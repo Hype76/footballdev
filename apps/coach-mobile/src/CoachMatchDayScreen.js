@@ -21,7 +21,7 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { activateKeepAwakeAsync, deactivateKeepAwake, isAvailableAsync } from 'expo-keep-awake'
 import { AppState, Image, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
-import { buildCompletedMatchEventPresentation, compareCompletedMatchEventsChronologically } from '../../../src/lib/matchday-final-report.js'
+import { buildCompletedMatchEventPresentation, buildCompletedShootoutKickPresentation, compareCompletedMatchEventsChronologically } from '../../../src/lib/matchday-final-report.js'
 import {
   buildCoachFinalMatchReport,
   captureCoachMatchDayAction,
@@ -466,7 +466,7 @@ function SavedEventCorrection({ command, selectedPlayers, onCorrect, styles }) {
   </View>
 }
 
-function LivePanel({ actions, busy, canReviewConclude, eventForm, finishControl, match, onEventForm, onExit, onFinish, onPrepare, onResolveEnd, onReviewConclude, onScore, onTimer, players, scoreDraft, setScoreDraft, styles }) {
+function LivePanel({ actions, busy, canReviewConclude, eventForm, finishControl, match, onEventForm, onExit, onFinish, onPrepare, onResolveEnd, onReviewConclude, onScore, onShootout, onTimer, players, scoreDraft, setScoreDraft, styles }) {
   const [now, setNow] = useState(() => Date.now())
   const [actionSheet, setActionSheet] = useState(null)
   const [actionError, setActionError] = useState('')
@@ -580,6 +580,7 @@ function LivePanel({ actions, busy, canReviewConclude, eventForm, finishControl,
       </View>
       <Text style={styles.meta}>{getMatchClockDescription(match)}</Text>
       <View style={styles.quickActions}>
+        {match.currentMatchPhase === 'penalties' ? <View style={styles.quickAction}><Button disabled={busy} iconKey="match.goal" label="Penalty shootout" onPress={onShootout} styles={styles} /></View> : null}
         <View style={styles.quickAction}><Button disabled={busy || !actions.canRecordEvents} iconKey="match.goal" label="Goal" onPress={() => prepareEvent('goal')} styles={styles} /></View>
         <View style={styles.quickAction}><Button disabled={busy || !actions.canRecordEvents} iconKey="match.yellow-card" label="Yellow" onPress={() => prepareEvent('yellow_card')} secondary styles={styles} warning /></View>
         <View style={styles.quickAction}><Button danger disabled={busy || !actions.canRecordEvents} iconKey="match.red-card" label="Red" onPress={() => prepareEvent('red_card')} secondary styles={styles} /></View>
@@ -754,10 +755,30 @@ function TimelinePanel({ busy, match, onCorrectGoal, onPrepare, onUndo, players 
   </View>
 }
 
-function ShootoutPanel({ busy, match, onEndWithoutResult, onKick, onPrepare, onVoid, styles }) {
+function ShootoutPanel({ busy, match, onEndWithoutResult, onKick, onPrepare, onVoid, players, styles }) {
   const [kick, setKick] = useState({ notes: '', outcome: 'scored', playerName: '', teamSide: 'club' })
   if (getMatchDayLifecycleState(match) === 'not_started') return <Text style={styles.body}>The match has not started.</Text>
-  return <View style={styles.stack}><View style={styles.card}><Text style={styles.cardTitle}>Penalty shootout</Text><Text style={styles.score}>{match.homeShootoutScore} - {match.awayShootoutScore}</Text><Chips onChange={(value) => setKick({ ...kick, teamSide: value })} options={[{ label: 'Our Team', value: 'club' }, { label: 'Opponent', value: 'opponent' }]} styles={styles} value={kick.teamSide} /><Chips onChange={(value) => setKick({ ...kick, outcome: value })} options={[{ label: 'Scored', value: 'scored' }, { label: 'Missed', value: 'missed' }]} styles={styles} value={kick.outcome} /><Field label="Player" onChangeText={(value) => setKick({ ...kick, playerName: value })} styles={styles} value={kick.playerName} /><Field label="Notes" onChangeText={(value) => setKick({ ...kick, notes: value })} styles={styles} value={kick.notes} /><Button disabled={busy || match.currentMatchPhase !== 'penalties'} label="Review penalty" onPress={() => onPrepare({ kind: 'kick', label: 'Record penalty', run: () => onKick(kick) })} styles={styles} /></View>{(match.shootoutEvents || []).map((item) => <View key={item.id} style={styles.card}><Text style={styles.cardTitle}>{item.kickNumber}. {item.teamSide} {item.outcome}</Text><Text style={styles.body}>{item.playerName || 'Player not recorded'}</Text>{item.eventStatus !== 'voided' ? <Button disabled={busy} label="Void penalty" onPress={() => onPrepare({ kind: 'void-kick', label: 'Void penalty kick', run: () => onVoid(item.id) })} secondary styles={styles} /> : null}</View>)}{match.currentMatchPhase === 'penalties' ? <View style={styles.card}><Text style={styles.body}>Started this shootout by mistake? End the match without a shootout winner. Recorded kicks will remain in the audit history as voided.</Text><Button danger disabled={busy} label="End match without shootout result" onPress={() => onPrepare({ kind: 'end-shootout', label: 'End this match at full time without a shootout winner? Recorded shootout kicks will be voided.', run: onEndWithoutResult })} secondary styles={styles} /></View> : null}</View>
+  return <View style={styles.stack}>
+    <View style={styles.card}>
+      <Text style={styles.cardTitle}>Penalty shootout</Text>
+      <Text style={styles.score}>{match.homeShootoutScore} - {match.awayShootoutScore}</Text>
+      <Chips onChange={(value) => setKick({ ...kick, teamSide: value, playerName: '', playerPlayerId: '' })} options={[{ label: 'Our Team', value: 'club' }, { label: 'Opponent', value: 'opponent' }]} styles={styles} value={kick.teamSide} />
+      <Chips onChange={(value) => setKick({ ...kick, outcome: value })} options={[{ label: 'Scored', value: 'scored' }, { label: 'Missed', value: 'missed' }]} styles={styles} value={kick.outcome} />
+      {kick.teamSide === 'club' ? <LinkedPlayerField field="name" form={kick} label="Penalty taker" onChange={setKick} playerChoices={getCoachMatchDaySelectedPlayers(players, match)} prefix="player" emptyMessage="No players are available in this match roster." styles={styles} />
+        : <Field label="Opponent penalty taker (optional)" onChangeText={(value) => setKick({ ...kick, playerName: value })} styles={styles} value={kick.playerName} />}
+      <Field label="Notes" onChangeText={(value) => setKick({ ...kick, notes: value })} styles={styles} value={kick.notes} />
+      <Button disabled={busy || match.currentMatchPhase !== 'penalties'} label="Review penalty" onPress={() => onPrepare({ kind: 'kick', label: 'Record penalty', run: () => onKick(kick) })} styles={styles} />
+    </View>
+    {(match.shootoutEvents || []).map((item) => <View key={item.id} style={styles.card}>
+      <Text style={styles.cardTitle}>{item.kickNumber}. {item.teamSide} {item.outcome}</Text>
+      <Text style={styles.body}>{item.playerName || 'Player not recorded'}</Text>
+      {item.eventStatus !== 'voided' ? <Button disabled={busy} label="Void penalty" onPress={() => onPrepare({ kind: 'void-kick', label: 'Void penalty kick', run: () => onVoid(item.id) })} secondary styles={styles} /> : null}
+    </View>)}
+    {match.currentMatchPhase === 'penalties' ? <View style={styles.card}>
+      <Text style={styles.body}>Started this shootout by mistake? End the match without a shootout winner. Recorded kicks will remain in the audit history as voided.</Text>
+      <Button danger disabled={busy} label="End match without shootout result" onPress={() => onPrepare({ kind: 'end-shootout', label: 'End this match at full time without a shootout winner? Recorded shootout kicks will be voided.', run: onEndWithoutResult })} secondary styles={styles} />
+    </View> : null}
+  </View>
 }
 
 function ReportPanel({ busy, canConclude, canSave, concludeBlockedReason, context, match, onConclude, onSave, styles }) {
@@ -791,8 +812,8 @@ function ReportPanel({ busy, canConclude, canSave, concludeBlockedReason, contex
   return <View style={styles.stack}>
     <View style={styles.card}>
       <Text style={styles.cardTitle}>Final result</Text>
-      <Text selectable style={styles.score}>{report.result.finalScore}</Text>
-      {report.result.shootoutScore ? <Text style={styles.body}>Shootout {report.result.shootoutScore}{report.result.shootoutWinner ? ` | ${report.result.shootoutWinner} won` : ''}</Text> : null}
+      <Text selectable style={styles.score}>{report.result.displayScore}</Text>
+      {report.result.shootoutWinner ? <Text style={styles.body}>{report.result.shootoutWinner} won on penalties</Text> : null}
       {match.status === 'full_time' && !match.concludedAt ? <><Text style={styles.body}>Review the score and match events below, then conclude the match.</Text>{concludeBlockedReason ? <Text style={styles.body}>{concludeBlockedReason}</Text> : null}<Button disabled={busy || !canConclude} label="Conclude match" onPress={onConclude} styles={styles} /></> : null}
       {match.concludedAt ? <Text accessibilityLiveRegion="polite" style={styles.fieldLabel}>Match concluded</Text> : null}
     </View>
@@ -804,6 +825,11 @@ function ReportPanel({ busy, canConclude, canSave, concludeBlockedReason, contex
       {activeEvents.map((event) => {
         const presentation = buildCompletedMatchEventPresentation(event, match)
         return <View key={event.id} style={styles.field}><View style={styles.row}><Text style={styles.fieldLabel}>{presentation.minuteLabel} | {presentation.title}</Text><Text style={styles.meta}>{presentation.scoreLabel}</Text></View><Text style={styles.body}>{presentation.team.name}{presentation.detail ? ` | ${presentation.detail}` : ''}</Text>{presentation.notes ? <Text style={styles.meta}>{presentation.notes}</Text> : null}</View>
+      })}
+      {report.result.shootoutEvents.length ? <Text style={styles.cardTitle}>Penalty shootout kicks</Text> : null}
+      {report.result.shootoutEvents.map(kick => {
+        const row = buildCompletedShootoutKickPresentation(kick, match)
+        return <View key={kick.id} style={styles.field}><Text style={styles.fieldLabel}>{row.title}</Text><Text style={styles.body}>{row.detail}</Text></View>
       })}
     </View>
     <View style={styles.card}>
@@ -1595,12 +1621,12 @@ function CoachMatchDayScoped({ context, matchDayTarget, onMatchDayTargetHandled,
           })}
           styles={styles} />
       </View> : null}
-      {panel === 'live' ? <LivePanel actions={actions} busy={busy} canReviewConclude={!reconciling} eventForm={eventForm} finishControl={finishControl} match={match} onEventForm={setEventForm} onFinish={runFinish} onExit={() => setPanel('overview')} onPrepare={setPending} onResolveEnd={resolveFinish} onReviewConclude={() => { setPanel('report'); onRequestScrollTop?.() }} onScore={(kind) => kind === 'event' ? submitEvent() : capture('score', { homeScore: Number(scoreDraft.home), awayScore: Number(scoreDraft.away) })} onTimer={runTimer} players={players} scoreDraft={scoreDraft} setScoreDraft={setScoreDraft} styles={styles} /> : null}
+      {panel === 'live' ? <LivePanel actions={actions} busy={busy} canReviewConclude={!reconciling} eventForm={eventForm} finishControl={finishControl} match={match} onEventForm={setEventForm} onFinish={runFinish} onExit={() => setPanel('overview')} onPrepare={setPending} onResolveEnd={resolveFinish} onReviewConclude={() => { setPanel('report'); onRequestScrollTop?.() }} onScore={(kind) => kind === 'event' ? submitEvent() : capture('score', { homeScore: Number(scoreDraft.home), awayScore: Number(scoreDraft.away) })} onShootout={() => { setPanel('shootout'); onRequestScrollTop?.() }} onTimer={runTimer} players={players} scoreDraft={scoreDraft} setScoreDraft={setScoreDraft} styles={styles} /> : null}
       {panel === 'timeline' && match.concludedAt ? <ConcludedTimeline key={match.id} busy={busy} canEdit={canCorrectConcludedMatch} match={match} players={players}
         onSave={(change) => replace(() => saveCoachConcludedMatchEvent(user, serverMatch, change), (detail) => detail.events.some(event => event.requestId === change.changeId || event.correctionId === change.changeId))}
         styles={styles} /> : null}
       {panel === 'timeline' && !match.concludedAt ? <TimelinePanel busy={busy || reconciling || stale || pendingCount > 0} match={match} players={players} onCorrectGoal={(event, goal, reason) => replace(() => correctCoachMatchDayGoal(user, match, event, goal, reason), (detail) => isCoachMatchDayGoalCorrectionApplied(detail, event.id, goal, reason))} onPrepare={setPending} onUndo={(event, input) => replace(() => voidCoachMatchDayEvent(user, match, event, input), (detail) => isCoachMatchDayEventVoided(detail, event.id))} styles={styles} /> : null}
-      {panel === 'shootout' ? <ShootoutPanel busy={busy || reconciling || stale || pendingCount > 0} match={match} onEndWithoutResult={() => runFinish('end_shootout_without_result', true)} onKick={(kick) => { const priorKickIds = (match.shootoutEvents || []).map((item) => item.id); return replace(() => recordCoachMatchDayShootoutKick(user, match, kick), (detail) => isCoachMatchDayShootoutKickApplied(detail, priorKickIds, kick)) }} onPrepare={setPending} onVoid={(id) => replace(() => voidCoachMatchDayShootoutKick(user, match, id), (detail) => isCoachMatchDayShootoutKickVoided(detail, id))} styles={styles} /> : null}
+      {panel === 'shootout' ? <ShootoutPanel busy={busy || reconciling || stale || pendingCount > 0} match={match} onEndWithoutResult={() => runFinish('end_shootout_without_result', true)} onKick={(kick) => { const priorKickIds = (match.shootoutEvents || []).map((item) => item.id); return replace(() => recordCoachMatchDayShootoutKick(user, match, kick), (detail) => isCoachMatchDayShootoutKickApplied(detail, priorKickIds, kick)) }} players={players} onPrepare={setPending} onVoid={(id) => replace(() => voidCoachMatchDayShootoutKick(user, match, id), (detail) => isCoachMatchDayShootoutKickVoided(detail, id))} styles={styles} /> : null}
       {panel === 'report' ? <ReportPanel busy={busy || reconciling} canConclude={actions.timerActions.some((item) => item.action === 'conclude')} concludeBlockedReason={actions.blockedReason} onConclude={() => setPending({ kind: 'conclude', label: `Conclude ${getCoachMatchDayPresentation(match).displayName} at ${getCoachMatchDayPresentation(match).displayScore}? Check the score and events first.`, run: () => runTimer('conclude') })} canSave={actions.canSaveFinalReport} context={context} key={`${reportMatch.id}:${reportMatch.finalReport?.updatedAt || ''}`} match={reportMatch} onSave={(notes) => setPending({ label: 'Save final Match Day report', run: () => replace(() => saveCoachMatchDayFinalReport(user, match, notes), (detail) => isCoachMatchDayFinalReportApplied(detail, notes)) })} styles={styles} /> : null}
     </> : null}
     <Modal animationType="fade" onRequestClose={() => setPending(null)} transparent visible={Boolean(pending)}><View accessibilityViewIsModal style={styles.modalScreen}><Pressable accessibilityLabel="Cancel Match Day change" onPress={() => setPending(null)} style={styles.modalBackdrop} /><View accessibilityLiveRegion="assertive" style={styles.modalCard}><Text style={styles.cardTitle}>{pending?.kind === 'delete-fixture' ? 'Delete this match?' : pending?.kind === 'start-match' ? 'Start this match?' : 'Confirm this change'}</Text><Text style={styles.body}>{pending?.kind === 'start-match' ? `This starts the match clock for ${getCoachMatchDayPresentation(match).displayName} and makes Match Day live.` : pending?.label}</Text>{pending?.kind !== 'delete-fixture' ? <Text style={styles.meta}>{pending?.kind === 'start-match' ? 'Only start when both teams are ready for kick-off.' : 'Match actions save on this device and sync when connected. Other changes need an online connection.'}</Text> : null}<Button danger={pending?.kind === 'delete-fixture'} disabled={busy || reconciling} label={pending?.kind === 'delete-fixture' ? 'Delete match' : pending?.kind === 'start-match' ? 'Start match' : 'Confirm'} onPress={confirm} styles={styles} /><Button label="Cancel" onPress={() => setPending(null)} secondary styles={styles} /></View></View></Modal>

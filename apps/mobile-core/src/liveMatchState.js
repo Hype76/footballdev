@@ -1,4 +1,4 @@
-import { getMatchDayDisplayParts } from '../../../src/lib/matchday-display.js'
+import { getMatchDayDisplayParts, getMatchDayShootoutScore } from '../../../src/lib/matchday-display.js'
 import { getMatchDayPhaseLabel } from '../../../src/lib/matchday-extended-ops.js'
 import { getMatchDayLifecycleState } from '../../../src/lib/matchday-lifecycle.js'
 import { getMatchTimerState } from '../../../src/lib/matchday-timer.js'
@@ -18,6 +18,7 @@ export function createLiveMatchState(match, sampledAtMs) {
   const lifecycle = getMatchDayLifecycleState(match)
   const phase = String(match.currentMatchPhase ?? match.current_match_phase ?? '')
   const isShootout = phase === 'penalties' || status === 'penalties'
+  const isFullTime = phase === 'full_time' || status === 'full_time' || lifecycle === 'concluded'
   const events = match.match_day_events ?? match.events
   const cards = Array.isArray(events) && events.every(event => event.event_status !== undefined || event.eventStatus !== undefined)
     ? { homeYellowCards: 0, homeRedCards: 0, awayYellowCards: 0, awayRedCards: 0 } : null
@@ -43,10 +44,10 @@ export function createLiveMatchState(match, sampledAtMs) {
     homeScore: score(parts.firstScore),
     awayScore: score(parts.secondScore),
     phase: lifecycle === 'not_started' ? '' : getMatchDayPhaseLabel(match) || ({ live: 'First half', second_half: 'Second half', half_time: 'Half time', full_time: 'Full time', penalties: 'Penalty shootout' }[status] || ''),
-    running: timer.isRunning && lifecycle === 'playing' && !isShootout,
-    elapsedSeconds: timer.elapsedSeconds,
+    running: timer.isRunning && lifecycle === 'playing' && !isShootout && !isFullTime,
+    elapsedSeconds: isFullTime || isShootout ? null : timer.elapsedSeconds,
     sampledAtMs,
-    ...(isShootout ? {
+    ...(getMatchDayShootoutScore(match) ? {
       homeShootoutScore: score(match.homeShootoutScore ?? match.home_shootout_score ?? 0),
       awayShootoutScore: score(match.awayShootoutScore ?? match.away_shootout_score ?? 0),
     } : {}),

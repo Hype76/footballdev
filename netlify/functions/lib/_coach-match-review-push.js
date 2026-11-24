@@ -1,11 +1,13 @@
-import { getMatchDayDisplayName } from '../../../src/lib/matchday-display.js'
+import { getMatchDayDisplayName, getMatchDayDisplayScore, getMatchDayShootoutScore } from '../../../src/lib/matchday-display.js'
 import { resolveMatchDayNotificationTeamName } from '../../../src/lib/team-notification-display.js'
 
 export function buildCoachMatchReviewPayload(match) {
   const teamName = resolveMatchDayNotificationTeamName(match)
   return {
     title: `${getMatchDayDisplayName({ ...match, teamName })}: review required`,
-    body: `The ${match.guestScorer ? 'guest' : 'parent'} scorer has ended the match. Review the score and events, then conclude the match.`,
+    body: getMatchDayShootoutScore(match)
+      ? `The penalty shootout has finished. Result ${getMatchDayDisplayScore(match)}. Review the score and events, then conclude the match.`
+      : `The ${match.guestScorer ? 'guest' : 'parent'} scorer has ended the match. Review the score and events, then conclude the match.`,
     type: 'coach_update',
     data: {
       app: 'coach', route: 'matchday', targetId: match.id, matchDayId: match.id, teamId: match.team_id,

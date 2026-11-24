@@ -9,10 +9,12 @@ const parent = await readFile('apps/parent-mobile/src/ParentPortalScreens.js', '
 const section = (source, start, end) => source.slice(source.indexOf(start), source.indexOf(end, source.indexOf(start)))
 const modules = path.join(process.cwd(), 'apps/parent-mobile/node_modules')
 const shared = `
+  import { getParentStatusColours, PARENT_SCORER_ICON_COLOURS } from './apps/mobile-core/src/parentStatusColours.js'
   import React, { useState, useMemo, useEffect } from 'react'
   import { createRoot } from 'react-dom/client'
   import { View, Text, Pressable, ScrollView, StyleSheet, Platform, TextInput, Switch, Modal, KeyboardAvoidingView } from 'react-native'
   import { getGoalScorerSide, setGoalOwnGoal, oppositeMatchSide } from './src/lib/matchday-goal-credit.js'
+  import { createMatchDayGoalCorrectionDraft, getMatchDaySubstitutionPlayers } from './apps/mobile-core/src/matchDayParticipantRoster.js'
   import { captureMatchEventTime, formatMatchAddedTimeClock, getMatchEventTime, getMatchClockDescription } from './src/lib/matchday-event-time.js'
   import { canCorrectMatchDayScore, canRecordParentScorerEvent, getMatchDayLifecycleState, getParentScorerTimerActions } from './src/lib/matchday-lifecycle.js'
   import { isContinuousMatchClock, normalizeMatchDurationMinutes } from './src/lib/matchday-model.js'
@@ -37,6 +39,9 @@ const parentCode = `${shared}
   import { createParentMobileTheme, DEFAULT_PARENT_MOBILE_THEME } from './apps/mobile-core/src/parentThemeCore.js'
   import { SCORER_EVENT_LABELS, validateScorerMatchEvent } from './src/lib/matchday-scorer-event.js'
   import { captureParentScorerAction } from './apps/parent-mobile/src/parentScorerCore.js'
+  import { canRestoreRejectedShootout, canReviewParentScorerActions, describeSavedScorerAction } from './apps/parent-mobile/src/parentScorerOutboxCore.js'
+  import { ScorerGuidePulse } from './apps/parent-mobile/src/ParentScorerGuide.js'
+  import { getMatchDayDisplayScore, getMatchDayShootoutScore } from './src/lib/matchday-display.js'
   const Crypto = { randomUUID: () => '70000000-0000-4000-8000-000000000001' }
   ${section(parent, 'function colorsFor(', 'function invitationResponsePresentation(')}
   ${section(parent, 'function GoalPlayerPicker(', 'export function MatchdayScreen(')}
@@ -53,7 +58,7 @@ try {
   const result = await build({ stdin: { resolveDir: process.cwd(), contents: parentCode, loader: 'jsx' }, write: false, bundle: true, jsx: 'automatic', loader: { '.js': 'jsx' }, alias: { 'react-native': path.join(modules, 'react-native-web'), react: path.join(modules, 'react'), 'react-dom': path.join(modules, 'react-dom') }, define: { 'process.env.NODE_ENV': '"production"', __DEV__: 'false', global: 'globalThis' } })
   const page = await browser.newPage({ viewport: { width: 390, height: 844 } })
   const errors = []
-  page.on('pageerror', error => errors.push(error.message))
+  page.on('pageerror', error => { errors.push(error.message); console.error(error.message) })
   await page.setContent('<div id="root"></div>')
   await page.addScriptTag({ content: result.outputFiles[0].text })
   for (const mode of ['light', 'dark']) {
@@ -103,6 +108,14 @@ try {
     await page.getByText('A goal for this scorer at this minute already exists. Check the details before recording another.').waitFor()
     await page.getByRole('button',{name:'Record another goal',exact:true}).click()
     assert.equal(await page.evaluate(() => window.calls.at(-1).action),'goal')
+    await page.evaluate(mode => { window.calls=[]; window.renderPreview(mode,'#1b437e',{status:'penalties',currentMatchPhase:'penalties',timerStatus:'paused',homeScore:4,awayScore:4,homeShootoutScore:3,awayShootoutScore:1,shootoutEvents:[]}) }, mode)
+    await page.getByText('4 - 4 (3 - 1 pens)',{exact:true}).waitFor()
+    assert.equal(await page.getByTestId('scorer-clock').count(),0)
+    await page.getByRole('button',{name:'Penalty shootout',exact:true}).click()
+    await page.getByRole('button',{name:'Choose penalty taker',exact:true}).click()
+    await page.getByRole('button',{name:'Alex | Shirt 9',exact:true}).click()
+    await page.getByRole('button',{name:'Record shootout kick',exact:true}).click()
+    assert.deepEqual(await page.evaluate(() => window.calls.at(-1)),{action:'shootout',value:{teamSide:'club',outcome:'scored',playerName:'Alex'}})
   }
 
   const app = await readFile('apps/parent-mobile/App.js', 'utf8')
