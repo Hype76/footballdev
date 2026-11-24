@@ -3,6 +3,28 @@ import test from 'node:test'
 import { readFile } from 'node:fs/promises'
 import { adultPlayerNotificationScope, resolveAdultPlayerNotificationOpen, prepareAdultPlayerNotificationMode, openAdultPlayerNotification } from '../apps/parent-mobile/src/adultPlayerNotificationsCore.js'
 import { processAdultPlayerMobilePush } from '../netlify/functions/process-adult-player-mobile-push.js'
+import { sendAdultPlayerShootoutNotifications } from '../netlify/functions/lib/_adult-player-matchday-push.js'
+
+test('Adult Player shootout delivery verifies current installation, scope and kick checkpoint', async () => {
+ const target={installation_id:'device',user_id:'adult',adult_link_id:'verified',club_id:'club',team_id:'team',expo_push_token:'ExpoPushToken[adult]',detail_level:'minimal'}
+ const revoked={...target,installation_id:'revoked',user_id:'former',expo_push_token:'ExpoPushToken[former]'}
+ const delivered=new Set(),messages=[]
+ const client={async rpc(name,args){assert.equal(name,'get_shootout_adult_player_notification_targets');assert.equal(args.match_day_id_value,'game');return {data:args.installation_id_value===null?[target,revoked]:args.installation_id_value==='device'?[target]:[]}}}
+ const checkpoint={has:key=>delivered.has(key),save:async key=>delivered.add(key)}
+ const sendMessages=async payload=>{messages.push(...payload);return {sent:1,failed:0}}
+ const copy={notificationType:'shootout_kick',title:'Penalty scored',minimalBody:'Shootout: 1 - 0.',detailedBody:'Shootout: 1 - 0.',tag:'kick'}
+ const args={client,match:{id:'game'},notificationCopy:copy,eventId:'kick',checkpoint,sendMessages}
+ assert.deepEqual(await sendAdultPlayerShootoutNotifications(args),{adultPlayerSent:1,adultPlayerFailed:0})
+ assert.equal(messages.length,1)
+ assert.deepEqual(messages[0].data,{app:'player',route:'matchday',type:'shootout_kick',eventId:'kick',matchDayId:'game',userId:'adult',adultLinkId:'verified',clubId:'club',teamId:'team'})
+ assert.equal(messages[0].body,'Shootout: 1 - 0.')
+ assert.equal(await sendAdultPlayerShootoutNotifications(args).then(result=>result.adultPlayerSent),0)
+ for (const [type,title] of [['penalties','Penalty shootout started'],['full_time','Penalty shootout finished']]) {
+  assert.equal((await sendAdultPlayerShootoutNotifications({...args,checkpoint:null,notificationCopy:{...copy,notificationType:type,title}})).adultPlayerSent,1)
+ }
+ assert.equal((await sendAdultPlayerShootoutNotifications({...args,checkpoint:null,notificationCopy:{...copy,notificationType:'goal'}})).adultPlayerSent,0)
+ assert.equal(messages.length,3)
+})
 
 const link = { id: 'own-link', clubId: 'own-club', teamId: 'own-team' }
 const data = { app: 'player', userId: 'user', adultLinkId: link.id, clubId: link.clubId, teamId: link.teamId, route: 'chat', roomId: 'own-room' }
@@ -13,6 +35,8 @@ test('Player taps require exact active link, team and club, then an authoritativ
  assert.notEqual(adultPlayerNotificationScope('user',link),adultPlayerNotificationScope('other',link))
  assert.notEqual(adultPlayerNotificationScope('user',link),adultPlayerNotificationScope('user',{...link,id:'other'}))
  assert.deepEqual(resolveAdultPlayerNotificationOpen({...data,route:'invites',invitationId:'match:own'},link,{invitations:[{invitationId:'match:own'}]}),{tab:'invites',targetId:'match:own'})
+ assert.deepEqual(resolveAdultPlayerNotificationOpen({...data,route:'matchday',matchDayId:'match:own'},link,{matches:[{id:'match:own'}]}),{tab:'matchday',targetId:'match:own'})
+ assert.deepEqual(resolveAdultPlayerNotificationOpen({...data,route:'matchday',matchDayId:'match:other'},link,{matches:[{id:'match:own'}]}),{tab:'matchday',targetId:''})
 })
 
 test('Player worker records success, retries transient failures, revokes invalid token without logging content', async () => {

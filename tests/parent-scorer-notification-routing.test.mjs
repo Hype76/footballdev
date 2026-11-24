@@ -8,6 +8,7 @@ import { getParentNotificationDedupeKey } from '../netlify/functions/lib/_parent
 import { parse } from '@babel/parser'
 import { buildParentMatchDayNotificationCopy } from '../netlify/functions/lib/_match-day-notification-copy.js'
 import { buildMatchDayNativeMessage } from '../netlify/functions/lib/_match-day-native-message.js'
+import { sendAdultPlayerShootoutNotifications } from '../netlify/functions/lib/_adult-player-matchday-push.js'
 import { resolveMatchDayNotificationTeamName } from '../src/lib/team-notification-display.js'
 
 test('durable handover claims route only to Coach and retain actor filters, leases and completion', async () => {
@@ -82,6 +83,7 @@ test('actual correction dispatch carries the corrected score and command identit
   const web=[],native=[],inbox=[],fans=[],live=[]
   const query={select:()=>query,eq:()=>query,maybeSingle:async()=>({data:{id:'goal',event_type:'goal',team_side:'club'}})}
   const dependencies={supabaseAdmin:{from:()=>query},configureWebPush:()=>true,getAppNotificationParentLinks:async()=>[{id:'parent',auth_user_id:'account'}],getSubscriptions:async()=>[{}],getMobileDevices:async()=>[{expo_push_token:'ExpoPushToken[fixture]',parent_link_id:'parent',detail_level:'detailed'}],sendToSubscription:async(_subscription,payload)=>{web.push(payload);return{sent:true}},buildParentMatchDayNotificationCopy,resolveMatchDayNotificationTeamName,normalizeText:value=>String(value||'').trim(),writeParentNotificationInbox:async payload=>{inbox.push(payload);return{available:1}},sendExpoPushMessages:async messages=>{native.push(...messages);return{sent:messages.length,failed:0}},revokeMobileDeviceTokens:async()=>{},sendFanMatchNotifications:async payload=>{fans.push(payload);return{fanSent:0,fanFailed:0}},deliverLiveMatchChange:async matchId=>{live.push(matchId)},buildMatchDayNativeMessage}
+  dependencies.sendAdultPlayerShootoutNotifications=sendAdultPlayerShootoutNotifications
   const deliver=new Function(...Object.keys(dependencies),`${source.slice(declaration.start,declaration.end)};return deliverMatchDayNotification`)(...Object.values(dependencies))
   const match={id:'fixture',team_id:'team',club_id:'club',home_score:1,away_score:0,home_away:'home',opponent:'Visitors',teams:{name:'FP TEST'},clubs:{name:'FP TEST Club'}}
   for(const notificationId of ['correct','remove','correct'])await deliver({match,type:'score_correction',eventId:'goal',notificationId,targetParentLinkIds:['parent']})

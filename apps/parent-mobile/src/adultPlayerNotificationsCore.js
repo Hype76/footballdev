@@ -6,16 +6,16 @@ export function adultPlayerNotificationScope(userId, link) {
 export function resolveAdultPlayerNotificationOpen(data, link, items = {}, userId) {
   if ((userId && data?.userId !== userId) || !link?.id || data?.app !== 'player' || data.adultLinkId !== link.id
     || data.clubId !== link.clubId || data.teamId !== link.teamId
-    || !['chat', 'invites'].includes(data.route)) return null
-  const targetId = data.route === 'chat' ? data.roomId : data.invitationId
-  const available = data.route === 'chat' ? items.chatRooms : items.invitations
-  const allowed = (available || []).some(item => (data.route === 'chat' ? item.id : item.invitationId) === targetId)
+    || !['chat', 'invites', 'matchday'].includes(data.route)) return null
+  const targetId = data.route === 'chat' ? data.roomId : data.route === 'matchday' ? data.matchDayId : data.invitationId
+  const available = data.route === 'chat' ? items.chatRooms : data.route === 'matchday' ? items.matches : items.invitations
+  const allowed = (available || []).some(item => (data.route === 'invites' ? item.invitationId : item.id) === targetId)
   return { tab: data.route, targetId: allowed ? targetId : '' }
 }
 
 // The portal intentionally supports one currently active Player link per user.
 export function resolveAdultPlayerNotificationMode(data, userId, access) {
-  if (data?.app !== 'player' || data.userId !== userId || !['chat', 'invites'].includes(data.route)) return 'reject'
+  if (data?.app !== 'player' || data.userId !== userId || !['chat', 'invites', 'matchday'].includes(data.route)) return 'reject'
   if (!access || ['checking', 'error'].includes(access.status)) return 'retry'
   return access.status === 'linked' && resolveAdultPlayerNotificationOpen(data, access.link, {}, userId) ? 'player' : 'reject'
 }

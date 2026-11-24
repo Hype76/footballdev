@@ -157,7 +157,11 @@ export function buildParentMatchDayNotificationCopy({ match, type, event = null 
   const matchName = getMatchDayDisplayName({ ...match, teamName })
   const score = getMatchDayDisplayScore(match)
   const notificationType = resolveNotificationType(type, event, match)
-  const copy = getEventCopy({ match, notificationType, event })
+  const shootoutWinner = normalizeType(match?.shootout_winner ?? match?.shootoutWinner)
+  const isShootoutFinish = notificationType === 'full_time' && ['home', 'away'].includes(shootoutWinner)
+  const copy = isShootoutFinish
+    ? { title: 'Penalty shootout finished', category: 'Penalty shootout finished', detail: 'Penalty shootout finished' }
+    : getEventCopy({ match, notificationType, event })
   const compactEventDetail = getCompactEventDetail(notificationType, event, copy)
   const opponentName = getOpponentName(match)
   const compactScore = `${score} v ${opponentName}`
@@ -169,11 +173,13 @@ export function buildParentMatchDayNotificationCopy({ match, type, event = null 
   const kickScore = `${Number(event?.home_shootout_score ?? event?.homeShootoutScore ?? 0)} - ${Number(event?.away_shootout_score ?? event?.awayShootoutScore ?? 0)}`
   const detailedScore = isCard && copy.category !== copy.title ? `${matchName}. Score ${score}` : compactScore
   const detailedBody = notificationType === 'shootout_kick'
-    ? `${copy.detail}. ${matchName}. Shootout: ${kickScore}.`
+    ? `${copy.category}. ${matchName}. Shootout: ${kickScore}.`
     : compactEventDetail
     ? `${compactEventDetail} ${detailedScore}.`
     : isCard
       ? `${copy.detail}. ${matchName}. Score ${score}.`
+    : isShootoutFinish
+      ? `Penalty shootout finished. Full time: ${result.firstTeam} ${result.firstScore} - ${result.secondScore} ${result.secondTeam} (${shootoutScore} pens). ${shootoutWinner === 'home' ? result.firstTeam : result.secondTeam} won on penalties.`
     : notificationType === 'full_time'
       ? `Full time: ${result.firstTeam} ${result.firstScore} - ${result.secondScore} ${result.secondTeam}${shootoutScore ? ` (${shootoutScore} pens)` : ''}.`
     : copy.includeScore === false
@@ -185,7 +191,9 @@ export function buildParentMatchDayNotificationCopy({ match, type, event = null 
   return {
     title: copy.title,
     matchTitle: matchName,
-    minimalBody: isCard
+    minimalBody: notificationType === 'shootout_kick' || isShootoutFinish
+      ? detailedBody
+      : isCard
       ? `${copy.category}. ${matchName}.`
       : notificationType === 'goal' && compactEventDetail && event
       ? detailedBody

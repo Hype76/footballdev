@@ -32,7 +32,7 @@ export async function deliverShootoutNotifications({ matchDayId = null, kickId =
           },
         }
         const result = await deliver({ match, type: 'shootout_kick', eventId: kick.id, targetParentLinkIds: [...new Set(targets || [])], checkpoint })
-        if (result.mobileFailed || result.webFailed || result.fanFailed) throw new Error('Some shootout notifications were not accepted.')
+        if (result.mobileFailed || result.webFailed || result.fanFailed || result.adultPlayerFailed) throw new Error('Some shootout notifications were not accepted.')
       }
       completed += 1
     } catch (error) {

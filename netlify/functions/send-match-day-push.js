@@ -14,6 +14,7 @@ import { deliverCoachMatchReviewOnce } from './lib/_coach-match-review-delivery.
 import { buildAndroidMatchStartMessage, buildMatchDayNativeMessage } from './lib/_match-day-native-message.js'
 import { deliverLiveMatchChange } from './lib/_deliver-live-match-changes.js'
 import { deliverCheckpointedTargets, deliverShootoutNotifications } from './lib/_match-day-shootout-notifications.js'
+import { sendAdultPlayerShootoutNotifications } from './lib/_adult-player-matchday-push.js'
 
 function jsonResponse(statusCode, payload) {
   return {
@@ -391,7 +392,7 @@ export async function handler(event) {
     claimedOperationKey = operationKey
 
     const delivery = await deliverMatchDayNotification({ match, type, eventId, targetParentLinkIds })
-    const succeeded = delivery.mobileFailed === 0 && delivery.webFailed === 0 && !delivery.fanFailed
+    const succeeded = delivery.mobileFailed === 0 && delivery.webFailed === 0 && !delivery.fanFailed && !delivery.adultPlayerFailed
     await completePushOperation({ operationKey, succeeded, errorMessage: succeeded ? '' : 'Some match notifications were not accepted. Retry delivery.' })
     claimedOperationKey = ''
 
@@ -455,7 +456,7 @@ export async function deliverMatchDayNotification({ match, type, eventId = '', n
     const club = Array.isArray(match.clubs) ? match.clubs[0] : match.clubs
     const teamName = resolveMatchDayNotificationTeamName(match)
     const clubName = normalizeText(club?.name)
-    const notificationTitle = ['penalties', 'shootout_kick'].includes(notificationCopy.notificationType) ? notificationCopy.title : notificationCopy.matchTitle
+    const notificationTitle = ['penalties', 'shootout_kick'].includes(notificationCopy.notificationType) || notificationCopy.title === 'Penalty shootout finished' ? notificationCopy.title : notificationCopy.matchTitle
     const payload = {
       body: notificationCopy.detailedBody,
       renotify: notificationCopy.renotify,
@@ -490,7 +491,7 @@ export async function deliverMatchDayNotification({ match, type, eventId = '', n
         matchDayId: match.id,
         teamId: match.team_id || '',
         teamName,
-        type,
+        type: notificationCopy.notificationType === 'penalties' ? 'penalties' : type,
       },
     }
     const inboxResult = inboxAlreadySaved ? { available: appNotificationParentLinks.length } : await writeParentNotificationInbox({
@@ -529,6 +530,9 @@ export async function deliverMatchDayNotification({ match, type, eventId = '', n
     targetParentLinkIds,
     notificationCopy,
   })
+  const adultPlayers = await sendAdultPlayerShootoutNotifications({
+    client: supabaseAdmin, match, notificationCopy, eventId, checkpoint,
+  })
   // The database queue retries this independently if the immediate update fails.
   await deliverLiveMatchChange(match.id, {
     client: supabaseAdmin,
@@ -539,7 +543,7 @@ export async function deliverMatchDayNotification({ match, type, eventId = '', n
       production: process.env.LIVE_ACTIVITY_APNS_PRODUCTION === 'true',
     },
   }).catch(() => {})
-  return { sent, revoked, webFailed: results.filter((result) => !result.sent && !result.revoked).length, mobileSent: mobileResult.sent, mobileFailed: mobileResult.failed, mobileInbox: inboxResult.available, ...fans }
+  return { sent, revoked, webFailed: results.filter((result) => !result.sent && !result.revoked).length, mobileSent: mobileResult.sent, mobileFailed: mobileResult.failed, mobileInbox: inboxResult.available, ...fans, ...adultPlayers }
 }
 
 export async function sendGuestMatchDayNotifications({ tokenHash, requestId }) {
@@ -567,7 +571,7 @@ export async function sendGuestMatchDayNotifications({ tokenHash, requestId }) {
     if (requestError) throw requestError
     const targetParentLinkIds = [...new Set((targets || []).filter(Boolean))]
     const result = await deliverMatchDayNotification({ match, type, eventId: command.eventId || '', targetParentLinkIds })
-    if (result.mobileFailed > 0 || result.fanFailed > 0) throw new Error('Match notification failed.')
+    if (result.mobileFailed > 0 || result.fanFailed > 0 || result.adultPlayerFailed > 0) throw new Error('Match notification failed.')
   }
   const complete = await supabaseAdmin.rpc('claim_guest_match_notification', { ...claimArgs, completed: true })
   if (complete.error) throw complete.error
