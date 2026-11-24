@@ -1760,7 +1760,7 @@ function MoreScreen({ navigation, onSelectMore }) {
     <ScreenIntro copy="Open the Coach tools available for this role and context." title="More">
       <PartnersBanner onPress={() => onSelectMore('partners')} />
       <IconMenu accessibilityLabel="More tools" Icon={CoachIcon} palette={palette} onSelect={onSelectMore} polished
-        items={navigation.more.filter(route => !['club-promotion', 'partners'].includes(route.key)).map(route => ({ key: route.key, label: route.label, iconKey: getCoachRouteIconKey(route.key), hint: route.description || `Opens ${route.label}` }))} />
+        items={navigation.more.filter(route => !['club-promotion', 'partners'].includes(route.key)).map(route => ({ key: route.key, label: route.label, iconKey: getCoachRouteIconKey(route.key), hint: route.description || `Opens ${route.label}`, description: route.description }))} />
     </ScreenIntro>
   )
 }
