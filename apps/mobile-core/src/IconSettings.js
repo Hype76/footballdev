@@ -11,7 +11,7 @@ export function IconMenu({ items, palette, Icon: iconComponent, onSelect, access
   const columns = width < 360 || fontScale > 1.3 ? 2 : 3
   const text = palette.textPrimary || palette.text
   const accent = palette.accentText || palette.accent
-  return <View style={[styles.menu, polished && [styles.polishedMenu, { backgroundColor: palette.surface, borderColor: palette.border, shadowColor: accent }]]} accessibilityLabel={accessibilityLabel}>
+  return <View style={[styles.menu, polished && styles.polishedMenu]} accessibilityLabel={accessibilityLabel}>
     {items.map(item => <Pressable key={item.key} accessibilityRole="button" accessibilityLabel={item.label}
       accessibilityHint={item.hint || `Opens ${item.label}`} onPress={() => onSelect(item.key)}
       style={({ pressed }) => [styles.item, { width: `${100 / columns}%` }, pressed && styles.pressed]}>
@@ -68,7 +68,7 @@ const styles = StyleSheet.create({
   section: { gap: 16 }, menu: { flexDirection: 'row', flexWrap: 'wrap' },
   item: { minHeight: 96, paddingHorizontal: 6, paddingVertical: 16, gap: 10, alignItems: 'center', justifyContent: 'center' },
   label: { maxWidth: '100%', fontSize: 14, lineHeight: 20, fontWeight: '600', textAlign: 'center' },
-  polishedMenu: { borderRadius: 16, borderWidth: 1, paddingVertical: 5, elevation: 2, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.1, shadowRadius: 6 },
+  polishedMenu: { paddingVertical: 5 },
   iconWell: { width: 42, height: 42, alignItems: 'center', justifyContent: 'center', borderRadius: 12 },
   polishedLabel: { fontWeight: '800', fontSize: 13, lineHeight: 17 },
   menuHint: { fontSize: 11, lineHeight: 15, textAlign: 'center' },
