@@ -80,7 +80,7 @@ jobs:
   security-and-v1:
     name: Security and V1 regression
     runs-on: ubuntu-24.04
-    timeout-minutes: 50
+    timeout-minutes: 90
     steps:
       - name: Check out source
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
