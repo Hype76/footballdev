@@ -2508,7 +2508,7 @@ function createCoachStyles(palette) {
     iconStatLabel: { color: palette.textSecondary, fontSize: 10, fontWeight: '800', lineHeight: 13, minHeight: 26, textAlign: 'center' },
     iconStatValue: { color: palette.accentText, fontSize: 24, fontWeight: '900', lineHeight: 28 },
     homeNextCopy: { flex: 1, gap: 1, minWidth: 0 },
-    homeNextRow: { alignItems: 'center', borderBottomColor: palette.border, borderBottomWidth: StyleSheet.hairlineWidth, flexDirection: 'row', gap: 12, minHeight: 64, paddingHorizontal: 4, paddingVertical: 8 },
+    homeNextRow: { alignItems: 'center', borderBottomColor: palette.border, borderBottomWidth: StyleSheet.hairlineWidth, flexDirection: 'row', gap: 12, minHeight: 78, paddingHorizontal: 4, paddingVertical: 8 },
     homeNextIcon: { alignItems: 'center', justifyContent: 'center', backgroundColor: palette.selected, width: 42, height: 42, borderRadius: 12 },
     homeNextValue: { color: palette.textPrimary, fontSize: 17, fontWeight: '800', lineHeight: 21 },
     keyboardShell: { flex: 1, minHeight: 0, overflow: 'hidden' },
