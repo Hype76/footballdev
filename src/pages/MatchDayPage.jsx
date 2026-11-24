@@ -7169,8 +7169,10 @@ function MatchTimelinePanel({ events, isReadOnly = false, match, allowSubstituti
           {visibleTimelineEvents.map((event, eventIndex) => {
             const detailItems = getMatchEventDetailItems(event)
             const badge = getMatchEventBadge(event)
-            const canCorrectEvent = !isReadOnly && event.eventStatus !== 'voided' && (event.eventType === 'goal'
-              || (allowSubstitutionCorrection && event.eventType === 'substitution' && match.concludedAt))
+            const canCorrectGoal = event.eventType === 'goal' && event.eventStatus !== 'voided'
+            const canCorrectSubstitution = allowSubstitutionCorrection && event.eventType === 'substitution'
+              && event.eventStatus !== 'voided' && match.concludedAt
+            const canCorrectEvent = !isReadOnly && (canCorrectGoal || canCorrectSubstitution)
             const canUndoEvent = !isReadOnly && isMatchDayEventUndoSupported(event)
             const isLatestEvent = eventIndex === 0
 
