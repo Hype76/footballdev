@@ -402,6 +402,7 @@ export {
   addMatchDayGoalAsScorer,
   correctMatchDayGoalAsScorer,
   correctStaffMatchDayGoal,
+  correctStaffConcludedMatchDaySubstitution,
   addStaffMatchDayEvent,
   addStaffMatchDayGoal,
   calculateArrivalTime,

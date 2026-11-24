@@ -37,6 +37,7 @@ import {
   archiveMatchLocation as liveArchiveMatchLocation,
   calculateArrivalTime,
   correctStaffMatchDayGoal as liveCorrectStaffMatchDayGoal,
+  correctStaffConcludedMatchDaySubstitution,
   createMatchDay as liveCreateMatchDay,
   createMatchDayEventLogEntry as liveCreateMatchDayEventLogEntry,
   deletePreviousMatchDay as liveDeletePreviousMatchDay,
@@ -2322,6 +2323,7 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
   const [startMatchPrompt, setStartMatchPrompt] = useState(null)
   const [goalCorrectionModal, setGoalCorrectionModal] = useState(null)
   const [goalCorrectionError, setGoalCorrectionError] = useState('')
+  const [substitutionCorrection, setSubstitutionCorrection] = useState(null)
   const [undoEventModal, setUndoEventModal] = useState(null)
   const [undoEventError, setUndoEventError] = useState('')
   const [liveRefreshStatus, setLiveRefreshStatus] = useState('idle')
@@ -2430,6 +2432,7 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
       || Boolean(pendingStatusAction)
       || Boolean(pendingMatchAction)
       || Boolean(goalCorrectionModal)
+      || Boolean(substitutionCorrection)
       || Boolean(undoEventModal),
   )
 
@@ -3647,7 +3650,8 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
     setErrorMessage('')
 
     try {
-      await recordMatchDayShootoutKick({ user, match, kick })
+      const savedKick = await recordMatchDayShootoutKick({ user, match, kick })
+      if (!isDemoExperience && savedKick?.id) void sendMatchDayPushNotification({ matchDayId: match.id, type: 'shootout_kick', eventId: savedKick.id })
       await refreshMatchDayDetailAfterMutation({
         matchId: match.id,
         refreshErrorMessage: 'The shootout kick was saved, but the latest Match Day data could not be refreshed. Retry live data before recording another kick.',
@@ -4302,7 +4306,42 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
   }
 
   const handleCorrectGoal = (match, goalEvent) => {
+    if (goalEvent.eventType === 'substitution') {
+      if (isDemoExperience || !match.concludedAt) return
+      setSubstitutionCorrection({
+        matchId: match.id, eventId: goalEvent.id, expectedUpdatedAt: match.updatedAt, changeId: crypto.randomUUID(),
+        details: {
+          scorerPlayerId: goalEvent.scorerPlayerId || '', scorerName: goalEvent.scorerName || '', scorerShirtNumber: goalEvent.scorerShirtNumber || '',
+          assistPlayerId: goalEvent.assistPlayerId || '', assistName: goalEvent.assistName || '', assistShirtNumber: goalEvent.assistShirtNumber || '',
+          minute: goalEvent.minute ?? '', stoppageMinute: goalEvent.stoppageMinute ?? '', notes: goalEvent.notes || '', reason: '',
+        },
+        error: '',
+      })
+      return
+    }
     openGoalCorrectionModal(match, goalEvent)
+  }
+
+  const performSubstitutionCorrection = async (formEvent) => {
+    formEvent.preventDefault()
+    const correction = substitutionCorrection
+    const match = matches.find(candidate => candidate.id === correction?.matchId)
+    const event = match?.events?.find(candidate => candidate.id === correction?.eventId)
+    if (!correction || !match || !event) return
+    setActiveMatchId(match.id)
+    try {
+      const saved = await correctStaffConcludedMatchDaySubstitution({ user, match, event,
+        details: correction.details, changeId: correction.changeId, expectedUpdatedAt: correction.expectedUpdatedAt })
+      const reconcile = current => current.map(candidate => candidate.id === match.id ? { ...candidate,
+        events: (candidate.events || []).map(item => item.id === saved.id ? saved : item) } : candidate)
+      await refreshMatchDayDetailAfterMutation({ matchId: match.id, reconcile })
+      setSubstitutionCorrection(null)
+      showToast({ title: 'Substitution corrected', message: 'The match timeline has been updated.' })
+    } catch (error) {
+      setSubstitutionCorrection(current => current && { ...current, error: error.message || 'The substitution could not be corrected.' })
+    } finally {
+      setActiveMatchId('')
+    }
   }
 
   const closeUndoEventModal = () => {
@@ -4752,6 +4791,8 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
   const goalCorrectionMatch = goalCorrectionModal
     ? matches.find((candidate) => candidate.id === goalCorrectionModal.matchId)
     : null
+  const substitutionMatch = substitutionCorrection ? matches.find(candidate => candidate.id === substitutionCorrection.matchId) : null
+  const substitutionEvent = substitutionMatch?.events?.find(candidate => candidate.id === substitutionCorrection?.eventId)
   const undoEventMatch = undoEventModal
     ? matches.find((candidate) => candidate.id === undoEventModal.matchId)
     : null
@@ -4835,6 +4876,7 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
         }))}
         onScoreSave={handleScoreSave}
         onShootoutKick={handleShootoutKick}
+        shootoutPlayers={getParticipatingMatchPlayers(match, squadPlayers)}
         onSquadDecisionChange={handleSquadDecisionChange}
         onStartMatch={handleStartMatch}
         onStatusChange={handleStatusChange}
@@ -5265,6 +5307,12 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
         />
       ) : null}
 
+      {substitutionCorrection && substitutionMatch && substitutionEvent ? <SubstitutionCorrectionModal
+        correction={substitutionCorrection} event={substitutionEvent} isBusy={activeMatchId === substitutionMatch.id}
+        players={squadPlayers.filter(player => player.teamId === substitutionMatch.teamId || substitutionMatch.squadDecisions?.some(decision => decision.playerId === player.id && decision.status === 'selected'))}
+        onClose={() => setSubstitutionCorrection(null)} onSubmit={performSubstitutionCorrection}
+        onUpdate={details => setSubstitutionCorrection(current => ({ ...current, details: { ...current.details, ...details }, error: '' }))} /> : null}
+
       {liveEntryMatch ? (
         <LiveMatchEntryModal
           errorMessage={matchActionStatus?.key?.startsWith(`${liveEntryMatch.id}:`) && matchActionStatus.tone === 'error' ? matchActionStatus.message : ''}
@@ -5461,6 +5509,7 @@ function MatchDayCard({
   onRetryLiveRefresh,
   onShootoutKick,
   onVoidShootoutKick,
+  shootoutPlayers = [],
   onScoreDraftChange,
   onScoreSave,
   onStartMatch,
@@ -5757,6 +5806,7 @@ function MatchDayCard({
           onOpenGoalModal={onOpenGoalModal}
           onShootoutKick={onShootoutKick}
           onVoidShootoutKick={onVoidShootoutKick}
+          shootoutPlayers={shootoutPlayers}
           onStartMatch={onStartMatch}
           onManage={openManageFromGameMode}
           onStatusChange={onGameModeStatusChange}
@@ -6255,6 +6305,7 @@ function MatchDayCard({
             <MatchTimelinePanel
               events={events}
               match={match}
+              allowSubstitutionCorrection={allowFixtureManagement}
               onCorrectGoal={onCorrectGoal}
               onUndoEvent={onUndoEvent}
             />
@@ -6279,6 +6330,7 @@ function MatchDayGameModePanel({
   onOpenGoalModal,
   onShootoutKick,
   onVoidShootoutKick,
+  shootoutPlayers = [],
   onStartMatch,
   onStatusChange,
   onUndoEvent,
@@ -6410,12 +6462,13 @@ function MatchDayGameModePanel({
         </div>
 
         {isShootout ? (
-          <ShootoutControls isBusy={isBusy} match={match} onRecordKick={onShootoutKick} onVoidKick={onVoidShootoutKick} />
+          <ShootoutControls isBusy={isBusy} match={match} onRecordKick={onShootoutKick} onVoidKick={onVoidShootoutKick} players={shootoutPlayers} />
         ) : null}
       </section>
       <MatchTimelinePanel
         events={events}
         match={match}
+        allowSubstitutionCorrection={allowFixtureManagement}
         onCorrectGoal={onCorrectGoal}
         onUndoEvent={onUndoEvent}
       />
@@ -6423,16 +6476,18 @@ function MatchDayGameModePanel({
   )
 }
 
-function ShootoutControls({ isBusy, match, onRecordKick, onVoidKick }) {
+function ShootoutControls({ isBusy, match, onRecordKick, onVoidKick, players = [] }) {
   const [playerName, setPlayerName] = useState('')
+  const [opponentName, setOpponentName] = useState('')
   const shootoutEvents = Array.isArray(match.shootoutEvents) ? match.shootoutEvents : []
   const homeShootoutScore = Number(match.homeShootoutScore || 0)
   const awayShootoutScore = Number(match.awayShootoutScore || 0)
   const latestActiveKick = shootoutEvents.filter((kick) => kick.eventStatus !== 'voided').at(-1)
 
   const recordKick = async (teamSide, outcome) => {
-    await onRecordKick(match, { teamSide, outcome, playerName })
-    setPlayerName('')
+    await onRecordKick(match, { teamSide, outcome, playerName: teamSide === 'club' ? playerName : opponentName })
+    if (teamSide === 'club') setPlayerName('')
+    else setOpponentName('')
   }
 
   return (
@@ -6446,9 +6501,14 @@ function ShootoutControls({ isBusy, match, onRecordKick, onVoidKick }) {
         <p className="text-xs font-black text-[#4b5f55]">{shootoutEvents.length} kicks recorded</p>
       </div>
       <label className="mt-3 block">
-        <span className={smallLabelClass}>Player name optional</span>
+        <span className={smallLabelClass}>Our team's penalty taker</span>
+        <select disabled={isBusy} value={players.some(player => player.playerName === playerName) ? playerName : ''} onChange={event => setPlayerName(event.target.value)} className={compactInputClass}>
+          <option value="">Choose player</option>
+          {players.map(player => <option key={player.id} value={player.playerName}>{player.playerName}{player.shirtNumber ? ` #${player.shirtNumber}` : ''}</option>)}
+        </select>
         <input value={playerName} onChange={(event) => setPlayerName(event.target.value)} className={compactInputClass} />
       </label>
+      <label className="mt-3 block"><span className={smallLabelClass}>Opponent penalty taker (optional)</span><input value={opponentName} onChange={event => setOpponentName(event.target.value)} className={compactInputClass} /></label>
       <div className="mt-3 grid grid-cols-2 gap-2 lg:grid-cols-4">
         <button type="button" onClick={() => recordKick('club', 'scored')} disabled={isBusy} className={primaryButtonClass}>Our team scored</button>
         <button type="button" onClick={() => recordKick('club', 'missed')} disabled={isBusy} className={secondaryButtonClass}>Our team missed</button>
@@ -6577,6 +6637,48 @@ function UndoEventModal({
       </section>
     </div>
   )
+}
+
+function SubstitutionCorrectionModal({ correction, event, isBusy, players, onClose, onSubmit, onUpdate }) {
+  const { viewportStyle } = useFixtureModalViewportStyle()
+  const details = correction.details
+  const isClub = event.teamSide === 'club'
+  const pickPlayer = (prefix, id) => {
+    const player = players.find(candidate => String(candidate.id) === String(id))
+    onUpdate({ [`${prefix}PlayerId`]: player?.id || '', [`${prefix}Name`]: player?.playerName || '', [`${prefix}ShirtNumber`]: player?.shirtNumber || '' })
+  }
+  return <div className="fixed inset-x-0 top-[var(--fixture-modal-viewport-top)] z-50 box-border flex h-[var(--fixture-modal-viewport-height)] items-stretch justify-center overflow-hidden bg-[#101828]/55 p-3 sm:inset-0 sm:h-auto sm:items-center sm:p-6" style={viewportStyle}>
+    <section role="dialog" aria-modal="true" aria-labelledby="substitution-correction-title" className="flex max-h-full w-full max-w-xl flex-col overflow-hidden rounded-lg border border-[#d7e5dc] bg-white shadow-xl sm:max-h-[92vh]">
+      <div className="flex items-center justify-between gap-3 border-b border-[#d7e5dc] p-4">
+        <h2 id="substitution-correction-title" className="text-lg font-black text-[#101828]">Edit substitution</h2>
+        <button type="button" disabled={isBusy} className={secondaryButtonClass} onClick={onClose}>Close</button>
+      </div>
+      <form onSubmit={onSubmit} className="min-h-0 flex-1 space-y-3 overflow-y-auto p-4">
+        {['scorer', 'assist'].map((prefix, index) => <div key={prefix} className="space-y-2">
+          {isClub ? <label className="block"><span className={smallLabelClass}>{index === 0 ? 'Player off' : 'Player on'}</span>
+            <select aria-label={index === 0 ? 'Player off' : 'Player on'} className={compactInputClass} disabled={isBusy} value={details[`${prefix}PlayerId`]} onChange={change => pickPlayer(prefix, change.target.value)}>
+              <option value="">Choose player</option>
+              {players.map(player => <option key={player.id} value={player.id}>{player.playerName}{player.shirtNumber ? ` #${player.shirtNumber}` : ''}</option>)}
+            </select>
+          </label> : null}
+          <label className="block"><span className={smallLabelClass}>{index === 0 ? 'Player off name' : 'Player on name'}</span>
+            <input className={compactInputClass} disabled={isBusy} required={isClub} maxLength={120} value={details[`${prefix}Name`]} onChange={change => onUpdate({ [`${prefix}Name`]: change.target.value, [`${prefix}PlayerId`]: '' })} />
+          </label>
+          <label className="block"><span className={smallLabelClass}>{index === 0 ? 'Player off shirt' : 'Player on shirt'}</span>
+            <input className={compactInputClass} disabled={isBusy} maxLength={8} value={details[`${prefix}ShirtNumber`]} onChange={change => onUpdate({ [`${prefix}ShirtNumber`]: change.target.value, [`${prefix}PlayerId`]: '' })} />
+          </label>
+        </div>)}
+        <div className="grid grid-cols-2 gap-3">
+          <label><span className={smallLabelClass}>Minute</span><input className={compactInputClass} required min={0} max={999} type="number" disabled={isBusy} value={details.minute} onChange={change => onUpdate({ minute: change.target.value })} /></label>
+          <label><span className={smallLabelClass}>Added minutes</span><input className={compactInputClass} min={0} max={30} type="number" disabled={isBusy} value={details.stoppageMinute} onChange={change => onUpdate({ stoppageMinute: change.target.value })} /></label>
+        </div>
+        <label className="block"><span className={smallLabelClass}>Notes</span><textarea className={compactInputClass} disabled={isBusy} maxLength={500} value={details.notes} onChange={change => onUpdate({ notes: change.target.value })} /></label>
+        <label className="block"><span className={smallLabelClass}>Correction reason</span><textarea className={compactInputClass} disabled={isBusy} required maxLength={500} value={details.reason} onChange={change => onUpdate({ reason: change.target.value })} /></label>
+        {correction.error ? <p role="alert" className="text-sm font-semibold text-red-700">{correction.error}</p> : null}
+        <button type="submit" disabled={isBusy} className={primaryButtonClass}>{isBusy ? 'Saving...' : 'Save substitution correction'}</button>
+      </form>
+    </section>
+  </div>
 }
 
 function GoalCorrectionModal({
@@ -7029,7 +7131,7 @@ function getOrderedMatchTimelineEvents(events) {
     })
 }
 
-function MatchTimelinePanel({ events, isReadOnly = false, match, onCorrectGoal, onUndoEvent }) {
+function MatchTimelinePanel({ events, isReadOnly = false, match, allowSubstitutionCorrection = false, onCorrectGoal, onUndoEvent }) {
   const [isExpanded, setIsExpanded] = useState(false)
   const timelineEvents = getOrderedMatchTimelineEvents(events)
   const hasTimelineOverflow = timelineEvents.length > 3
@@ -7067,7 +7169,10 @@ function MatchTimelinePanel({ events, isReadOnly = false, match, onCorrectGoal, 
           {visibleTimelineEvents.map((event, eventIndex) => {
             const detailItems = getMatchEventDetailItems(event)
             const badge = getMatchEventBadge(event)
-            const canCorrectGoal = !isReadOnly && event.eventType === 'goal' && event.eventStatus !== 'voided'
+            const canCorrectGoal = event.eventType === 'goal' && event.eventStatus !== 'voided'
+            const canCorrectSubstitution = allowSubstitutionCorrection && event.eventType === 'substitution'
+              && event.eventStatus !== 'voided' && match.concludedAt
+            const canCorrectEvent = !isReadOnly && (canCorrectGoal || canCorrectSubstitution)
             const canUndoEvent = !isReadOnly && isMatchDayEventUndoSupported(event)
             const isLatestEvent = eventIndex === 0
 
@@ -7104,7 +7209,7 @@ function MatchTimelinePanel({ events, isReadOnly = false, match, onCorrectGoal, 
                             ? 'Our team'
                             : getMatchEventTypeLabel(event, match)}
                     </span>
-                    {canCorrectGoal ? (
+                    {canCorrectEvent ? (
                       <button
                         type="button"
                         onClick={() => onCorrectGoal(match, event)}

@@ -1,7 +1,7 @@
 import { loadFanScope } from './_fan-access.js'
 import { loadFanMatches } from './_fan-schedule.js'
 import { sendExpoPushMessages } from './_expo-push.js'
-const TYPES = new Set(['match_started','goal','half_time','second_half','extra_time','penalties','full_time','yellow_card','red_card','substitution','score_correction','paused','resumed'])
+const TYPES = new Set(['match_started','goal','half_time','second_half','extra_time','penalties','shootout_kick','full_time','yellow_card','red_card','substitution','score_correction','paused','resumed'])
 // Fans receive game updates only. Poll invitations and results, including Player of the Match, are excluded.
 export const isFanMatchNotificationType = (type) => TYPES.has(type)
 export function buildFanMatchNotificationPayload({ fanConnectionId, match, notificationCopy, type }) {

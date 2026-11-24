@@ -146,6 +146,7 @@ test('penalty goals remain normal goals while shootout kicks remain separate rep
   assert.equal(result.regulationScore, '0 - 0')
   assert.equal(result.extraTimeScore, '1 - 1')
   assert.equal(result.shootoutScore, '5 - 4')
+  assert.equal(result.displayScore, `${result.fullTimeScore} (5 - 4 pens)`)
   assert.equal(result.shootoutWinner, 'FP TEST Team')
   assert.equal(result.shootoutEvents.length, 1)
 })

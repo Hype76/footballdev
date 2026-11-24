@@ -585,7 +585,7 @@ function addPdfScoreboard(layout, model) {
     model.result.shootoutScore ? `Penalty shootout: ${model.result.shootoutScore}` : '',
     model.result.shootoutWinner ? `Shootout winner: ${model.result.shootoutWinner}` : '',
   ].filter(Boolean)
-  const cardHeight = extras.length > 0 ? 218 : 190
+  const cardHeight = Math.max(190, 196 + extras.length * 12)
   addPdfRect(page, {
     x: PDF_MARGIN,
     top: layout.cursor,
@@ -641,6 +641,15 @@ function addPdfScoreboard(layout, model) {
     colour: branding.primaryColour,
     bold: true,
   })
+  if (model.result.shootoutScore) addPdfText(page, `(${model.result.shootoutScore} pens)`, {
+    x: (PDF_PAGE_WIDTH / 2) - 82,
+    top: layout.cursor + 81,
+    width: 164,
+    align: 'center',
+    size: 12,
+    colour: branding.primaryColour,
+    bold: true,
+  })
   addPdfText(page, model.matchDate, {
     x: PDF_MARGIN + 18,
     top: layout.cursor + 96,
@@ -674,7 +683,7 @@ function addPdfScoreboard(layout, model) {
     colour: '#101828',
     bold: true,
   })
-  addPdfText(page, `Full time score: ${model.result.fullTimeScore}`, {
+  addPdfText(page, `Full time score: ${model.result.displayScore}`, {
     x: PDF_MARGIN + 253,
     top: scoreTop + 11,
     width: scoreCardWidth,

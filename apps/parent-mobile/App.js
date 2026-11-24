@@ -39,7 +39,7 @@ import { buildParentProfileAfterAccessRemoval } from '../mobile-core/src/parentA
 import { IconSettings, SettingsSection } from '../mobile-core/src/IconSettings'
 import { NotificationCategorySettings } from '../mobile-core/src/NotificationCategorySettings'
 import { PitchTypeIcon } from './src/PitchTypeIcon'
-import { getMatchDayDisplayName } from '../../src/lib/matchday-display.js'
+import { getMatchDayDisplayName, getMatchDayDisplayScore } from '../../src/lib/matchday-display.js'
 import NetInfo from '@react-native-community/netinfo'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import * as Application from 'expo-application'
@@ -3264,7 +3264,7 @@ function MatchPreviewCard({ match, onPress, prominent = false, invitations = [],
   const status = getParentMatchStatusLabel(match)
   const isFinished = match.status === 'full_time'
   const score = isFinished || ['live', 'half_time', 'second_half', 'extra_time', 'penalties'].includes(match.status)
-    ? `${match.homeScore} - ${match.awayScore}`
+    ? getMatchDayDisplayScore(match)
     : ''
 
   return (
@@ -3303,7 +3303,7 @@ function MatchDetail({ match, onBack }) {
           <Text style={styles.cardDate}>{formatDateOnly(match.matchDate)}</Text>
         </View>
         <Text accessibilityRole="header" style={styles.detailTitle}>{getMatchDayDisplayName(match)}</Text>
-        {showScore ? <Text style={styles.detailScore}>{match.homeScore} - {match.awayScore}</Text> : null}
+        {showScore ? <Text style={styles.detailScore}>{getMatchDayDisplayScore(match)}</Text> : null}
       </View>
 
       <InfoPanel title="Fixture details">

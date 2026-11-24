@@ -127,7 +127,7 @@ function CompletedMatchResult({ match, result }) {
         ) : null}
         <div>
           <p className="text-xs font-black uppercase tracking-[0.12em] text-[var(--text-muted)]">Full time</p>
-          <p className="mt-1 text-xl font-black text-[var(--text-primary)]">{result.fullTimeScore}</p>
+          <p className="mt-1 text-xl font-black text-[var(--text-primary)]">{result.displayScore}</p>
         </div>
         {result.shootoutScore ? (
           <div>

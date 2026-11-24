@@ -224,7 +224,7 @@ export function getCoachMatchDayActions({ context, match, reconciling = false, s
   return Object.freeze({
     blockedReason: captureActions ? captureActions.blockedReason : blockedReason,
     canMutate: !blockedReason,
-    canRecordEvents: captureActions ? captureActions.canRecordEvents : !blockedReason && hasStarted && !['not_started', 'full_time'].includes(match?.timerStatus) && match?.status !== 'full_time',
+    canRecordEvents: captureActions ? captureActions.canRecordEvents : !blockedReason && hasStarted && !['not_started', 'full_time'].includes(match?.timerStatus) && !['full_time', 'penalties'].includes(match?.status),
     canCorrectScore: captureActions ? captureActions.canCorrectScore : !blockedReason && hasStarted && (match?.status === 'full_time' || !['not_started', 'full_time'].includes(match?.timerStatus)),
     canSaveFinalReport: !reconciling && !stale && hasTeamAuthority && context?.paymentAccess?.canMutate === true && isFinalMatchReportAvailable(match),
     canSetSquad: !reconciling && !stale && hasTeamAuthority && context?.paymentAccess?.canMutate === true && ['scheduled', 'scorer_request'].includes(match?.status),

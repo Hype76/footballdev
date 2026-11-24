@@ -80,7 +80,7 @@ export async function writeParentNotificationInbox({
 
   const { data: inserted, error } = await client
     .from('parent_mobile_notification_events')
-    .upsert(rows, { ignoreDuplicates: !(intentType === 'matchday_update' && data.matchDayId), onConflict: 'dedupe_key' })
+    .upsert(rows, { ignoreDuplicates: !(intentType === 'matchday_update' && data.matchDayId) || data.type === 'shootout_kick', onConflict: 'dedupe_key' })
     .select('id')
 
   if (error) {

@@ -607,7 +607,8 @@ export async function voidCoachMatchDayEvent(user, match, event, { note = '', re
 
 export async function recordCoachMatchDayShootoutKick(user, match, kick) {
   await prepareMutation(user, match)
-  await rpc('record_match_day_shootout_kick', { match_day_id_value: match.id, team_side_value: kick.teamSide === 'opponent' ? 'opponent' : 'club', outcome_value: kick.outcome === 'missed' ? 'missed' : 'scored', player_name_value: normalize(kick.playerName), notes_value: normalize(kick.notes) })
+  const saved = await rpc('record_match_day_shootout_kick', { match_day_id_value: match.id, team_side_value: kick.teamSide === 'opponent' ? 'opponent' : 'club', outcome_value: kick.outcome === 'missed' ? 'missed' : 'scored', player_name_value: normalize(kick.playerName), notes_value: normalize(kick.notes) })
+  if (saved?.id) void sendCoachMatchDayPush(match, 'shootout_kick', saved.id)
   return getCoachMatchDayDetail(user, match.id)
 }
 

@@ -13,6 +13,7 @@ import { sendCoachMatchReviewPush } from './send-coach-mobile-push.js'
 import { deliverCoachMatchReviewOnce } from './lib/_coach-match-review-delivery.js'
 import { buildAndroidMatchStartMessage, buildMatchDayNativeMessage } from './lib/_match-day-native-message.js'
 import { deliverLiveMatchChange } from './lib/_deliver-live-match-changes.js'
+import { deliverCheckpointedTargets, deliverShootoutNotifications } from './lib/_match-day-shootout-notifications.js'
 
 function jsonResponse(statusCode, payload) {
   return {
@@ -341,10 +342,16 @@ export async function handler(event) {
     const profile = await getProfile(authUser, match, parentLinkId)
     await assertWorkspaceBillingAction({ clubId: match.club_id, profile })
     const authorization = await authorizePush({ authUser, match, parentLinkId,
-      type: type === 'live_clock_refresh' ? match.status : type, eventId })
+      type: type === 'live_clock_refresh' ? match.status : type === 'shootout_kick' ? 'penalties' : type, eventId: type === 'shootout_kick' ? '' : eventId })
 
     if (authorization.allowed !== true) {
       return failureResponse(403, 'You cannot send notifications for this match.')
+    }
+
+    if (type === 'shootout_kick') {
+      if (!eventId) return failureResponse(400, 'A saved shootout kick is required.')
+      const result = await deliverShootoutNotifications({ matchDayId: match.id, kickId: eventId })
+      return jsonResponse(result.failed ? 503 : 200, { success: result.failed === 0, ...result })
     }
 
     if (type === 'live_clock_refresh') {
@@ -412,13 +419,13 @@ export async function handler(event) {
   }
 }
 
-export async function deliverMatchDayNotification({ match, type, eventId = '', notificationId = '', targetParentLinkIds, notificationCopy: suppliedCopy, inboxAlreadySaved = false }) {
+export async function deliverMatchDayNotification({ match, type, eventId = '', notificationId = '', targetParentLinkIds, notificationCopy: suppliedCopy, inboxAlreadySaved = false, checkpoint = null }) {
   const webPushConfigured = configureWebPush()
     let eventRow = null
 
     if (eventId) {
       const { data, error } = await supabaseAdmin
-        .from('match_day_events')
+        .from(type === 'shootout_kick' ? 'match_day_shootout_kicks' : 'match_day_events')
         .select('*')
         .eq('id', eventId)
         .eq('match_day_id', match.id)
@@ -429,6 +436,9 @@ export async function deliverMatchDayNotification({ match, type, eventId = '', n
       }
 
       eventRow = data
+    }
+    if (type === 'shootout_kick' && (!eventRow || eventRow.event_status !== 'active')) {
+      return { sent: 0, revoked: 0, webFailed: 0, mobileSent: 0, mobileFailed: 0, fanSent: 0, fanFailed: 0 }
     }
 
     const appNotificationParentLinks = await getAppNotificationParentLinks(targetParentLinkIds)
@@ -445,7 +455,7 @@ export async function deliverMatchDayNotification({ match, type, eventId = '', n
     const club = Array.isArray(match.clubs) ? match.clubs[0] : match.clubs
     const teamName = resolveMatchDayNotificationTeamName(match)
     const clubName = normalizeText(club?.name)
-    const notificationTitle = notificationCopy.matchTitle
+    const notificationTitle = ['penalties', 'shootout_kick'].includes(notificationCopy.notificationType) ? notificationCopy.title : notificationCopy.matchTitle
     const payload = {
       body: notificationCopy.detailedBody,
       renotify: notificationCopy.renotify,
@@ -456,7 +466,13 @@ export async function deliverMatchDayNotification({ match, type, eventId = '', n
       badge: '/icons/favicon-48.png',
     }
     const results = webPushConfigured
-      ? await Promise.all(subscriptions.map((subscription) => sendToSubscription(subscription, payload)))
+      ? checkpoint
+        ? (await deliverCheckpointedTargets(subscriptions, {
+          channel: 'web', keyFor: subscription => subscription.id, checkpoint,
+          send: subscription => sendToSubscription(subscription, payload),
+          isComplete: result => result.sent || result.revoked,
+        })).flatMap(entry => entry.status === 'rejected' ? [{ sent: false }] : entry.value ? [entry.value] : [])
+        : await Promise.all(subscriptions.map((subscription) => sendToSubscription(subscription, payload)))
       : []
     const sent = results.filter((result) => result.sent).length
     const revoked = results.filter((result) => result.revoked).length
@@ -487,7 +503,18 @@ export async function deliverMatchDayNotification({ match, type, eventId = '', n
       teamId: match.team_id,
       title: nativePayload.title,
     })
-    const mobileResult = await sendExpoPushMessages(mobileDevices.map(device => buildMatchDayNativeMessage({ device, notificationCopy, nativePayload })))
+    const mobileResult = checkpoint
+      ? (await deliverCheckpointedTargets(mobileDevices, {
+        channel: 'mobile', keyFor: device => device.installation_id, checkpoint,
+        send: device => sendExpoPushMessages([buildMatchDayNativeMessage({ device, notificationCopy, nativePayload })]),
+        isComplete: result => result.failed === 0 || result.invalidTokens?.length > 0,
+      })).reduce((summary, entry) => {
+        if (entry.status === 'rejected') return { ...summary, failed: summary.failed + 1 }
+        const result = entry.value
+        if (!result) return summary
+        return { sent: summary.sent + result.sent, failed: summary.failed + (result.invalidTokens?.length ? 0 : result.failed), invalidTokens: [...summary.invalidTokens, ...(result.invalidTokens || [])] }
+      }, { sent: 0, failed: 0, invalidTokens: [] })
+      : await sendExpoPushMessages(mobileDevices.map(device => buildMatchDayNativeMessage({ device, notificationCopy, nativePayload })))
     if (notificationCopy.notificationType === 'match_started') {
       const androidStarts = mobileDevices.map(device => buildAndroidMatchStartMessage(device, match.id)).filter(Boolean)
       if (androidStarts.length) await sendExpoPushMessages(androidStarts).catch(() => {})
@@ -521,6 +548,10 @@ export async function sendGuestMatchDayNotifications({ tokenHash, requestId }) {
   if (error) throw error
   if (!command) return
   if (command.pending) throw new Error('Notification delivery is still being confirmed. Retry shortly.')
+  if (command.action === 'shootout') {
+    const result = await deliverShootoutNotifications({ matchDayId: command.matchId })
+    if (result.failed) throw new Error('Shootout notifications will be retried.')
+  }
   const type = command.action === 'start' ? 'match_started'
     : command.action === 'timer' || command.action === 'extended' ? command.details.action
       : command.action === 'goal' ? 'goal'

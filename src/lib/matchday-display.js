@@ -39,12 +39,28 @@ export function getMatchDayDisplayParts(match = {}) {
 
 export function getMatchDayDisplayName(match = {}) {
   const title = normalizeText(match.title)
-  if (title && !/^match(?:\s+v(?:s\.?)?\b|$)/i.test(title)) return title
+  const knownNames = [match.clubName, match.club_name, match.teamName, match.team_name, match.teams?.name]
+    .map(name => normalizeText(name).toLowerCase()).filter(Boolean)
+  const titleSides = title.split(/\s+v(?:s\.?)?\s+/i)
+  const generatedFixtureTitle = titleSides.length === 2 && titleSides.some(side => knownNames.includes(side.toLowerCase()))
+  if (title && !/^match(?:\s+v(?:s\.?)?\b|$)/i.test(title) && !(generatedFixtureTitle && normalizeText(match.opponent))) return title
   const { firstTeam, secondTeam } = getMatchDayDisplayParts(match)
   return `${firstTeam} v ${secondTeam}`
 }
 
 export function getMatchDayDisplayScore(match = {}) {
   const { firstScore, secondScore } = getMatchDayDisplayParts(match)
-  return `${firstScore} - ${secondScore}`
+  const shootoutScore = getMatchDayShootoutScore(match)
+  return `${firstScore} - ${secondScore}${shootoutScore ? ` (${shootoutScore} pens)` : ''}`
+}
+
+export function getMatchDayShootoutScore(match = {}) {
+  const home = normalizeScore(match.homeShootoutScore ?? match.home_shootout_score)
+  const away = normalizeScore(match.awayShootoutScore ?? match.away_shootout_score)
+  const phase = normalizeText(match.currentMatchPhase ?? match.current_match_phase)
+  const winner = normalizeText(match.shootoutWinner ?? match.shootout_winner)
+  const kicks = match.shootoutEvents ?? match.shootout_events ?? match.match_day_shootout_kicks ?? []
+  const hasActiveKick = Array.isArray(kicks) && kicks.some(kick => !kick.voidedAt && !kick.voided_at && (kick.eventStatus ?? kick.event_status) !== 'voided')
+  return phase === 'penalties' || match.status === 'penalties' || winner || home > 0 || away > 0 || hasActiveKick
+    ? `${home} - ${away}` : ''
 }

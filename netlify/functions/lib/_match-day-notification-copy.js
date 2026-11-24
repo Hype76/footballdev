@@ -1,4 +1,4 @@
-import { getMatchDayDisplayName, getMatchDayDisplayParts, getMatchDayDisplayScore } from '../../../src/lib/matchday-display.js'
+import { getMatchDayDisplayName, getMatchDayDisplayParts, getMatchDayDisplayScore, getMatchDayShootoutScore } from '../../../src/lib/matchday-display.js'
 import { resolveMatchDayNotificationTeamName } from '../../../src/lib/team-notification-display.js'
 
 function normalizeText(value) {
@@ -58,6 +58,7 @@ function resolveNotificationType(type, event, match) {
   if (['goal_correction', 'score_corrected'].includes(requestedType)) {
     return 'score_correction'
   }
+  if (requestedType === 'start_penalties') return 'penalties'
 
   if (['card', 'card_update'].includes(requestedType) && ['yellow_card', 'red_card'].includes(eventType)) {
     return eventType
@@ -101,7 +102,12 @@ function getEventCopy({ match, notificationType, event }) {
       return { title: 'Extra time', category: 'Extra time', detail: 'The Match has moved to extra time' }
     case 'penalties':
     case 'start_penalties':
-      return { title: 'Penalties', category: 'Penalties', detail: 'The Match has moved to penalties' }
+      return { title: 'Penalty shootout started', category: 'Penalty shootout has started', detail: 'Penalty shootout has started' }
+    case 'shootout_kick': {
+      const team = isOpponentGoal ? getOpponentName(match) : teamName
+      const scored = normalizeType(event?.outcome) === 'scored'
+      return { title: scored ? 'Penalty scored' : 'Penalty missed or saved', category: `${team} ${scored ? 'scored' : 'missed'} a penalty`, detail: `${team} ${scored ? 'scored their penalty' : 'did not score their penalty'}` }
+    }
     case 'full_time':
       return { title: 'Full time', category: 'Full time', detail: 'The Match is full time' }
     case 'score_correction':
@@ -155,13 +161,17 @@ export function buildParentMatchDayNotificationCopy({ match, type, event = null 
   const eventId = normalizeText(event?.id)
   const isCard = ['yellow_card', 'red_card'].includes(notificationType)
   const result = getMatchDayDisplayParts({ ...match, clubName: teamName })
+  const shootoutScore = getMatchDayShootoutScore(match)
+  const kickScore = `${Number(event?.home_shootout_score ?? event?.homeShootoutScore ?? 0)} - ${Number(event?.away_shootout_score ?? event?.awayShootoutScore ?? 0)}`
   const detailedScore = isCard && copy.category !== copy.title ? `${matchName}. Score ${score}` : compactScore
-  const detailedBody = compactEventDetail
+  const detailedBody = notificationType === 'shootout_kick'
+    ? `${copy.detail}. ${matchName}. Shootout: ${kickScore}.`
+    : compactEventDetail
     ? `${compactEventDetail} ${detailedScore}.`
     : isCard
       ? `${copy.detail}. ${matchName}. Score ${score}.`
     : notificationType === 'full_time'
-      ? `Full time: ${result.firstTeam} ${result.firstScore} - ${result.secondScore} ${result.secondTeam}.`
+      ? `Full time: ${result.firstTeam} ${result.firstScore} - ${result.secondScore} ${result.secondTeam}${shootoutScore ? ` (${shootoutScore} pens)` : ''}.`
     : copy.includeScore === false
       ? `${copy.detail} for ${matchName}.`
       : notificationType === 'match_started'
@@ -178,7 +188,7 @@ export function buildParentMatchDayNotificationCopy({ match, type, event = null 
       : `${copy.category} for ${matchName}.`,
     detailedBody,
     notificationType,
-    renotify: ['goal', 'score_correction', 'full_time', 'extra_time', 'start_extra_time', 'penalties', 'start_penalties'].includes(notificationType),
+    renotify: ['goal', 'score_correction', 'full_time', 'extra_time', 'start_extra_time', 'penalties', 'shootout_kick'].includes(notificationType),
     tag: eventId
       ? `match-day-${matchId}-${notificationType}-${eventId}`
       : `match-day-${matchId}-${notificationType}`,

@@ -1353,6 +1353,8 @@ function ParentPortalExperience({ onAccessRemoved, onOpenDemoGameDay }) {
         ? 'live'
         : ['half_time', 'full_time'].includes(timerAction)
           ? timerAction
+          : timerAction === 'start_penalties'
+            ? 'penalties'
           : ''
 
       if (transitionNotificationType) {
@@ -1382,7 +1384,8 @@ function ParentPortalExperience({ onAccessRemoved, onOpenDemoGameDay }) {
     setMatchErrorTitle(parentMatchDayActionErrorTitle)
 
     try {
-      await recordParentScorerShootoutKick({ match, kick })
+      const savedKick = await recordParentScorerShootoutKick({ match, kick })
+      if (savedKick?.id) void sendMatchDayPushNotification({ matchDayId: match.id, type: 'shootout_kick', eventId: savedKick.id, parentLinkId: selectedLink.id })
       await loadMatches()
       showToast({ title: 'Shootout updated', message: 'The shootout score was updated without changing the regulation score.' })
     } catch (error) {
@@ -4057,7 +4060,7 @@ function ParentMatchCard({
               <MatchDayWakeLockControl active={match.status !== 'full_time'} />
 
               {isShootout ? (
-                <ParentShootoutControls isBusy={isBusy} match={match} onRecordKick={onShootoutKick} onVoidKick={onVoidShootoutKick} />
+                <ParentShootoutControls isBusy={isBusy} match={match} onRecordKick={onShootoutKick} onVoidKick={onVoidShootoutKick} players={orderedPlayers} />
               ) : null}
 
           <div className={softPanelClass}>
@@ -4273,14 +4276,16 @@ function ParentFormationPlan({ plan }) {
   )
 }
 
-function ParentShootoutControls({ isBusy, match, onRecordKick, onVoidKick }) {
+function ParentShootoutControls({ isBusy, match, onRecordKick, onVoidKick, players = [] }) {
   const [playerName, setPlayerName] = useState('')
+  const [opponentName, setOpponentName] = useState('')
   const shootoutEvents = Array.isArray(match.shootoutEvents) ? match.shootoutEvents : []
   const latestActiveKick = shootoutEvents.filter((kick) => kick.eventStatus !== 'voided').at(-1)
 
   const recordKick = (teamSide, outcome) => {
-    onRecordKick(match, { teamSide, outcome, playerName })
-    setPlayerName('')
+    onRecordKick(match, { teamSide, outcome, playerName: teamSide === 'club' ? playerName : opponentName })
+    if (teamSide === 'club') setPlayerName('')
+    else setOpponentName('')
   }
 
   return (
@@ -4294,9 +4299,14 @@ function ParentShootoutControls({ isBusy, match, onRecordKick, onVoidKick }) {
         <p className="text-xs font-black text-[#4b5f55]">{shootoutEvents.length} kicks recorded</p>
       </div>
       <label className="mt-3 block">
-        <span className="mb-1 block text-xs font-black text-[#047857]">Player name optional</span>
+        <span className="mb-1 block text-xs font-black text-[#047857]">Our team's penalty taker</span>
+        <select disabled={isBusy} value={players.some(player => player.playerName === playerName) ? playerName : ''} onChange={event => setPlayerName(event.target.value)} className={fieldClass}>
+          <option value="">Choose player</option>
+          {players.map(player => <option key={player.id} value={player.playerName}>{player.playerName}{player.shirtNumber ? ` #${player.shirtNumber}` : ''}</option>)}
+        </select>
         <input value={playerName} onChange={(event) => setPlayerName(event.target.value)} className={fieldClass} />
       </label>
+      <label className="mt-3 block"><span className="mb-1 block text-xs font-black text-[#047857]">Opponent penalty taker (optional)</span><input value={opponentName} onChange={event => setOpponentName(event.target.value)} className={fieldClass} /></label>
       <div className="mt-3 grid grid-cols-2 gap-2 lg:grid-cols-4">
         <button type="button" onClick={() => recordKick('club', 'scored')} disabled={isBusy} className={primaryButtonClass}>Our team scored</button>
         <button type="button" onClick={() => recordKick('club', MATCH_DAY_SHOOTOUT_NO_GOAL_OUTCOME)} disabled={isBusy} className={secondaryButtonClass}>Our team saved or off target</button>

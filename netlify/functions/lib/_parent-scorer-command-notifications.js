@@ -1,4 +1,5 @@
 import { deliverCoachMatchReviewOnce } from './_coach-match-review-delivery.js'
+import { deliverShootoutNotifications } from './_match-day-shootout-notifications.js'
 
 export async function deliverParentScorerCommands(commandId = null, actorUserId = null, { client, deliver, review } = {}) {
   client ||= (await import('./_supabase.js')).supabaseAdmin
@@ -18,6 +19,8 @@ export async function deliverParentScorerCommands(commandId = null, actorUserId 
       const match = { ...command.match, teams: context.teams, clubs: context.clubs }
       if (command.kind === 'request-review' || command.type === 'coach_review') {
         await deliverCoachMatchReviewOnce({ client, match: { ...match, status: context.status, concluded_at: context.concluded_at }, actorUserId: command.actorUserId, review })
+      } else if (command.type === 'shootout_kick') {
+        await deliverShootoutNotifications({ matchDayId: match.id, kickId: command.eventId, client, deliver })
       } else {
         const { data: targets, error: targetError } = await client.rpc('get_match_day_parent_notification_link_ids', { match_day_id_value: command.match.id })
         if (targetError) throw targetError

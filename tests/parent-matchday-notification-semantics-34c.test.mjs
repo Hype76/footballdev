@@ -45,7 +45,7 @@ const cases = [
   { type: 'half_time', title: 'Half time' },
   { type: 'second_half', title: 'Second half started' },
   { type: 'extra_time', title: 'Extra time' },
-  { type: 'penalties', title: 'Penalties' },
+  { type: 'penalties', title: 'Penalty shootout started' },
   { type: 'full_time', title: 'Full time' },
   { type: 'score_correction', event: { id: 'correction', event_type: 'score_correction', notes: 'Private correction note' }, title: 'Score corrected' },
   { type: 'status_change', override: { status: 'cancelled' }, title: 'Match cancelled', includeScore: false },
