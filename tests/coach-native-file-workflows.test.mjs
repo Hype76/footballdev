@@ -115,3 +115,16 @@ test('Coach on iPhone opens the share sheet without assuming a save and supports
   globalThis.pdfOps.native = false
   assert.equal(supportsCoachMatchReportPdf(), false)
 })
+
+test('Coach prepares an embedded club badge using the exact active context without a native module change', async () => {
+  globalThis.pdfOps = { native: true, granted: true }
+  const { exportCoachMatchReportPdf } = await loadPdfBridge('android')
+  const UPNG = (await import('../apps/coach-mobile/node_modules/upng-js/UPNG.js')).default
+  const png = new Uint8Array(UPNG.encode([new Uint8Array([255, 0, 0, 255, 0, 0, 255, 0]).buffer], 2, 1, 0, undefined, true))
+  const storageOrigin = 'https://example.supabase.co'
+  const clubLogoUrl = storageOrigin + '/storage/v1/object/public/club-logos/club/logo.png'
+  const activeContext = { ...context, planKey: 'pilot', clubLogoUrl, clubAccent: '#1eadb9' }
+  const fetchLogo = async url => { assert.equal(url,clubLogoUrl); return {ok:true,headers:{get:()=>String(png.length)},arrayBuffer:async()=>png.buffer} }
+  assert.equal(await exportCoachMatchReportPdf(match,{context:activeContext,mode:'save',isCurrent:current,storageOrigin,fetchLogo}),'saved')
+  assert.match(Buffer.from(globalThis.pdfOps.written[1],'base64').toString('latin1'),/\/DCTDecode/)
+})

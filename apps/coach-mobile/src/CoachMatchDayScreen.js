@@ -799,7 +799,7 @@ function ReportPanel({ busy, canConclude, canSave, concludeBlockedReason, contex
     setExporting(true)
     setExportNotice('')
     try {
-      const result = await exportCoachMatchReportPdf(match, { context, mode, isCurrent: () => mounted.current })
+      const result = await exportCoachMatchReportPdf(match, { context, mode, storageOrigin: config.supabaseUrl, isCurrent: () => mounted.current })
       if (mounted.current && result === 'saved') setExportNotice('Match report PDF saved.')
     } catch (error) {
       if (mounted.current) setExportNotice(errorMessage(error, 'The match report PDF could not be exported.'))
