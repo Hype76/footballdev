@@ -13,7 +13,7 @@ import { sendCoachMatchReviewPush } from './send-coach-mobile-push.js'
 import { deliverCoachMatchReviewOnce } from './lib/_coach-match-review-delivery.js'
 import { buildAndroidMatchStartMessage, buildMatchDayNativeMessage } from './lib/_match-day-native-message.js'
 import { deliverLiveMatchChange } from './lib/_deliver-live-match-changes.js'
-import { deliverShootoutNotifications } from './lib/_match-day-shootout-notifications.js'
+import { deliverCheckpointedTargets, deliverShootoutNotifications } from './lib/_match-day-shootout-notifications.js'
 
 function jsonResponse(statusCode, payload) {
   return {
@@ -419,7 +419,7 @@ export async function handler(event) {
   }
 }
 
-export async function deliverMatchDayNotification({ match, type, eventId = '', notificationId = '', targetParentLinkIds, notificationCopy: suppliedCopy, inboxAlreadySaved = false }) {
+export async function deliverMatchDayNotification({ match, type, eventId = '', notificationId = '', targetParentLinkIds, notificationCopy: suppliedCopy, inboxAlreadySaved = false, checkpoint = null }) {
   const webPushConfigured = configureWebPush()
     let eventRow = null
 
@@ -466,7 +466,13 @@ export async function deliverMatchDayNotification({ match, type, eventId = '', n
       badge: '/icons/favicon-48.png',
     }
     const results = webPushConfigured
-      ? await Promise.all(subscriptions.map((subscription) => sendToSubscription(subscription, payload)))
+      ? checkpoint
+        ? (await deliverCheckpointedTargets(subscriptions, {
+          channel: 'web', keyFor: subscription => subscription.id, checkpoint,
+          send: subscription => sendToSubscription(subscription, payload),
+          isComplete: result => result.sent || result.revoked,
+        })).flatMap(entry => entry.status === 'rejected' ? [{ sent: false }] : entry.value ? [entry.value] : [])
+        : await Promise.all(subscriptions.map((subscription) => sendToSubscription(subscription, payload)))
       : []
     const sent = results.filter((result) => result.sent).length
     const revoked = results.filter((result) => result.revoked).length
@@ -497,7 +503,18 @@ export async function deliverMatchDayNotification({ match, type, eventId = '', n
       teamId: match.team_id,
       title: nativePayload.title,
     })
-    const mobileResult = await sendExpoPushMessages(mobileDevices.map(device => buildMatchDayNativeMessage({ device, notificationCopy, nativePayload })))
+    const mobileResult = checkpoint
+      ? (await deliverCheckpointedTargets(mobileDevices, {
+        channel: 'mobile', keyFor: device => device.installation_id, checkpoint,
+        send: device => sendExpoPushMessages([buildMatchDayNativeMessage({ device, notificationCopy, nativePayload })]),
+        isComplete: result => result.failed === 0 || result.invalidTokens?.length > 0,
+      })).reduce((summary, entry) => {
+        if (entry.status === 'rejected') return { ...summary, failed: summary.failed + 1 }
+        const result = entry.value
+        if (!result) return summary
+        return { sent: summary.sent + result.sent, failed: summary.failed + (result.invalidTokens?.length ? 0 : result.failed), invalidTokens: [...summary.invalidTokens, ...(result.invalidTokens || [])] }
+      }, { sent: 0, failed: 0, invalidTokens: [] })
+      : await sendExpoPushMessages(mobileDevices.map(device => buildMatchDayNativeMessage({ device, notificationCopy, nativePayload })))
     if (notificationCopy.notificationType === 'match_started') {
       const androidStarts = mobileDevices.map(device => buildAndroidMatchStartMessage(device, match.id)).filter(Boolean)
       if (androidStarts.length) await sendExpoPushMessages(androidStarts).catch(() => {})

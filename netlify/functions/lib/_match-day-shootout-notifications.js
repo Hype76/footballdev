@@ -20,7 +20,18 @@ export async function deliverShootoutNotifications({ matchDayId = null, kickId =
         const { data: targets, error: targetError } = await client.rpc('get_match_day_parent_notification_link_ids', { match_day_id_value: match.id })
         if (targetError) throw targetError
         deliver ||= (await import('../send-match-day-push.js')).deliverMatchDayNotification
-        const result = await deliver({ match, type: 'shootout_kick', eventId: kick.id, targetParentLinkIds: [...new Set(targets || [])] })
+        const delivered = new Set(Object.keys(intent.delivered_channels || {}))
+        const checkpoint = {
+          has: key => delivered.has(key),
+          save: async key => {
+            const { data, error } = await client.rpc('checkpoint_match_day_shootout_notification', {
+              kick_id_value: kick.id, attempt_value: intent.attempt, delivery_key: key,
+            })
+            if (error || data !== true) throw error || new Error('Shootout delivery lease expired.')
+            delivered.add(key)
+          },
+        }
+        const result = await deliver({ match, type: 'shootout_kick', eventId: kick.id, targetParentLinkIds: [...new Set(targets || [])], checkpoint })
         if (result.mobileFailed || result.webFailed || result.fanFailed) throw new Error('Some shootout notifications were not accepted.')
       }
       completed += 1
@@ -34,4 +45,22 @@ export async function deliverShootoutNotifications({ matchDayId = null, kickId =
     if (completion.error) throw completion.error
   }
   return { completed, failed }
+}
+
+// Each successful target is checkpointed before other failures trigger a retry.
+export async function deliverCheckpointedTargets(targets, { channel, keyFor, checkpoint, send, isComplete }) {
+  const results = []
+  targets = [...new Map(targets.map(target => [keyFor(target), target])).values()]
+  for (let offset = 0; offset < targets.length; offset += 10) {
+    const group = targets.slice(offset, offset + 10)
+    const settled = await Promise.allSettled(group.map(async target => {
+      const key = channel + ':' + keyFor(target)
+      if (checkpoint.has(key)) return null
+      const result = await send(target)
+      if (isComplete(result)) await checkpoint.save(key)
+      return result
+    }))
+    results.push(...settled)
+  }
+  return results
 }

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { PGlite } from '@electric-sql/pglite'
-import { deliverShootoutNotifications } from '../netlify/functions/lib/_match-day-shootout-notifications.js'
+import { deliverCheckpointedTargets, deliverShootoutNotifications } from '../netlify/functions/lib/_match-day-shootout-notifications.js'
 
 test('saved shootout kicks enqueue once, with restricted claims, retries and revoked kicks excluded', async () => {
   const db = new PGlite()
@@ -23,12 +23,17 @@ test('saved shootout kicks enqueue once, with restricted claims, retries and rev
     assert.equal((await db.query('select * from public.claim_match_day_shootout_notifications(null,null)')).rows.length,0)
     await db.query("select set_config('request.jwt.claim.role','service_role',false)")
     const claimed = (await db.query('select * from public.claim_match_day_shootout_notifications($1,$2)',[match,first])).rows
-    assert.deepEqual(claimed,[{kick_id:first,match_day_id:match,attempt:1}])
+    assert.deepEqual(claimed,[{kick_id:first,match_day_id:match,attempt:1,delivered_channels:{}}])
+    assert.equal((await db.query("select has_function_privilege('authenticated','public.checkpoint_match_day_shootout_notification(uuid,integer,text)','EXECUTE') allowed")).rows[0].allowed,false)
+    assert.equal((await db.query("select public.checkpoint_match_day_shootout_notification($1,1,'mobile:device-one') saved",[first])).rows[0].saved,true)
+    assert.equal((await db.query("select public.checkpoint_match_day_shootout_notification($1,1,'web:subscription-one') saved",[first])).rows[0].saved,true)
+    assert.equal((await db.query("select public.checkpoint_match_day_shootout_notification($1,1,'wrong:recipient') saved",[first])).rows[0].saved,false)
     assert.equal((await db.query('select * from public.claim_match_day_shootout_notifications($1,$2)',[match,first])).rows.length,0)
     await db.query("select public.complete_match_day_shootout_notification($1,1,'retry')",[first])
     await db.query("update private.match_day_shootout_notification_intents set claimed_at=now()-interval '3 minutes' where kick_id=$1",[first])
     await db.query("update public.match_day_shootout_kicks set event_status='voided' where id=$1",[second])
-    assert.deepEqual((await db.query('select * from public.claim_match_day_shootout_notifications(null,null)')).rows,[{kick_id:first,match_day_id:match,attempt:2}])
+    assert.deepEqual((await db.query('select * from public.claim_match_day_shootout_notifications(null,null)')).rows,[{kick_id:first,match_day_id:match,attempt:2,delivered_channels:{'mobile:device-one':true,'web:subscription-one':true}}])
+    assert.equal((await db.query("select public.checkpoint_match_day_shootout_notification($1,1,'mobile:stale') saved",[first])).rows[0].saved,false)
     await db.query("select public.complete_match_day_shootout_notification($1,2,'')",[first])
     assert.equal((await db.query('select * from public.claim_match_day_shootout_notifications(null,null)')).rows.length,0)
   } finally { await db.close() }
@@ -47,8 +52,37 @@ test('shootout delivery uses the saved kick and current authorised parent recipi
     from: table => ({ select() { return this }, eq() { return this }, is() { return this }, maybeSingle: async () => ({ data: table === 'match_days' ? match : kick }) }),
   }
   assert.deepEqual(await deliverShootoutNotifications({ client, deliver: async args => { delivered.push(args); return { mobileFailed: 0, webFailed: 0, fanFailed: 0 } } }), { completed: 1, failed: 0 })
-  assert.deepEqual(delivered,[{ match, type: 'shootout_kick', eventId: 'kick', targetParentLinkIds: ['parent'] }])
+  assert.deepEqual(delivered.map(({checkpoint,...args}) => args),[{ match, type: 'shootout_kick', eventId: 'kick', targetParentLinkIds: ['parent'] }])
+  assert.equal(delivered[0].checkpoint.has('mobile:unsent'),false)
   assert.deepEqual(completed,[{ kick_id_value: 'kick', attempt_value: 1, error_value: '' }])
+})
+
+test('shootout partial retry sends only unaccepted recipient channels and preserves existing inbox rows', async () => {
+  const persisted = new Set(), calls = []
+  function checkpoint() {
+    const snapshot = new Set(persisted)
+    return { has: key => snapshot.has(key), save: async key => { persisted.add(key); snapshot.add(key) } }
+  }
+  const send = async (channel, shouldFail, saved) => deliverCheckpointedTargets(['one','two','one'], {
+    channel, keyFor: target => target, checkpoint: saved,
+    send: async target => {
+      calls.push(channel + ':' + target)
+      if (target === 'two' && shouldFail) throw new Error('Temporary failure')
+      return { sent:true }
+    }, isComplete: result => result.sent,
+  })
+  const first = checkpoint()
+  assert.equal((await send('web', true, first)).filter(result => result.status === 'rejected').length,1)
+  assert.equal((await send('mobile', true, first)).filter(result => result.status === 'rejected').length,1)
+  assert.deepEqual([...persisted].sort(),['mobile:one','web:one'])
+  const retry = checkpoint()
+  assert.equal((await send('web', false, retry)).filter(result => result.status === 'rejected').length,0)
+  assert.equal((await send('mobile', false, retry)).filter(result => result.status === 'rejected').length,0)
+  assert.deepEqual(calls,['web:one','web:two','mobile:one','mobile:two','web:two','mobile:two'])
+  const inbox = []
+  const client = { from: () => ({ upsert: (rows, options) => { inbox.push({ rows, options }); return { select: async () => ({ data: [] }) } } }) }
+  await writeParentNotificationInbox({client, intentType:'matchday_update', data:{matchDayId:'game',type:'shootout_kick',eventId:'kick'},parentLinks:[{id:'parent',auth_user_id:'user'}]})
+  assert.equal(inbox[0].options.ignoreDuplicates,true)
 })
 import { deliverCoachMatchReviewOnce } from '../netlify/functions/lib/_coach-match-review-delivery.js'
 import test from 'node:test'
