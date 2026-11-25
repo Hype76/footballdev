@@ -152,8 +152,9 @@ function usePortalStyles(themeTokens) {
       fixtureTeam: { color: '#ffffff', fontSize: 13, fontWeight: '900', textShadowColor: '#07151f', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 4 },
       listSurface: { ...surface, gap: 7, paddingHorizontal: 11, paddingVertical: 9 },
       fixtureBadges: { alignItems: 'flex-start', flexDirection: 'row', gap: 6 },
-      fixtureCompactBadge: { flexShrink: 1, minWidth: 0 },
-      fixtureCompactBadgeText: { flexShrink: 1, fontSize: 11, lineHeight: 16, minWidth: 0 },
+      fixtureBoundedBadge: { flexShrink: 1, maxWidth: '100%', minWidth: 0 },
+      fixtureBadgeText: { flexShrink: 1, minWidth: 0 },
+      fixtureCompactBadgeText: { fontSize: 11, lineHeight: 16 },
       fixtureListFooter: { alignItems: 'center', borderTopColor: colors.border, borderTopWidth: StyleSheet.hairlineWidth, flexDirection: 'row', flexWrap: 'wrap', gap: 9, paddingTop: 6 },
       fixtureFooterItem: { alignItems: 'center', flexDirection: 'row', gap: 5 },
       fixtureStatus: { alignItems: 'center', backgroundColor: colors.accentSoft, borderRadius: 20, flexDirection: 'row', gap: 5, paddingHorizontal: 7, paddingVertical: 3 },
@@ -806,7 +807,7 @@ function MatchStatusBadge({ colors, status, prefix, styles, compact = false }) {
         : tone === 'selected'
           ? { backgroundColor: colors.statusSelectedSurface, color: colors.statusSelected }
           : { backgroundColor: colors.statusMutedSurface, color: colors.statusMuted }
-  return <View accessibilityLabel={`${prefix}: ${status.label}`} style={[{ alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: compact ? 4 : 5, borderRadius: 999, paddingHorizontal: compact ? 6 : 11, paddingVertical: compact ? 5 : 7, backgroundColor: badge.backgroundColor }, compact && styles.fixtureCompactBadge]}><ParentIcon color={badge.color} iconKey={status.icon} size={compact ? 14 : 18} /><Text style={[styles.meta, { color: badge.color, fontWeight: '700' }, compact && styles.fixtureCompactBadgeText]}>{status.label}</Text></View>
+  return <View accessibilityLabel={`${prefix}: ${status.label}`} style={[styles.fixtureBoundedBadge, { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: compact ? 4 : 5, borderRadius: 999, paddingHorizontal: compact ? 6 : 11, paddingVertical: compact ? 5 : 7, backgroundColor: badge.backgroundColor }]}><ParentIcon color={badge.color} iconKey={status.icon} size={compact ? 14 : 18} /><Text style={[styles.meta, styles.fixtureBadgeText, { color: badge.color, fontWeight: '700' }, compact && styles.fixtureCompactBadgeText]}>{status.label}</Text></View>
 }
 
 function MatchCard({ colors, invitations, link, match, onOpen, scorerGuide, styles, viewerClockNow }) {
@@ -1804,7 +1805,7 @@ export function ChatScreen({ activeActionId, connectionUnverified = false, invit
   if (selectedRoom) {
     return (
       <View style={styles.chatScreen}>
-        <View style={styles.chatHeader}><Button label="Back to Chat rooms" onPress={onBack} outline styles={styles} /><Text accessibilityRole="header" style={styles.cardTitle}>{displayedSelectedRoom.title}</Text><Text style={styles.helper}>{getParentChatRoomContext(displayedSelectedRoom)}</Text></View>
+        <View style={styles.chatHeader}><Button label="Back to Chat rooms" onPress={onBack} outline styles={styles} /><Text accessibilityRole="header" style={styles.cardTitle}>{displayedSelectedRoom.title}</Text><Text style={styles.helper}>{getParentChatRoomContext(displayedSelectedRoom, link?.linkType)}</Text></View>
         {isReminderRoom ? <ScrollView key={selectedRoom.id} style={styles.chatList} contentContainerStyle={{ gap: 12, paddingVertical: 12 }}>
           {sortedMessages.map(message => <View key={String(message.id)}>{renderMessage({ item: message })}</View>)}
           {!messages.loading && !sortedMessages.length ? <Text style={styles.empty}>No reminders in this conversation yet.</Text> : null}
@@ -1838,7 +1839,7 @@ export function ChatScreen({ activeActionId, connectionUnverified = false, invit
           <View style={styles.listSurface}>
             <Pressable accessibilityRole="button" onPress={() => onOpenRoom(room)} style={styles.compactRow}>
               <ParentIcon color={room.unreadCount ? colors.accentText : colors.muted} iconKey="message" size={30} />
-              <View style={styles.compactCopy}><View style={styles.row}><Text style={styles.pill}>{getParentChatRoomTypeLabel(room.type)}</Text>{room.unreadCount ? <Text style={styles.stat}>{room.unreadCount}</Text> : null}</View><Text style={styles.cardTitle}>{room.title}</Text>{getParentChatRoomContext(room) ? <Text numberOfLines={1} style={styles.meta}>{getParentChatRoomContext(room)}</Text> : null}<Text numberOfLines={1} style={styles.body}>{room.latestMessage || 'No messages yet'}</Text></View>
+              <View style={styles.compactCopy}><View style={styles.row}><Text style={styles.pill}>{getParentChatRoomTypeLabel(room.type)}</Text>{room.unreadCount ? <Text style={styles.stat}>{room.unreadCount}</Text> : null}</View><Text style={styles.cardTitle}>{room.title}</Text>{getParentChatRoomContext(room, link?.linkType) ? <Text numberOfLines={1} style={styles.meta}>{getParentChatRoomContext(room, link?.linkType)}</Text> : null}<Text numberOfLines={1} style={styles.body}>{room.latestMessage || 'No messages yet'}</Text></View>
               <ParentIcon color={colors.accentText} iconKey="action.open" size={22} />
             </Pressable>
             {!['announcement', 'coach_reminder'].includes(room.type) ? <View style={styles.row}>

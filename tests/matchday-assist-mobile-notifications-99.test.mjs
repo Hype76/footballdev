@@ -26,23 +26,24 @@ test('goal notifications include recorded scorer and assist names at both detail
     event: { assist_name: 'Jamie Smith', assist_shirt_number: '8', event_type: 'goal', minute: 45, scorer_name: 'John Barnes', stoppage_minute: 2 },
   })
 
-  assert.equal(copy.detailedBody, "Goal: John Barnes at 45+2'. Assist: Jamie Smith #8. 1 - 0 v Visitors.")
+  assert.equal(copy.detailedBody, "Goal: John Barnes at 45+2'. Assist: Jamie Smith #8. 1 - 0.")
   assert.equal(copy.minimalBody, copy.detailedBody)
 })
 
 test('Parent scorer goals preserve assist fields and request the shared Parent push after the event is saved', async () => {
-  const [app, data, parentScreen, coachScreen] = await Promise.all([
+  const [app, data, parentScreen, coachScreen, dispatcher] = await Promise.all([
     source('apps/parent-mobile/App.js'),
     source('apps/parent-mobile/src/parentPortalData.js'),
     source('apps/parent-mobile/src/ParentPortalScreens.js'),
     source('apps/coach-mobile/src/CoachMatchDayScreen.js'),
+    source('netlify/functions/lib/_parent-scorer-command-notifications.js'),
   ])
 
   assert.match(data, /assist_name_value: normalizeText\(goal\.assistName\)/)
   assert.match(data, /sendParentScorerMatchDayPush[\s\S]*send-match-day-push/)
   assert.match(app, /await queueParentScorerAction\(selectedMobileUser, selectedLink, match, action, payload\)/)
   assert.match(data, /const result = await scorerRpc[\s\S]*send-parent-scorer-command-notification[\s\S]*body: JSON\.stringify\(\{ commandId: command\.id \}\)/)
-  assert.match(data, /result\.savedEvent && \['goal', 'event', 'score', 'correct-goal'\]\.includes\(command\.kind\)/)
+  assert.match(dispatcher, /claim_parent_scorer_command_notifications[\s\S]*await deliver\(\{ match, type: command\.type, eventId: command\.eventId/)
   assert.match(parentScreen, /buildCompletedMatchEventPresentation\(event, selectedMatch/)
   assert.match(coachScreen, /buildCompletedMatchEventPresentation\(event, match/)
 })

@@ -73,7 +73,7 @@ export function AdultPlayerEntry({ userId, links, parentProfilePending, onSignOu
   if (view === 'player' && access.link && renderPlayer) return renderPlayer({ link: access.link, openOtherAccount: hasParent || hasFan ? () => setPreferredMode(hasParent ? 'parent' : 'fan') : null })
 
   return (
-    <AdultPlayerScreen key={access.link?.id || 'access'} access={parentProfilePending && view === 'checking' ? { status: 'checking' } : access} onRefresh={refresh} onSignOut={onSignOut}
+    <AdultPlayerScreen key={access.link?.id || 'access'} access={view === 'checking' ? { status: 'checking' } : access} onRefresh={refresh} onSignOut={onSignOut}
       onSwitchAccount={hasParent || hasFan ? () => setPreferredMode(hasParent ? 'parent' : 'fan') : null}
       switchLabel={hasParent ? 'Open Parent account' : 'Open Fan account'} />
   )

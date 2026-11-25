@@ -57,8 +57,7 @@ export function isParentCalendarEventCancelled(event = {}) {
 export function isParentCalendarActionRequired(event = {}) {
   if (isTerminalStatus(event.status)) return false
   const responseState = normalizeStatus(event.responseState)
-  return event.requiresResponse === true
-    || ['awaiting_response', 'no_response', 'pending'].includes(responseState)
+  return event.requiresResponse ?? ['awaiting_response', 'no_response', 'pending'].includes(responseState)
 }
 
 export function getParentCalendarMarkerTone(event = {}) {

@@ -6,7 +6,7 @@ const TYPES = new Set(['match_started','goal','half_time','second_half','extra_t
 export const isFanMatchNotificationType = (type) => TYPES.has(type)
 export function buildFanMatchNotificationPayload({ fanConnectionId, match, notificationCopy, type }) {
   return {
-    title: notificationCopy.title,
+    title: type === 'goal' && notificationCopy.matchTitle ? notificationCopy.matchTitle : notificationCopy.title,
     body: notificationCopy.detailedBody,
     sound: 'default',
     priority: 'high',

@@ -15,9 +15,11 @@ const bundle = await build({
       import { createRoot } from 'react-dom/client'
       import { AppState } from 'react-native'
       import { AdultPlayerEntry } from './apps/parent-mobile/src/AdultPlayerEntry.js'
+      const foregroundListeners = new Set()
+      window.refreshAccess = () => foregroundListeners.forEach(handler => handler('active'))
       AppState.addEventListener = (_event, handler) => {
-        window.refreshAccess = () => handler('active')
-        return { remove() { window.refreshAccess = null } }
+        foregroundListeners.add(handler)
+        return { remove() { foregroundListeners.delete(handler) } }
       }
       function App() {
         const [id, setId] = useState('adult')
@@ -38,6 +40,7 @@ const bundle = await build({
     `,
   },
   bundle: true,
+  define: { __DEV__: 'false', global: 'globalThis', 'process.env.NODE_ENV': '"test"' },
   write: false,
   platform: 'browser',
   jsx: 'automatic',
@@ -51,11 +54,12 @@ const bundle = await build({
   plugins: [{
     name: 'adult-player-device-services',
     setup(builder) {
-      builder.onResolve({ filter: /(^|\/)(supabase|adultPlayerWorkspace|expo-status-bar|react-native-safe-area-context)$/ }, args => ({ path: args.path, namespace: 'fixture' }))
+      builder.onResolve({ filter: /(^|\/)(supabase|adultPlayerWorkspace|expo-status-bar|react-native-safe-area-context|async-storage)$/ }, args => ({ path: args.path, namespace: 'fixture' }))
       builder.onLoad({ filter: /.*/, namespace: 'fixture' }, args => {
         if (args.path.endsWith('/adultPlayerWorkspace')) return { contents: `export const requestAdultPlayerWorkspace = async () => ({planKey:'club', link:{id:'adult-link',playerId:'adult-player',teamId:'ladies',clubId:'cambourne'}})` }
         if (args.path.endsWith('/supabase')) return { contents: 'export const supabase = { rpc: (...args) => window.rpc(...args) }' }
         if (args.path === 'expo-status-bar') return { contents: 'export const StatusBar = () => null' }
+        if (args.path === '@react-native-async-storage/async-storage') return { contents: 'export default { getItem: async () => null }' }
         return { contents: 'import { View } from "react-native"; export const SafeAreaView = View', resolveDir: process.cwd() }
       })
     },
@@ -118,7 +122,7 @@ const shellBundle = await build({
         getParentInvitations:'async()=>window.mobileInvitations',getParentPortalMatchDays:'async()=>window.mobileMatches',
         getParentCalendarEvents:'async()=>window.mobileCalendar',
         getLinkedParentPlayerStats:'async()=>window.mobileStats',
-        getParentPortalMatchDayPlayers:'async()=>[]',getParentChatRooms:'async()=>[]',
+        getParentPortalMatchDayPlayers:'async()=>[]',getParentChatRooms:'async()=>[{id:"adult-room",type:"team",teamId:"ladies",teamName:"Ladies",title:"Ladies Team Chat"}]',
         isParentInvitationActionable:'i=>i.canRespond===true',
         getInvitationResponseOptions:`()=>[{label:'Available',value:'available'},{label:'Unavailable',value:'unavailable'},{label:'Maybe',value:'maybe'}]`,
         getParentVolunteerRoleLabel:`()=>''`,
@@ -138,16 +142,17 @@ async function launchSharedShell(page) {
     window.workspaceLoads=0;window.calls=[];window.parentOnlyCalls=[];
     window.mobileUser={id:'adult',email:'player@example.test',displayName:'Test Player'};
     window.mobileLink={id:'adult-link',linkType:'adult_player',playerId:'adult-player',playerName:'Test Player',clubId:'cambourne',clubName:'Cambourne Town FC',teamId:'ladies',teamName:'Ladies',planKey:'club'};
-    window.mobileInvitations=[{invitationId:'match:invite',invitationType:'match_attendance',sourceRecordId:'invite',adultPlayerLinkId:'adult-link',childId:'adult-player',eventId:'fixture',eventTitle:'Ladies league match',eventStart:'2026-11-22T10:00:00Z',responseState:'awaiting_response',invitationState:'active',selectionState:'selected',canRespond:true}];
+    window.mobileInvitations=[{invitationId:'match:invite',invitationType:'match_attendance',sourceRecordId:'invite',adultPlayerLinkId:'adult-link',childId:'adult-player',eventId:'fixture',eventTitle:'Ladies league match',eventStart:'2026-11-22T10:00:00Z',responseState:'awaiting_response',invitationState:'active',selectionState:'selected',isPending:true,canRespond:true}];
     window.mobileMatches=[{id:'fixture',teamId:'ladies',clubId:'cambourne',title:'Ladies league match',opponentName:'Visitors',teamName:'Ladies',status:'scheduled',matchDate:'2026-11-22',kickoffTime:'10:00',arrivalTime:'09:15',availabilityStatus:'no_response',squadDecisionState:'selected',confirmedTeam:[],events:[]}];
     window.mobileCalendar=[{id:'fixture',title:'Ladies league match',eventType:'match_day',startsAt:'2026-11-22T10:00:00Z'}];
+    window.mobileMatches.push({...window.mobileMatches[0],id:'no-invite',title:'Fixture without an invitation',matchDate:'2026-11-29',squadDecisionState:'not_announced'});
     window.mobileStats={matches:{won:3,lost:2,drawn:1},matchesByFixtureType:{cup:{won:1,lost:0,drawn:0},league:{won:2,lost:2,drawn:0},friendly:{won:0,lost:0,drawn:1}},personal:{goals:5}};
     window.rpc=async(name,args)=>{window.calls.push([name,args]);return {data:{success:true}}};
   });
   await page.addScriptTag({content:shellBundle.outputFiles[0].text});
 }
 
-async function launchFixture(page, { links = [], state = 'linked' } = {}) {
+async function launchFixture(page, { links = [], state = 'linked', hold = false } = {}) {
   await page.clock.setFixedTime(new Date('2026-11-21T12:00:00Z'))
   await page.route('https://fixture.example.test/', route => route.fulfill({
     contentType: 'text/html',
@@ -158,9 +163,10 @@ async function launchFixture(page, { links = [], state = 'linked' } = {}) {
     body: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24"><rect width="24" height="24" fill="navy"/></svg>',
   }))
   await page.goto('https://fixture.example.test/')
-  await page.evaluate(({ links, state, sharedBadge }) => {
+  await page.evaluate(({ links, state, hold, sharedBadge }) => {
     window.parentLinks = links
     window.playerAccess = state
+    window.holdAccessCheck = hold
     window.calls = []
     let response = 'awaiting_response'
     window.rpc = async (name, args) => {
@@ -192,7 +198,7 @@ async function launchFixture(page, { links = [], state = 'linked' } = {}) {
       }
       throw Error(`Unexpected call ${name}`)
     }
-  }, { links, state, sharedBadge })
+  }, { links, state, hold, sharedBadge })
   await page.addScriptTag({ content: bundle.outputFiles[0].text })
 }
 
@@ -203,9 +209,32 @@ for (const [engine, device] of [[webkit, 'iPhone 13'], [chromium, 'Pixel 7']]) {
     shell.on('pageerror', error => console.error('Shared shell error:', error.message))
     await launchSharedShell(shell)
     await shell.getByLabel('Player app navigation').waitFor()
-    for (const name of ['Home','Calendar','Matchday','Chat','More']) await shell.getByRole('tab',{name,exact:true}).waitFor()
+    for (const name of ['Home','Calendar','Matchday','Chat']) await shell.getByRole('tab',{name,exact:true}).waitFor()
+    const moreTab = shell.getByRole('tab', { name: /^More\b/ })
+    await moreTab.waitFor()
     const calendarTab = shell.getByRole('tab', { name: 'Calendar', exact: true })
     await calendarTab.click()
+    await shell.getByRole('button', { name: 'Month', exact: true }).click()
+    const invitedDay = shell.getByRole('button', { name: '2026-11-22, 1 events', exact: true })
+    const noInviteDay = shell.getByRole('button', { name: '2026-11-29, 1 events', exact: true })
+    await invitedDay.getByLabel('response calendar marker').waitFor()
+    await noInviteDay.getByLabel('match calendar marker').waitFor()
+    await noInviteDay.click()
+    const noInviteFixture = shell.getByRole('button', { name: /^Fixture without an invitation/ })
+    await noInviteFixture.click()
+    const availability = shell.getByLabel('Availability: No response requested', { exact: true })
+    const squad = shell.getByLabel('Match squad: Not announced yet', { exact: true })
+    await availability.waitFor()
+    await squad.waitFor()
+    const originalViewport = shell.viewportSize()
+    await shell.setViewportSize({ ...originalViewport, width: 320 })
+    const availabilityBox = await availability.boundingBox()
+    const squadBox = await squad.boundingBox()
+    assert.ok(availabilityBox.x + availabilityBox.width <= squadBox.x, 'Matchday badges remain in their own columns at 320px')
+    assert.equal(await shell.getByRole('button', { name: 'Change availability', exact: true }).count(), 0)
+    await shell.setViewportSize(originalViewport)
+    await calendarTab.click()
+    await shell.getByRole('button', { name: 'Agenda', exact: true }).click()
     await shell.getByRole('button', { name: 'All upcoming', exact: true }).click()
     const fixture = shell.getByRole('button', { name: /^Ladies league match/ })
     await fixture.waitFor()
@@ -217,7 +246,9 @@ for (const [engine, device] of [[webkit, 'iPhone 13'], [chromium, 'Pixel 7']]) {
       await shell.getByRole('tab',{name,exact:true}).click()
       await shell.getByRole('heading',{name,exact:true}).waitFor()
     }
-    await shell.getByRole('tab',{name:'More',exact:true}).click()
+    await shell.getByText('Ladies Team Chat', { exact: true }).waitFor()
+    assert.equal(await shell.getByText('Ladies | Parents and Team Coaches', { exact: true }).count(), 0)
+    await moreTab.click()
     await shell.getByRole('button',{name:/^Player stats,/}).click()
     await shell.getByRole('button',{name:'Team matches filter, All'}).click()
     await shell.getByRole('button',{name:'Cup',exact:true}).click()
@@ -248,8 +279,16 @@ for (const [engine, device] of [[webkit, 'iPhone 13'], [chromium, 'Pixel 7']]) {
     console.log(`${device} shared Player shell tabs, appearance settings, self identity and own RSVP passed`)
     await shell.close()
     const page = await browser.newPage(devices[device])
-    await launchFixture(page)
-    await page.getByRole('heading', { name: 'Cambourne Town FC' }).waitFor()
+    page.on('pageerror', error => console.error('Player entry error:', error.message))
+    await launchFixture(page, { hold: true })
+    await page.getByText('Loading your club...', { exact: true }).waitFor()
+    assert.equal(await page.getByRole('heading', { name: 'Player access', exact: true }).count(), 0)
+    assert.equal(await page.getByRole('heading', { name: 'Cambourne Town FC', exact: true }).count(), 0)
+    await page.waitForFunction(() => typeof window.releaseAccessCheck === 'function')
+    await page.evaluate(() => { window.holdAccessCheck = false; window.releaseAccessCheck() })
+    await page.getByRole('heading', { name: 'Cambourne Town FC' }).waitFor({ timeout: 5000 }).catch(async error => {
+      throw new Error(`Player launch after access check: ${await page.locator('body').innerText()}`, { cause: error })
+    })
     await page.getByText('Ladies', { exact: true }).waitFor()
     await page.getByText('22:11:2026 at 10:00', { exact: true }).waitFor()
     await page.evaluate(() => {

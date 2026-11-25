@@ -6,6 +6,7 @@ import { getOwnAdultPlayerInvitations, respondToOwnAdultPlayerInvitation } from 
 import { getParentProductDateTimeParts } from '../../mobile-core/src/parentDateTimeCore'
 import { createParentMobileTheme } from '../../mobile-core/src/parentThemeCore'
 import { supabase } from '../../mobile-core/src/supabase'
+import { LoadingScreen } from '../../mobile-core/src/ui'
 
 const labels = {
   match_attendance: ['Available', 'Maybe', 'Unavailable'],
@@ -74,6 +75,8 @@ export function AdultPlayerScreen({ access, onRefresh, onSignOut, onSwitchAccoun
     }
   }
 
+  if (status === 'checking') return <LoadingScreen message="Loading your club..." />
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
       <StatusBar style={mode === 'dark' ? 'light' : 'dark'} />
@@ -116,15 +119,15 @@ export function AdultPlayerScreen({ access, onRefresh, onSignOut, onSwitchAccoun
         ) : (
           <>
             <Text accessibilityRole="header" style={[styles.title, { color: colors.textPrimary }]}>Player access</Text>
-            {status === 'checking' || status === 'denied' ? <Text accessibilityLiveRegion="polite" style={[styles.text, { color: colors.textSecondary }]}>
-              {status === 'checking' ? 'Checking your team access...' : 'Your Player access is unavailable. Ask your club to check your invitation.'}
+            {status === 'denied' ? <Text accessibilityLiveRegion="polite" style={[styles.text, { color: colors.textSecondary }]}>
+              Your Player access is unavailable. Ask your club to check your invitation.
             </Text> : null}
           </>
         )}
         {confirmation ? <Text accessibilityLiveRegion="polite" style={[styles.text, { color: colors.textPrimary }]}>{confirmation}</Text> : null}
         {error ? <Text accessibilityRole="alert" style={[styles.text, { color: colors.danger }]}>{error}</Text> : null}
         <View style={[styles.actions, styles.footer, { borderTopColor: colors.border }]}>
-          <PlayerAction label={status === 'linked' ? 'Refresh invitations' : 'Check for access'} colors={colors} disabled={status === 'checking' || Boolean(pending)} onPress={retry} />
+          <PlayerAction label={status === 'linked' ? 'Refresh invitations' : 'Check for access'} colors={colors} disabled={Boolean(pending)} onPress={retry} />
           {onSwitchAccount ? <PlayerAction label={switchLabel} colors={colors} onPress={onSwitchAccount} /> : null}
           <PlayerAction label="Sign out" colors={colors} onPress={() => void onSignOut().catch(failure => setActionError(failure.message))} />
         </View>

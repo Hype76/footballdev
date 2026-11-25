@@ -13,7 +13,7 @@ test('Other scorer and free text assist names appear in detailed goal alerts', (
     id: 'named-goal', event_type: 'goal', team_side: 'club',
     scorer_name: 'Other: Trial Player', assist_name: 'Guest Assist',
   } })
-  assert.equal(copy.detailedBody, 'Goal: Trial Player. Assist: Guest Assist. 3 - 1 v Newcastle.')
+  assert.equal(copy.detailedBody, 'Goal: Trial Player. Assist: Guest Assist. 3 - 1.')
   assert.equal(copy.matchTitle, 'U17G v Newcastle')
   assert.equal(copy.minimalBody, copy.detailedBody)
   assert.equal(copy.tag, 'match-day-feedback-match-goal-named-goal')
@@ -23,7 +23,7 @@ test('squad shirt numbers survive alongside an Other scorer', () => {
   const copy = buildParentMatchDayNotificationCopy({ match, type: 'goal', event: {
     scorerName: 'Other: Trial Player', assistName: 'Ella Foster', assistShirtNumber: '5',
   } })
-  assert.equal(copy.detailedBody, 'Goal: Trial Player. Assist: Ella Foster #5. 3 - 1 v Newcastle.')
+  assert.equal(copy.detailedBody, 'Goal: Trial Player. Assist: Ella Foster #5. 3 - 1.')
 })
 
 test('compact match titles retain fixture identity for all notification categories', () => {
