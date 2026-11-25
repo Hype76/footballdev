@@ -1,4 +1,8 @@
 import test from 'node:test'
+import { readFile } from 'node:fs/promises'
+import { PGlite } from '@electric-sql/pglite'
+import { deliverCoachMatchDayCommands } from '../netlify/functions/lib/_coach-match-day-command-notifications.js'
+import { deliverParentScorerCommands } from '../netlify/functions/lib/_parent-scorer-command-notifications.js'
 import assert from 'node:assert/strict'
 import { generateKeyPairSync } from 'node:crypto'
 import { deliverLiveMatchChange } from '../netlify/functions/lib/_deliver-live-match-changes.js'
@@ -183,4 +187,81 @@ test('concluded iPhone match sends the final score and stops its clock', async (
   assert.equal(aps['content-state'].running, false)
   assert.equal(aps['content-state'].homeScore, 1)
   assert.equal(aps['content-state'].awayScore, 0)
+})
+
+test('saved hydration and resume commands refresh both platforms without a later event or an alert', async () => {
+  const db = new PGlite()
+  const migration = await readFile(new URL('../supabase/migrations/20261125123206_wake_live_clock_for_saved_scorer_commands.sql', import.meta.url), 'utf8')
+  const id = n => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`
+  const owner = id(9)
+  const followers = [
+    { app_role: 'parent', platform: 'ios', activity_token: 'ab'.repeat(32), access_allowed: true },
+    { app_role: 'coach', platform: 'ios', start_token: 'cd'.repeat(32), access_allowed: true },
+    { app_role: 'coach', platform: 'android', access_allowed: true },
+  ]
+  const cases = [
+    ['coach_match_day', 'coach_match_day_commands', deliverCoachMatchDayCommands, { id: matchId }],
+    ['parent_scorer', 'parent_scorer_match_day_commands', deliverParentScorerCommands, { match: { id: matchId } }],
+  ]
+  try {
+    await db.exec('create role anon; create role authenticated; create role service_role; create schema private;')
+    for (const [, table] of cases) {
+      await db.exec(`create table private.${table} (
+        id uuid primary key, actor_user_id uuid, kind text, payload jsonb, result jsonb, event_id uuid,
+        notification_type text default '', notification_completed_at timestamptz,
+        notification_claimed_at timestamptz, notification_attempts integer default 0,
+        created_at timestamptz default now()
+      );`)
+    }
+    await db.exec(migration)
+    await db.exec('set role authenticated')
+    for (const [prefix] of cases) await assert.rejects(db.query(`select public.claim_${prefix}_command_notifications()`), /permission denied/)
+    await db.exec('reset role')
+    for (const [prefix, table, dispatch, commandResult] of cases) {
+      const claim = `claim_${prefix}_command_notifications`
+      const complete = `complete_${prefix}_command_notification`
+      const requests = [], android = []
+      let fixture
+      const client = {
+        from(tableName) { return clientFor(followers, fixture).from(tableName) },
+        async rpc(name, args) {
+          if (name === claim) {
+            const { rows } = await db.query(`select public.${claim}($1,$2) as value`, [args.command_id_value, args.actor_user_id_value])
+            return { data: rows[0].value }
+          }
+          if (name === complete) {
+            assert.equal(args.error_value, '')
+            await db.query(`update private.${table} set notification_completed_at=now() where id=$1`, [args.command_id_value])
+            return {}
+          }
+          assert.equal(name, 'get_live_match_follows_for_delivery')
+          return { data: followers }
+        },
+      }
+      const refreshClock = async (targetId, sameClient) => {
+        assert.equal(sameClient, client)
+        const delivery = await deliverLiveMatchChange(targetId, {
+          client, provider, startActivities: false, now: () => Date.parse('2026-11-03T08:40:00Z'),
+          send: async request => { requests.push(JSON.parse(request.body).aps); return { accepted: true } },
+          sendAndroid: async (_follower, target, stop) => { android.push({ target, stop }); return true },
+        })
+        assert.equal(delivery.failed, 0)
+      }
+      const dispatchOptions = { client, refreshClock, deliver: async () => assert.fail('Unexpected regular notification') }
+      for (const [index, action] of ['hydration', 'resume'].entries()) {
+        const commandId = id(index + 1)
+        fixture = { ...match, timer_elapsed_seconds: 259, timer_status: index ? 'running' : 'hydration',
+          timer_started_at: index ? '2026-11-03T08:39:50Z' : null }
+        await db.query(`insert into private.${table}(id,actor_user_id,kind,payload,result) values($1,$2,'timer',$3,$4)`,
+          [commandId, owner, { action }, commandResult])
+        assert.deepEqual(await dispatch(null, null, dispatchOptions), { completed: 0, failed: 0 })
+        assert.deepEqual(await dispatch(commandId, id(8), dispatchOptions), { completed: 0, failed: 0 })
+        assert.deepEqual(await dispatch(commandId, owner, dispatchOptions), { completed: 1, failed: 0 })
+        assert.deepEqual(await dispatch(commandId, owner, dispatchOptions), { completed: 0, failed: 0 })
+      }
+      assert.deepEqual(requests.map(aps => [aps.event, aps['content-state'].running, aps['content-state'].elapsedSeconds, aps.alert]),
+        [['update', false, 259, undefined], ['update', true, 269, undefined]])
+      assert.deepEqual(android, [{ target: matchId, stop: false }, { target: matchId, stop: false }])
+    }
+  } finally { await db.close() }
 })

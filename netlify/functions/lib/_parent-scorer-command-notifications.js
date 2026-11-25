@@ -1,7 +1,8 @@
+import { refreshSavedMatchClock } from './_deliver-live-match-changes.js'
 import { deliverCoachMatchReviewOnce } from './_coach-match-review-delivery.js'
 import { deliverShootoutNotifications } from './_match-day-shootout-notifications.js'
 
-export async function deliverParentScorerCommands(commandId = null, actorUserId = null, { client, deliver, review } = {}) {
+export async function deliverParentScorerCommands(commandId = null, actorUserId = null, { client, deliver, review, refreshClock = refreshSavedMatchClock } = {}) {
   client ||= (await import('./_supabase.js')).supabaseAdmin
   const { data: commands, error } = await client.rpc('claim_parent_scorer_command_notifications', { command_id_value: commandId, actor_user_id_value: actorUserId })
   if (error) throw error
@@ -12,22 +13,26 @@ export async function deliverParentScorerCommands(commandId = null, actorUserId 
     if (Date.now() - startedAt > 18000) break
     let failure = ''
     try {
-      const { data: context, error: contextError } = await client.from('match_days')
-        .select('id, status, concluded_at, teams:team_id(name,notification_display_name), clubs:club_id(name,status)').eq('id', command.match.id).is('deleted_at', null).maybeSingle()
-      if (contextError) throw contextError
-      if (!context) throw new Error('The match is no longer available.')
-      const match = { ...command.match, teams: context.teams, clubs: context.clubs }
-      if (command.kind === 'request-review' || command.type === 'coach_review') {
-        await deliverCoachMatchReviewOnce({ client, match: { ...match, status: context.status, concluded_at: context.concluded_at }, actorUserId: command.actorUserId, review })
-      } else if (command.type === 'shootout_kick') {
-        const result = await deliverShootoutNotifications({ matchDayId: match.id, kickId: command.eventId, client, deliver })
-        if (result.failed) throw new Error('Shootout notifications will be retried.')
+      if (command.type === 'live_clock_refresh') {
+        await refreshClock(command.match.id, client)
       } else {
-        const { data: targets, error: targetError } = await client.rpc('get_match_day_parent_notification_link_ids', { match_day_id_value: command.match.id })
-        if (targetError) throw targetError
-        deliver ||= (await import('../send-match-day-push.js')).deliverMatchDayNotification
-        const result = await deliver({ match, type: command.type, eventId: command.eventId || '', ...(command.type === 'score_correction' ? { notificationId: command.id } : {}), targetParentLinkIds: [...new Set(targets || [])] })
-        if (result.mobileFailed || result.webFailed || result.fanFailed || result.adultPlayerFailed) throw new Error('Some match notifications were not accepted. Delivery will be retried.')
+        const { data: context, error: contextError } = await client.from('match_days')
+          .select('id, status, concluded_at, teams:team_id(name,notification_display_name), clubs:club_id(name,status)').eq('id', command.match.id).is('deleted_at', null).maybeSingle()
+        if (contextError) throw contextError
+        if (!context) throw new Error('The match is no longer available.')
+        const match = { ...command.match, teams: context.teams, clubs: context.clubs }
+        if (command.kind === 'request-review' || command.type === 'coach_review') {
+          await deliverCoachMatchReviewOnce({ client, match: { ...match, status: context.status, concluded_at: context.concluded_at }, actorUserId: command.actorUserId, review })
+        } else if (command.type === 'shootout_kick') {
+          const result = await deliverShootoutNotifications({ matchDayId: match.id, kickId: command.eventId, client, deliver })
+          if (result.failed) throw new Error('Shootout notifications will be retried.')
+        } else {
+          const { data: targets, error: targetError } = await client.rpc('get_match_day_parent_notification_link_ids', { match_day_id_value: command.match.id })
+          if (targetError) throw targetError
+          deliver ||= (await import('../send-match-day-push.js')).deliverMatchDayNotification
+          const result = await deliver({ match, type: command.type, eventId: command.eventId || '', ...(command.type === 'score_correction' ? { notificationId: command.id } : {}), targetParentLinkIds: [...new Set(targets || [])] })
+          if (result.mobileFailed || result.webFailed || result.fanFailed || result.adultPlayerFailed) throw new Error('Some match notifications were not accepted. Delivery will be retried.')
+        }
       }
       completed += 1
     } catch (error) { failure = error.message || 'Match notification delivery failed.'; failed += 1 }
