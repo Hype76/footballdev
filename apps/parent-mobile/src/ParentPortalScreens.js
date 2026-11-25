@@ -542,7 +542,7 @@ function CalendarEventCard({ activeActionId, colors, event, invitation, isOfflin
   )
 }
 
-export function CalendarScreen({ activeActionId, invitations = [], isOffline, link, onAddToCalendar, onDateSelected, onOpenInvitation, onOpenLink, onOpenResource, onRespond, onTransport, resource, targetEventId = '', targetOccurrenceDate = '', targetRequestId = 0, themeTokens, onOpenEventDetails, upcomingOnly = false }) {
+export function CalendarScreen({ activeActionId, invitations = [], isOffline, link, onAddToCalendar, onDateSelected, onOpenInvitation, onOpenLink, onOpenMatch, onOpenResource, onRespond, onTransport, resource, targetEventId = '', targetOccurrenceDate = '', targetRequestId = 0, themeTokens, onOpenEventDetails, upcomingOnly = false }) {
   const { colors, styles } = usePortalStyles(themeTokens)
   const [selectedEventKey, setSelectedEventKey] = useState('')
   const [detailPlayerId, setDetailPlayerId] = useState(link?.id)
@@ -615,6 +615,11 @@ export function CalendarScreen({ activeActionId, invitations = [], isOffline, li
       ? current.filter((item) => item !== tone)
       : [...current, tone])
   }
+  const openEvent = (event) => {
+    if (event.sourceType === 'match_day' && onOpenMatch?.(event.sourceId)) return
+    setSelectedEventKey(getParentEventKey(event))
+    onOpenEventDetails?.()
+  }
   const selectedEvent = resource.items.find(event => getParentEventKey(event) === selectedEventKey)
   if (selectedEvent) return <CalendarEventDetail activeActionId={activeActionId} event={selectedEvent} invitations={invitations} isOffline={isOffline} onBack={() => setSelectedEventKey('')} onOpenLink={onOpenLink} onOpenResource={onOpenResource} onRespond={onRespond} themeTokens={themeTokens} />
   return (
@@ -651,13 +656,13 @@ export function CalendarScreen({ activeActionId, invitations = [], isOffline, li
             return <Pressable accessibilityLabel={`${label} calendar filter`} accessibilityRole="button" accessibilityState={{ selected }} key={tone} onPress={() => toggleMarkerTone(tone)} style={styles.monthLegendItem}><View style={[styles.monthLegendIcon, !selected && { opacity: 0.42 }]}><ParentIcon color={marker.color} iconKey={marker.iconKey} size={18} /></View><Text style={styles.monthLegendText}>{label}</Text></Pressable>
           })}
         </View>
-        {selectedDate ? <View style={styles.section}><Text style={styles.dateHeading}>{formatCalendarDay(selectedDate)}</Text>{selectedDayEvents.length ? selectedDayEvents.map((event) => <CalendarEventCard onOpenEvent={event => { setSelectedEventKey(getParentEventKey(event)); onOpenEventDetails?.() }} activeActionId={activeActionId} colors={colors} event={event} invitation={invitationById.get(event.invitationId)} isOffline={isOffline} key={event.id} onAddToCalendar={onAddToCalendar} onOpenInvitation={onOpenInvitation} onOpenLink={onOpenLink} onOpenResource={onOpenResource} onRespond={onRespond} onTransport={onTransport} styles={styles} />) : <Text style={styles.empty}>No events on this date.</Text>}</View> : <Text style={styles.helper}>Tap a date to see its events.</Text>}
+        {selectedDate ? <View style={styles.section}><Text style={styles.dateHeading}>{formatCalendarDay(selectedDate)}</Text>{selectedDayEvents.length ? selectedDayEvents.map((event) => <CalendarEventCard onOpenEvent={openEvent} activeActionId={activeActionId} colors={colors} event={event} invitation={invitationById.get(event.invitationId)} isOffline={isOffline} key={event.id} onAddToCalendar={onAddToCalendar} onOpenInvitation={onOpenInvitation} onOpenLink={onOpenLink} onOpenResource={onOpenResource} onRespond={onRespond} onTransport={onTransport} styles={styles} />) : <Text style={styles.empty}>No events on this date.</Text>}</View> : <Text style={styles.helper}>Tap a date to see its events.</Text>}
       </View> : null}
       {viewMode === 'agenda' && !resource.loading && activeEvents.length > 0 && visibleEvents.length === 0 ? <Text style={styles.empty}>No Calendar items match this date filter.</Text> : null}
       {viewMode === 'agenda' ? groups.map((group) => (
         <View key={group.date} style={styles.section}>
           <Text accessibilityRole="header" style={styles.dateHeading}>{group.date === 'date-tbc' ? 'Date to be confirmed' : formatCalendarDay(group.date)}</Text>
-          {group.events.map((event) => <CalendarEventCard onOpenEvent={event => { setSelectedEventKey(getParentEventKey(event)); onOpenEventDetails?.() }} activeActionId={activeActionId} colors={colors} event={event} invitation={invitationById.get(event.invitationId)} isOffline={isOffline} key={event.id} onAddToCalendar={onAddToCalendar} onOpenInvitation={onOpenInvitation} onOpenLink={onOpenLink} onOpenResource={onOpenResource} onRespond={onRespond} onTransport={onTransport} styles={styles} />)}
+          {group.events.map((event) => <CalendarEventCard onOpenEvent={openEvent} activeActionId={activeActionId} colors={colors} event={event} invitation={invitationById.get(event.invitationId)} isOffline={isOffline} key={event.id} onAddToCalendar={onAddToCalendar} onOpenInvitation={onOpenInvitation} onOpenLink={onOpenLink} onOpenResource={onOpenResource} onRespond={onRespond} onTransport={onTransport} styles={styles} />)}
         </View>
       )) : null}
     </View>

@@ -1,5 +1,6 @@
 import { loadFanMatches } from './_fan-schedule.js'
 import { calculatePlayerPlayingTime } from '../../../src/lib/domain/player-playing-time.js'
+import { normalizeMatchDayFixtureType } from '../../../src/lib/matchday-fixture-type.js'
 
 const normalizeName = (value) => String(value || '').replace(/^Other:\s*/i, '').trim().toLocaleLowerCase('en-GB')
 
@@ -14,6 +15,11 @@ export function buildPlayerStats({ matches = [], selections = [], startingSquads
   const selectedIds = new Set(selections.filter(row => row.player_id === player.id && row.status === 'selected').map(row => row.match_day_id))
   const matchIds = new Set(completed.map(match => match.id))
   const record = { won: 0, lost: 0, drawn: 0 }
+  const matchesByFixtureType = {
+    cup: { won: 0, lost: 0, drawn: 0 },
+    league: { won: 0, lost: 0, drawn: 0 },
+    friendly: { won: 0, lost: 0, drawn: 0 },
+  }
   for (const match of completed) {
     if (match.home_score == null || match.away_score == null) continue
     const home = Number(match.home_score)
@@ -21,7 +27,10 @@ export function buildPlayerStats({ matches = [], selections = [], startingSquads
     if (!Number.isFinite(home) || !Number.isFinite(away)) continue
     const club = match.home_away === 'away' ? away : home
     const opponent = match.home_away === 'away' ? home : away
-    record[club === opponent ? 'drawn' : club > opponent ? 'won' : 'lost'] += 1
+    const outcome = club === opponent ? 'drawn' : club > opponent ? 'won' : 'lost'
+    record[outcome] += 1
+    const breakdown = matchesByFixtureType[normalizeMatchDayFixtureType(match.fixture_type)]
+    if (breakdown) breakdown[outcome] += 1
   }
   const playerName = normalizeName(player.player_name)
   const activeGoals = events.filter(event => matchIds.has(event.match_day_id) && event.event_type === 'goal' && event.team_side === 'club' && ['active', 'corrected'].includes(event.event_status || 'active') && !event.voided_at && !event.is_own_goal)
@@ -38,6 +47,7 @@ export function buildPlayerStats({ matches = [], selections = [], startingSquads
   return {
     period: 'Last 12 months',
     matches: record,
+    matchesByFixtureType,
     personal: {
       matches: completed.filter(match => selectedIds.has(match.id)).length,
       goals: activeGoals.filter(event => credits(event, 'scorer')).length,

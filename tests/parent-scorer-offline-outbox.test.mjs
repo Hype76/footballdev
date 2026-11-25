@@ -183,6 +183,25 @@ test('a newer server refresh wins after the queue drains, while pending correcti
   assert.deepEqual(visible.eventParticipants, currentAuthority.eventParticipants)
 })
 
+test('confirmed start and second half survive a stale fetch until the server catches up', () => {
+  for (const [previous, status, phase] of [
+    ['scheduled', 'live', 'first_half'],
+    ['half_time', 'second_half', 'second_half'],
+  ]) {
+    const stale = { ...base, isScorer: true, status: previous, timerStatus: previous }
+    const acknowledged = { ...stale, status, currentMatchPhase: phase, timerStatus: 'running',
+      timerStartedAt: '2026-09-26T11:01:00Z', updatedAt: '2026-09-26T11:01:00Z' }
+    const saved = { ...journal(), baseMatch: acknowledged }
+    const visible = getVisibleParentScorerMatch(stale, saved)
+    assert.equal(visible.status, status)
+    assert.equal(visible.timerStatus, 'running')
+    assert.equal(visible.currentMatchPhase, phase)
+    assert.equal(getVisibleParentScorerMatch({ ...stale, isScorer: false }, saved).status, previous)
+    assert.equal(getVisibleParentScorerMatch({ ...stale, status: 'cancelled' }, saved).status, 'cancelled')
+    assert.equal(getVisibleParentScorerMatch(acknowledged, saved), acknowledged)
+  }
+})
+
 test('a new goal cannot enter the offline journal with a missing match minute', () => {
   for (const minute of ['', ' ', null, undefined, -1, 1.5]) {
     assert.throws(() => appendParentScorerCommand(journal(), {

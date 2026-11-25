@@ -27,7 +27,13 @@ export function TeamLeagueLinkRow({ client, scope, palette, styles, coach = fals
   const accent = palette.accentText || palette.accent
   return <View style={tile ? styles.tileWrapper : undefined}>
     <Pressable disabled={!available} accessibilityRole={available ? 'link' : 'text'} accessibilityLabel={`Current league for ${league.value?.teamName || 'this team'}`} accessibilityHint={available ? 'Opens the league website in your browser' : undefined} onPress={() => { void league.open(Linking) }} style={({ pressed }) => [tile ? styles.tile : coach ? styles.homeNextRow : [styles.compactRow, styles.leagueRow || { minHeight: 64, paddingVertical: 8, borderBottomColor: palette.border, borderBottomWidth: 1 }], pressed && styles.pressed]}>
-      {tile ? <><View style={styles.tileIcon}><MaterialIcons accessible={false} color={accent} name="emoji-events" size={25} /></View><View style={styles.tileLabelRow}><Text style={styles.cardTitle}>Current league</Text><MaterialIcons accessible={false} color={accent} name="chevron-right" size={18} style={{ opacity: available ? 1 : 0 }} /></View></> : <>
+      {tile ? <>
+        <View style={styles.tileHeader}>
+          <View style={styles.tileIcon}><MaterialIcons accessible={false} color={accent} name="emoji-events" size={25} /></View>
+          <MaterialIcons accessible={false} color={accent} name="chevron-right" size={16} style={{ opacity: available ? 1 : 0 }} />
+        </View>
+        <Text style={styles.cardTitle}>Current league</Text>
+      </> : <>
       {!coach && styles.homeItemIcon ? <View style={styles.homeItemIcon}><MaterialIcons accessible={false} color={accent} name="public" size={25} /></View> : <MaterialIcons accessible={false} color={coach ? accent : text} name="public" size={coach ? 30 : 31} />}
       <View style={coach ? styles.homeNextCopy : styles.compactCopy}>
         <Text style={coach ? styles.iconEyebrow : styles.cardTitle}>Current league</Text>

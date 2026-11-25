@@ -10,6 +10,7 @@ export function AdultPlayerEntry({ userId, links, parentProfilePending, onSignOu
   const hasFan = !hasParent && links.some(link => link.linkType === 'fan')
   const [preferredMode, setPreferredMode] = useState(null)
   const pendingPush = useRef(null)
+  const [lastResolvedView, setLastResolvedView] = useState(null)
   const responseId = notificationResponse?.notification?.request?.identifier || ''
   const data = notificationResponse?.notification?.request?.content?.data
   const activeResponse = useRef(null)
@@ -58,7 +59,12 @@ export function AdultPlayerEntry({ userId, links, parentProfilePending, onSignOu
     })
   }, [access, userId, onRejectPlayerNotification])
 
-  const view = parentProfilePending ? 'checking' : selectAdultPlayerView({ access, hasParent, hasFan, preferredMode })
+  const resolvedView = selectAdultPlayerView({ access, hasParent, hasFan, preferredMode })
+  if (!parentProfilePending && (lastResolvedView?.userId !== userId || lastResolvedView?.view !== resolvedView)) {
+    setLastResolvedView({ userId, view: resolvedView })
+  }
+  const keepPlayerVisible = access.status === 'linked' && lastResolvedView?.userId === userId && lastResolvedView?.view === 'player'
+  const view = parentProfilePending ? (keepPlayerVisible ? 'player' : 'checking') : resolvedView
 
   const openPlayer = access.status === 'linked' ? () => setPreferredMode('player') : null
   if (view === 'fan') return renderFan(openPlayer)
@@ -67,7 +73,7 @@ export function AdultPlayerEntry({ userId, links, parentProfilePending, onSignOu
   if (view === 'player' && access.link && renderPlayer) return renderPlayer({ link: access.link, openOtherAccount: hasParent || hasFan ? () => setPreferredMode(hasParent ? 'parent' : 'fan') : null })
 
   return (
-    <AdultPlayerScreen key={access.link?.id || 'access'} access={parentProfilePending ? { status: 'checking' } : access} onRefresh={refresh} onSignOut={onSignOut}
+    <AdultPlayerScreen key={access.link?.id || 'access'} access={parentProfilePending && view === 'checking' ? { status: 'checking' } : access} onRefresh={refresh} onSignOut={onSignOut}
       onSwitchAccount={hasParent || hasFan ? () => setPreferredMode(hasParent ? 'parent' : 'fan') : null}
       switchLabel={hasParent ? 'Open Parent account' : 'Open Fan account'} />
   )

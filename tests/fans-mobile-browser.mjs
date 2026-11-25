@@ -531,6 +531,14 @@ try {
   await button('Confirm Player account').click();
   await page.waitForFunction(()=>window.rows[0].relationship_type==='player');
   await page.evaluate(()=>{window.standalone=true;window.user={id:'fan-test',parentPortalLinks:[]};window.rows[0].is_owner=false;window.responses.attendance={attendance:[{id:'event',title:'FP TEST Match',date:'2026-09-19',response:'available'}]};window.remount()});
+  const attendanceViewport = page.viewportSize();
+  for (const width of [360, 390]) {
+    await page.setViewportSize({ width, height: 850 });
+    const label = button('Attendance').getByText('Attendance', { exact: true });
+    await label.waitFor();
+    assert.ok((await label.boundingBox()).height <= 18, `Attendance fits one line at ${width}px`);
+  }
+  await page.setViewportSize(attendanceViewport);
   await button('Attendance').click();await page.getByText('My attendance',{exact:true}).waitFor();
   await page.getByText('Available',{exact:true}).waitFor();
   await button('Back to Fans').click();

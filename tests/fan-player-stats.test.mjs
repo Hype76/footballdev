@@ -19,6 +19,24 @@ test('Player stats count completed team results and selected appearances', () =>
   assert.equal(stats.personal.matches, 2)
 })
 
+test('team type totals retain the All result and exclude other teams and scheduled fixtures', () => {
+  const [win, loss, draw, scheduled] = matches
+  const stats = buildPlayerStats({ player, matches: [
+    { ...win, fixture_type: 'cup' },
+    { ...loss, fixture_type: 'league' },
+    { ...draw, fixture_type: 'friendly' },
+    { ...win, id: 'tournament', fixture_type: 'tournament' },
+    { ...win, id: 'other-team', team_id: 'team-2', fixture_type: 'cup' },
+    { ...scheduled, fixture_type: 'cup' },
+  ] })
+  assert.deepEqual(stats.matches, { won: 2, lost: 1, drawn: 1 })
+  assert.deepEqual(stats.matchesByFixtureType, {
+    cup: { won: 1, lost: 0, drawn: 0 },
+    league: { won: 0, lost: 1, drawn: 0 },
+    friendly: { won: 0, lost: 0, drawn: 1 },
+  })
+})
+
 test('Goals, assists and Player of the Match use active goals and winning closed polls', () => {
   const stats = buildPlayerStats({ matches, player, events: [
     { match_day_id: 'home-win', event_type: 'goal', team_side: 'club', scorer_name: 'Jenson Bailey', assist_name: 'Sam', event_status: 'active' },
