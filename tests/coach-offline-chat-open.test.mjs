@@ -66,3 +66,30 @@ test('closed Chat history is only requested on opening and a late response canno
   assert.deepEqual(state.rooms, [room])
   assert.deepEqual(calls.at(-1), { 'phase31e:chat-closed': [room] })
 })
+
+test('Mark all as read includes an unread closed conversation before history has been opened', async () => {
+  const start = source.indexOf('const markAllRead = async')
+  const end = source.indexOf('\n  useEffect(', start)
+  const room = { id: 'closed-unread', kind: 'parent', unreadCount: 1 }
+  const marked = []
+  const deps = {
+    unreadRooms: [], markingAllRead: false, stale: false, user: {}, chatMounted: { current: true },
+    setMarkingAllRead() {}, setNotice() {}, getCoachParentChatUnread: async () => [room],
+    markCoachChatRead: async (_user, item) => { marked.push(item) },
+    clearClosedUnread() {}, load: async () => {}, reloadHome: async () => {},
+  }
+  const markAllRead = new Function(...Object.keys(deps), source.slice(start, end) + '; return markAllRead')(...Object.values(deps))
+  await markAllRead()
+  assert.deepEqual(marked, [room])
+
+  let generation = 1
+  let finish
+  deps.user = { getCoachAuthorityGeneration: () => generation }
+  deps.getCoachParentChatUnread = () => new Promise(resolve => { finish = resolve })
+  const run = new Function(...Object.keys(deps), source.slice(start, end) + '; return markAllRead')(...Object.values(deps))
+  const pending = run()
+  generation += 1
+  finish([room])
+  await pending
+  assert.deepEqual(marked, [room], 'A response from the previous team cannot mark anything as read')
+})

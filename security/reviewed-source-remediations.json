@@ -771,7 +771,7 @@
   "implementationHashes": {
     "scripts/security-supply-chain-gate.mjs": "9ef3c2fa9949a270eba3b8d7eefc2f9e303e8fbb2fda3921b2e6e42280e733fc",
     "scripts/security-apply-reviewed-backports.mjs": "ecd054578172a4fc6d09720258d2aed1c4a48edd97d6e3b0daa4f635f27f5fcd",
-    "scripts/security-verify-reviewed-backports.mjs": "e21479d53008d04b0d0f57da768b22da6c86d036624dc75ff50b87808c5a1ff3",
+    "scripts/security-verify-reviewed-backports.mjs": "bd07572b35c8217826060cff9c776f96fa8a6558456c0083230080f4f79bc156",
     "security/patches/braces-3.0.3.patch": "e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699",
     "security/patches/node-forge-1.4.0.patch": "2de065ac998bf58917a14d0935112d97ec2957ac41b5f06958d500934f188ed4",
     "security/patches/reviewed-source-manifest.json": "0507b50c4ce7a772508ed3a0d18290548bb1fd48802db4599a5ec8e47e2eed49",
@@ -1678,7 +1678,7 @@
       "apps/coach-mobile/src/CoachMatchInviteTable.js": "70d854eb08b25770af0717fd38efb67c10a25a1bdf27583fb03017e0e0c0d57e",
       "apps/coach-mobile/src/CoachNativeTeamBrandingEditor.js": "bd7b007e1ddbd407f187bb417b53bc31916b9ab490e465e18af0ae5d0354a4cd",
       "apps/coach-mobile/src/CoachOperationalScreens.js": "fd142c1124fdad6b02b3e55da295ae88e2b7ae106e606287bd707f8a54dbf47a",
-      "apps/coach-mobile/src/CoachPhase31EScreens.js": "2bf488cdddaa544e1e89e17288749c4011f32ba75e1b7d6bce6717f9cdfaf3b8",
+      "apps/coach-mobile/src/CoachPhase31EScreens.js": "c6efc849e7cd7a3ebeb858e9407fb2f535b9ccc411e95bbbdd4acc6152184e11",
       "apps/coach-mobile/src/CoachResourceUploadAction.js": "69782d79195192ec0b6dd0739b7bba50b4b147bbfdfb67c5d82de905b926dcce",
       "apps/coach-mobile/src/CoachSquadPanel.js": "4dca330502ca524396173f1d040a490ccffbfec8827c69d763cac3ef7dc06567",
       "apps/coach-mobile/src/CoachTeamAdministration.js": "0ac91843c5bb553032c2c36468706426c61e9bf1ec968f9db5e927e6e9c304c9",
@@ -2716,7 +2716,7 @@
       "tests/coach-account-offline-review.test.mjs": "8f4a32d4286cabcadd06db212e10b02af07a24cbfb3bb37db70d07cbfeeb0855",
       "tests/coach-complete-offline-snapshots.test.mjs": "55dd4b39f72ee3fb1f42ee5e0af303a4be7ad3ff9c5fe8841f757f61d20b15f0",
       "tests/coach-encrypted-media-store.test.mjs": "c7e73bf41600ebf6d477a57e203ab94e52955ddc2fd1122912df129f0cb17f2e",
-      "tests/coach-offline-chat-open.test.mjs": "0f01b95660da23e8aae18220a438d8974ce77804d39b500b9d1d7fb27b0cdc1b",
+      "tests/coach-offline-chat-open.test.mjs": "0c98f234dec0f0d94439af6b288a5072d757d842e92aea052924211fb7cb80f4",
       "tests/coach-offline-detail-hydration.test.mjs": "6211714d1cc6149a35855b1001d10056fa376def4f30da39f776a5a7b449ec8a",
       "tests/coach-offline-media-adapter.test.mjs": "28a30a7688b81e67cba8d693e6a545f3209b4875eff12cf37d0f3cb4825f0e99",
       "tests/coach-offline-media-authorization.test.mjs": "ffe6df202a51261c045dad105fa1053ffc6d71246c4267739a99b41c1618ae19",
@@ -4274,7 +4274,7 @@
     "toolingRequalification20261117": "Qualify official minimatch 11.0.9 JavaScript tooling across all three scopes. Lock changes are limited to minimatch; direct and native dependencies, Expo runtime, reviewed package patches and audit rules are retained.",
     "coachIphoneUsabilityFollowup": "Coach 1.1.2 shows Home rows during loading, keeps the first verified compact overview and hides denied source details. Match Day opens an authorised draft with a usable opponent field before fixture, defaults and roster reads complete. Protected form actions wait for current data and retain server checks. Independent Chat and availability reads run in parallel. Local diagnostics distinguish content, layout, data, action readiness and timeout, and Coach uses its own reachability state with consecutive probe results. JavaScript and focused tests only. This candidate requires independent exact-HEAD approval before publication."
   },
-  "releasePreparationSha256": "b4e5dc8b12590c2a3c0ca5350480c3dc750c793c4a1b868f769b534c78cf95b5",
+  "releasePreparationSha256": "bdfa3bba17b745acfe3d3aef55480a0f6b113f612bfd3a40d9ed4a0357f5274a",
   "rootOnlyProposalSha256": "45c3b7352c7328c84982e114b7e87e09cf79514d02d102297ae75ec0925812eb",
   "remediationMode": "maintained-source-fixes",
   "officialCompatibilityDependencies": [
