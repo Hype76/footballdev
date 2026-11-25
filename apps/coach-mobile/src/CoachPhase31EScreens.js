@@ -36,6 +36,8 @@ import {
   deleteCoachPoll,
   getCoachChatMessages,
   getCoachChatRooms,
+  getCoachParentChatRooms,
+  getCoachParentChatUnread,
   getCoachDevelopmentWorkspace,
   getCoachInvitesAndAvailability,
   getCoachMatchInvites,
@@ -385,6 +387,15 @@ export function CoachPhase31EScreen({ chatNotificationTarget, domain, context, o
             setLoading(false)
             setError('')
           },
+        } : domain === 'chat' ? {
+          onStaffRoomsReady(staff) {
+            if (!current() || !acceptingMatches || deniedAtStart || hadVisibleData || hasCachedValue) return
+            onlinePublished = true
+            setData({ staff, parent: [], parentLoading: true })
+            setStale(false)
+            setLoading(false)
+            setError('')
+          },
         } : undefined)
         return domain === 'development' && loaded.historyError && current()
           ? { ...loaded, records: dataRef.current?.records || loaded.records } : loaded
@@ -413,7 +424,8 @@ export function CoachPhase31EScreen({ chatNotificationTarget, domain, context, o
         deniedScopeRef.current = dataScope
         onlinePublished = true
         invalidateMobileResource(user, memoryKey)
-        void saveCoachOfflineResources(user.id, context, { [`phase31e:${domain}`]: null }).catch(() => {})
+        const revoked = domain === 'chat' ? { 'phase31e:chat-closed': null } : {}
+        void saveCoachOfflineResources(user.id, context, { [`phase31e:${domain}`]: null, ...revoked }).catch(() => {})
         setData(null)
         setStale(true)
         setError(getCoachFriendlyError(loadError, 'Your access to this section could not be confirmed.'))
@@ -422,14 +434,15 @@ export function CoachPhase31EScreen({ chatNotificationTarget, domain, context, o
       if (domain === 'development' && dataRef.current?.historyLoading) {
         setData(previous => ({ ...previous, historyLoading: false, historyError: 'Recent records could not be refreshed. Your assessment drafts are still available.' }))
       }
-      if (dataRef.current || recent !== undefined || hasCachedValue) {
+      if (domain === 'chat') setData(previous => previous?.parentLoading ? { ...previous, parentLoading: false } : previous)
+      if (onlinePublished || dataRef.current || recent !== undefined || hasCachedValue) {
         setStale(true)
         if (!silent) {
           const message = getCoachFriendlyError(loadError, `${TITLES[domain]} could not be refreshed. Showing saved information.`)
           if (domain !== 'invites' || !isTransientConnectionMessage(message)) setNotice(message)
         }
       }
-      if (!silent && !hasCachedValue && recent === undefined && !dataRef.current) setError(getCoachFriendlyError(loadError, `${TITLES[domain]} could not be loaded.`))
+      if (!silent && !onlinePublished && !hasCachedValue && recent === undefined && !dataRef.current) setError(getCoachFriendlyError(loadError, `${TITLES[domain]} could not be loaded.`))
       return false
     } finally {
       acceptingMatches = false
@@ -493,7 +506,7 @@ export function CoachPhase31EScreen({ chatNotificationTarget, domain, context, o
       {activity && domain !== 'invites' ? <MobileFailureNotice message={error} scopeKey={dataScope} onRetry={load} /> : !activity && visibleError ? <View style={domain === 'invites' ? styles.stack : styles.panel}><Text accessibilityLiveRegion="assertive" style={styles.danger}>{visibleError}</Text><Button label="Try again" onPress={load} styles={styles} /></View> : null}
       {data && !error && domain === 'development' ? <DevelopmentDomain {...common} setData={setData} /> : null}
       {data && !error && domain === 'resources' ? <ResourcesDomain {...common} /> : null}
-      {data && !error && domain === 'chat' ? <ChatDomain {...common} /> : null}
+      {data && !error && domain === 'chat' ? <ChatDomain key={dataScope} {...common} /> : null}
       {data && !error && domain === 'messages' ? <MessagesDomain {...common} /> : null}
       {data && !error && domain === 'polls' ? <PollsDomain {...common} /> : null}
       {data && !error && domain === 'invites' ? <InvitesDomain {...common} /> : null}
@@ -851,8 +864,57 @@ function ChatDomain({ chatNotificationTarget, context, data, load, notice, onCha
   const safeAreaInsets = useSafeAreaInsets()
   const chatModalTopInset = getCoachChatModalTopInset({ platform: Platform.OS, safeAreaTop: safeAreaInsets.top })
   const [deniedRoomIds, setDeniedRoomIds] = useState([])
-  const roomSections = useMemo(() => buildCoachChatRoomSections([...(data.staff || []), ...(data.parent || [])].filter(item => !deniedRoomIds.includes(item.id))), [data, deniedRoomIds])
-  const rooms = useMemo(() => roomSections.flatMap((section) => [...section.activeRooms, ...section.emptyRooms]), [roomSections])
+  const [closedChat, setClosedChat] = useState({ open: false, loading: false, rooms: [], error: '' })
+  const [linkedRoom, setLinkedRoom] = useState(null)
+  const closedRequest = useRef(0)
+  const chatMounted = useRef(true)
+  const roomSections = useMemo(() => buildCoachChatRoomSections([
+    ...(data.staff || []), ...(data.parent || []).filter(room => room.status !== 'closed'),
+  ].filter(item => !deniedRoomIds.includes(item.id))), [data, deniedRoomIds])
+  const activeRoomCount = roomSections.reduce((total, section) => total + section.total, 0)
+  const closedRooms = useMemo(() => closedChat.rooms.filter(item => !deniedRoomIds.includes(item.id)), [closedChat.rooms, deniedRoomIds])
+  const rooms = useMemo(() => [
+    ...roomSections.flatMap(section => [...section.activeRooms, ...section.emptyRooms]),
+    ...closedRooms,
+    ...(linkedRoom && !deniedRoomIds.includes(linkedRoom.id) ? [linkedRoom] : []),
+  ], [roomSections, closedRooms, linkedRoom, deniedRoomIds])
+  const readSavedClosedRooms = useCallback(async () => {
+    const saved = await readCoachOfflineResources(user.id, context)
+    const resources = saved?.resources
+    return resources?.['phase31e:chat-closed'] ?? resources?.['phase31e:chat']?.parent?.filter(room => room.status === 'closed') ?? []
+  }, [context, user.id])
+  useEffect(() => {
+    chatMounted.current = true
+    return () => {
+      chatMounted.current = false
+      closedRequest.current += 1
+    }
+  }, [])
+  const loadClosedRooms = async () => {
+    const request = ++closedRequest.current
+    const authority = user.getCoachAuthorityGeneration?.()
+    const isCurrent = () => request === closedRequest.current && authority === user.getCoachAuthorityGeneration?.()
+    setClosedChat(previous => ({ ...previous, open: true, loading: true, error: '' }))
+    try {
+      const rooms = user.isOfflineProfile
+        ? await readSavedClosedRooms()
+        : await withMobileAsyncTimeout(() => getCoachParentChatRooms(user, 'closed'))
+      if (!isCurrent()) return
+      setClosedChat({ open: true, loading: false, rooms, error: '' })
+      if (!user.isOfflineProfile) {
+        const save = createCoachOfflineResourceSaver(user, context, { isCurrent })
+        void save({ 'phase31e:chat-closed': rooms }).catch(() => {})
+      }
+    } catch (error) {
+      if (!isCurrent()) return
+      const denied = error?.code === '42501' || [401, 403].includes(error?.status ?? error?.statusCode)
+      if (denied) {
+        setLinkedRoom(null)
+        void saveCoachOfflineResources(user.id, context, { 'phase31e:chat-closed': [] }).catch(() => {})
+      }
+      setClosedChat(previous => ({ ...previous, loading: false, rooms: denied ? [] : previous.rooms, error: getCoachFriendlyError(error, 'Closed chats could not be loaded.') }))
+    }
+  }
   const [roomId, setRoomId] = useState('')
   const [messages, setMessages] = useState([])
   const [roomHistoryStale, setRoomHistoryStale] = useState(false)
@@ -870,7 +932,7 @@ function ChatDomain({ chatNotificationTarget, context, data, load, notice, onCha
     setDeniedRoomIds(ids => ids.includes(deniedRoom.id) ? ids : [...ids, deniedRoom.id])
     invalidateMobileResource(user, `coach:chat-room:${deniedRoom.kind}:${deniedRoom.id}`)
     invalidateMobileResource(user, 'coach:phase31e:chat')
-    void saveCoachOfflineResources(user.id, context, { 'phase31e:chat': null, [`chatMessages:${deniedRoom.kind}:${deniedRoom.id}`]: null }).catch(() => {})
+    void saveCoachOfflineResources(user.id, context, { 'phase31e:chat': null, 'phase31e:chat-closed': null, [`chatMessages:${deniedRoom.kind}:${deniedRoom.id}`]: null }).catch(() => {})
     setMessages([])
     setRoomId('')
     activeRoomIdRef.current = ''
@@ -881,6 +943,12 @@ function ChatDomain({ chatNotificationTarget, context, data, load, notice, onCha
   activeRoomIdRef.current = activeRoomId
   messagesRef.current = messages
   const unreadRooms = rooms.filter((item) => Number(item.unreadCount || 0) > 0)
+  const clearClosedUnread = useCallback(ids => {
+    const reset = room => room && ids.includes(room.id) ? { ...room, unreadCount: 0 } : room
+    setClosedChat(previous => previous.rooms.some(room => ids.includes(room.id))
+      ? { ...previous, rooms: previous.rooms.map(reset) } : previous)
+    setLinkedRoom(reset)
+  }, [])
   const open = useCallback(async (nextRoom) => {
     const request = ++openRequest.current
     const generation = user.getCoachAuthorityGeneration?.()
@@ -916,6 +984,7 @@ function ChatDomain({ chatNotificationTarget, context, data, load, notice, onCha
       void save({ [offlineKey]: next }).catch(() => {})
       await markCoachChatRead(user, nextRoom)
       if (!isCurrent()) return
+      clearClosedUnread([nextRoom.id])
       await Promise.all([load({ silent: true }), reloadHome({ refresh: true, chatOnly: true })])
     } catch (error) {
       if (isCurrent()) {
@@ -928,25 +997,40 @@ function ChatDomain({ chatNotificationTarget, context, data, load, notice, onCha
         if (!await restoreSaved && isCurrent()) setNotice(getCoachFriendlyError(error))
       }
     }
-  }, [context, denyRoom, load, reloadHome, setNotice, user])
+  }, [clearClosedUnread, context, denyRoom, load, reloadHome, setNotice, user])
   useEffect(() => {
     const targetId = String(chatNotificationTarget?.id || '').trim()
     if (!targetId || chatNotificationTarget?.contextId !== user.activeCoachContextId) return
     const targetRoom = rooms.find((item) => item.id === targetId && (!chatNotificationTarget.kind || item.kind === chatNotificationTarget.kind))
+    if (!targetRoom && data.parentLoading && chatNotificationTarget.kind !== 'staff') return
     let cancelled = false
-    void Promise.resolve().then(() => {
-      if (cancelled) return
+    const generation = user.getCoachAuthorityGeneration?.()
+    const resolveTarget = async () => {
+      let resolved = targetRoom
+      if (!resolved && chatNotificationTarget.kind !== 'staff') {
+        try {
+          const history = user.isOfflineProfile ? await readSavedClosedRooms()
+            : await withMobileAsyncTimeout(() => getCoachParentChatRooms(user, 'closed', targetId))
+          resolved = history.find(item => item.id === targetId)
+        } catch {
+          // Fail closed if the target's current authorization cannot be verified.
+        }
+      }
+      if (cancelled || generation !== user.getCoachAuthorityGeneration?.()) return
       onChatNotificationTargetHandled()
-      if (!targetRoom) {
+      if (!resolved) {
         setMessages([])
         setBody('')
         setNotice('This Coach Chat is stale or no longer authorised.')
         return
       }
-      void open(targetRoom)
-    })
+      if (!targetRoom) setLinkedRoom(resolved)
+      void open(resolved)
+    }
+    void resolveTarget()
     return () => { cancelled = true }
-  }, [chatNotificationTarget, onChatNotificationTargetHandled, open, rooms, setNotice, user.activeCoachContextId])
+  }, [chatNotificationTarget, data.parentLoading, onChatNotificationTargetHandled, open, readSavedClosedRooms, rooms, setNotice, user])
+
   useEffect(() => {
     if (!room?.id || user.isOfflineProfile) return undefined
     let disposed = false
@@ -1005,13 +1089,32 @@ function ChatDomain({ chatNotificationTarget, context, data, load, notice, onCha
     } finally { sendInFlight.current = false; setSending(false) }
   }
   const markAllRead = async () => {
-    if (!unreadRooms.length || markingAllRead || stale || user.isOfflineProfile) return
+    if (markingAllRead || stale || user.isOfflineProfile) return
+    const authority = user.getCoachAuthorityGeneration?.()
+    const isCurrent = () => chatMounted.current && authority === user.getCoachAuthorityGeneration?.()
+    const stopIfStale = () => {
+      if (isCurrent()) return false
+      if (chatMounted.current) setMarkingAllRead(false)
+      return true
+    }
     setMarkingAllRead(true)
     setNotice('Marking all Chat conversations as read...')
-    const results = await Promise.allSettled(unreadRooms.map((item) => markCoachChatRead(user, item)))
+    let unread = unreadRooms
+    let unreadSummaryFailed = false
+    try {
+      const parentUnread = (await getCoachParentChatUnread(user)).filter(item => item.unreadCount > 0)
+      unread = [...new Map([...unreadRooms, ...parentUnread].map(item => [item.kind + ':' + item.id, item])).values()]
+    } catch {
+      unreadSummaryFailed = true
+    }
+    if (stopIfStale()) return
+    const results = await Promise.allSettled(unread.map((item) => markCoachChatRead(user, item)))
+    if (stopIfStale()) return
     const failedCount = results.filter((result) => result.status === 'rejected').length
+    clearClosedUnread(unread.filter((item, index) => item.kind === 'parent' && results[index].status === 'fulfilled').map(item => item.id))
     await Promise.all([load({ silent: true }), reloadHome({ refresh: true, chatOnly: true })])
-    setNotice(failedCount ? `${failedCount} Chat conversation${failedCount === 1 ? '' : 's'} could not be marked as read.` : 'All Chat conversations are marked as read.')
+    if (stopIfStale()) return
+    setNotice(unreadSummaryFailed ? 'Some Chat unread counts could not be checked. Refresh Chat and try again.' : failedCount ? `${failedCount} Chat conversation${failedCount === 1 ? '' : 's'} could not be marked as read.` : 'All Chat conversations are marked as read.')
     setMarkingAllRead(false)
   }
   useEffect(() => {
@@ -1019,7 +1122,6 @@ function ChatDomain({ chatNotificationTarget, context, data, load, notice, onCha
     const handle = setTimeout(() => messageListRef.current?.scrollToEnd({ animated: false }), 30)
     return () => clearTimeout(handle)
   }, [messages.length, room])
-  if (!rooms.length) return <View style={styles.panel}><Text style={styles.body}>No Coach Chat or Parent Chat conversation is currently available for this Team.</Text><Button label="Refresh Chat" onPress={load} styles={styles} /></View>
   if (!room) {
     return (
       <View style={styles.stack}>
@@ -1028,10 +1130,12 @@ function ChatDomain({ chatNotificationTarget, context, data, load, notice, onCha
           <View style={styles.featureIcon}><MaterialIcons name="chat-bubble-outline" size={24} color={palette.accentText} /></View>
           <View style={styles.featureCopy}>
             <Text accessibilityRole="header" style={styles.title}>Chat</Text>
-            <Text style={styles.body}>{rooms.length} community conversation{rooms.length === 1 ? '' : 's'}.</Text>
+            {!data.parentLoading ? <Text style={styles.body}>{activeRoomCount} community conversation{activeRoomCount === 1 ? '' : 's'}.</Text> : null}
           </View>
         </View>
-        {unreadRooms.length ? <Button disabled={markingAllRead || stale || user.isOfflineProfile} label={markingAllRead ? 'Marking all as read...' : `Mark all as read (${unreadRooms.length})`} icon="mark-email-read" onPress={() => void markAllRead()} styles={styles} variantStyle={{ borderRadius: 24 }} /> : null}
+        {(!data.parentLoading || unreadRooms.length > 0) ? <Button disabled={markingAllRead || stale || user.isOfflineProfile} label={markingAllRead ? 'Marking all as read...' : 'Mark all as read'} icon="mark-email-read" onPress={() => void markAllRead()} styles={styles} variantStyle={{ borderRadius: 24 }} /> : null}
+        {data.parentLoading ? <MobileLoadingStatus message="Loading Parent Chat" /> : !roomSections.length
+          ? <Text style={styles.body}>No open chats for this Team.</Text> : null}
         {roomSections.map((section) => {
           const sectionIcon = section.key === 'staff' ? 'sports' : 'groups'
           const expanded = expandedEmptySections[section.key] === true
@@ -1072,6 +1176,38 @@ function ChatDomain({ chatNotificationTarget, context, data, load, notice, onCha
             </View>
           )
         })}
+        <Pressable
+          accessibilityRole="button" accessibilityLabel="Closed chats"
+          accessibilityState={{ expanded: closedChat.open }}
+          onPress={() => {
+            if (closedChat.open) {
+              closedRequest.current += 1
+              setClosedChat(previous => ({ ...previous, open: false, loading: false }))
+            } else void loadClosedRooms()
+          }}
+          style={[styles.row, { minHeight: 44, alignItems: 'center' }]}
+        >
+          <Text style={styles.heading}>Closed chats</Text>
+          <MaterialIcons name={closedChat.open ? 'expand-less' : 'expand-more'} size={22} color={palette.accentText} />
+        </Pressable>
+        {closedChat.open ? <>
+          {closedChat.loading ? <MobileLoadingStatus message="Loading closed chats" /> : null}
+          {closedChat.error ? <MobileFailureNotice message={closedChat.error} scopeKey={context.id} onRetry={loadClosedRooms} /> : null}
+          {!closedChat.loading && !closedChat.error && !closedRooms.length ? <Text style={styles.body}>No closed chats found.</Text> : null}
+          {closedRooms.map(item => {
+            const display = getCoachChatRoomDisplay(item)
+            return <Pressable key={item.id} accessibilityRole="button" onPress={() => void open(item)}
+              style={[styles.row, { alignItems: 'center', minHeight: 44 }]}>
+              <View style={styles.featureCopy}>
+                <Text style={styles.heading}>{display.title}</Text>
+                {display.context ? <Text style={styles.chatRoomContext}>{display.context}</Text> : null}
+                {item.unreadCount ? <Text style={styles.status}>{item.unreadCount} unread</Text> : null}
+              </View>
+              <MaterialIcons name="chevron-right" size={22} color={palette.accentText} />
+            </Pressable>
+          })}
+        </> : null}
+        <Button label="Refresh Chat" onPress={load} secondary styles={styles} />
       </View>
     )
   }

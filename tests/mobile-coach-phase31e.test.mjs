@@ -475,7 +475,7 @@ test('Resource adapter reuses canonical RPCs and signed URLs', async () => {
 
 test('Chat adapter keeps Staff Chat and Parent Chat authority separate', async () => {
   const source = await readFile(new URL('../apps/mobile-core/src/coachPhase31EData.js', import.meta.url), 'utf8')
-  for (const marker of ['staff_chat_conversations', 'staff_chat_messages', 'get_parent_chat_rooms', 'get_parent_chat_messages', 'send_parent_chat_message', 'mark_parent_chat_room_read']) assert.match(source, new RegExp(marker))
+  for (const marker of ['staff_chat_conversations', 'staff_chat_messages', 'get_coach_parent_chat_rooms', 'get_parent_chat_messages', 'send_parent_chat_message', 'mark_parent_chat_room_read']) assert.match(source, new RegExp(marker))
   assert.match(source, /assertSyntheticTargetInTest\(room\)/)
 })
 

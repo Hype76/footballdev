@@ -28,6 +28,7 @@ const SafeAreaView = View
 const useSafeAreaInsets = () => ({ top: 44 })
 const getCoachFriendlyError = error => error.message
 const readMobileResource = (_user, _key, load) => load()
+const getCoachParentChatUnread = async () => [{ id: 'closed-room', kind: 'parent', unreadCount: 1 }]
 const getCoachChatMessages = async () => window.historyRows
 const sendCoachChatMessage = async (_user, room, body) => {
   window.sent.push({ room: room.id, body })
@@ -97,19 +98,19 @@ try {
   await page.setContent('<meta name="viewport" content="width=device-width, initial-scale=1"><style>body{margin:0}</style><div id="root"></div>')
   await page.addScriptTag({ content: bundle.outputFiles[0].text })
   await page.getByText('3 community conversations.', { exact: true }).waitFor()
-  const markAll = page.getByRole('button', { name: 'Mark all as read (1)' })
+  const markAll = page.getByRole('button', { name: 'Mark all as read' })
   for (const [mode, width, accent] of [['light', 390, '#174d91'], ['dark', 320, '#9c3262']]) {
     await page.setViewportSize({ width, height: 844 })
     await page.evaluate(({ mode, accent }) => { window.setMode(mode); window.setAccent(accent) }, { mode, accent })
     const expectedColour = accent.slice(1).match(/../g).map(part => parseInt(part, 16)).join(', ')
     await page.waitForFunction(expected => [...document.querySelectorAll('[role="button"]')].some(element =>
-      element.getAttribute('aria-label') === 'Mark all as read (1)' && getComputedStyle(element).backgroundColor === `rgb(${expected})`), expectedColour)
+      element.getAttribute('aria-label') === 'Mark all as read' && getComputedStyle(element).backgroundColor === `rgb(${expected})`), expectedColour)
     await assertRenderedTextContrast(page, `Coach communities ${mode}`)
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true)
     await page.screenshot({ path: `${out}/communities-${mode}.png` })
   }
   await markAll.click()
-  assert.deepEqual(await page.evaluate(() => window.marked), ['team-room'])
+  assert.deepEqual(await page.evaluate(() => window.marked), ['team-room', 'closed-room'])
   await page.getByRole('button', { name: /Demo Player.*Chat with Coaches/ }).click()
   await page.getByText('First message', { exact: true }).waitFor()
   const message = page.getByRole('textbox', { name: 'Chat message' })
@@ -121,7 +122,7 @@ try {
   await page.getByRole('button', { name: 'Back to conversations' }).click()
   await page.getByText('3 community conversations.', { exact: true }).waitFor()
   await page.evaluate(() => window.setStale(true))
-  await page.waitForFunction(() => document.querySelector('[aria-label="Mark all as read (1)"]')?.getAttribute('aria-disabled') === 'true')
+  await page.waitForFunction(() => document.querySelector('[aria-label="Mark all as read"]')?.getAttribute('aria-disabled') === 'true')
   assert.equal(await markAll.isDisabled(), true)
   assert.deepEqual(errors, [])
   console.log('PASS: Coach communities, club palette switch, phone widths and contrast, mark read, open, send and back with synthetic messages.')
