@@ -1,10 +1,10 @@
-# Football Player Parents Store Checklist
+# Football Player Store Checklist
 
 This app is test-only until the mobile release is explicitly approved for live Supabase.
 
 ## App identity
 
-- App name: Football Player Parents
+- App name: Football Player
 - iOS bundle identifier: com.footballplayer.parents
 - Android package: com.footballplayer.parents
 - Scheme: footballplayerparents

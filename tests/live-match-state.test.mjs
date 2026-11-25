@@ -52,6 +52,26 @@ test('hydration break freezes both live activity clocks until play resumes', () 
   assert.equal(resumed.running, true)
 })
 
+test('iPhone Lock Screen centres the match status and hides the clock at full time', () => {
+  for (const role of ['coach', 'parent']) {
+    const source = readFileSync(new URL(`../apps/${role}-mobile/widgets/MatchLiveActivityWidget.swift`, import.meta.url), 'utf8')
+    const lockScreen = source.split('ActivityConfiguration(for: MatchActivityAttributes.self)')[1].split('} dynamicIsland:')[0]
+    assert.match(lockScreen, /Text\(context\.state\.phase\)/)
+    assert.match(lockScreen, /if context\.state\.phase != "Full time", context\.state\.elapsedSeconds != nil \{\s*MatchClock\(state: context\.state\)/)
+    assert.match(lockScreen, /\.multilineTextAlignment\(\.center\)\s*\.frame\(maxWidth: \.infinity, alignment: \.center\)/)
+  }
+})
+
+test('Android centres the notification status and clock and disables the clock at full time', () => {
+  const android = new URL('../apps/mobile-core/modules/live-match/android/src/main/', import.meta.url)
+  const source = readFileSync(new URL('java/online/footballplayer/livematch/MatchNotification.kt', android), 'utf8')
+  const layout = readFileSync(new URL('res/layout/live_match_notification.xml', android), 'utf8')
+  assert.match(layout, /android:gravity="center"\s+android:orientation="horizontal">[\s\S]+@\+id\/live_match_status[\s\S]+<Chronometer[\s\S]+@\+id\/live_match_clock/)
+  assert.match(source, /val elapsed = if \(state\.phase == "Full time"\) null else state\.elapsedSeconds/)
+  assert.match(source, /if \(clockBase != null\) setChronometer\(R\.id\.live_match_clock, clockBase, null, true\)/)
+  assert.match(source, /setCustomContentView\(matchView\(/)
+})
+
 test('scheduled match score has no pre-match label or clock', () => {
   const state = createLiveMatchState({ ...fixture, status: 'scheduled', currentMatchPhase: 'pre_match', timerStatus: 'not_started', timerElapsedSeconds: 0 }, now)
   assert.equal(state.phase, '')

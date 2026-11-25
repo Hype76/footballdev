@@ -17,6 +17,7 @@ test('remote gate accepts only the exact Coach cloud build identity and toolchai
   assert.doesNotThrow(() => assertEasIdentity(env, '22.17.0'))
   assert.doesNotThrow(() => assertEasIdentity({ ...env, FP_COACH_QA_SCOPE: 'FP-MOBILE-SATELLITE-PARITY-112-20261110' }, '22.17.0'))
   for (const change of [{ EAS_BUILD: 'false' }, { EAS_BUILD_RUNNER: 'local-build-plugin' }, { EAS_BUILD_PROJECT_ID: 'other' }, { EAS_BUILD_PROFILE: 'development' }, { FP_COACH_QA_SCOPE: 'other' }, { EAS_BUILD_PLATFORM: 'web' }, { EAS_BUILD_GIT_COMMIT_HASH: 'bad' }]) assert.throws(() => assertEasIdentity({ ...env, ...change }, '22.17.0'))
+  assert.doesNotThrow(() => assertEasIdentity({ ...env, FP_COACH_QA_SCOPE: 'FP-MOBILE-PUBLIC-150-20261125' }, '22.17.0'))
   assert.throws(() => assertEasIdentity(env, '22.21.0'))
 })
 

@@ -1,10 +1,10 @@
-# Football Player Parents Store Metadata
+# Football Player Store Metadata
 
 Use this as the starting point for App Store Connect and Google Play Console.
 
 ## App name
 
-Football Player Parents
+Football Player
 
 ## Subtitle or short description
 
@@ -12,7 +12,7 @@ Matchday updates and club messages for parents.
 
 ## Full description
 
-Football Player Parents helps parents and guardians stay connected with their child's football club updates.
+Football Player helps parents and guardians stay connected with their child's football club updates.
 
 Parents can see linked child context, follow matchday updates, receive goal and full time alerts, read club messages, answer parent polls, and volunteer as a match scorer where the club allows it.
 

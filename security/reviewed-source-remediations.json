@@ -733,11 +733,11 @@
     },
     {
       "scope": "apps/parent-mobile",
-      "normalisedUtf8Sha256": "a8aa8808287aaab2f876f6348267965d2c57b28c8abb1a9bb37bedcbbe258c32"
+      "normalisedUtf8Sha256": "9f94631b8c066b171d0b59cf09b2a3a2156558bdbee5470f6554755b581618bc"
     },
     {
       "scope": "apps/coach-mobile",
-      "normalisedUtf8Sha256": "484bbc2f8ea9a202b1c9e8662b4acf5a46ad77c6043b2927204f1f7396cafec1"
+      "normalisedUtf8Sha256": "2dc3255dd0b84ed10ad7b7a677fda7093fbdff1ba4c3eb007754970b7fd1f08a"
     }
   ],
   "patches": [
@@ -771,7 +771,7 @@
   "implementationHashes": {
     "scripts/security-supply-chain-gate.mjs": "9ef3c2fa9949a270eba3b8d7eefc2f9e303e8fbb2fda3921b2e6e42280e733fc",
     "scripts/security-apply-reviewed-backports.mjs": "ecd054578172a4fc6d09720258d2aed1c4a48edd97d6e3b0daa4f635f27f5fcd",
-    "scripts/security-verify-reviewed-backports.mjs": "a6d93991e593382189622d9f28ee1f8066f4f0c2bb6842af218cb1823cf207e5",
+    "scripts/security-verify-reviewed-backports.mjs": "9f20f72fb2a678bf6876b013dc7b2bc36000dc81739a810e82a945fc20c39f41",
     "security/patches/braces-3.0.3.patch": "e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699",
     "security/patches/node-forge-1.4.0.patch": "2de065ac998bf58917a14d0935112d97ec2957ac41b5f06958d500934f188ed4",
     "security/patches/reviewed-source-manifest.json": "0507b50c4ce7a772508ed3a0d18290548bb1fd48802db4599a5ec8e47e2eed49",
@@ -827,21 +827,21 @@
     },
     {
       "path": "apps/parent-mobile/package.json",
-      "normalisedUtf8Sha256": "73cffb5e8577b4f0d17be638f5d3ddd46b6a9eb81b47ba3f4045329e36e72218",
+      "normalisedUtf8Sha256": "e14f37e6460ab19bc41e38dea9b842fd6109aee61c211f4dc3a919896479a1e1",
       "unchanged": false,
-      "reason": "User-authorised 27 October native release 1.1.0: calendar subscriptions, Parent background actions, Expo SDK 54 task manager and matching native runtime versions. All five package copies remain verified using the approved source-backport or official-maintained mode; all release checks remain required. Official glob/minimatch tooling prerequisite on 31 October: only overrides and JavaScript lock graph changed; direct app dependencies, native packages and runtime configuration remain unchanged, with exact graph and compatibility tests required. Official minimatch 11.0.4 tooling metadata update only; exact graph and native identities independently checked. 6 November tooling requalification: reviewed official glob 14.0.4 and minimatch 11.0.5 in all three JavaScript dependency graphs. The callback-compatible glob 7 patch remains pinned. New minimatch bounds oversized pattern expansion and may throw RangeError for extreme patterns. Direct mobile dependencies and runtimes remain unchanged. Exact installed identities, consumer tests, release gates and independent review remain required. 11 November: update official minimatch tooling to 11.0.8. Direct native dependencies and runtimes remain unchanged. 12 November: update official glob tooling to 14.0.5. Direct native dependencies and runtimes remain unchanged. 12 November: qualify official glob 14.0.6 JavaScript tooling in all three graphs. 17 November: requalify official minimatch 11.0.9 tooling with unchanged direct and native dependencies. 23 November: qualify the official node-forge 1.4.4 JavaScript security patch through the existing override. Native dependencies and runtime stay unchanged."
+      "reason": "User-authorised 27 October native release 1.1.0: calendar subscriptions, Parent background actions, Expo SDK 54 task manager and matching native runtime versions. All five package copies remain verified using the approved source-backport or official-maintained mode; all release checks remain required. Official glob/minimatch tooling prerequisite on 31 October: only overrides and JavaScript lock graph changed; direct app dependencies, native packages and runtime configuration remain unchanged, with exact graph and compatibility tests required. Official minimatch 11.0.4 tooling metadata update only; exact graph and native identities independently checked. 6 November tooling requalification: reviewed official glob 14.0.4 and minimatch 11.0.5 in all three JavaScript dependency graphs. The callback-compatible glob 7 patch remains pinned. New minimatch bounds oversized pattern expansion and may throw RangeError for extreme patterns. Direct mobile dependencies and runtimes remain unchanged. Exact installed identities, consumer tests, release gates and independent review remain required. 11 November: update official minimatch tooling to 11.0.8. Direct native dependencies and runtimes remain unchanged. 12 November: update official glob tooling to 14.0.5. Direct native dependencies and runtimes remain unchanged. 12 November: qualify official glob 14.0.6 JavaScript tooling in all three graphs. 17 November: requalify official minimatch 11.0.9 tooling with unchanged direct and native dependencies. 23 November: qualify the official node-forge 1.4.4 JavaScript security patch through the existing override. Native dependencies and runtime stay unchanged. User-authorised 25 November public native version 1.5.0 for Coach and Football Player on iPhone and Android. This supersedes earlier release-specific version and publication limits for 1.5.0. Local package versions and app-version runtimes advance together. Existing app identifiers, Expo projects, URL schemes and dependency versions are preserved. Parent display name becomes Football Player. Independent exact-source review, security checks, physical-device QA and exact-build submission controls remain required."
     },
     {
       "path": "apps/parent-mobile/package-lock.json",
-      "normalisedUtf8Sha256": "a8aa8808287aaab2f876f6348267965d2c57b28c8abb1a9bb37bedcbbe258c32",
+      "normalisedUtf8Sha256": "9f94631b8c066b171d0b59cf09b2a3a2156558bdbee5470f6554755b581618bc",
       "unchanged": false,
-      "reason": "User-authorised 27 October native release 1.1.0: calendar subscriptions, Parent background actions, Expo SDK 54 task manager and matching native runtime versions. All five package copies remain verified using the approved source-backport or official-maintained mode; all release checks remain required. Official glob/minimatch tooling prerequisite on 31 October: only overrides and JavaScript lock graph changed; direct app dependencies, native packages and runtime configuration remain unchanged, with exact graph and compatibility tests required. Official minimatch 11.0.4 tooling metadata update only; exact graph and native identities independently checked. 6 November tooling requalification: reviewed official glob 14.0.4 and minimatch 11.0.5 in all three JavaScript dependency graphs. The callback-compatible glob 7 patch remains pinned. New minimatch bounds oversized pattern expansion and may throw RangeError for extreme patterns. Direct mobile dependencies and runtimes remain unchanged. Exact installed identities, consumer tests, release gates and independent review remain required. 11 November: update official minimatch tooling to 11.0.8. Direct native dependencies and runtimes remain unchanged. 12 November: update official glob tooling to 14.0.5. Direct native dependencies and runtimes remain unchanged. 12 November: qualify official glob 14.0.6 JavaScript tooling in all three graphs. 17 November: requalify official minimatch 11.0.9 tooling with unchanged direct and native dependencies. 23 November: qualify the official node-forge 1.4.4 JavaScript security patch through the existing override. Native dependencies and runtime stay unchanged."
+      "reason": "User-authorised 27 October native release 1.1.0: calendar subscriptions, Parent background actions, Expo SDK 54 task manager and matching native runtime versions. All five package copies remain verified using the approved source-backport or official-maintained mode; all release checks remain required. Official glob/minimatch tooling prerequisite on 31 October: only overrides and JavaScript lock graph changed; direct app dependencies, native packages and runtime configuration remain unchanged, with exact graph and compatibility tests required. Official minimatch 11.0.4 tooling metadata update only; exact graph and native identities independently checked. 6 November tooling requalification: reviewed official glob 14.0.4 and minimatch 11.0.5 in all three JavaScript dependency graphs. The callback-compatible glob 7 patch remains pinned. New minimatch bounds oversized pattern expansion and may throw RangeError for extreme patterns. Direct mobile dependencies and runtimes remain unchanged. Exact installed identities, consumer tests, release gates and independent review remain required. 11 November: update official minimatch tooling to 11.0.8. Direct native dependencies and runtimes remain unchanged. 12 November: update official glob tooling to 14.0.5. Direct native dependencies and runtimes remain unchanged. 12 November: qualify official glob 14.0.6 JavaScript tooling in all three graphs. 17 November: requalify official minimatch 11.0.9 tooling with unchanged direct and native dependencies. 23 November: qualify the official node-forge 1.4.4 JavaScript security patch through the existing override. Native dependencies and runtime stay unchanged. User-authorised 25 November public native version 1.5.0 for Coach and Football Player on iPhone and Android. This supersedes earlier release-specific version and publication limits for 1.5.0. Local package versions and app-version runtimes advance together. Existing app identifiers, Expo projects, URL schemes and dependency versions are preserved. Parent display name becomes Football Player. Independent exact-source review, security checks, physical-device QA and exact-build submission controls remain required."
     },
     {
       "path": "apps/parent-mobile/app.config.js",
-      "normalisedUtf8Sha256": "58918b0ef3ac3e7a994c67658dae9170851614b8200a98aa5659921669dca960",
+      "normalisedUtf8Sha256": "e1a54c8197f7821b9a2846301b773793c038e03f4fbda3cbc99165fd5e26f451",
       "unchanged": false,
-      "reason": "User-authorised 27 October native release 1.1.0: calendar subscriptions, Parent background actions, Expo SDK 54 task manager and matching native runtime versions. Existing five source-fixed package copies and all release checks remain required."
+      "reason": "User-authorised 27 October native release 1.1.0: calendar subscriptions, Parent background actions, Expo SDK 54 task manager and matching native runtime versions. Existing five source-fixed package copies and all release checks remain required. User-authorised 25 November public native version 1.5.0 for Coach and Football Player on iPhone and Android. This supersedes earlier release-specific version and publication limits for 1.5.0. Local package versions and app-version runtimes advance together. Existing app identifiers, Expo projects, URL schemes and dependency versions are preserved. Parent display name becomes Football Player. Independent exact-source review, security checks, physical-device QA and exact-build submission controls remain required."
     },
     {
       "path": "apps/parent-mobile/eas.json",
@@ -851,21 +851,21 @@
     },
     {
       "path": "apps/coach-mobile/package.json",
-      "normalisedUtf8Sha256": "bccad6b0f20afaac3e1494bb80b370cf8c8a8b1c2fecebf249a774d9e87d5edf",
+      "normalisedUtf8Sha256": "9c3c2db155e0c7dc1b07f3b671172fcf41037951543ea675872d80eae4a60184",
       "unchanged": false,
-      "reason": "User-authorised Coach-only 15 MB offline storage native testing: Expo file system 19.0.24 and isolated runtime 1.1.2; original data preserved, separate production store publication not authorised, all independent review and release controls retained. 6 November tooling requalification: reviewed official glob 14.0.4 and minimatch 11.0.5 in all three JavaScript dependency graphs. The callback-compatible glob 7 patch remains pinned. New minimatch bounds oversized pattern expansion and may throw RangeError for extreme patterns. Direct mobile dependencies and runtimes remain unchanged. Exact installed identities, consumer tests, release gates and independent review remain required. 10 November private 1.1.2 adds Coach system photo and document picking and staff PDF sharing, including the official SDK 54 module dependencies and least-privilege permissions. 11 November: update official minimatch tooling to 11.0.8. Direct native dependencies and runtimes remain unchanged. 12 November: update official glob tooling to 14.0.5. Direct native dependencies and runtimes remain unchanged. 12 November: qualify official glob 14.0.6 JavaScript tooling in all three graphs. 17 November: requalify official minimatch 11.0.9 tooling with unchanged direct and native dependencies. 23 November: qualify the official node-forge 1.4.4 JavaScript security patch through the existing override. Native dependencies and runtime stay unchanged. 24 November: Coach PDF badge support uses the existing Parents JavaScript codecs, pinned at the same versions. No native packages or runtime changes."
+      "reason": "User-authorised Coach-only 15 MB offline storage native testing: Expo file system 19.0.24 and isolated runtime 1.1.2; original data preserved, separate production store publication not authorised, all independent review and release controls retained. 6 November tooling requalification: reviewed official glob 14.0.4 and minimatch 11.0.5 in all three JavaScript dependency graphs. The callback-compatible glob 7 patch remains pinned. New minimatch bounds oversized pattern expansion and may throw RangeError for extreme patterns. Direct mobile dependencies and runtimes remain unchanged. Exact installed identities, consumer tests, release gates and independent review remain required. 10 November private 1.1.2 adds Coach system photo and document picking and staff PDF sharing, including the official SDK 54 module dependencies and least-privilege permissions. 11 November: update official minimatch tooling to 11.0.8. Direct native dependencies and runtimes remain unchanged. 12 November: update official glob tooling to 14.0.5. Direct native dependencies and runtimes remain unchanged. 12 November: qualify official glob 14.0.6 JavaScript tooling in all three graphs. 17 November: requalify official minimatch 11.0.9 tooling with unchanged direct and native dependencies. 23 November: qualify the official node-forge 1.4.4 JavaScript security patch through the existing override. Native dependencies and runtime stay unchanged. 24 November: Coach PDF badge support uses the existing Parents JavaScript codecs, pinned at the same versions. No native packages or runtime changes. User-authorised 25 November public native version 1.5.0 for Coach and Football Player on iPhone and Android. This supersedes earlier release-specific version and publication limits for 1.5.0. Local package versions and app-version runtimes advance together. Existing app identifiers, Expo projects, URL schemes and dependency versions are preserved. Parent display name becomes Football Player. Independent exact-source review, security checks, physical-device QA and exact-build submission controls remain required."
     },
     {
       "path": "apps/coach-mobile/package-lock.json",
-      "normalisedUtf8Sha256": "484bbc2f8ea9a202b1c9e8662b4acf5a46ad77c6043b2927204f1f7396cafec1",
+      "normalisedUtf8Sha256": "2dc3255dd0b84ed10ad7b7a677fda7093fbdff1ba4c3eb007754970b7fd1f08a",
       "unchanged": false,
-      "reason": "User-authorised Coach-only 15 MB offline storage native testing: Expo file system 19.0.24 and isolated runtime 1.1.2; original data preserved, separate production store publication not authorised, all independent review and release controls retained. 6 November tooling requalification: reviewed official glob 14.0.4 and minimatch 11.0.5 in all three JavaScript dependency graphs. The callback-compatible glob 7 patch remains pinned. New minimatch bounds oversized pattern expansion and may throw RangeError for extreme patterns. Direct mobile dependencies and runtimes remain unchanged. Exact installed identities, consumer tests, release gates and independent review remain required. 10 November private 1.1.2 adds Coach system photo and document picking and staff PDF sharing, including the official SDK 54 module dependencies and least-privilege permissions. 11 November: update official minimatch tooling to 11.0.8. Direct native dependencies and runtimes remain unchanged. 12 November: update official glob tooling to 14.0.5. Direct native dependencies and runtimes remain unchanged. 12 November: qualify official glob 14.0.6 JavaScript tooling in all three graphs. 17 November: requalify official minimatch 11.0.9 tooling with unchanged direct and native dependencies. 23 November: qualify the official node-forge 1.4.4 JavaScript security patch through the existing override. Native dependencies and runtime stay unchanged. 24 November: Coach PDF badge support uses the existing Parents JavaScript codecs, pinned at the same versions. No native packages or runtime changes."
+      "reason": "User-authorised Coach-only 15 MB offline storage native testing: Expo file system 19.0.24 and isolated runtime 1.1.2; original data preserved, separate production store publication not authorised, all independent review and release controls retained. 6 November tooling requalification: reviewed official glob 14.0.4 and minimatch 11.0.5 in all three JavaScript dependency graphs. The callback-compatible glob 7 patch remains pinned. New minimatch bounds oversized pattern expansion and may throw RangeError for extreme patterns. Direct mobile dependencies and runtimes remain unchanged. Exact installed identities, consumer tests, release gates and independent review remain required. 10 November private 1.1.2 adds Coach system photo and document picking and staff PDF sharing, including the official SDK 54 module dependencies and least-privilege permissions. 11 November: update official minimatch tooling to 11.0.8. Direct native dependencies and runtimes remain unchanged. 12 November: update official glob tooling to 14.0.5. Direct native dependencies and runtimes remain unchanged. 12 November: qualify official glob 14.0.6 JavaScript tooling in all three graphs. 17 November: requalify official minimatch 11.0.9 tooling with unchanged direct and native dependencies. 23 November: qualify the official node-forge 1.4.4 JavaScript security patch through the existing override. Native dependencies and runtime stay unchanged. 24 November: Coach PDF badge support uses the existing Parents JavaScript codecs, pinned at the same versions. No native packages or runtime changes. User-authorised 25 November public native version 1.5.0 for Coach and Football Player on iPhone and Android. This supersedes earlier release-specific version and publication limits for 1.5.0. Local package versions and app-version runtimes advance together. Existing app identifiers, Expo projects, URL schemes and dependency versions are preserved. Parent display name becomes Football Player. Independent exact-source review, security checks, physical-device QA and exact-build submission controls remain required."
     },
     {
       "path": "apps/coach-mobile/app.config.js",
-      "normalisedUtf8Sha256": "2e1542e4c19f5f09c78f3dc155640a95c9eb9198afa610bc5eaa6d4dae99044f",
+      "normalisedUtf8Sha256": "a2f20e8f20cc29da1000de98584cb5282e3aa3380210cf60eb93417699eff57a",
       "unchanged": false,
-      "reason": "User-authorised Coach-only 15 MB offline storage native testing: Expo file system 19.0.24 and isolated runtime 1.1.2; original data preserved, separate production store publication not authorised, all independent review and release controls retained. 10 November private 1.1.2 adds Coach system photo and document picking and staff PDF sharing, including the official SDK 54 module dependencies and least-privilege permissions."
+      "reason": "User-authorised Coach-only 15 MB offline storage native testing: Expo file system 19.0.24 and isolated runtime 1.1.2; original data preserved, separate production store publication not authorised, all independent review and release controls retained. 10 November private 1.1.2 adds Coach system photo and document picking and staff PDF sharing, including the official SDK 54 module dependencies and least-privilege permissions. User-authorised 25 November public native version 1.5.0 for Coach and Football Player on iPhone and Android. This supersedes earlier release-specific version and publication limits for 1.5.0. Local package versions and app-version runtimes advance together. Existing app identifiers, Expo projects, URL schemes and dependency versions are preserved. Parent display name becomes Football Player. Independent exact-source review, security checks, physical-device QA and exact-build submission controls remain required."
     },
     {
       "path": "apps/coach-mobile/eas.json",
@@ -908,7 +908,7 @@
   "dependencyRemediation": {
     "baseline": "1f635088b522079c119048e3ca996c93f0e106f1",
     "originalReviewedHead": "da51884f9364faa786a58aa063b8e631b02c253d",
-    "scope": "apps/coach-mobile/package.json,apps/coach-mobile/package-lock.json,tests/parent-chat-layout-browser.mjs,apps/parent-mobile/package.json,apps/parent-mobile/package-lock.json,package.json,package-lock.json Required official JavaScript tooling security updates: minimatch 11.0.3 in all three scopes; glob 14.0.3 only for modern glob callers, retaining callback-compatible glob 7.2.3; mobile test-exclude 8.0.0; root config-array 0.23.5 with object-schema 3.0.5 for real ESM compatibility. Direct app dependencies, native packages, app configurations and runtimes remain unchanged. All eight existing maintained-source copy protections and advisory rules remain unchanged. Real installed consumer tests, complete release checks, mobile export comparison and independent exact-source acceptance remain required before publication. Subsequent Coach-only internal offline-storage testing adds direct Expo file system 19.0.24 and runtime 1.1.2; all prior statements about unchanged native inputs apply to their original tooling prerequisite, not this named native change. Independent review and all existing security and release controls remain required. 10 November private 1.1.2 adds exactly the Coach Expo document picker, image picker and image loader, and sharing modules. Existing packages, Parent native dependencies and both runtime versions are preserved.",
+    "scope": "apps/coach-mobile/package.json,apps/coach-mobile/package-lock.json,tests/parent-chat-layout-browser.mjs,apps/parent-mobile/package.json,apps/parent-mobile/package-lock.json,package.json,package-lock.json Required official JavaScript tooling security updates: minimatch 11.0.3 in all three scopes; glob 14.0.3 only for modern glob callers, retaining callback-compatible glob 7.2.3; mobile test-exclude 8.0.0; root config-array 0.23.5 with object-schema 3.0.5 for real ESM compatibility. Direct app dependencies, native packages, app configurations and runtimes remain unchanged. All eight existing maintained-source copy protections and advisory rules remain unchanged. Real installed consumer tests, complete release checks, mobile export comparison and independent exact-source acceptance remain required before publication. Subsequent Coach-only internal offline-storage testing adds direct Expo file system 19.0.24 and runtime 1.1.2; all prior statements about unchanged native inputs apply to their original tooling prerequisite, not this named native change. Independent review and all existing security and release controls remain required. 10 November private 1.1.2 adds exactly the Coach Expo document picker, image picker and image loader, and sharing modules. Existing packages, Parent native dependencies and both runtime versions are preserved. 25 November public 1.5.0: mobile package metadata moves to 1.5.0 with no dependency resolutions or overrides changed.",
     "reason": "Parent-authorised compatible official Coach tooling updates and observed Chat test render-commit timing repair.",
     "additionalAdvisoryAcceptanceAllowed": false,
     "nativeDirectDependenciesAndRuntimeChanged": true,
@@ -1084,14 +1084,15 @@
     ],
     "lockImpactSha256": "d6f3d9e1a0f877643ed90ac381c7838a170159c327ff5903c7dafb895b8516a6",
     "changedSourceHashes": {
-      "apps/coach-mobile/package.json": "bccad6b0f20afaac3e1494bb80b370cf8c8a8b1c2fecebf249a774d9e87d5edf",
-      "apps/coach-mobile/package-lock.json": "484bbc2f8ea9a202b1c9e8662b4acf5a46ad77c6043b2927204f1f7396cafec1",
+      "apps/coach-mobile/package.json": "9c3c2db155e0c7dc1b07f3b671172fcf41037951543ea675872d80eae4a60184",
+      "apps/coach-mobile/package-lock.json": "2dc3255dd0b84ed10ad7b7a677fda7093fbdff1ba4c3eb007754970b7fd1f08a",
       "tests/parent-chat-layout-browser.mjs": "fd5fd3968933d3046433d839fcd13e5897a64e1ed12ddec1fffad954156a24a1",
-      "apps/parent-mobile/package.json": "73cffb5e8577b4f0d17be638f5d3ddd46b6a9eb81b47ba3f4045329e36e72218",
-      "apps/parent-mobile/package-lock.json": "a8aa8808287aaab2f876f6348267965d2c57b28c8abb1a9bb37bedcbbe258c32",
+      "apps/parent-mobile/package.json": "e14f37e6460ab19bc41e38dea9b842fd6109aee61c211f4dc3a919896479a1e1",
+      "apps/parent-mobile/package-lock.json": "9f94631b8c066b171d0b59cf09b2a3a2156558bdbee5470f6554755b581618bc",
       "package.json": "26b0ea4f448c80589e143d6a0011af066e324dbcc5ac8a3b363cf7b75a7cd227",
       "package-lock.json": "df510c9df3a89193a936f208cbc17441287106f59bd259282f5df50b55759682",
-      "security/patches/reviewed-source-manifest.json": "0507b50c4ce7a772508ed3a0d18290548bb1fd48802db4599a5ec8e47e2eed49"
+      "security/patches/reviewed-source-manifest.json": "0507b50c4ce7a772508ed3a0d18290548bb1fd48802db4599a5ec8e47e2eed49",
+      "tests/tooling-glob-minimatch-compatibility.test.mjs": "24984cf48536e4077ed8beae3dd93110d52f70a930fd10d54e7ddd3820af6e72"
     },
     "compatibleOfficialJavaScriptPrerequisite": {
       "baseline": "ec2288c01cd22801d96aa26329fab2b6ed0d0b05",
@@ -1637,7 +1638,7 @@
       ]
     }
   },
-  "dependencyRemediationSha256": "419e907377b0d5bf4f186fcf6f11e6ee02c63ac62628519115c1d525c841822e",
+  "dependencyRemediationSha256": "3ab589b93f70c42203b3cba77158146b097917ddc9a81abfe384ebb5e64e738c",
   "releasePreparation": {
     "previousCandidate": "ef466f2584f5dcf429150aea9ed943473ed094ac",
     "originalApplicationBaseline": "041ae89454ed0b2f032f36089335a34d357ad1a4",
@@ -1668,13 +1669,13 @@
       "supabase/migrations/20261124094132_match_day_shootout_notification_intents.sql": "fe6da24120a5ee6bf9aace296d1b0e3abb0e6a7dddc18584d4dfda9dafa3ba16",
       ".github/workflows/security-gate.yml": "4f16d7ec8bb375d7b0bf627d4c7ea673a3ac0a5f0a7b8e95e421237fa83f5101",
       "apps/coach-mobile/App.js": "f127404fb227c04dbc050f1f804725ed48edc468ff6393781edfd6229ff610ae",
-      "apps/coach-mobile/package-lock.json": "484bbc2f8ea9a202b1c9e8662b4acf5a46ad77c6043b2927204f1f7396cafec1",
-      "apps/coach-mobile/package.json": "bccad6b0f20afaac3e1494bb80b370cf8c8a8b1c2fecebf249a774d9e87d5edf",
+      "apps/coach-mobile/package-lock.json": "2dc3255dd0b84ed10ad7b7a677fda7093fbdff1ba4c3eb007754970b7fd1f08a",
+      "apps/coach-mobile/package.json": "9c3c2db155e0c7dc1b07f3b671172fcf41037951543ea675872d80eae4a60184",
       "apps/coach-mobile/src/CoachClubPromotionScreen.js": "50ee2f15d0020d34ce1bc6d91cb737d164efc95c8c93c1b5a5d89b46a1bfcd6d",
       "apps/coach-mobile/src/CoachDevelopmentTemplateBuilder.js": "976c1e91e9b86eff4621bac8e58e06022e83c8c50f08b21dc389dec9b79dbdb9",
       "apps/coach-mobile/src/CoachFixtureForm.js": "bc39d306cba0826d528db5a057582a71812f899b6a778c265d93c0ebb81051db",
       "apps/coach-mobile/src/CoachKeyboardFocusContext.js": "2e24114b3755cd8b56ab5099019c0663ad6d24418a66e0a48fa06ca07e22d015",
-      "apps/coach-mobile/src/CoachMatchDayScreen.js": "2d02a4473ab77c2512437b84de947664ed644525509d98ad13fb621d793b5a17",
+      "apps/coach-mobile/src/CoachMatchDayScreen.js": "4c4eb1de10086e0e604396f4cfa347617b3cf0b02b0a570e13c823141521891b",
       "apps/coach-mobile/src/CoachMatchInviteTable.js": "70d854eb08b25770af0717fd38efb67c10a25a1bdf27583fb03017e0e0c0d57e",
       "apps/coach-mobile/src/CoachNativeTeamBrandingEditor.js": "bd7b007e1ddbd407f187bb417b53bc31916b9ab490e465e18af0ae5d0354a4cd",
       "apps/coach-mobile/src/CoachOperationalScreens.js": "fd142c1124fdad6b02b3e55da295ae88e2b7ae106e606287bd707f8a54dbf47a",
@@ -1758,9 +1759,9 @@
       "apps/mobile-core/src/ui.js": "2ed9c214bd8f97eba2b008365a0d3167e7ade95906fee534a3ca9fff1ba8dfee",
       "apps/mobile-core/src/useAttendanceOutbox.js": "f578d4cf5c508fa4bdd3607a060ebb5e55f5d72e868004ef772300a2fe9fb6c8",
       "apps/mobile-core/src/useTeamLeagueLink.js": "78945d958af2ba81bab0247dffb844e67003f3e5697c04d5903617d23c9a1951",
-      "apps/parent-mobile/App.js": "ce88d2a912300faf2c52f025c1428b6adca6e98c9d195dda055537ab570848a6",
-      "apps/parent-mobile/package-lock.json": "a8aa8808287aaab2f876f6348267965d2c57b28c8abb1a9bb37bedcbbe258c32",
-      "apps/parent-mobile/package.json": "73cffb5e8577b4f0d17be638f5d3ddd46b6a9eb81b47ba3f4045329e36e72218",
+      "apps/parent-mobile/App.js": "5316d4a81e37c90e3360021d1dca46e218fe285279f1496113bd59d6d1a90281",
+      "apps/parent-mobile/package-lock.json": "9f94631b8c066b171d0b59cf09b2a3a2156558bdbee5470f6554755b581618bc",
+      "apps/parent-mobile/package.json": "e14f37e6460ab19bc41e38dea9b842fd6109aee61c211f4dc3a919896479a1e1",
       "apps/parent-mobile/parentDevelopment.js": "da85be42f4b1eff315bd4cd5bc626b79899617609b0f94d24bad3a032c42f352",
       "apps/parent-mobile/src/FanPlayerCard.js": "77ebb7954904d524125e831cb49f2cae6110e430bd2891e17841a5a83562e43a",
       "apps/parent-mobile/src/FansScreen.js": "8c8f843a86cac1bb8c884aa7284747c31f1cd1f7e86a3b4ceffe7ba9bd608157",
@@ -2070,7 +2071,7 @@
       "tests/mobile-attendance-legacy-intent.test.mjs": "f0ec80af8de6b28019121c36b609763fd576e98324ec15e91f6c24197c2ae5f9",
       "tests/mobile-auth-refresh-browser.mjs": "1fa426514c8614b5c5de71a183aee62ca51a94a865af3796c09b5b08725913d0",
       "tests/mobile-cancelled-fixture.test.mjs": "452a951b75834ca868ce0cd33a9e46514bccd4362f268c0d3f39da2c7a934afe",
-      "tests/mobile-chat-sessions-poll-60.test.mjs": "e3b62fa2d06e830d94dd7bb16282ac876d7e47276b891b9249135ace4a76f53d",
+      "tests/mobile-chat-sessions-poll-60.test.mjs": "39632ff908b195e5f7ba4a36c7fccdb9c75ce26b3e3e1feb7027afcbfc096360",
       "tests/mobile-coach-bulk-invite-actions-106.test.mjs": "7d1f9f990f78da29d304ae38764b9c459a555d3b876abb27c1dbc35aa9814673",
       "tests/mobile-coach-comms-corrective-36.test.mjs": "5212e93139f6e1cfbdfb4c4947c946e710d25b363c492c3fa6bd45e3232808d6",
       "tests/mobile-coach-home-open-development.test.mjs": "611c19d18164aeec0ff4f0d5ee846aafc78652860cc28a8c8ac37226e6139a88",
@@ -2082,14 +2083,14 @@
       "tests/mobile-coach-plan-access-browser.mjs": "9cbf372ccea129ca0516a1e009d6c4944a6e3712bd9e828c6ea6b7b26205db08",
       "tests/mobile-coach-team-kits-browser.mjs": "51cd1db4e0ff4e55e4541f3ecb6dc382c2ed21d11575052802084ef3fe4b3184",
       "tests/mobile-compaction-attention-65.test.mjs": "ae6bab0116931827ffd3d9fcff8d0bd8998a289386175874bb77ef5ddb064e56",
-      "tests/mobile-connection-invites-72.test.mjs": "d3129232b6419172cd597ce5599b50461f65e5b614768dc029fb1826cfce36f7",
+      "tests/mobile-connection-invites-72.test.mjs": "3b8cd960f9b1101a53c8dfa23e1b87eec353908f6ca5b6265ae7080f6c65dcc2",
       "tests/mobile-development-background-domain-browser.mjs": "5d9ea7fbaaae18d72e011d6d94e0ef0cfb61fa5b646b4a11d1f6fdedb041f93f",
       "tests/mobile-development-background.test.mjs": "2e0fd4661f00fd181437fe2a481aeec61e736bf0fd309b0ac261a95e8f86ed97",
       "tests/mobile-development-unfinished-drafts.test.mjs": "e4355b8381830bbbfb2ed40f77b83b62008562d02a9ad6f2500761119428ee34",
       "tests/mobile-eas-test-boundary-07.test.mjs": "7b006768b746380b07d708588c4edcaf4b30ad66e4ae5364d9e086c51498433d",
       "tests/mobile-event-details-browser.mjs": "ea1c8bbe412462bf20a2691a3d762c0896b9c7c9ddf8162450e59afbbcd7371d",
       "tests/mobile-feedback-art-browser.mjs": "6450fa15547f9a8c69eebc1a547c8a610d0e7ec04d5999a875b64d0a36b173a1",
-      "tests/mobile-feedback-corrective-61.test.mjs": "c4414256578c89d7b86c746ff3ab798895b8a7fb7f37095233582382e1cae6d6",
+      "tests/mobile-feedback-corrective-61.test.mjs": "7e276df943ee9209f804a08b606cb8549fddb833efac7c0b47e23414e61a5e38",
       "tests/mobile-header-activity-browser.mjs": "c831aeae067dbbbab44f15e651827b493f9d40d62a8b1d9c794bd77a73fdd60e",
       "tests/mobile-home-polish-browser.mjs": "82835ae2d560cb1315b9f6d2b5f80be52afae203497c9549833b76c8be8d4d56",
       "tests/mobile-home-refresh-layout.test.mjs": "fde78b54fc76a0f4deeb1e6deeb892c9dfa17643e03ca15d5448b41be07cce54",
@@ -2118,7 +2119,7 @@
       "tests/mobile-persistent-loading.test.mjs": "aa72eb27ba60fd51afd8a76ce34093e8bd030bc0f9eaccc9f6b3673c27ae5284",
       "tests/mobile-persistent-resources.test.mjs": "b8a4f2295a77f1ef38465bb23562d44f1619d2aa3684f09d0f86074437fa17bb",
       "tests/mobile-platform-controls-browser.mjs": "b11e7149d50c496d2ac6b6971471c778312e5a826164ff84b6352b90e851b3e6",
-      "tests/mobile-polls-match-save-59.test.mjs": "0b76cfde6805a11dfd421be18e975b9d622dcac51d694483fdfa4e50fa597b11",
+      "tests/mobile-polls-match-save-59.test.mjs": "c61a3c93c1db86c2f225256d7f9271963d745f9543fba1dcb0ec398460125a1c",
       "tests/mobile-push-priority.test.mjs": "503d05c7941e662c6061adf701dac376baae21b9b6d31c249b922940bcf185e5",
       "tests/mobile-scorer-parity-browser.mjs": "afdf4f204546e8b6436c07a9f048d5d48771e43d563b12377f344ad07db694a1",
       "tests/mobile-secure-session-08.test.mjs": "0e25590f85b9a5a4833ac1cfa63cdd3b5e3d7c5ec61b3f19f5bded7e678714e2",
@@ -2271,38 +2272,38 @@
       "apps/MOBILE_NOTIFICATION_RUNBOOK.md": "21949cd06195ac244898efedfb01bb390417e6d804dbc481f524798a09c4f374",
       "apps/MOBILE_PRIVACY_QUESTIONNAIRE.md": "218d5899b472574c2101bec598b1bd1bf5f8f1036636a7530009e9a93910ddb8",
       "apps/MOBILE_VERSIONING.md": "9fc67d08db5406ac06662b0cd69a127543e9b74663be6db5db01099800e4b735",
-      "apps/coach-mobile/app.config.js": "2e1542e4c19f5f09c78f3dc155640a95c9eb9198afa610bc5eaa6d4dae99044f",
+      "apps/coach-mobile/app.config.js": "a2f20e8f20cc29da1000de98584cb5282e3aa3380210cf60eb93417699eff57a",
       "apps/coach-mobile/src/CoachCalendarSync.js": "07188f9256e15c3105f254afa5f8e779361cdd025625749a0d205ee4ea8bc2da",
       "apps/mobile-core/appConfig.cjs": "610b76c0db124088cbf90ffcc50ab2990acaf72602f97ee0e2615b64264be82a",
       "apps/mobile-core/src/calendarSubscriptionCore.js": "5acad2f91a2c224aded43a0d60223acdaa981d83536774d3615d6bea3f29c45c",
       "apps/mobile-core/src/coachCalendarSubscription.js": "c5cbe9ed0eb9294636d09f9283e30ed37293a0fda6469fddf5a2088ed5b10c6a",
-      "apps/parent-mobile/app.config.js": "58918b0ef3ac3e7a994c67658dae9170851614b8200a98aa5659921669dca960",
+      "apps/parent-mobile/app.config.js": "e1a54c8197f7821b9a2846301b773793c038e03f4fbda3cbc99165fd5e26f451",
       "apps/parent-mobile/index.js": "260193b3b1aeca392e71ab124dd6b9837ce30e6a8f639b877bc5fde7ab213894",
       "apps/parent-mobile/modules/parent-notification-actions/expo-module.config.json": "dd0fcf38967ced5f7a19aada72e9fb2941db2dffa14721bfcb6810f7deaba91b",
       "apps/parent-mobile/modules/parent-notification-actions/ios/ParentNotificationActions.podspec": "e54ed52ac765b35a0a81d13e13f8d5fd5152832c650d4b43c0cee8106de60e99",
       "apps/parent-mobile/modules/parent-notification-actions/ios/ParentNotificationActionsModule.swift": "9683444f86795f05c071c8ae3f80ed78d691ae75f1e1cb13bc97d69736876091",
       "apps/parent-mobile/modules/parent-notification-actions/package.json": "00ada4d66362f3a9d8079b12f22a5da0f6be91617c6b1fc879a63fdeb89dd9c1",
       "apps/parent-mobile/src/backgroundInvitationActionCore.js": "aeb0c94849fa4f5bf14ec3d2044d3e90d5c8593ef937674210538f97ce638ab6",
-      "apps/parent-mobile/src/backgroundInvitationActions.js": "61054ff2a595a776c414e29dbe5368d52e82b248691859770ab9d63ecc620e88",
+      "apps/parent-mobile/src/backgroundInvitationActions.js": "4789f3d8116b4e7b23037d73a4b540f68237538ddec1bd15ac4b536f2ce4a95f",
       "apps/parent-mobile/src/notifications.js": "2c83732e81186da42e58955964736eeae31a41d816005ed4536e40e6a678ba4b",
-      "apps/scripts/mobile-build-guard.mjs": "0c2f7e711558e10b93b7f584abeac333ff16d0b912e84318bfd0af9bbe423ea1",
-      "apps/scripts/mobile-submit-guard.mjs": "1712093232f459f9e10fd714862bc42193fc5ef508f43236f3f49d9683dfe5bb",
+      "apps/scripts/mobile-build-guard.mjs": "98219918bd57fea5b25bb55a2e400dcf28f2e9c03bfcf7b43f75c8c9d0edc59b",
+      "apps/scripts/mobile-submit-guard.mjs": "3f4e40ad23eb38a2eee4acfb7b76bd43b9814e73fcfad4a26a88445c42f8f7c9",
       "netlify/functions/coach-calendar-feed.js": "c4892389b1ec528dd184c332fe958aba171bdf26ddf48468f845b29f0e15ef6d",
       "netlify/functions/lib/_coach-calendar-authority.js": "83e7672eba964646a72418c5c1a3da544f7feb742a0ea2252b57a1cedbeb3db3",
       "supabase/migrations/20261027140215_coach_calendar_subscriptions.sql": "1f5639bba6c274334cdb20b92b2ac64c952771eafb0d94d67119d8d3a1737572",
       "tests/mobile-background-invitation-actions.test.mjs": "a15ee7f09d99d7282ac4447e63ac884efcf462abfbe4f4fda301e99388160d9d",
       "tests/mobile-calendar-subscriptions.test.mjs": "73a3bb3c712b63682177a34de4dea9c00227fec401b4b22d1570695730caa963",
-      "tests/parent-calendar-ota-compat.test.mjs": "75004466e330b764729233433c82f3c92f31d3eaa0543e22cb2245eec205fd8d",
+      "tests/parent-calendar-ota-compat.test.mjs": "f6414039e01681e931845072b39c2e5d69ca5c3002f823c4a787787dd0bdb3ea",
       "netlify/functions/lib/_calendar-subscription-tokens.js": "90b904659d0fde5514be8263a6da4fd6f3dfdfec6bbccb8f503acd90fdd39f06",
       "netlify/functions/parent-calendar-feed.js": "50f826e567ef3eb52ec231d3a487fafbad24f4126f13784d0224034d574c8575",
       "apps/coach-mobile/eas.json": "dcf971cf093907cb6848b9a4f6e2b31c52bbe77b732219ba7eb3bcb2ac331a8b",
       "apps/parent-mobile/eas.json": "d46790827da53d2bf493c5de62642025b047dac85ff50212cc36271cc2c6411c",
       "apps/scripts/mobile-qa-upload-core.mjs": "cc8aa1fc8444339b00426f15a7157e90bc43a39a2bd9e25f4eddd77d44a3027d",
-      "tests/mobile-qa-upload-guard.test.mjs": "005f3958c20df4c13e99d8b344c8c3ea27f80a478ba915c8ec84925c9e951622",
+      "tests/mobile-qa-upload-guard.test.mjs": "37d7323659abf3da17cd903c1d27412f11962c61db55a4b4f19efda7bb27c759",
       "apps/scripts/mobile-eas-toolchain.mjs": "979ed9ac704747c74869dbc69edbc4d6bc10a9b7f174069bb9136df94df0bebd",
-      "tests/mobile-chat-notify-performance-58.test.mjs": "f3a21f38924d606644c478bfcc541bd5c70bca66af390f3c7e409237f57eb7ba",
-      "tests/mobile-corrective-70.test.mjs": "09cc5d9b51cdd1eed18737f9b72c211656dfcd875a5dab53a5223bccc8eb35e5",
-      "tests/mobile-corrective-71.test.mjs": "a5e96ca145f943ce6448a43acbab0199b1d950ce70154da04df910d8fd19cf30",
+      "tests/mobile-chat-notify-performance-58.test.mjs": "f2beffb67c5208c8f586892fa60be3d3f0064c7f04d743c78bd29542415db6c2",
+      "tests/mobile-corrective-70.test.mjs": "1752c8ba791f54c04c287f5ef8de934600ddf8b67b2ac37534b2838d844c2bfb",
+      "tests/mobile-corrective-71.test.mjs": "32781c3a3edafadb12d538ba4c87cc42830d4e402879aca40ab40af3c6cabe83",
       "tests/mobile-eas-toolchain.test.mjs": "d1f0eb138bba89a4531a8a91128f20517320ebead1c07c24cdab4aa11ae124fd",
       "tests/helpers/coach-calendar-subscription-fixture.mjs": "28a91009229bdfba0dca9cc5d7f8bc214fb945a0c9cf1dd7868049e79101bc55",
       "tests/coach-badge-reconciliation-browser.mjs": "3375e7aadd72efdd60a9ba14654c554ffa527cd1f417292bd63a0cf2bdf354a1",
@@ -2350,7 +2351,7 @@
       "apps/parent-mobile/src/parentConnectivityCore.js": "bcb11a0761c67e6e08a04012a4188fa49172a33d6316d16f21905dd932461646",
       "tests/parent-chat-connectivity-20261030.test.mjs": "fcbcf04a1b3856616fde838992fa2da8c62768844ed664ab2cc3f345100bd9b8",
       "tests/v1-parent-reconnect-browser.mjs": "943ed51b9d40127ad27a2757b3d1d7f485edf2fb9d5c1869d62cca7fd7fc5a6e",
-      "tests/tooling-glob-minimatch-compatibility.test.mjs": "8bfadf3dd8eeedb2ea7e849eaa227da9e6a639f16fed47e7836a8d9965ad7685",
+      "tests/tooling-glob-minimatch-compatibility.test.mjs": "24984cf48536e4077ed8beae3dd93110d52f70a930fd10d54e7ddd3820af6e72",
       "tests/coach-invites-cache-recovery.test.mjs": "a27ec4ba2e9ab2fa7d9b26bd440810db0f14584be33f3b754a0037e777634be2",
       "tests/coach-invites-offline-warning-browser.test.mjs": "c0689d50d8b2fd94fd5630874ea0892c61e506da8c0561fba4bf506c04b5b084",
       "apps/mobile-core/src/parentCalendarCore.js": "063a330d55555d5d11e692082d1af89dff01f5688ae38263ddf0fa74d3363856",
@@ -2397,18 +2398,18 @@
       "tests/coach-versioned-offline-store.test.mjs": "21aef4a8545d43626d1a81ba9e476c3b66ffd775e316a9ea180a24137378af69",
       "apps/coach-mobile/.eas/build/coach-internal-android.yml": "92710807b3f418266685dfe90b239e31a842a41f8875ea2f4bb909fbde40d58e",
       "apps/coach-mobile/.eas/build/coach-internal-ios.yml": "39df42ee5b8c51f368182d94d273d228edd591ff7879dc42d6c731bdcd5a6c46",
-      "scripts/security-eas-coach-test.mjs": "93c4fec43af98ccb502a90fc64907b3dfbad1746664816640855d9aec09252cd",
-      "tests/coach-eas-security-workflow.test.mjs": "0e51b6e0bd34a9da657e8019ba64e54e1c7f98e68a5d373f944be0b06fc8fc72",
+      "scripts/security-eas-coach-test.mjs": "ab89fc3eace24c5e33287bab4cb6d0e7595fcda44d4db9b3ed8eed96b2f84b32",
+      "tests/coach-eas-security-workflow.test.mjs": "e7891f3d865342f7539cf403d8b2d69870a26931acfb63116a788d836cfdfc05",
       ".gitignore": "44b34f2fb7479f15ace17aad8022b9caca26558f98ccf8f8bfb4e0165bd7bf86",
       "apps/coach-mobile/index.js": "f733a30f4000fd1fcdd91f315e0d88ea83b1236c0bbce41d5cae4a565b01ca4b",
       "apps/coach-mobile/widgets/Attributes.swift": "11a38bc5dfb14c16753f27be5eccb73ce46d8473548b6d18e19ae480533a02c3",
       "apps/coach-mobile/widgets/Info.plist": "c94feba7a879296701ae94a0b3c59247484a06767c70519ab6be795fbd93e427",
-      "apps/coach-mobile/widgets/MatchLiveActivityWidget.swift": "1ae4e10e8165ee11e1e6c291529c8d9038e8b45b62087dc1f51045ce1dc08817",
+      "apps/coach-mobile/widgets/MatchLiveActivityWidget.swift": "13585730ce0e9492d3021c4dac693d4068850b336210d8690ecc21edc8173d77",
       "apps/coach-mobile/widgets/Module.swift": "f8b0882d1f3e0504fa021aab7973259af4fbed854ac0793c6bcf98c14dc9df09",
       "apps/coach-mobile/widgets/WidgetBundle.swift": "09154d9859bb1b9b59052db13816808a087f5ee1e06f072cd75827711a7eae12",
       "apps/mobile-core/modules/live-match/android/build.gradle": "5b62b3c746bcb8d46255535746766a256839d89fc53e07f37586a8077ab87b3a",
       "apps/mobile-core/modules/live-match/android/src/main/java/online/footballplayer/livematch/LiveMatchModule.kt": "5c4d3c2cb1e8c7380c6b12d4b231c8caa92b32a0c1513c8cf49b8b74c0f737c8",
-      "apps/mobile-core/modules/live-match/android/src/main/java/online/footballplayer/livematch/MatchNotification.kt": "25a479b686893c34dbcc4291c9cc86e9eec6ec6f0ae951742af5d91029b981bc",
+      "apps/mobile-core/modules/live-match/android/src/main/java/online/footballplayer/livematch/MatchNotification.kt": "c4490469b6a9df78107f9a9c3e1086b38c3e005ba99ffee2ae158c4144e7ebaf",
       "apps/mobile-core/modules/live-match/expo-module.config.json": "ffc471eed0454eae84e5a791fda86496c0f4d57232a976df27044a44e060af70",
       "apps/mobile-core/modules/live-match/index.js": "34765a54c77847cc5deb7ac58848462eadb05a0d0a9cbb0fe6d8e30aa195bdbb",
       "apps/mobile-core/modules/live-match/package.json": "223e6cd8d969cf722827c71f4ea222119baa23dbb432517e804db8dbdf8a4e83",
@@ -2423,7 +2424,7 @@
       "apps/mobile-core/src/parentOfflineCapacity.js": "2a63535ca7bb0556d812995261405c9ae11c03567c4b1056e7790922194b793d",
       "apps/parent-mobile/widgets/Attributes.swift": "11a38bc5dfb14c16753f27be5eccb73ce46d8473548b6d18e19ae480533a02c3",
       "apps/parent-mobile/widgets/Info.plist": "c94feba7a879296701ae94a0b3c59247484a06767c70519ab6be795fbd93e427",
-      "apps/parent-mobile/widgets/MatchLiveActivityWidget.swift": "fc2aa25345ece4989ab8ad2019f922c731b4bc962514a1da833da8a40261f674",
+      "apps/parent-mobile/widgets/MatchLiveActivityWidget.swift": "66a07a16defddde1abffafce3d830f61e7c99befe594d87a27eca5b93aa7663d",
       "apps/parent-mobile/widgets/Module.swift": "f8b0882d1f3e0504fa021aab7973259af4fbed854ac0793c6bcf98c14dc9df09",
       "apps/parent-mobile/widgets/WidgetBundle.swift": "09154d9859bb1b9b59052db13816808a087f5ee1e06f072cd75827711a7eae12",
       "apps/scripts/mobile-apply-reviewed-glob-compat.mjs": "33eb0b1242f875f4da32aa9fb1c3079e9775dfacdb382c82cc38b6ed1743783b",
@@ -2434,7 +2435,7 @@
       "tests/live-activity-apns.test.mjs": "89b58aa96acf0ed7fa5da83a11ab8875b5caa7c1de287b7876e2c67f672b8b03",
       "tests/live-match-delivery.test.mjs": "e998cc0bd22b1651a3ccb86b558036a173d6fdbc371191280cfef2c026e3ed18",
       "tests/live-match-migration-pglite.test.mjs": "7a27e1f8a403c576647e340fce2b306a34cc34dfcea873e39bd5dbd8728a481d",
-      "tests/live-match-state.test.mjs": "33e2ddb035d612ed8cad3013beb11e05818c6f5c451720917187c8d66a3988af",
+      "tests/live-match-state.test.mjs": "5b931270b62ff3cc4d49547ff15a60cecde3829a76273c2a5703a47c9cbf7558",
       "tests/parent-offline-capacity.test.mjs": "a4d92489490ff76cae8831f8f4af7436daadc3fdc0b11978a026d74c05fbe452",
       "apps/mobile-core/src/liveMatchSignOutCore.js": "6445350cd87353c7513a86396742708aee4e92c848e5380d4d632bf17de2b4af",
       "tests/live-match-sign-out.test.mjs": "8c0a97b9c87edbea9a5d1e0d50f724de776e2cc1c3615b48fb8ae20caa93d984",
@@ -2446,7 +2447,7 @@
       "supabase/migrations/20261103213000_parent_live_match_cards.sql": "3e7af1c723741d9c9cdd070bf429cbc5cc56e3604c3e23beb6b32c268ed146cb",
       "tests/parent-live-match-cards-pglite.test.mjs": "01a058a22d36981b3f8ad83448761af87e7357af645756bc8e52d17b3c83e99a",
       "tests/coach-fixture-create-crash-63.test.mjs": "6dd13776dd5ea92822eeca7141f9c01fd0a0aad3d797759c705608236c0a4a1a",
-      "tests/fixture-calendar-terminology-62.test.mjs": "8ee4fc11c9b6a41d2d82d1919256da18828513c1aae29f61e0b7b9836755a193",
+      "tests/fixture-calendar-terminology-62.test.mjs": "30aab458880430dc5e48d8e922abd944d14775594a9972f61757dcd5ed9df0d6",
       "tests/match-day-shirt-choice-109.test.mjs": "29e162b234dfd4df6547d5bacc199824a3e0ff816e676e78103fba81a6ed840f",
       "apps/mobile-core/src/coachFixtureAuditCore.js": "d2fb45c6724d5a48a69d09be2026626b6f17a9b8e69e973f9ff7ec72fbc8f75f",
       "tests/coach-fixture-audit.test.mjs": "11fce5b3b26daf49c07bb43b2e7bc134ddebd2e2065d8573f0123082974d5ec6",
@@ -2788,7 +2789,12 @@
       "supabase/migrations/20261125123206_wake_live_clock_for_saved_scorer_commands.sql": "ce23aa99590a3efd0598fa5686cece8f2cfe9016452bc81aabb0a28a5eb5eba6",
       "src/lib/matchday-parent-visibility.js": "2a6a60971f1ee3db63e9694ddb08b8dcce554e14a9a5c2961319d10b972e9d79",
       "supabase/migrations/20261125171252_coach_chat_active_history_and_home_unread.sql": "38dfe013d0b6fe4a21328cbfc06c10d73ede6ebbc96b59098576fe65695b13f8",
-      "tests/mobile-read-path-performance-pglite.test.mjs": "5820c12e1c70faa535da5b315d5c50491ea2b340a64db58340b5e7665975599b"
+      "tests/mobile-read-path-performance-pglite.test.mjs": "5820c12e1c70faa535da5b315d5c50491ea2b340a64db58340b5e7665975599b",
+      "apps/mobile-core/modules/live-match/android/src/main/res/layout/live_match_notification.xml": "4a387f89e959fb590e506e56b883987d6175298e495000aeff9c1b319c2e04b0",
+      "apps/parent-mobile/STORE_METADATA.md": "b7b317b774a228cc4e29dfff1a436c2ba85cab3a26bdb238988bec7f43d61b3b",
+      "apps/parent-mobile/STORE_SUBMISSION_CHECKLIST.md": "146f084ce596d062f7ecd0b67c91cff71084a26046746ec9c595e9897cd5c46f",
+      "apps/scripts/mobile-apps.mjs": "fbaebb2dd0d2b55394de3cafc5a0e8ae5bdd712088a3781c20a509c600ea5ddd",
+      "apps/parent-mobile/plugins/withExistingLiveActivity.cjs": "ac29c8f6309d7af92b779256ca6faf92707171aaa8b9da0be1e698b02e8530e1"
     },
     "externalTrustInputs": [
       "FOOTBALL_REVIEW_RECEIPT_BASE64",
@@ -4272,9 +4278,10 @@
       "independentExactSourceAcceptanceRequired": true
     },
     "toolingRequalification20261117": "Qualify official minimatch 11.0.9 JavaScript tooling across all three scopes. Lock changes are limited to minimatch; direct and native dependencies, Expo runtime, reviewed package patches and audit rules are retained.",
-    "coachIphoneUsabilityFollowup": "Coach 1.1.2 shows Home rows during loading, keeps the first verified compact overview and hides denied source details. Match Day opens an authorised draft with a usable opponent field before fixture, defaults and roster reads complete. Protected form actions wait for current data and retain server checks. Independent Chat and availability reads run in parallel. Local diagnostics distinguish content, layout, data, action readiness and timeout, and Coach uses its own reachability state with consecutive probe results. JavaScript and focused tests only. This candidate requires independent exact-HEAD approval before publication."
+    "coachIphoneUsabilityFollowup": "Coach 1.1.2 shows Home rows during loading, keeps the first verified compact overview and hides denied source details. Match Day opens an authorised draft with a usable opponent field before fixture, defaults and roster reads complete. Protected form actions wait for current data and retain server checks. Independent Chat and availability reads run in parallel. Local diagnostics distinguish content, layout, data, action readiness and timeout, and Coach uses its own reachability state with consecutive probe results. JavaScript and focused tests only. This candidate requires independent exact-HEAD approval before publication.",
+    "scope": "For public 1.5.0, both mobile runtimes advance together, the Parent display name becomes Football Player, and the held-back native Lock Screen layout fixes are included for Android and iPhone. Store project identities, app access and required release evidence remain enforced. The supplied mobile screenshots also guide layout checks. Keep the More screen header visible on entry and give Match Day tab labels room on narrow phones. Preserve the signed Parent iOS Live Activity extension target and bundle ID during the public display-name change."
   },
-  "releasePreparationSha256": "af01370acb56ff8144bc5af2d3704a5f0e57f08303a91c6327480d1fb98b314e",
+  "releasePreparationSha256": "e8cc9a6a79d11fff5b0bd5d41e4983a708bd4c0be477217d09b5afd8adddfda1",
   "rootOnlyProposalSha256": "45c3b7352c7328c84982e114b7e87e09cf79514d02d102297ae75ec0925812eb",
   "remediationMode": "maintained-source-fixes",
   "officialCompatibilityDependencies": [

@@ -1,3 +1,5 @@
+export const mobile150PublicRelease = { reference: 'FP-MOBILE-PUBLIC-150-20261125', version: '1.5.0' }
+
 export const mobileApps = [
   {
     appConfig: 'apps/coach-mobile/app.config.js',
@@ -36,7 +38,7 @@ export const mobileApps = [
     notificationIcon: 'apps/parent-mobile/assets/notification-icon.png',
     splashIcon: 'apps/parent-mobile/assets/splash-icon.png',
     easConfig: 'apps/parent-mobile/eas.json',
-    expectedName: 'Football Player Parents',
+    expectedName: 'Football Player',
     label: 'Parents mobile',
     metadata: 'apps/parent-mobile/STORE_METADATA.md',
     metroConfig: 'apps/parent-mobile/metro.config.js',

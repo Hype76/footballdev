@@ -2831,6 +2831,7 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved, openPlayer, 
                     setNotice({ message: 'That section is not available for this team plan.', tone: 'warning' })
                     return
                   }
+                  scrollViewRef.current?.scrollTo({ y: 0, animated: false })
                   setMoreSection(section)
                 }}
                 theme={displayTheme}

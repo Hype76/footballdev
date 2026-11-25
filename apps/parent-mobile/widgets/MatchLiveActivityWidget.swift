@@ -100,17 +100,18 @@ struct MatchLiveActivityWidget: Widget {
             yellow: context.state.awayYellowCards ?? 0, red: context.state.awayRedCards ?? 0, trailing: true)
         }
         VStack(spacing: 3) {
-          HStack {
-            Text(context.state.phase).frame(maxWidth: .infinity, alignment: .leading)
-            Group {
-              if context.isStale { Text("Update delayed") }
-              else if let home = context.state.homeShootoutScore, let away = context.state.awayShootoutScore {
-                Text("Penalties \(home) - \(away)")
-              } else { Text("") }
-            }.frame(maxWidth: .infinity, alignment: .trailing)
+          if !context.state.phase.isEmpty { Text(context.state.phase) }
+          if context.isStale { Text("Update delayed") }
+          else if let home = context.state.homeShootoutScore, let away = context.state.awayShootoutScore {
+            Text("Penalties \(home) - \(away)")
           }
-          MatchClock(state: context.state).frame(maxWidth: .infinity, alignment: .center)
-        }.font(.caption)
+          if context.state.phase != "Full time", context.state.elapsedSeconds != nil {
+            MatchClock(state: context.state)
+          }
+        }
+        .font(.caption)
+        .multilineTextAlignment(.center)
+        .frame(maxWidth: .infinity, alignment: .center)
       }.padding().foregroundStyle(.white).activityBackgroundTint(Color(red: 0, green: 76.0 / 255.0, blue: 140.0 / 255.0))
     } dynamicIsland: { context in
       DynamicIsland {

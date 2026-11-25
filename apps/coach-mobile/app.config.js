@@ -18,5 +18,5 @@ module.exports = createMobileExpoConfig({
   ],
   scheme: 'footballplayercoach',
   slug: 'football-player-coach',
-  version: '1.1.2',
+  version: '1.5.0',
 })
