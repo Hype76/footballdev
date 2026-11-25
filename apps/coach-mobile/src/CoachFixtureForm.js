@@ -33,6 +33,7 @@ import {
 import { deriveTeamNotificationDisplayName } from '../../../src/lib/team-notification-display.js'
 import { getCoachCarpoolDefault, setCoachCarpoolDefault } from '../../mobile-core/src/coachCarpoolData'
 import { CoachKeyboardFocusContext } from './CoachKeyboardFocusContext'
+import { FIXTURE_CALENDAR_AUDIENCE_OPTIONS, getFixtureCalendarAudience } from '../../../src/lib/matchday-parent-visibility.js'
 import { canPlayerJoinFixture } from '../../../src/lib/player-participation.js'
 
 function Button({ disabled = false, label, onPress, secondary = false, styles }) {
@@ -53,6 +54,7 @@ function Toggle({ label, onValueChange, styles, value }) {
 }
 
 export function CoachFixtureForm({ changesBlocked = false, defaultMatchDate = '', match = null, matches, onCancel, onCancelled, onCreated, onRequestScrollTo, onUpdated, players, styles, user }) {
+  const [calendarAudienceOpen, setCalendarAudienceOpen] = useState(false)
   const [locations, setLocations] = useState([])
   const [form, setForm] = useState(null)
   const [opponentDraft, setOpponentDraft] = useState('')
@@ -408,6 +410,24 @@ export function CoachFixtureForm({ changesBlocked = false, defaultMatchDate = ''
   const locationValue = locations.find((item) => item.name === form.venueName && item.address === form.venueAddress)?.id || ''
   const durationIsCustom = !COACH_MATCH_DURATION_OPTIONS.includes(Number(form.matchDurationMinutes))
   const hasEligiblePlayers = eligiblePlayers.length > 0
+  const calendarAudience = getFixtureCalendarAudience(form.parentAudience, user.activeTeamId)
+  const calendarAudienceLabel = FIXTURE_CALENDAR_AUDIENCE_OPTIONS.find(option => option.value === calendarAudience).label
+
+  const toggleFixtureSharing = (value) => {
+    selectionTouched.current = false
+    setCalendarAudienceOpen(false)
+    setForm({
+      ...form,
+      parentAudience: value ? 'involved_players' : 'none',
+      parentVisible: value,
+      selectedPlayerIds: value ? eligiblePlayers.map(player => player.id) : [],
+    })
+  }
+
+  const selectCalendarAudience = (audience) => {
+    setForm({ ...form, parentAudience: getFixtureCalendarAudience(audience, user.activeTeamId) })
+    setCalendarAudienceOpen(false)
+  }
 
   return (
     <View style={styles.stack}>
@@ -455,11 +475,53 @@ export function CoachFixtureForm({ changesBlocked = false, defaultMatchDate = ''
         <Text style={styles.meta}>Saved venues are offered first, and both fields remain editable.</Text>
       </View>
 
-      {!isEditing ? <View style={styles.card}>
-        <Text style={styles.cardTitle}>Players and Parents</Text>
+      {!isEditing ? <View style={styles.stack}>
+        <Text style={styles.sectionTitle}>Players and Parents</Text>
         <Toggle label="Automatically select Players who respond Available" onValueChange={(value) => setForm({ ...form, autoSelectAvailablePlayers: value })} styles={styles} value={form.autoSelectAvailablePlayers} />
-        <Toggle label="Share with parents" onValueChange={(value) => { selectionTouched.current = true; setForm({ ...form, parentAudience: value ? 'involved_players' : 'none', parentVisible: value, selectedPlayerIds: value ? eligiblePlayers.map((player) => player.id) : [] }) }} styles={styles} value={form.parentVisible} />
-        {form.parentVisible ? <><Text style={styles.fieldLabel}>Parent audience</Text><Chips onChange={(value) => { selectionTouched.current = true; setForm({ ...form, parentAudience: value }) }} options={[{ label: 'Selected Players', value: 'involved_players' }, { label: 'Team parents', value: 'all_team_parents' }]} styles={styles} value={form.parentAudience} /><View style={styles.row}><Button label="Select all" onPress={() => { selectionTouched.current = true; setForm({ ...form, selectedPlayerIds: eligiblePlayers.map((player) => player.id) }) }} secondary styles={styles} /><Button label="Squad only" onPress={() => { selectionTouched.current = true; setForm({ ...form, selectedPlayerIds: eligiblePlayers.filter((player) => String(player.section || '').trim().toLowerCase() === 'squad').map((player) => player.id) }) }} secondary styles={styles} /><Button label="Clear" onPress={() => { selectionTouched.current = true; setForm({ ...form, selectedPlayerIds: [] }) }} secondary styles={styles} /></View>{eligiblePlayers.map((player) => { const selected = form.selectedPlayerIds.includes(player.id); return <Button key={player.id} label={`${selected ? 'Remove' : 'Add'} ${player.playerName}`} onPress={() => { selectionTouched.current = true; setForm({ ...form, selectedPlayerIds: selected ? form.selectedPlayerIds.filter((id) => id !== player.id) : [...form.selectedPlayerIds, player.id] }) }} secondary styles={styles} /> })}</> : null}
+        <Toggle label="Share with Players/Parents" onValueChange={toggleFixtureSharing} styles={styles} value={form.parentVisible} />
+        {form.parentVisible ? <>
+          <Text style={styles.fieldLabel}>Calendar</Text>
+          <Pressable
+            accessibilityLabel="Calendar"
+            accessibilityRole="button"
+            accessibilityState={{ expanded: calendarAudienceOpen }}
+            accessibilityValue={{ text: calendarAudienceLabel }}
+            onPress={() => setCalendarAudienceOpen(open => !open)}
+            style={[styles.row, { minHeight: 44 }]}
+          >
+            <Text style={[styles.body, { flex: 1 }]}>{calendarAudienceLabel}</Text>
+            <Text accessibilityElementsHidden aria-hidden style={styles.body}>{calendarAudienceOpen ? '⌃' : '⌄'}</Text>
+          </Pressable>
+          {calendarAudienceOpen ? <View accessibilityLabel="Calendar options" accessibilityRole="radiogroup">
+            {FIXTURE_CALENDAR_AUDIENCE_OPTIONS.map(({ label, value }) => {
+              const disabled = value === 'all_team_parents' && !user.activeTeamId
+              return <Pressable
+                accessibilityRole="radio"
+                accessibilityState={{ checked: value === calendarAudience, disabled }}
+                disabled={disabled}
+                key={value}
+                onPress={() => selectCalendarAudience(value)}
+                style={[styles.row, { minHeight: 44 }]}
+              >
+                <Text style={[styles.body, { flex: 1 }]}>{label}</Text>
+                {value === calendarAudience ? <Text accessibilityElementsHidden aria-hidden style={styles.body}>✓</Text> : null}
+              </Pressable>
+            })}
+          </View> : null}
+          {calendarAudience === 'all_team_parents' ? <Text style={styles.meta}>Everyone means players and parents on this team.</Text> : null}
+          <View style={styles.row}>
+            <Button label="Select all" onPress={() => { selectionTouched.current = true; setForm({ ...form, selectedPlayerIds: eligiblePlayers.map((player) => player.id) }) }} secondary styles={styles} />
+            <Button label="Squad only" onPress={() => { selectionTouched.current = true; setForm({ ...form, selectedPlayerIds: eligiblePlayers.filter((player) => String(player.section || '').trim().toLowerCase() === 'squad').map((player) => player.id) }) }} secondary styles={styles} />
+            <Button label="Clear" onPress={() => { selectionTouched.current = true; setForm({ ...form, selectedPlayerIds: [] }) }} secondary styles={styles} />
+          </View>
+          {eligiblePlayers.map((player) => {
+            const selected = form.selectedPlayerIds.includes(player.id)
+            return <Button key={player.id} label={`${selected ? 'Remove' : 'Add'} ${player.playerName}`} onPress={() => {
+              selectionTouched.current = true
+              setForm({ ...form, selectedPlayerIds: selected ? form.selectedPlayerIds.filter((id) => id !== player.id) : [...form.selectedPlayerIds, player.id] })
+            }} secondary styles={styles} />
+          })}
+        </> : null}
       </View> : null}
 
       {isEditing && !isConcluded && ['scheduled', 'scorer_request'].includes(match.status) ? <View style={{ borderTopWidth: 1, borderTopColor: '#b9c6c4', paddingTop: 12, gap: 8 }}>

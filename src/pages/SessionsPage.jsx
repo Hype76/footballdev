@@ -2258,6 +2258,8 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
       void openCalendarMatchDayWorkflow({
         ...defaultForm,
         eventType: 'match',
+        shareWithParents: true,
+        parentAudience: 'involved_players',
       })
       return
     }
@@ -2984,6 +2986,8 @@ export function SessionsPage({ calendarOnly = false, historyOnly = false, liveOn
       void openCalendarMatchDayWorkflow({
         ...calendarForm,
         eventType: 'match',
+        shareWithParents: true,
+        parentAudience: 'involved_players',
         endTime: addMinutesToTime(calendarForm.startTime, 120),
       })
       return

@@ -90,6 +90,7 @@ import {
   consumeFixtureSetupIntent,
   FIXTURE_SETUP_EVENT,
 } from '../lib/matchday-workflow.js'
+import { FIXTURE_CALENDAR_AUDIENCE_OPTIONS, getFixtureCalendarAudience } from '../lib/matchday-parent-visibility.js'
 import { getPitchTypeLabel, PITCH_TYPE_OPTIONS } from '../lib/pitch-type.js'
 import {
   getMatchDayVolunteerActionKey,
@@ -2504,7 +2505,9 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
           ...(setupIntent.matchDurationMinutes !== undefined
             ? getMatchDurationFormFields(setupIntent.matchDurationMinutes)
             : {}),
-          parentAudience: setupIntent.parentVisible ? setupIntent.parentAudience : 'none',
+          parentAudience: setupIntent.parentVisible
+            ? getFixtureCalendarAudience(setupIntent.parentAudience, setupIntent.teamId || user.activeTeamId)
+            : 'none',
         }
         : baseForm)
 
@@ -3114,7 +3117,10 @@ export function MatchDayPage({ demoStorageScope = '', experienceMode = '', onExi
       ? { ...form, parentAudience: 'none', parentVisible: false }
       : normalizedCalendarTarget === 'squad'
         ? { ...form, parentAudience: 'involved_players', parentVisible: true }
-        : form
+        : {
+          ...form,
+          parentAudience: form.parentVisible ? getFixtureCalendarAudience(form.parentAudience, selectedFixtureTeamId) : 'none',
+        }
 
     if (!calendarOnly && selectedPlayerIds.length === 0) {
       setErrorMessage('Choose at least one availability invitation recipient before creating the fixture.')
@@ -7661,6 +7667,7 @@ function FixtureSetupModal({
     handleBlurCapture,
   } = useFixtureKeyboardFocusState()
   const shouldPrioritizeFixtureFields = isFixtureControlFocused || isKeyboardOpen
+  const calendarAudience = getFixtureCalendarAudience(form.parentAudience, selectedFixtureTeamId)
 
   return (
     <div
@@ -7764,6 +7771,7 @@ function FixtureSetupModal({
                       const team = teams.find((candidate) => String(candidate.id) === teamId)
                       updateForm({
                         notificationTeamName: teamId ? resolveTeamNotificationDisplayName(team || {}, team?.name || '') : '',
+                        parentAudience: form.parentVisible ? getFixtureCalendarAudience(form.parentAudience, teamId) : 'none',
                         teamId,
                       })
                     }}
@@ -8050,16 +8058,13 @@ function FixtureSetupModal({
             <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4">
               <div className="grid gap-4 md:grid-cols-2">
                 <label className="block">
-                  <span className={labelClass}>Share with parents and players?</span>
+                  <span className={labelClass} id="fixture-sharing-label">Share with Players/Parents</span>
                   <select
+                    aria-labelledby="fixture-sharing-label"
                     value={form.parentVisible ? 'yes' : 'no'}
                     onChange={(event) => updateForm({
                       parentVisible: event.target.value === 'yes',
-                      parentAudience: event.target.value === 'yes' && form.parentAudience !== 'none'
-                        ? form.parentAudience
-                        : event.target.value === 'yes'
-                          ? 'involved_players'
-                          : 'none',
+                      parentAudience: event.target.value === 'yes' ? calendarAudience : 'none',
                     })}
                     className={inputClass}
                   >
@@ -8068,24 +8073,31 @@ function FixtureSetupModal({
                   </select>
                 </label>
 
-                <label className="block">
-                  <span className={labelClass}>Parent audience</span>
-                  <select
-                    value={form.parentVisible ? form.parentAudience : 'none'}
-                    onChange={(event) => updateForm({ parentAudience: event.target.value })}
-                    disabled={!form.parentVisible}
-                    className={inputClass}
-                  >
-                    <option value="none">Not shared</option>
-                    <option value="involved_players">Only parents of involved players</option>
-                    <option value="all_team_parents">All parents in the team</option>
-                    {!isTeamScopedFixture ? <option value="all_club_parents">All parents in the club</option> : null}
-                  </select>
-                </label>
+                {form.parentVisible ? (
+                  <label className="block">
+                    <span className={labelClass} id="fixture-calendar-label">Calendar</span>
+                    <select
+                      aria-labelledby="fixture-calendar-label"
+                      value={calendarAudience}
+                      onChange={(event) => updateForm({
+                        parentAudience: getFixtureCalendarAudience(event.target.value, selectedFixtureTeamId),
+                      })}
+                      className={inputClass}
+                    >
+                      {FIXTURE_CALENDAR_AUDIENCE_OPTIONS.map(({ value, label }) => (
+                        <option key={value} value={value} disabled={value === 'all_team_parents' && !selectedFixtureTeamId}>
+                          {label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                ) : null}
               </div>
-              {form.parentVisible && form.parentAudience === 'involved_players' ? (
+              {form.parentVisible ? (
                 <p className="mt-3 rounded-lg border border-[#fedf89] bg-white px-3 py-3 text-xs font-bold leading-5 text-[#92400e]">
-                  Only involved players uses the squad availability records selected in the next step.
+                  {calendarAudience === 'all_team_parents'
+                    ? 'Everyone means players and parents on the selected team.'
+                    : 'The next step lets you choose which players to invite.'}
                 </p>
               ) : null}
             </div>
