@@ -871,6 +871,7 @@ function ChatDomain({ chatNotificationTarget, context, data, load, notice, onCha
   const roomSections = useMemo(() => buildCoachChatRoomSections([
     ...(data.staff || []), ...(data.parent || []).filter(room => room.status !== 'closed'),
   ].filter(item => !deniedRoomIds.includes(item.id))), [data, deniedRoomIds])
+  const activeRoomCount = roomSections.reduce((total, section) => total + section.total, 0)
   const closedRooms = useMemo(() => closedChat.rooms.filter(item => !deniedRoomIds.includes(item.id)), [closedChat.rooms, deniedRoomIds])
   const rooms = useMemo(() => [
     ...roomSections.flatMap(section => [...section.activeRooms, ...section.emptyRooms]),
@@ -1129,7 +1130,7 @@ function ChatDomain({ chatNotificationTarget, context, data, load, notice, onCha
           <View style={styles.featureIcon}><MaterialIcons name="chat-bubble-outline" size={24} color={palette.accentText} /></View>
           <View style={styles.featureCopy}>
             <Text accessibilityRole="header" style={styles.title}>Chat</Text>
-
+            {!data.parentLoading ? <Text style={styles.body}>{activeRoomCount} community conversation{activeRoomCount === 1 ? '' : 's'}.</Text> : null}
           </View>
         </View>
         {(!data.parentLoading || unreadRooms.length > 0) ? <Button disabled={markingAllRead || stale || user.isOfflineProfile} label={markingAllRead ? 'Marking all as read...' : 'Mark all as read'} icon="mark-email-read" onPress={() => void markAllRead()} styles={styles} variantStyle={{ borderRadius: 24 }} /> : null}

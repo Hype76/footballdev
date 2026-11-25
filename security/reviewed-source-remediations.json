@@ -771,7 +771,7 @@
   "implementationHashes": {
     "scripts/security-supply-chain-gate.mjs": "9ef3c2fa9949a270eba3b8d7eefc2f9e303e8fbb2fda3921b2e6e42280e733fc",
     "scripts/security-apply-reviewed-backports.mjs": "ecd054578172a4fc6d09720258d2aed1c4a48edd97d6e3b0daa4f635f27f5fcd",
-    "scripts/security-verify-reviewed-backports.mjs": "52fdb6e5bf20d430c9f3ac3f28323bacc18a1ffac1566db35e8566a2dec2052e",
+    "scripts/security-verify-reviewed-backports.mjs": "a6d93991e593382189622d9f28ee1f8066f4f0c2bb6842af218cb1823cf207e5",
     "security/patches/braces-3.0.3.patch": "e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699",
     "security/patches/node-forge-1.4.0.patch": "2de065ac998bf58917a14d0935112d97ec2957ac41b5f06958d500934f188ed4",
     "security/patches/reviewed-source-manifest.json": "0507b50c4ce7a772508ed3a0d18290548bb1fd48802db4599a5ec8e47e2eed49",
@@ -1678,7 +1678,7 @@
       "apps/coach-mobile/src/CoachMatchInviteTable.js": "70d854eb08b25770af0717fd38efb67c10a25a1bdf27583fb03017e0e0c0d57e",
       "apps/coach-mobile/src/CoachNativeTeamBrandingEditor.js": "bd7b007e1ddbd407f187bb417b53bc31916b9ab490e465e18af0ae5d0354a4cd",
       "apps/coach-mobile/src/CoachOperationalScreens.js": "fd142c1124fdad6b02b3e55da295ae88e2b7ae106e606287bd707f8a54dbf47a",
-      "apps/coach-mobile/src/CoachPhase31EScreens.js": "c6efc849e7cd7a3ebeb858e9407fb2f535b9ccc411e95bbbdd4acc6152184e11",
+      "apps/coach-mobile/src/CoachPhase31EScreens.js": "72d90165bc5a49cdd7f79a063dd52735cd1373ac1dc7857ea75b7281a0df764f",
       "apps/coach-mobile/src/CoachResourceUploadAction.js": "69782d79195192ec0b6dd0739b7bba50b4b147bbfdfb67c5d82de905b926dcce",
       "apps/coach-mobile/src/CoachSquadPanel.js": "4dca330502ca524396173f1d040a490ccffbfec8827c69d763cac3ef7dc06567",
       "apps/coach-mobile/src/CoachTeamAdministration.js": "0ac91843c5bb553032c2c36468706426c61e9bf1ec968f9db5e927e6e9c304c9",
@@ -2633,7 +2633,7 @@
       "apps/mobile-core/src/PinnedEventNotes.js": "434fb905f70f27be972ffc3ab8c0a6f29092d42c1d72588ea1bf437ed9b60b47",
       "apps/mobile-core/src/ClubFeatureWave.js": "b53eb3ccabdff866d88d64827e73ceb64b3f7776780f6e04cc6fe80a5fcb1da2",
       "apps/parent-mobile/src/parentMatchAvailability.js": "b3c489ad58c78873d5a0adaca6f8d8a35c828c18580f87532d1f79202d34617c",
-      "tests/coach-chat-communities-browser.mjs": "37f4b826b847fea9598a754055882d78c416d770d9a12a29c399889dfecbc832",
+      "tests/coach-chat-communities-browser.mjs": "f5e9c3c2a69f234cc2149f427a04188ae5f5dd1b1d5638cabb3388f99e083e48",
       "tests/parent-match-availability.test.mjs": "1e4d8b579b147d9ef81b8d1b02a8536129e48f12d4a6691086ecf67b4c0ff365",
       "supabase/migrations/20261117123700_v1_discover_linked_staff_workspaces.sql": "d513b91995530ef9c8acb760358c139234ceeb635d5c35e67457376e3ea409a1",
       "tests/linked-staff-workspaces-pglite.test.mjs": "406e3edaf5a89fdd5d902874c73cebee2a7d0a71724d9f23a0d3556c314f0af8",
@@ -4274,7 +4274,7 @@
     "toolingRequalification20261117": "Qualify official minimatch 11.0.9 JavaScript tooling across all three scopes. Lock changes are limited to minimatch; direct and native dependencies, Expo runtime, reviewed package patches and audit rules are retained.",
     "coachIphoneUsabilityFollowup": "Coach 1.1.2 shows Home rows during loading, keeps the first verified compact overview and hides denied source details. Match Day opens an authorised draft with a usable opponent field before fixture, defaults and roster reads complete. Protected form actions wait for current data and retain server checks. Independent Chat and availability reads run in parallel. Local diagnostics distinguish content, layout, data, action readiness and timeout, and Coach uses its own reachability state with consecutive probe results. JavaScript and focused tests only. This candidate requires independent exact-HEAD approval before publication."
   },
-  "releasePreparationSha256": "8b605279629c496b3f3b800ff7b2a93603073d53ea85ccb0bfeadc3591043b54",
+  "releasePreparationSha256": "af01370acb56ff8144bc5af2d3704a5f0e57f08303a91c6327480d1fb98b314e",
   "rootOnlyProposalSha256": "45c3b7352c7328c84982e114b7e87e09cf79514d02d102297ae75ec0925812eb",
   "remediationMode": "maintained-source-fixes",
   "officialCompatibilityDependencies": [
