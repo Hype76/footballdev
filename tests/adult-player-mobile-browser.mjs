@@ -21,8 +21,10 @@ const bundle = await build({
       }
       function App() {
         const [id, setId] = useState('adult')
+        const [profilePending, setProfilePending] = useState(false)
         window.changeAccount = setId
-        return <AdultPlayerEntry key={id} userId={id} links={window.parentLinks}
+        window.setProfilePending = setProfilePending
+        return <AdultPlayerEntry key={id} userId={id} links={window.parentLinks} parentProfilePending={profilePending}
           onSignOut={async () => setId('signed-out')}
           renderParent={({ openPlayer, playerAccess }) => <main>
             <h1>{window.parentLinks.length ? 'Parent Home' : 'Welcome to Football Player'}</h1>
@@ -114,6 +116,8 @@ const shellBundle = await build({
       const names=[...source.matchAll(/export (?:async )?(?:function|const) (\w+)/g)].map(m=>m[1]);
       const overrides={
         getParentInvitations:'async()=>window.mobileInvitations',getParentPortalMatchDays:'async()=>window.mobileMatches',
+        getParentCalendarEvents:'async()=>window.mobileCalendar',
+        getLinkedParentPlayerStats:'async()=>window.mobileStats',
         getParentPortalMatchDayPlayers:'async()=>[]',getParentChatRooms:'async()=>[]',
         isParentInvitationActionable:'i=>i.canRespond===true',
         getInvitationResponseOptions:`()=>[{label:'Available',value:'available'},{label:'Unavailable',value:'unavailable'},{label:'Maybe',value:'maybe'}]`,
@@ -135,7 +139,9 @@ async function launchSharedShell(page) {
     window.mobileUser={id:'adult',email:'player@example.test',displayName:'Test Player'};
     window.mobileLink={id:'adult-link',linkType:'adult_player',playerId:'adult-player',playerName:'Test Player',clubId:'cambourne',clubName:'Cambourne Town FC',teamId:'ladies',teamName:'Ladies',planKey:'club'};
     window.mobileInvitations=[{invitationId:'match:invite',invitationType:'match_attendance',sourceRecordId:'invite',adultPlayerLinkId:'adult-link',childId:'adult-player',eventId:'fixture',eventTitle:'Ladies league match',eventStart:'2026-11-22T10:00:00Z',responseState:'awaiting_response',invitationState:'active',selectionState:'selected',canRespond:true}];
-    window.mobileMatches=[{id:'fixture',teamId:'ladies',clubId:'cambourne',title:'Ladies league match',opponentName:'Visitors',teamName:'Ladies',status:'scheduled',matchDate:'2026-11-22',kickoffTime:'10:00',availabilityStatus:'no_response',squadDecisionState:'selected',confirmedTeam:[],events:[]}];
+    window.mobileMatches=[{id:'fixture',teamId:'ladies',clubId:'cambourne',title:'Ladies league match',opponentName:'Visitors',teamName:'Ladies',status:'scheduled',matchDate:'2026-11-22',kickoffTime:'10:00',arrivalTime:'09:15',availabilityStatus:'no_response',squadDecisionState:'selected',confirmedTeam:[],events:[]}];
+    window.mobileCalendar=[{id:'fixture',title:'Ladies league match',eventType:'match_day',startsAt:'2026-11-22T10:00:00Z'}];
+    window.mobileStats={matches:{won:3,lost:2,drawn:1},matchesByFixtureType:{cup:{won:1,lost:0,drawn:0},league:{won:2,lost:2,drawn:0},friendly:{won:0,lost:0,drawn:1}},personal:{goals:5}};
     window.rpc=async(name,args)=>{window.calls.push([name,args]);return {data:{success:true}}};
   });
   await page.addScriptTag({content:shellBundle.outputFiles[0].text});
@@ -160,6 +166,7 @@ async function launchFixture(page, { links = [], state = 'linked' } = {}) {
     window.rpc = async (name, args) => {
       window.calls.push([name, args])
       if (name === 'get_own_adult_player_account_state') {
+        if (window.holdAccessCheck) await new Promise(resolve => { window.releaseAccessCheck = resolve })
         if (window.playerAccess === 'unlinked') return { data: [] }
         if (window.playerAccess === 'error') return { error: { message: 'Network unavailable' } }
         return { data: [{
@@ -197,11 +204,27 @@ for (const [engine, device] of [[webkit, 'iPhone 13'], [chromium, 'Pixel 7']]) {
     await launchSharedShell(shell)
     await shell.getByLabel('Player app navigation').waitFor()
     for (const name of ['Home','Calendar','Matchday','Chat','More']) await shell.getByRole('tab',{name,exact:true}).waitFor()
+    const calendarTab = shell.getByRole('tab', { name: 'Calendar', exact: true })
+    await calendarTab.click()
+    await shell.getByRole('button', { name: 'All upcoming', exact: true }).click()
+    const fixture = shell.getByRole('button', { name: /^Ladies league match/ })
+    await fixture.waitFor()
+    assert.equal(await fixture.count(), 1, 'Calendar shows one entry for the shared Matchday fixture')
+    await fixture.click()
+    await shell.getByText('Arrival: 09:15', { exact: true }).waitFor()
+    assert.equal(await shell.getByRole('button', { name: 'Back to Calendar', exact: true }).count(), 0)
     for (const name of ['Calendar','Matchday','Chat']) {
       await shell.getByRole('tab',{name,exact:true}).click()
       await shell.getByRole('heading',{name,exact:true}).waitFor()
     }
     await shell.getByRole('tab',{name:'More',exact:true}).click()
+    await shell.getByRole('button',{name:/^Player stats,/}).click()
+    await shell.getByRole('button',{name:'Team matches filter, All'}).click()
+    await shell.getByRole('button',{name:'Cup',exact:true}).click()
+    await shell.getByRole('button',{name:'Team matches filter, Cup'}).waitFor()
+    assert.match(await shell.getByText('Won',{exact:true}).locator('..').innerText(), /Won\s+1/)
+    assert.match(await shell.getByText('Goals',{exact:true}).locator('..').innerText(), /Goals\s+5/)
+    await shell.getByRole('button',{name:'Back to More',exact:true}).click()
     await shell.getByRole('button',{name:'Settings, App and alerts',exact:true}).click()
     await shell.getByRole('heading',{name:'Settings',exact:true}).waitFor()
     await shell.getByRole('button',{name:'Display',exact:true}).click()
@@ -229,6 +252,19 @@ for (const [engine, device] of [[webkit, 'iPhone 13'], [chromium, 'Pixel 7']]) {
     await page.getByRole('heading', { name: 'Cambourne Town FC' }).waitFor()
     await page.getByText('Ladies', { exact: true }).waitFor()
     await page.getByText('22:11:2026 at 10:00', { exact: true }).waitFor()
+    await page.evaluate(() => {
+      window.holdAccessCheck = true
+      window.setProfilePending(true)
+      window.refreshAccess()
+    })
+    await page.waitForFunction(() => typeof window.releaseAccessCheck === 'function')
+    assert.equal(await page.getByRole('heading', { name: 'Cambourne Town FC' }).isVisible(), true)
+    assert.equal(await page.getByText('Checking your team access...', { exact: true }).count(), 0)
+    await page.evaluate(() => {
+      window.setProfilePending(false)
+      window.holdAccessCheck = false
+      window.releaseAccessCheck()
+    })
     await page.waitForFunction(url => Array.from(document.images).some(image => image.src === url && image.naturalWidth > 0), sharedBadge)
     const available = page.getByRole('button', { name: 'Available', exact: true })
     await available.click()

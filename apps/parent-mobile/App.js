@@ -2653,6 +2653,13 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved, openPlayer, 
 
   const selectedMessage = resources.messages.items.find((message) => message.id === selectedMessageId)
   const selectedMatch = visibleMatches.find((match) => match.id === selectedMatchId)
+  function openCalendarMatch(matchId) {
+    if (!parentRouteAllowed('matchday') || !visibleMatches.some((match) => match.id === matchId)) return false
+    setSelectedMatchId(matchId)
+    setActiveTab('matchday')
+    scrollViewRef.current?.scrollTo({ y: 0, animated: false })
+    return true
+  }
   const unansweredInvites = getParentInvitationCounts(visibleInvitationsWithMatchTimes).needsResponse
   const unreadChat = parentChatRooms.reduce((total, room) => total + Number(room.unreadCount || 0), 0)
   const unreadNotifications = countUnreadGeneralNotifications(resources.notifications.items)
@@ -2785,7 +2792,7 @@ function ParentHomeSession({ initialNotice = null, onAccessRemoved, openPlayer, 
                 selectedMatch={selectedMatch}
               />
             ) : null}
-            {renderedActiveTab === 'calendar' ? <CalendarScreen targetEventId={selectedCalendarTarget?.id} targetOccurrenceDate={selectedCalendarTarget?.occurrenceDate} targetRequestId={selectedCalendarTarget?.requestId} onOpenEventDetails={() => scrollViewRef.current?.scrollTo({ y: 0, animated: false })} activeActionId={activeActionId} invitations={visibleInvitationsWithMatchTimes} isOffline={isOffline} link={selectedLink} onAddToCalendar={handleAddToCalendar} onDateSelected={() => setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 50)} onOpenInvitation={(invitation) => { setSelectedInvitationId(invitation.invitationId); setMoreSection('invites'); setActiveTab('more') }} onOpenLink={handleOpenMatchLink} onOpenResource={handleOpenCalendarResource} onRespond={handleInvitationResponse} onTransport={adultLink ? undefined : handleMatchTransport} resource={resources.calendar} theme={displayTheme} themeTokens={themeModel.tokens} /> : null}
+            {renderedActiveTab === 'calendar' ? <CalendarScreen targetEventId={selectedCalendarTarget?.id} targetOccurrenceDate={selectedCalendarTarget?.occurrenceDate} targetRequestId={selectedCalendarTarget?.requestId} onOpenEventDetails={() => scrollViewRef.current?.scrollTo({ y: 0, animated: false })} activeActionId={activeActionId} invitations={visibleInvitationsWithMatchTimes} isOffline={isOffline} link={selectedLink} onAddToCalendar={handleAddToCalendar} onDateSelected={() => setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 50)} onOpenInvitation={(invitation) => { setSelectedInvitationId(invitation.invitationId); setMoreSection('invites'); setActiveTab('more') }} onOpenLink={handleOpenMatchLink} onOpenMatch={adultLink ? openCalendarMatch : undefined} onOpenResource={handleOpenCalendarResource} onRespond={handleInvitationResponse} onTransport={adultLink ? undefined : handleMatchTransport} resource={resources.calendar} theme={displayTheme} themeTokens={themeModel.tokens} /> : null}
             {renderedActiveTab === 'matchday' ? (
               <MatchdayScreen
                 suppressParentFormation

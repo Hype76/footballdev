@@ -8050,7 +8050,7 @@ function FixtureSetupModal({
             <div className="rounded-lg border border-[#d7e5dc] bg-[#f7faf8] p-4">
               <div className="grid gap-4 md:grid-cols-2">
                 <label className="block">
-                  <span className={labelClass}>Share with parents?</span>
+                  <span className={labelClass}>Share with parents and players?</span>
                   <select
                     value={form.parentVisible ? 'yes' : 'no'}
                     onChange={(event) => updateForm({

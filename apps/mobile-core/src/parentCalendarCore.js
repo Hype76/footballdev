@@ -225,8 +225,11 @@ export function buildParentCalendarEvents({ calendarEvents = [], invitations = [
 
   const sharedIds = new Set(calendarEvents.map((event) => normalizeText(event?.id)).filter(Boolean))
   const matchIds = new Set(matches.map((match) => normalizeText(match?.id)).filter(Boolean))
+  const uniqueSharedEvents = calendarEvents.filter((event) =>
+    event.eventType !== 'match_day' || !matchIds.has(normalizeText(event.id)),
+  )
   const events = [
-    ...expandCancelledParentSeries(calendarEvents).map((event) => normalizeSharedEvent(event, getParentCalendarAttendanceInvitation(event, invitations))),
+    ...expandCancelledParentSeries(uniqueSharedEvents).map((event) => normalizeSharedEvent(event, getParentCalendarAttendanceInvitation(event, invitations))),
     ...matches.map((match) => normalizeMatchEvent(match, getParentCalendarAttendanceInvitation({ ...match, startsAt: match.matchDate }, invitations) || invitationByEvent.get(normalizeText(match?.id)))),
     ...invitations
       .filter((invitation) => {

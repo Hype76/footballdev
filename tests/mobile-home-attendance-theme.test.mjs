@@ -11,6 +11,21 @@ import { createMobileResourceCache } from '../apps/mobile-core/src/mobileResourc
 
 const invite = (date, extra = {}) => ({ invitationId: `training:${date}`, invitationType: 'training_attendance', eventId: 'training', eventStart: `${date}T18:00:00Z`, ...extra })
 
+test('a shared fixture uses its richer Matchday entry once, while unmatched calendar rows remain', () => {
+  const events = buildParentCalendarEvents({
+    calendarEvents: [
+      { id: 'fixture', eventType: 'match_day', startsAt: '2099-09-10T14:00:00', title: 'Fixture copy' },
+      { id: 'calendar-only', eventType: 'match_day', startsAt: '2099-09-11T14:00:00', title: 'Calendar-only fixture' },
+    ],
+    matches: [{ id: 'fixture', matchDate: '2099-09-10', kickoffTime: '14:00', arrivalTime: '12:45', teamName: 'Our team', opponentName: 'Visitors' }],
+  })
+  assert.equal(events.length, 2)
+  assert.equal(events[0].sourceType, 'match_day')
+  assert.equal(events[0].sourceId, 'fixture')
+  assert.equal(events[0].arrivalTime, '12:45')
+  assert.equal(events[1].sourceId, 'calendar-only')
+})
+
 test('Home summary reads leave full Chat membership and Poll votes in their separate caches', async () => {
   const source = readFileSync(new URL('../apps/mobile-core/src/coachPhase31GData.js', import.meta.url), 'utf8')
   const nodes = parse(source, { sourceType: 'module' }).program.body.map(node => node.type === 'ExportNamedDeclaration' ? node.declaration : node)

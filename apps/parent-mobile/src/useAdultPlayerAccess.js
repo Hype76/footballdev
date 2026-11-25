@@ -13,7 +13,7 @@ export function useAdultPlayerAccess(userId) {
   const refresh = useCallback(async () => {
     if (!mounted.current) return null
     const requestId = ++request.current
-    setAccess(previous => ({
+    setAccess(previous => previous.userId === userId && previous.status === 'linked' ? previous : ({
       status: 'checking',
       userId,
       link: previous.userId === userId ? previous.link : null,

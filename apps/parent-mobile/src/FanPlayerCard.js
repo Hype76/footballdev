@@ -33,10 +33,13 @@ export function FanPlayerCard({ connection, matchdayPolicy, mode, busy, onOpen, 
     <View style={styles.shortcuts}>
     {leagueUser ? <TeamLeagueLinkRow client={supabase} palette={tokens} tile
       scope={parentPlayerTeamLeagueScope(leagueUser, leagueUser.parentPortalLinks?.find(link => link.id === connection.id))}
-      styles={{ tileWrapper, tile: styles.tile, tileIcon: iconWell, tileLabelRow: styles.tileLabelRow, cardTitle: [styles.shortcutLabel, { color: tokens.textPrimary }] }} /> : null}
+      styles={{ tileWrapper, tile: styles.tile, tileIcon: iconWell, tileHeader: styles.tileHeader, cardTitle: [styles.shortcutLabel, { color: tokens.textPrimary }] }} /> : null}
       {access.map((item) => <Pressable key={item.key} accessibilityRole="button" accessibilityLabel={item.key === 'stats' ? `View stats for ${connection.player_name}` : item.key === 'resources' ? 'Resources' : item.label} onPress={() => open(item)} style={[tileWrapper, styles.tile]}>
-        <View style={iconWell}><ParentIcon iconKey={item.icon} color={tokens.accentText} size={23} /></View>
-        <View style={styles.tileLabelRow}><Text style={[styles.shortcutLabel, { color: tokens.textPrimary }]}>{item.key === 'resources' ? 'Resources' : item.label}</Text><ParentIcon iconKey="action.open" color={tokens.accentText} size={18} /></View>
+        <View style={styles.tileHeader}>
+          <View style={iconWell}><ParentIcon iconKey={item.icon} color={tokens.accentText} size={23} /></View>
+          <ParentIcon iconKey="action.open" color={tokens.accentText} size={16} />
+        </View>
+        <Text style={[styles.shortcutLabel, { color: tokens.textPrimary }]}>{item.key === 'resources' ? 'Resources' : item.label}</Text>
       </Pressable>)}
     </View>
     {canViewFanNotifications(connection, matchdayPolicy) ? <View style={[styles.notifications, { borderTopColor: border }]}>
@@ -55,6 +58,9 @@ const styles = StyleSheet.create({
   crest: { width: 58, height: 58 }, copy: { flex: 1, minWidth: 0, gap: 4 },
   clubName: { fontSize: 18, lineHeight: 24, fontWeight: '800' }, subtitle: { fontSize: 14, lineHeight: 19 },
   player: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, borderBottomWidth: 1 }, playerName: { fontSize: 17, lineHeight: 22, fontWeight: '700' },
-  shortcuts: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 }, tile: { minHeight: 94, justifyContent: 'space-between', padding: 8, gap: 6 }, tileLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 2 }, shortcutLabel: { flex: 1, fontSize: 13, lineHeight: 17, fontWeight: '800' },
+  shortcuts: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  tile: { minHeight: 94, padding: 8, gap: 6 },
+  tileHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  shortcutLabel: { fontSize: 13, lineHeight: 17, fontWeight: '800' },
   notifications: { gap: 4, borderTopWidth: StyleSheet.hairlineWidth }, notificationToggle: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 44 }, notificationLabel: { flex: 1, fontSize: 14, lineHeight: 20, fontWeight: '500' }, notificationActions: { borderTopWidth: StyleSheet.hairlineWidth }, viewNotifications: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 4 },
 })

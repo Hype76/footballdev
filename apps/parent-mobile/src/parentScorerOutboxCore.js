@@ -206,9 +206,23 @@ export function getVisibleParentScorerMatch(match, journal) {
   if (journal.pending?.length) return projectParentScorerOutbox(journal)
   if (Date.parse(journal.baseMatch.updatedAt) > Date.parse(match.updatedAt)) {
     const acknowledged = journal.baseMatch
+    const clock = match.isScorer === true && !match.isFanView && !match.concludedAt
+      && !['cancelled', 'postponed'].includes(match.status) && acknowledged.id === match.id
+      && acknowledged.clubId === match.clubId && acknowledged.teamId === match.teamId
+      ? {
+          status: acknowledged.status ?? match.status,
+          currentMatchPhase: acknowledged.currentMatchPhase ?? match.currentMatchPhase,
+          timerStatus: acknowledged.timerStatus ?? match.timerStatus,
+          timerElapsedSeconds: acknowledged.timerElapsedSeconds ?? match.timerElapsedSeconds,
+          timerStartedAt: acknowledged.timerStartedAt ?? match.timerStartedAt,
+          timerPausedAt: acknowledged.timerPausedAt ?? match.timerPausedAt,
+          phaseStartedAt: acknowledged.phaseStartedAt ?? match.phaseStartedAt,
+          fullTimeResumeStatus: acknowledged.fullTimeResumeStatus ?? match.fullTimeResumeStatus,
+        }
+      : {}
     // Retain the confirmed score while the fixture refreshes. Authority and
     // participant availability still come from the current linked-player view.
-    return { ...match, homeScore: acknowledged.homeScore, awayScore: acknowledged.awayScore, events: acknowledged.events,
+    return { ...match, ...clock, homeScore: acknowledged.homeScore, awayScore: acknowledged.awayScore, events: acknowledged.events,
       homeShootoutScore: acknowledged.homeShootoutScore ?? match.homeShootoutScore, awayShootoutScore: acknowledged.awayShootoutScore ?? match.awayShootoutScore,
       shootoutWinner: acknowledged.shootoutWinner ?? match.shootoutWinner, shootoutEvents: acknowledged.shootoutEvents ?? match.shootoutEvents }
   }
