@@ -771,7 +771,7 @@
   "implementationHashes": {
     "scripts/security-supply-chain-gate.mjs": "9ef3c2fa9949a270eba3b8d7eefc2f9e303e8fbb2fda3921b2e6e42280e733fc",
     "scripts/security-apply-reviewed-backports.mjs": "ecd054578172a4fc6d09720258d2aed1c4a48edd97d6e3b0daa4f635f27f5fcd",
-    "scripts/security-verify-reviewed-backports.mjs": "68902c98dd6053ceef3d5f97759d019b557488b8a22b1a590f143a1cd85ed227",
+    "scripts/security-verify-reviewed-backports.mjs": "ac4c7ae0ca12bec8cdbd3cb6eab2e4b4c92fa3c41f4e5cdc4fae797593577fc7",
     "security/patches/braces-3.0.3.patch": "e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699",
     "security/patches/node-forge-1.4.0.patch": "2de065ac998bf58917a14d0935112d97ec2957ac41b5f06958d500934f188ed4",
     "security/patches/reviewed-source-manifest.json": "0507b50c4ce7a772508ed3a0d18290548bb1fd48802db4599a5ec8e47e2eed49",
@@ -2427,7 +2427,7 @@
       "apps/parent-mobile/widgets/Module.swift": "f8b0882d1f3e0504fa021aab7973259af4fbed854ac0793c6bcf98c14dc9df09",
       "apps/parent-mobile/widgets/WidgetBundle.swift": "09154d9859bb1b9b59052db13816808a087f5ee1e06f072cd75827711a7eae12",
       "apps/scripts/mobile-apply-reviewed-glob-compat.mjs": "33eb0b1242f875f4da32aa9fb1c3079e9775dfacdb382c82cc38b6ed1743783b",
-      "netlify/functions/lib/_deliver-live-match-changes.js": "45a3874e828f1d705d3783dc9808273dbcb458d2a7762e5177a30133e3a02498",
+      "netlify/functions/lib/_deliver-live-match-changes.js": "9977d25b42dbda065e3f9644344cec8f0f393936598e3126de07db9e04de1283",
       "netlify/functions/lib/_live-activity-apns.js": "8a3fc0d3c286f5a0437f88279d3e107b8af0f499ec4d00c40b6b372d7379c461",
       "netlify/functions/process-live-match-changes.mjs": "4b34f29fcba1db1209576cc3f51e2a1ae1db3c5955caf88ca6ef3e281f6ee2fc",
       "supabase/migrations/20261103082500_live_match_follows.sql": "ae8bc2391703f992ea8a2d37597928bf7ac00a432cd33b631207542b63ae96d7",
@@ -4272,7 +4272,7 @@
     "toolingRequalification20261117": "Qualify official minimatch 11.0.9 JavaScript tooling across all three scopes. Lock changes are limited to minimatch; direct and native dependencies, Expo runtime, reviewed package patches and audit rules are retained.",
     "coachIphoneUsabilityFollowup": "Coach 1.1.2 shows Home rows during loading, keeps the first verified compact overview and hides denied source details. Match Day opens an authorised draft with a usable opponent field before fixture, defaults and roster reads complete. Protected form actions wait for current data and retain server checks. Independent Chat and availability reads run in parallel. Local diagnostics distinguish content, layout, data, action readiness and timeout, and Coach uses its own reachability state with consecutive probe results. JavaScript and focused tests only. This candidate requires independent exact-HEAD approval before publication."
   },
-  "releasePreparationSha256": "ede7cfcff128986f0a6a86c4f9df023fe1e76e18e382e1504a1d7a03fcbd95d8",
+  "releasePreparationSha256": "aebb283b5e0e1faad7e6be37694f853ca83b54378ef0a8ec1a4a7c8467becb98",
   "rootOnlyProposalSha256": "45c3b7352c7328c84982e114b7e87e09cf79514d02d102297ae75ec0925812eb",
   "remediationMode": "maintained-source-fixes",
   "officialCompatibilityDependencies": [
