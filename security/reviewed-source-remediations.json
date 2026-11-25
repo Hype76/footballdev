@@ -771,7 +771,7 @@
   "implementationHashes": {
     "scripts/security-supply-chain-gate.mjs": "9ef3c2fa9949a270eba3b8d7eefc2f9e303e8fbb2fda3921b2e6e42280e733fc",
     "scripts/security-apply-reviewed-backports.mjs": "ecd054578172a4fc6d09720258d2aed1c4a48edd97d6e3b0daa4f635f27f5fcd",
-    "scripts/security-verify-reviewed-backports.mjs": "3471d9b2bf3c3db9cc17fdca28aa506dd6f7626660cb4e547ceee7268b2f9248",
+    "scripts/security-verify-reviewed-backports.mjs": "5f56a3bee49d88eda263847057c0b0dda6e1792b8dd3460f04526faffd0c6a63",
     "security/patches/braces-3.0.3.patch": "e07abe26dbd330daea0e448ca1382327322dd5eccc08c5dd1a9b9f7bf5a6d699",
     "security/patches/node-forge-1.4.0.patch": "2de065ac998bf58917a14d0935112d97ec2957ac41b5f06958d500934f188ed4",
     "security/patches/reviewed-source-manifest.json": "0507b50c4ce7a772508ed3a0d18290548bb1fd48802db4599a5ec8e47e2eed49",
@@ -4277,9 +4277,9 @@
     },
     "toolingRequalification20261117": "Qualify official minimatch 11.0.9 JavaScript tooling across all three scopes. Lock changes are limited to minimatch; direct and native dependencies, Expo runtime, reviewed package patches and audit rules are retained.",
     "coachIphoneUsabilityFollowup": "Coach 1.1.2 shows Home rows during loading, keeps the first verified compact overview and hides denied source details. Match Day opens an authorised draft with a usable opponent field before fixture, defaults and roster reads complete. Protected form actions wait for current data and retain server checks. Independent Chat and availability reads run in parallel. Local diagnostics distinguish content, layout, data, action readiness and timeout, and Coach uses its own reachability state with consecutive probe results. JavaScript and focused tests only. This candidate requires independent exact-HEAD approval before publication.",
-    "scope": "undefined For public 1.5.0, both mobile runtimes advance together, the Parent display name becomes Football Player, and the held-back native Lock Screen layout fixes are included for Android and iPhone. Store project identities, app access and required release evidence remain enforced."
+    "scope": "For public 1.5.0, both mobile runtimes advance together, the Parent display name becomes Football Player, and the held-back native Lock Screen layout fixes are included for Android and iPhone. Store project identities, app access and required release evidence remain enforced."
   },
-  "releasePreparationSha256": "8f34ef2ddf500fa787f8d1fe097a48df4b0057fdff5a6dbe06857e828f748871",
+  "releasePreparationSha256": "e50943a1e68f851b322ca1efcad60b044646f7dad00b3f9ec8f865c6debc71f9",
   "rootOnlyProposalSha256": "45c3b7352c7328c84982e114b7e87e09cf79514d02d102297ae75ec0925812eb",
   "remediationMode": "maintained-source-fixes",
   "officialCompatibilityDependencies": [
