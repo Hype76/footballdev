@@ -15,14 +15,28 @@ async function sendAndroidRefresh(follower, matchDayId, stop, finished) {
   return response.ok && result.data?.status === 'ok'
 }
 
-export async function deliverLiveMatchChange(matchDayId, { client, send = sendLiveActivityApns, sendAndroid = sendAndroidRefresh, provider, now = () => Date.now() }) {
+export async function refreshSavedMatchClock(matchDayId, client) {
+  const result = await deliverLiveMatchChange(matchDayId, {
+    client,
+    startActivities: false,
+    provider: {
+      teamId: process.env.LIVE_ACTIVITY_APPLE_TEAM_ID,
+      keyId: process.env.LIVE_ACTIVITY_APPLE_KEY_ID,
+      privateKey: process.env.LIVE_ACTIVITY_APPLE_PRIVATE_KEY,
+      production: process.env.LIVE_ACTIVITY_APNS_PRODUCTION === 'true',
+    },
+  })
+  if (result.failed) throw new Error('The live clock refresh will be retried.')
+}
+
+export async function deliverLiveMatchChange(matchDayId, { client, send = sendLiveActivityApns, sendAndroid = sendAndroidRefresh, provider, now = () => Date.now(), startActivities = true }) {
   if (!client) throw new Error('live_match_delivery_configuration_invalid')
   const { data: match, error: matchError } = await client.from('match_days')
     .select('*, teams:team_id(name)')
     .eq('id', matchDayId).maybeSingle()
   if (matchError) throw matchError
   if (!match) return { delivered: 0, failed: 0 }
-  if (['live', 'half_time', 'second_half', 'extra_time', 'penalties'].includes(match.status)) {
+  if (startActivities && ['live', 'half_time', 'second_half', 'extra_time', 'penalties'].includes(match.status)) {
     const claimed = await client.rpc('claim_registered_live_match_starts', { match_day_id_value: matchDayId })
     if (claimed.error) throw claimed.error
   }
@@ -56,7 +70,7 @@ export async function deliverLiveMatchChange(matchDayId, { client, send = sendLi
     if (follower.platform !== 'ios') return false
     try {
       if (!follower.activity_token) {
-        if (!follower.start_token || follower.remote_start_attempted_at || !started || end || follower.access_allowed !== true) return true
+        if (!startActivities || !follower.start_token || follower.remote_start_attempted_at || !started || end || follower.access_allowed !== true) return true
         if (!providerToken) return false
         const handoffToken = randomBytes(32).toString('hex')
         const request = createLiveActivityStartRequest({
