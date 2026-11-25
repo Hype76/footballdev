@@ -12,7 +12,7 @@ function extract(text,names) {
   const nodes=parse(text,{sourceType:'module'}).program.body.map(node=>node.declaration || node)
   return names.map(name=>{const node=nodes.find(node=>node.id?.name===name);assert.ok(node,name);return text.slice(node.start,node.end)}).join('\n')
 }
-const body=extract(operational,['assertCoachOperationalRead'])+'\n'+extract(source,['rpc','canOpenStaffRoomInContext','canOpenStaffRoom','getCoachChatRooms','getCoachHomeChatSummary','getCoachPolls','getCoachHomePollSummary'])
+const body=extract(operational,['assertCoachOperationalRead'])+'\n'+extract(source,['rpc','canOpenStaffRoomInContext','canOpenStaffRoom','getCoachStaffChatRooms','getCoachParentChatRooms','getCoachParentChatUnread','getCoachChatRooms','getCoachHomeChatSummary','getCoachPolls','getCoachHomePollSummary'])
 const user={id:'coach',clubId:'club',activeTeamId:'team',role:'coach',roleRank:30,workspaceScope:'team'}
 const normalize=value=>String(value ?? '').trim()
 function split(value) {
@@ -32,7 +32,7 @@ function harness({staff=[],rooms=[],parents=[],polls=[],error=null,metadataError
   const supabase={
     async rpc(name,args){
       calls.push({rpc:name,args})
-      if (name==='get_parent_chat_rooms' && parentWait) await parentWait
+      if (name.startsWith('get_coach_parent_chat_') && parentWait) await parentWait
       return {data:name==='get_staff_chat_unread_summary'?staff:parents,error}
     },
     from(table){const call={table,filters:[]};calls.push(call);return {
@@ -66,7 +66,7 @@ test('Home Chat equals full-screen authorized rooms/counts while excluding revok
     assert.deepEqual(lean.staff.map(row=>row.id).sort(),full.staff.map(row=>row.id).sort())
     assert.deepEqual(lean.parent.map(row=>row.id),full.parent.map(row=>row.id))
     assert.equal(buildCoachChatSummary(lean).unreadChat,buildCoachChatSummary(full).unreadChat)
-    assert.deepEqual(h.calls.map(call=>call.rpc || call.table),['get_staff_chat_unread_summary','get_parent_chat_rooms','staff_chat_conversations'])
+    assert.deepEqual(h.calls.map(call=>call.rpc || call.table),['get_staff_chat_unread_summary','get_coach_parent_chat_unread','staff_chat_conversations'])
     assert.equal(h.calls[2].fields,'id,type,team_id')
     assert.doesNotMatch(JSON.stringify(lean),/Private text|Private title|members|removed|archived|nonmember|foreign-parent|other-team/)
   }
@@ -102,6 +102,28 @@ test('Home Chat starts the staff permission read while Parent rooms are still lo
     releaseParent()
   }
   assert.deepEqual((await summary).staff.map(room => room.id), ['staff-room'])
+})
+
+test('Staff Chat is available before the active Parent list finishes, without requesting closed rooms', async () => {
+  let releaseParent
+  const parentWait = new Promise(resolve => { releaseParent = resolve })
+  const h = harness({
+    parentWait,
+    staff: [{ id: 'staff-room', unread_count: 2 }],
+    rooms: [{ id: 'staff-room', club_id: 'club', team_id: 'team', type: 'team_staff', staff_chat_members: [{ user_id: 'coach' }] }],
+    parents: [{ id: 'active-room', status: 'active', team_id: 'team' }, { id: 'closed-room', status: 'closed', team_id: 'team' }],
+  })
+  const early = []
+  const result = h.getCoachChatRooms(user, { onStaffRoomsReady: rooms => early.push(...rooms) })
+  try {
+    await new Promise(resolve => setImmediate(resolve))
+    assert.deepEqual(early.map(room => room.id), ['staff-room'])
+    assert.deepEqual(h.calls.find(call => call.rpc === 'get_coach_parent_chat_rooms').args,
+      { active_team_id_value: 'team', room_status_value: 'active', target_room_id_value: null })
+  } finally {
+    releaseParent()
+  }
+  assert.deepEqual((await result).parent.map(room => room.id), ['active-room'])
 })
 
 test('Home Polls count only current readable open polls without historical payloads, nested votes or truncation',async()=>{

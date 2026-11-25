@@ -80,6 +80,34 @@ test('optimized reads preserve canonical staff, Parent, child, squad, archive an
     assert.ok((await db.query('select * from get_parent_chat_rooms($1)', [uuid(10)])).rows.every((room) => room.team_id === uuid(10)))
     await assert.rejects(db.query('select * from get_parent_chat_rooms($1)', [uuid(11)]), /active Team/)
     await db.exec('reset role')
+    await db.query("update parent_chat_rooms set status = 'closed' where id = $1", [uuid(190)])
+    await db.query("insert into parent_chat_messages(room_id,sender_id,body,created_at) values ($1,$2,'unread history','2026-08-04')", [uuid(190), uuid(22)])
+    const legacyCoach = async () => {
+      await actor(20)
+      return (await db.query('select * from get_parent_chat_rooms($1) order by id', [uuid(10)])).rows
+    }
+    const legacyRooms = await legacyCoach()
+    await db.exec('reset role')
+    const coachMigration = await readFile(new URL('../supabase/migrations/20261125171252_coach_chat_active_history_and_home_unread.sql', import.meta.url), 'utf8')
+    await db.exec('alter table public.players add column section text; create table public.club_player_types(club_id uuid,name text,chat_group text);')
+    await db.exec(coachMigration)
+    assert.deepEqual(await legacyCoach(), legacyRooms)
+    const activeRooms = (await db.query("select * from get_coach_parent_chat_rooms($1,'active') order by id", [uuid(10)])).rows
+    assert.deepEqual(activeRooms, legacyRooms.filter(room => room.status === 'active'))
+    const closedRooms = (await db.query("select * from get_coach_parent_chat_rooms($1,'closed',$2)", [uuid(10), uuid(190)])).rows
+    assert.deepEqual(closedRooms, legacyRooms.filter(room => room.status === 'closed'))
+    assert.equal(closedRooms[0].can_post, false)
+    assert.deepEqual((await db.query("select * from get_coach_parent_chat_rooms($1,'closed',$2)", [uuid(10), uuid(111)])).rows, [])
+    const unread = (await db.query('select * from get_coach_parent_chat_unread($1) order by id', [uuid(10)])).rows
+    assert.deepEqual(unread, legacyRooms.map(({id,team_id,unread_count}) => ({id,team_id,unread_count})))
+    assert.equal(Number(unread.find(room => room.id === uuid(190)).unread_count), 1)
+    await assert.rejects(db.query("select * from get_coach_parent_chat_rooms($1,'active')", [uuid(11)]), /active Team/)
+    await assert.rejects(db.query("select * from get_coach_parent_chat_rooms($1,'anything')", [uuid(10)]), /active or closed/)
+    await db.exec('reset role; set role anon')
+    await assert.rejects(db.query('select * from get_coach_parent_chat_unread($1)', [uuid(10)]), /permission denied/)
+    await actor(22)
+    await assert.rejects(db.query('select * from get_coach_parent_chat_unread($1)', [uuid(10)]), /active Team/)
+    await db.exec('reset role')
     await db.query('update parent_player_links set status=\'revoked\' where id=$1', [uuid(40)])
     await actor(22)
     await assert.rejects(db.query('select * from get_parent_portal_chat_rooms_with_preferences($1,true)', [uuid(40)]), /Parent access/)
