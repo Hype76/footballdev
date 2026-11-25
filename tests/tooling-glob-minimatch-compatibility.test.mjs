@@ -116,7 +116,7 @@ function applyApprovedCoachNativeDelta(pkg, lock) {
 }
 
 function applyApprovedMobile150Version(pkg, lock) {
-  pkg.version = '1.5.0'
+  if (pkg) pkg.version = '1.5.0'
   lock.version = '1.5.0'
   lock.packages[''].version = '1.5.0'
 }
@@ -320,7 +320,10 @@ test('glob 14.0.6 and minimatch 11.0.9 change only the reviewed entries in each 
       resolved: 'https://registry.npmjs.org/minimatch/-/minimatch-11.0.9.tgz',
       integrity: 'sha512-KCFkfyjqerNlSstjlhIGNXIKZGA/6O4V4RlhZ+Dsr621SPPw0mzlypE9D9ZOoPiVefHID+j7/XuMMlqfD/F60Q==',
     }
-    if (scope !== '.') applyQualifiedForgeLock(before)
+    if (scope !== '.') {
+      applyQualifiedForgeLock(before)
+      applyApprovedMobile150Version(null, before)
+    }
     if (scope === 'apps/coach-mobile') applyApprovedCoachPdfCodecs(null, before)
     assert.deepEqual(after, before, `${scope}: only the exact qualified dependency changes are permitted`)
   }
