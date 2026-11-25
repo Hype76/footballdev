@@ -157,9 +157,10 @@ export function getParentInvitationCounts(rows = [], now = new Date()) {
     .map(([section, invitations]) => [section, groupParentInvitationsByEvent(invitations).length]))
 }
 
-export function getParentChatRoomContext(room = {}) {
+export function getParentChatRoomContext(room = {}, linkType) {
   if (['team', 'team_training', 'team_match'].includes(normalizeText(room.type))) {
-    return `${normalizeText(room.teamName) || 'Team'} | Parents and Team Coaches`
+    const teamName = normalizeText(room.teamName) || 'Team'
+    return linkType === 'adult_player' ? teamName : `${teamName} | Parents and Team Coaches`
   }
   const matchLabel = room.opponent ? getMatchDayDisplayName(room) : room.teamName || room.clubName || ''
   const dateLabel = room.matchDate

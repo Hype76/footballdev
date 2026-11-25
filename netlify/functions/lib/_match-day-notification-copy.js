@@ -171,7 +171,7 @@ export function buildParentMatchDayNotificationCopy({ match, type, event = null 
   const result = getMatchDayDisplayParts({ ...match, clubName: teamName })
   const shootoutScore = getMatchDayShootoutScore(match)
   const kickScore = `${Number(event?.home_shootout_score ?? event?.homeShootoutScore ?? 0)} - ${Number(event?.away_shootout_score ?? event?.awayShootoutScore ?? 0)}`
-  const detailedScore = isCard && copy.category !== copy.title ? `${matchName}. Score ${score}` : compactScore
+  const detailedScore = notificationType === 'goal' ? score : isCard && copy.category !== copy.title ? `${matchName}. Score ${score}` : compactScore
   const detailedBody = notificationType === 'shootout_kick'
     ? `${copy.category}. ${matchName}. Shootout: ${kickScore}.`
     : compactEventDetail

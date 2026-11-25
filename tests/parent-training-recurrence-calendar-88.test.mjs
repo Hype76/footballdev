@@ -51,3 +51,13 @@ test('a closed unanswered Training request is history, not a live response marke
   assert.equal(isParentCalendarActionRequired(event), false)
   assert.equal(getParentCalendarMarkerTone(event), 'training')
 })
+
+test('fixture markers require a pending invitation when a match carries an unanswered availability default', () => {
+  const match = { id: 'fixture', matchDate: '2026-12-05', availabilityStatus: 'no_response', status: 'scheduled' }
+  const invite = { eventId: match.id, invitationType: 'match_attendance', adultPlayerLinkId: 'player-link',
+    invitationId: 'match:invite', invitationState: 'active', responseState: 'awaiting_response', isPending: true, canRespond: true }
+  for (const [invitations, marker] of [[[], 'match'], [[{ ...invite, isPending: false, canRespond: false }], 'match'], [[invite], 'response']]) {
+    const [event] = buildParentCalendarEvents({ matches: [match], invitations })
+    assert.equal(getParentCalendarMarkerTone(event), marker)
+  }
+})

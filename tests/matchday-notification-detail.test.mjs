@@ -39,7 +39,8 @@ test('detailed match notifications use the event minute, added time, player deta
   })
   const fullTime = buildParentMatchDayNotificationCopy({ match, type: 'full_time' })
 
-  assert.equal(goal.detailedBody, "Goal: Alex Morgan #9 at 45+2'. Assist: Jamie Smith #8. 2 - 1 v Visitors.")
+  assert.equal(goal.detailedBody, "Goal: Alex Morgan #9 at 45+2'. Assist: Jamie Smith #8. 2 - 1.")
+  assert.equal(goal.matchTitle, 'U16 Green v Visitors')
   assert.equal(goal.tag, 'match-day-match-detail-goal')
   assert.equal(redCard.detailedBody, "Red: Casey Jones #4 at 71'. 2 - 1 v Visitors.")
   assert.equal(fullTime.detailedBody, 'Full time: U16 Green 2 - 1 Visitors.')
@@ -58,8 +59,8 @@ test('fan notifications persist and deliver the same detailed match event copy',
     type: 'goal',
   })
 
-  assert.equal(payload.title, 'Goal update')
-  assert.equal(payload.body, "Goal: Alex Morgan at 12'. 2 - 1 v Visitors.")
+  assert.equal(payload.title, 'U16 Green v Visitors')
+  assert.equal(payload.body, "Goal: Alex Morgan at 12'. 2 - 1.")
   assert.deepEqual(payload.data, {
     app: 'parent',
     route: 'fans',
@@ -72,8 +73,8 @@ test('fan notifications persist and deliver the same detailed match event copy',
 test('unnamed opposition goals say Opponent, while named scorers and own-goal credit stay correct', () => {
   for (const scorer_name of ['', 'Player', 'Other: Player']) {
     const copy = buildParentMatchDayNotificationCopy({ match, type: 'goal', event: { team_side: 'opponent', scorer_name, minute: 1 } })
-    assert.match(copy.detailedBody, /^Goal: Opponent at 1'/)
-    assert.match(copy.minimalBody, /Opponent/)
+    assert.equal(copy.detailedBody, "Goal: Opponent at 1'. 2 - 1.")
+    assert.equal(copy.minimalBody, copy.detailedBody)
   }
   const named = buildParentMatchDayNotificationCopy({ match, type: 'goal', event: { team_side: 'opponent', scorer_name: 'Alex', minute: 1 } })
   assert.match(named.detailedBody, /^Goal: Alex at 1'/)
