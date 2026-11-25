@@ -115,6 +115,12 @@ function applyApprovedCoachNativeDelta(pkg, lock) {
   delete lock.packages[nested]
 }
 
+function applyApprovedMobile150Version(pkg, lock) {
+  pkg.version = '1.5.0'
+  lock.version = '1.5.0'
+  lock.packages[''].version = '1.5.0'
+}
+
 function applyApprovedCoachPdfCodecs(pkg, lock) {
   // Coach PDF badges reuse the existing Parent JavaScript codecs; no native modules.
   const direct = { buffer: '5.7.1', 'jpeg-js': '0.4.4', 'upng-js': '2.1.0' }
@@ -153,7 +159,10 @@ test('official tooling updates preserve unrelated dependencies and the exact app
       applyApprovedCoachFileTools(before, previousLock)
       applyApprovedCoachPdfCodecs(before, previousLock)
     }
-    if (scope !== '.') applyLiveMatchDelta(before)
+    if (scope !== '.') {
+      applyLiveMatchDelta(before)
+      applyApprovedMobile150Version(before, previousLock)
+    }
     const current = JSON.parse(fs.readFileSync(`${prefix}package.json`))
     if (scope === '.') applyApprovedSupplyChainAuditDelta(before, current)
     const { overrides: oldOverrides, ...oldPackage } = before
@@ -199,6 +208,7 @@ test('the current glob and minimatch update changes only reviewed tooling packag
       assert.equal(oldPackage.overrides['node-forge'], '1.4.3')
       oldPackage.overrides['node-forge'] = qualifiedForge.version
       applyQualifiedForgeLock(oldLock)
+      applyApprovedMobile150Version(oldPackage, oldLock)
     }
     oldPackage.overrides.minimatch = '11.0.9'
     oldPackage.overrides['glob@>=9.0.0 <=14.0.1'] = '14.0.6'

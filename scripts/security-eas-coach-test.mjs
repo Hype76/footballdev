@@ -284,8 +284,9 @@ export function runEasSecurityGate(mode, env = process.env) {
     const app = JSON.parse(fs.readFileSync(path.join(root, 'apps/coach-mobile/package.json')))
     const eas = JSON.parse(fs.readFileSync(path.join(root, 'apps/coach-mobile/eas.json')))
     const appConfig = createRequire(import.meta.url)(path.join(root, 'apps/coach-mobile/app.config.js')).expo
-    assert.equal(app.version, '1.1.2')
-    assert.equal(appConfig.version, '1.1.2')
+    const expectedVersion = env.FP_COACH_QA_SCOPE === mobile150PublicRelease.reference ? mobile150PublicRelease.version : '1.1.2'
+    assert.equal(app.version, expectedVersion)
+    assert.equal(appConfig.version, expectedVersion)
     assert.equal(appConfig.runtimeVersion?.policy, 'appVersion')
     assert.equal(appConfig.ios?.bundleIdentifier, 'com.footballplayer.coach')
     assert.equal(appConfig.android?.package, 'com.footballplayer.coach')
