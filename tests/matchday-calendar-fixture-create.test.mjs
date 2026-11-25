@@ -6,6 +6,7 @@ import { getCoachRouteState, resolveCoachRoute } from '../apps/coach-mobile/src/
 import { isMatchdayPlan } from '../apps/mobile-core/src/matchdayPolicyCore.js'
 import { createCoachFixtureForm, initializeCoachFixtureForm, validateCoachFixtureForm } from '../apps/mobile-core/src/coachFixtureCore.js'
 import { buildCoachCalendarEvents } from '../apps/mobile-core/src/coachCalendarCore.js'
+import { buildMatchDayParentVisibility, getFixtureCalendarAudience } from '../src/lib/matchday-parent-visibility.js'
 import { MATCHDAY_DEFAULT_FLAGS } from '../src/lib/matchday-policy.js'
 import { settleCoachFixtureAudit } from '../apps/mobile-core/src/coachFixtureAuditCore.js'
 
@@ -70,6 +71,16 @@ test('new fixtures share with selected parents by default and edits retain the s
   assert.equal(created.parentAudience, 'involved_players')
   assert.deepEqual(created.selectedPlayerIds, ['one', 'two'])
   assert.equal(createCoachFixtureForm({ match: { id: 'existing', parentVisible: false, parentAudience: 'none' } }).parentVisible, false)
+})
+
+test('new fixture calendar scope cannot broaden to the club or use Everyone without a team', () => {
+  assert.equal(getFixtureCalendarAudience('all_team_parents', 'team'), 'all_team_parents')
+  for (const legacyAudience of ['all_club_parents', 'none', undefined]) {
+    assert.equal(getFixtureCalendarAudience(legacyAudience, 'team'), 'involved_players')
+  }
+  assert.equal(getFixtureCalendarAudience('all_team_parents', ''), 'involved_players')
+  assert.deepEqual(buildMatchDayParentVisibility({ parentVisible: false, parentAudience: 'all_team_parents' }),
+    { parentVisible: false, parentAudience: 'none' })
 })
 
 test('a stale Matchday Calendar form cannot create a generic event, before any write', async () => {

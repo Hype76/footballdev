@@ -25,6 +25,7 @@ function PreferenceHarness(){
   const fixturePreferenceRequestRef=useRef(0);
   const [isFixtureDefaultLoading,setFixtureDefaultLoading]=useState(false);
   const teams=[{id:'team-1',name:'FP TEST First'},{id:'team-2',name:'FP TEST Second'}],locations=[];
+  const selectedFixtureTeamId=form.teamId||user.activeTeamId;
   const fixturePlayers=[{id:'player-1',section:'Squad'}],squadSelection={selectedPlayerIds:['player-1'],mode:'full'};
   const getOwnTeamFixturePreferences=async()=>({found:false}),updateOwnTeamFixturePreferences=async()=>{};
   const getOwnMatchSelectionPreference=async({teamId,user})=>{
@@ -94,13 +95,26 @@ try {
     const closeForm = () => page.getByRole('dialog').getByRole('button', { name: 'Close', exact: true }).last().click()
     await openForm()
     assert.equal(await checkbox.isChecked(), false, 'First new fixture defaults off')
+    const sharing = page.getByLabel('Share with Players/Parents', { exact: true })
+    const calendar = page.getByLabel('Calendar', { exact: true })
+    assert.equal(await sharing.inputValue(), 'yes')
+    assert.equal(await calendar.inputValue(), 'involved_players')
+    assert.deepEqual(await calendar.locator('option').allTextContents(), ['Add to calendar of Invited players', 'Add to calendar of Everyone'])
+    await calendar.selectOption('all_team_parents')
+    assert.equal(await calendar.inputValue(), 'all_team_parents')
+    await sharing.selectOption('no')
+    assert.equal(await calendar.count(), 0)
+    await sharing.selectOption('yes')
+    assert.equal(await calendar.inputValue(), 'involved_players')
     await checkbox.check()
     await closeForm()
     await openForm()
     assert.equal(await checkbox.isChecked(), false, 'Cancelled choice is not remembered')
     await checkbox.check()
+    await calendar.selectOption('all_team_parents')
     await page.getByRole('button', { name: 'Continue to squad', exact: true }).click()
     await page.waitForFunction(() => window.saved.length === 1)
+    assert.equal(await page.evaluate(() => window.saved[0].parentAudience), 'all_team_parents')
     await page.reload()
     await openForm()
     assert.equal(await checkbox.isChecked(), true, 'Successful choice survives browser reload')

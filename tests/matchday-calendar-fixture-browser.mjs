@@ -12,7 +12,7 @@ const appSource = await readFile('apps/coach-mobile/App.js', 'utf8')
 const matchSource = await readFile('apps/coach-mobile/src/CoachMatchDayScreen.js', 'utf8')
 const calendarImport = source.match(/import \{\s+buildCoachCalendarMonth,[\s\S]*?from '..\/..\/mobile-core\/src\/coachCalendarCore'/)[0].replace('../../mobile-core/src/coachCalendarCore', './apps/mobile-core/src/coachCalendarCore.js')
 const screen = source.slice(source.indexOf('function useDomainStyles('), source.indexOf('export function CoachPlayersScreen('))
-const navigation = appSource.slice(appSource.indexOf('  const navigate = useCallback('), appSource.indexOf('  const closeFormationWorkspace =', appSource.indexOf('  const navigate = useCallback(')))
+const navigation = appSource.slice(appSource.indexOf('  const navigate = useCallback('), appSource.indexOf('  const navigateFromTab =', appSource.indexOf('  const navigate = useCallback(')))
 const creationEffect = matchSource.match(/  useEffect\(\(\) => \{\s+if \(matchDayTarget\?\.intent !== 'create-fixture'[^]*?\n  \}, \[[^]*?\]\)/)[0]
 const fixtureStyles = matchSource.match(/function createStyles\(palette\) \{[^]*?\n\}/)[0].replace('function createStyles', 'function createFixtureStyles')
 const entry = `
@@ -54,7 +54,7 @@ function App(){
  const [activeRoute,setActiveRoute]=useState('calendar'),[activeContext,setContext]=useState(initialContext),[mode,setMode]=useState('light');
  const [matchDayTarget,setMatchDayTarget]=useState(null),[moreRoute,setMoreRoute]=useState('');
  const matchdayPlanConfig={flags:MATCHDAY_DEFAULT_FLAGS},formationReturnRef=useRef(null),scrollContentToTop=useCallback(()=>{},[]);
- const setChatNotificationTarget=()=>{},setNotice=()=>{},setCalendarTarget=()=>{};
+ const markCoachInteraction=()=>{},setChatNotificationTarget=()=>{},setNotice=()=>{},setCalendarTarget=()=>{};
  ${navigation}
  window.reset=(plan='matchday',theme='light')=>{setContext({...initialContext,planKey:plan});setMode(theme);setActiveRoute('calendar');setMatchDayTarget(null);window.saved=null};
  window.actions=getCoachQuickActions(activeContext,matchdayPlanConfig).map(action=>action.label);
@@ -80,6 +80,7 @@ try {
   const errors=[];page.on('pageerror',error=>errors.push(error.message))
   await page.setContent('<body style="margin:0"><div id="root"></div></body>')
   await page.addScriptTag({content:result.outputFiles[0].text})
+  await page.waitForFunction(() => typeof window.reset === 'function').catch(error => { throw new Error(errors.join(' | ') || error.message) })
   await mkdir('output/playwright/calendar-fixture',{recursive:true})
   for(const mode of ['light','dark'])for(const width of [320,390]){
     await page.evaluate(mode=>window.reset('matchday',mode),mode)
@@ -102,7 +103,7 @@ try {
     await page.getByText('Add a venue before creating this fixture.',{exact:true}).waitFor()
     assert.equal(await page.evaluate(()=>window.saved),null)
     await page.getByLabel('Venue',{exact:true}).fill('FP TEST Ground')
-    await page.getByRole('switch',{name:'Share with parents'}).click()
+    await page.getByRole('switch',{name:'Share with Players/Parents'}).click()
     await page.getByRole('button',{name:'Create fixture and request availability',exact:true}).click()
     await page.waitForFunction(()=>window.saved?.match?.id==='fixture')
     assert.equal(await page.evaluate(()=>window.saved.match.opponent),'FP TEST Visitors')
