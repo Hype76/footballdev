@@ -126,8 +126,8 @@ function createStyles(palette) {
     detailRow: { alignItems: 'center', flexDirection: 'row', gap: 10 },
     detailText: { flex: 1, color: palette.textSecondary, fontSize: 14, lineHeight: 20 },
     panelNavigation: { flexDirection: 'row', borderBottomColor: palette.border, borderBottomWidth: 1 },
-    panelTab: { flex: 1, minWidth: 44, minHeight: 60, alignItems: 'center', justifyContent: 'center', gap: 5, paddingVertical: 8, borderBottomWidth: 2, borderBottomColor: 'transparent' },
-    panelTabText: { color: palette.textSecondary, fontSize: 10, fontWeight: '700' },
+    panelTab: { flex: 1, minWidth: 44, minHeight: 60, alignItems: 'center', justifyContent: 'center', gap: 5, paddingHorizontal: 2, paddingVertical: 8, borderBottomWidth: 2, borderBottomColor: 'transparent' },
+    panelTabText: { color: palette.textSecondary, fontSize: 10, fontWeight: '700', maxWidth: '100%', textAlign: 'center' },
     fixtureHero: { borderBottomColor: palette.border, borderBottomWidth: 1, gap: 9, paddingVertical: 12 },
     fixtureHeroLive: { borderBottomColor: palette.accentText, borderBottomWidth: 2 },
     fixtureBanner: { backgroundColor: '#092637', minHeight: 94, overflow: 'hidden' },
@@ -302,10 +302,10 @@ function FixtureNavigation({ deleteDisabled, onDelete, panel, onChange, styles }
     <View style={styles.panelNavigation}>
       {MATCH_DAY_PANEL_OPTIONS.slice(0, 5).map(option => <Pressable accessibilityRole="button" accessibilityLabel={option.label} accessibilityState={{ selected: panel === option.value }} aria-selected={panel === option.value} key={option.value} onPress={() => { setMoreOpen(false); onChange(option.value) }} style={[styles.panelTab, panel === option.value && styles.chipActive]}>
         <MaterialIcons name={getMobileIconName(getMatchDayPanelIconKey(option.value))} size={23} color={StyleSheet.flatten(panel === option.value ? styles.chipTextActive : styles.secondaryText).color} />
-        <Text style={[styles.panelTabText, panel === option.value && styles.chipTextActive]}>{option.label}</Text>
+        <Text adjustsFontSizeToFit minimumFontScale={0.85} numberOfLines={1} style={[styles.panelTabText, panel === option.value && styles.chipTextActive]}>{option.label}</Text>
       </Pressable>)}
       <Pressable accessibilityRole="button" accessibilityLabel="More match options" accessibilityState={{ expanded: moreOpen, selected: secondarySelected }} aria-selected={secondarySelected} onPress={() => setMoreOpen(value => !value)} style={[styles.panelTab, (secondarySelected || moreOpen) && styles.chipActive]}>
-        <MaterialIcons name="more-horiz" size={23} color={StyleSheet.flatten(secondarySelected || moreOpen ? styles.chipTextActive : styles.secondaryText).color} /><Text style={[styles.panelTabText, secondarySelected && styles.chipTextActive]}>More</Text>
+        <MaterialIcons name="more-horiz" size={23} color={StyleSheet.flatten(secondarySelected || moreOpen ? styles.chipTextActive : styles.secondaryText).color} /><Text adjustsFontSizeToFit minimumFontScale={0.85} numberOfLines={1} style={[styles.panelTabText, secondarySelected && styles.chipTextActive]}>More</Text>
       </Pressable>
     </View>
     {moreOpen ? <View style={styles.tabs}>
