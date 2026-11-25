@@ -5,8 +5,9 @@ const TYPES = new Set(['match_started','goal','half_time','second_half','extra_t
 // Fans receive game updates only. Poll invitations and results, including Player of the Match, are excluded.
 export const isFanMatchNotificationType = (type) => TYPES.has(type)
 export function buildFanMatchNotificationPayload({ fanConnectionId, match, notificationCopy, type }) {
+  const useFixtureTitle = ['goal', 'half_time', 'full_time'].includes(type) && notificationCopy.title !== 'Penalty shootout finished'
   return {
-    title: type === 'goal' && notificationCopy.matchTitle ? notificationCopy.matchTitle : notificationCopy.title,
+    title: useFixtureTitle && notificationCopy.matchTitle ? notificationCopy.matchTitle : notificationCopy.title,
     body: notificationCopy.detailedBody,
     sound: 'default',
     priority: 'high',

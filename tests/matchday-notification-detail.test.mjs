@@ -43,7 +43,7 @@ test('detailed match notifications use the event minute, added time, player deta
   assert.equal(goal.matchTitle, 'U16 Green v Visitors')
   assert.equal(goal.tag, 'match-day-match-detail-goal')
   assert.equal(redCard.detailedBody, "Red: Casey Jones #4 at 71'. 2 - 1 v Visitors.")
-  assert.equal(fullTime.detailedBody, 'Full time: U16 Green 2 - 1 Visitors.')
+  assert.equal(fullTime.detailedBody, 'Full time: 2–1')
 })
 
 test('fan notifications persist and deliver the same detailed match event copy', () => {
@@ -82,13 +82,20 @@ test('unnamed opposition goals say Opponent, while named scorers and own-goal cr
   assert.match(own.detailedBody, /^Own goal: Opponent at 1'/)
 })
 
-test('away full-time alerts pair the home and away scores with their teams', () => {
+test('half-time and full-time alerts keep the score in fixture order at both detail levels', () => {
   const fixture = { ...match, club_name: 'St Neots Town FC', notification_team_name: 'St Neots',
     opponent: 'Needham Market F.C. U14 EJA', home_away: 'away', home_score: 3, away_score: 0 }
-  const copy = buildParentMatchDayNotificationCopy({ match: fixture, type: 'full_time' })
-  assert.equal(copy.detailedBody, 'Full time: Needham Market F.C. U14 EJA 3 - 0 St Neots.')
-  const fan = buildFanMatchNotificationPayload({ fanConnectionId: 'fan-1', match: fixture, notificationCopy: copy, type: 'full_time' })
-  assert.equal(fan.body, copy.detailedBody)
+  for (const [type, label] of [['half_time', 'Half time'], ['full_time', 'Full time']]) {
+    const copy = buildParentMatchDayNotificationCopy({ match: fixture, type })
+    assert.equal(copy.matchTitle, 'Needham Market F.C. U14 EJA v St Neots Town FC')
+    assert.equal(copy.minimalBody, `${label}: 3–0`)
+    assert.equal(copy.detailedBody, copy.minimalBody)
+    const fan = buildFanMatchNotificationPayload({ fanConnectionId: 'fan-1', match: fixture, notificationCopy: copy, type })
+    assert.equal(fan.title, copy.matchTitle)
+    assert.equal(fan.body, copy.detailedBody)
+  }
+  const goalless = buildParentMatchDayNotificationCopy({ match: { ...match, home_score: 0, away_score: 0 }, type: 'half_time' })
+  assert.equal(goalless.minimalBody, 'Half time: 0–0')
 })
 
 test('shootout notifications announce the start and each distinct kick with its own recorded score', () => {
@@ -110,4 +117,6 @@ test('shootout notifications announce the start and each distinct kick with its 
   assert.equal(finish.title, 'Penalty shootout finished')
   assert.match(finish.detailedBody, /4 - 4 Visitors \(3 - 1 pens\)/)
   assert.match(finish.minimalBody, /won on penalties/)
+  const fanFinish = buildFanMatchNotificationPayload({ fanConnectionId: 'fan-1', match: fixture, notificationCopy: finish, type: 'full_time' })
+  assert.equal(fanFinish.title, 'Penalty shootout finished')
 })
