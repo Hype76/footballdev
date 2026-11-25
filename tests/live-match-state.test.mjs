@@ -52,6 +52,16 @@ test('hydration break freezes both live activity clocks until play resumes', () 
   assert.equal(resumed.running, true)
 })
 
+test('iPhone Lock Screen centres the match status and hides the clock at full time', () => {
+  for (const role of ['coach', 'parent']) {
+    const source = readFileSync(new URL(`../apps/${role}-mobile/widgets/MatchLiveActivityWidget.swift`, import.meta.url), 'utf8')
+    const lockScreen = source.split('ActivityConfiguration(for: MatchActivityAttributes.self)')[1].split('} dynamicIsland:')[0]
+    assert.match(lockScreen, /Text\(context\.state\.phase\)/)
+    assert.match(lockScreen, /if context\.state\.phase != "Full time", context\.state\.elapsedSeconds != nil \{\s*MatchClock\(state: context\.state\)/)
+    assert.match(lockScreen, /\.multilineTextAlignment\(\.center\)\s*\.frame\(maxWidth: \.infinity, alignment: \.center\)/)
+  }
+})
+
 test('scheduled match score has no pre-match label or clock', () => {
   const state = createLiveMatchState({ ...fixture, status: 'scheduled', currentMatchPhase: 'pre_match', timerStatus: 'not_started', timerElapsedSeconds: 0 }, now)
   assert.equal(state.phase, '')
