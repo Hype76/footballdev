@@ -76,7 +76,7 @@ export function handleBackgroundInvitationResponse(response) {
       let failedAction = null
       try { failedAction = getBackgroundInvitationAction(response) } catch { /* Invalid payloads cannot select a child or invitation. */ }
       await Notifications.scheduleNotificationAsync({ content: {
-        title: 'Check your response', body: 'Your response could not be confirmed. Open Football Player Parents to check the invitation and try again.',
+        title: 'Check your response', body: 'Your response could not be confirmed. Open Football Player to check the invitation and try again.',
         data: { app: 'parent', route: 'invites', ...(failedAction ? { parentLinkId: failedAction.parentLinkId, invitationId: failedAction.invitationId } : {}) },
       }, trigger: null }).catch(() => {})
       return { saved: false }

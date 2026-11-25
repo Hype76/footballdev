@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url'
 import { createRequire } from 'node:module'
 import { assertQaUploadBuild, assertQaUploadProfile } from './mobile-qa-upload-core.mjs'
 import { assertEasLogin } from './mobile-eas-auth.mjs'
-import { mobileApps } from './mobile-apps.mjs'
+import { mobile150PublicRelease, mobileApps } from './mobile-apps.mjs'
 import { loadMobileLocalEnv } from './mobile-local-env.mjs'
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
@@ -39,7 +39,11 @@ if (!allowedProfiles.has(profile)) {
   process.exit(1)
 }
 
-const authorisedProductionSubmission = (
+const public150Submission = (profile === 'store-live' || qaUpload)
+  && promotionReference === mobile150PublicRelease.reference
+  && createRequire(import.meta.url)(resolve(repoRoot, app.appConfig)).expo.version === mobile150PublicRelease.version
+
+const authorisedProductionSubmission = public150Submission || (
   promotionReference === 'FP-MOBILE-CALENDAR-BACKGROUND-ACTIONS-271026'
   || promotionReference === 'FP-MOBILE-PARENT-COACH-FINAL-PUBLIC-RELEASE-MASTER-39'
   || promotionReference === 'FP-MOBILE-SIMON-FEEDBACK-55'
@@ -77,7 +81,7 @@ const authorisedProductionSubmission = (
 )
 
 if ((profile === 'store-live' && !authorisedProductionSubmission)
-  || (qaUpload && promotionReference !== 'FP-MOBILE-CALENDAR-BACKGROUND-ACTIONS-271026'
+  || (qaUpload && !public150Submission && promotionReference !== 'FP-MOBILE-CALENDAR-BACKGROUND-ACTIONS-271026'
     && promotionReference !== 'FP-MOBILE-LIVE-MATCH-112-20261103'
     && promotionReference !== 'FP-MOBILE-500MB-LIVE-CLOCK-112-20261103'
     && promotionReference !== 'FP-MOBILE-SATELLITE-PARITY-112-20261110'
@@ -117,17 +121,17 @@ if (platform === 'ios' && !iosInternalTestersConfirmed) {
 
 assertEasLogin()
 
-if (qaUpload) {
+if (qaUpload || public150Submission) {
   const require = createRequire(import.meta.url)
   const config = require(resolve(repoRoot, app.appConfig)).expo
   const easConfig = require(resolve(repoRoot, app.easConfig))
-  assertQaUploadProfile(easConfig.submit['store-qa'], appRole)
+  if (qaUpload) assertQaUploadProfile(easConfig.submit['store-qa'], appRole)
   const build = JSON.parse(execFileSync('npx', ['eas-cli', 'build:view', submissionBuildId, '--json'], {
     cwd: resolve(repoRoot, app.path), encoding: 'utf8', shell: process.platform === 'win32',
   }))
   assertQaUploadBuild(build, { appRole, platform, projectId: config.extra.eas.projectId, version: config.version,
     head: execFileSync('git', ['rev-parse', 'HEAD'], { cwd: repoRoot, encoding: 'utf8' }).trim() })
-  console.log('Internal QA upload only. Physical-device acceptance and public store release remain pending.')
+  if (qaUpload) console.log('Internal QA upload only. Physical-device acceptance and public store release remain pending.')
 }
 
 const resolvedBuildProfile = qaUpload ? 'store-live' : profile

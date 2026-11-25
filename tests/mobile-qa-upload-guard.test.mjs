@@ -62,3 +62,30 @@ test('1.1.2 satellite parity authorises private builds and uploads without openi
     }
   }
 })
+
+test('public 1.5.0 preserves native build and public submission gates for both apps', () => {
+  const env = {
+    ...process.env,
+    MOBILE_PRODUCTION_PROMOTION_REFERENCE: 'FP-MOBILE-PUBLIC-150-20261125',
+    MOBILE_NATIVE_BUILD_CONFIRMED: 'false',
+    MOBILE_SUBMISSION_CONFIRMED: 'false',
+    MOBILE_QA_UPLOAD_CONFIRMED: 'false',
+    MOBILE_SUBMISSION_BUILD_ID: '',
+  }
+  for (const app of ['coach', 'parent']) {
+    for (const platform of ['ios', 'android']) {
+      const build = spawnSync(process.execPath, ['apps/scripts/mobile-build-guard.mjs', app, 'store-live', platform], { env, encoding: 'utf8' })
+      assert.equal(build.status, 1)
+      assert.match(build.stderr, /MOBILE_NATIVE_BUILD_CONFIRMED=true/)
+
+      const args = ['apps/scripts/mobile-submit-guard.mjs', app, platform, 'store-live']
+      const noBuild = spawnSync(process.execPath, args, { env, encoding: 'utf8' })
+      assert.equal(noBuild.status, 1)
+      assert.match(noBuild.stderr, /production_submission_build_id_required/)
+
+      const noQa = spawnSync(process.execPath, args, { env: { ...env, MOBILE_SUBMISSION_BUILD_ID: '11111111-1111-4111-8111-111111111111' }, encoding: 'utf8' })
+      assert.equal(noQa.status, 1)
+      assert.match(noQa.stderr, /final external QA/)
+    }
+  }
+})

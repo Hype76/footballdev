@@ -1,8 +1,9 @@
 import { execFileSync } from 'node:child_process'
+import { createRequire } from 'node:module'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { assertEasLogin } from './mobile-eas-auth.mjs'
-import { mobileApps } from './mobile-apps.mjs'
+import { mobile150PublicRelease, mobileApps } from './mobile-apps.mjs'
 import { loadMobileLocalEnv } from './mobile-local-env.mjs'
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
@@ -109,12 +110,17 @@ if (!app) {
   process.exit(1)
 }
 
-if (!allowedBuilds.has(`${profile}:${platform}`) && !masterStoreAndroid && !currentInternalIos && !currentCoachStoreAndroid && !currentFeedbackStoreAndroid && !currentLiveMatchStoreAndroid && !satelliteParityPrivateBuild) {
+const public150Build = profile === 'store-live'
+  && ['android', 'ios'].includes(platform)
+  && promotionReference === mobile150PublicRelease.reference
+  && createRequire(import.meta.url)(resolve(repoRoot, app.appConfig)).expo.version === mobile150PublicRelease.version
+
+if (!allowedBuilds.has(`${profile}:${platform}`) && !masterStoreAndroid && !currentInternalIos && !currentCoachStoreAndroid && !currentFeedbackStoreAndroid && !currentLiveMatchStoreAndroid && !satelliteParityPrivateBuild && !public150Build) {
   console.error('Unknown mobile build profile and platform combination.')
   process.exit(1)
 }
 
-const productionReferenceAuthorised = satelliteParityPrivateBuild || (appRole === 'parent'
+const productionReferenceAuthorised = public150Build || satelliteParityPrivateBuild || (appRole === 'parent'
   ? authorisedParentProductionReferences.has(promotionReference)
   : authorisedCoachProductionReferences.has(promotionReference))
 

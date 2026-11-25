@@ -5,12 +5,12 @@ const config = createMobileExpoConfig({
   bundleIdentifier: 'com.footballplayer.parents',
   description: 'Parent portal app for Football Player updates and notifications.',
   easProjectId: '7e0906f3-64f4-42d9-b45d-0ee68f599baa',
-  name: 'Football Player Parents',
+  name: 'Football Player',
   plugins: [['react-native-widget-extension', { widgetsFolder: 'widgets', deploymentTarget: '15.1', frequentUpdates: true }]],
   packageName: 'com.footballplayer.parents',
   scheme: 'footballplayerparents',
   slug: 'football-player-parents',
-  version: '1.1.2',
+  version: '1.5.0',
 })
 
 module.exports = config
