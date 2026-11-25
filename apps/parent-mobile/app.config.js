@@ -6,7 +6,7 @@ const config = createMobileExpoConfig({
   description: 'Parent portal app for Football Player updates and notifications.',
   easProjectId: '7e0906f3-64f4-42d9-b45d-0ee68f599baa',
   name: 'Football Player',
-  plugins: [['react-native-widget-extension', { widgetsFolder: 'widgets', deploymentTarget: '15.1', frequentUpdates: true }]],
+  plugins: [['./plugins/withExistingLiveActivity.cjs', { widgetsFolder: 'widgets', deploymentTarget: '15.1', frequentUpdates: true }]],
   packageName: 'com.footballplayer.parents',
   scheme: 'footballplayerparents',
   slug: 'football-player-parents',
