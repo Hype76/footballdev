@@ -62,6 +62,16 @@ test('iPhone Lock Screen centres the match status and hides the clock at full ti
   }
 })
 
+test('Android centres the notification status and clock and disables the clock at full time', () => {
+  const android = new URL('../apps/mobile-core/modules/live-match/android/src/main/', import.meta.url)
+  const source = readFileSync(new URL('java/online/footballplayer/livematch/MatchNotification.kt', android), 'utf8')
+  const layout = readFileSync(new URL('res/layout/live_match_notification.xml', android), 'utf8')
+  assert.match(layout, /android:gravity="center"\s+android:orientation="horizontal">[\s\S]+@\+id\/live_match_status[\s\S]+<Chronometer[\s\S]+@\+id\/live_match_clock/)
+  assert.match(source, /val elapsed = if \(state\.phase == "Full time"\) null else state\.elapsedSeconds/)
+  assert.match(source, /if \(clockBase != null\) setChronometer\(R\.id\.live_match_clock, clockBase, null, true\)/)
+  assert.match(source, /setCustomContentView\(matchView\(/)
+})
+
 test('scheduled match score has no pre-match label or clock', () => {
   const state = createLiveMatchState({ ...fixture, status: 'scheduled', currentMatchPhase: 'pre_match', timerStatus: 'not_started', timerElapsedSeconds: 0 }, now)
   assert.equal(state.phase, '')

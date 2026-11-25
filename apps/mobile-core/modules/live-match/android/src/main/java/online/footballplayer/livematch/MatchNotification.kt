@@ -6,6 +6,7 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.os.Build
+import android.os.SystemClock
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Color
@@ -16,6 +17,8 @@ import android.graphics.ColorMatrixColorFilter
 import android.text.SpannableStringBuilder
 import android.text.Spanned
 import android.text.style.ForegroundColorSpan
+import android.view.View
+import android.widget.RemoteViews
 import java.io.ByteArrayOutputStream
 import java.net.URL
 import javax.net.ssl.HttpsURLConnection
@@ -55,35 +58,59 @@ internal object MatchNotification {
     }
     val builder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) Notification.Builder(context, channelId) else Notification.Builder(context)
     val shootout = if (state.homeShootoutScore != null && state.awayShootoutScore != null) {
-      " | Penalties ${state.homeShootoutScore} - ${state.awayShootoutScore}"
-    } else ""
+      "Penalties ${state.homeShootoutScore} - ${state.awayShootoutScore}"
+    } else null
+    val title = "${state.homeName} ${state.homeScore} - ${state.awayScore} ${state.awayName}"
+    val status = listOfNotNull(state.phase.takeIf { it.isNotBlank() }, shootout).joinToString(" | ")
+    val elapsed = if (state.phase == "Full time") null else state.elapsedSeconds
+    val clockBase = if (state.running && elapsed != null) {
+      val sinceSample = (System.currentTimeMillis() - state.sampledAtMs).coerceAtLeast(0L)
+      SystemClock.elapsedRealtime() - sinceSample - elapsed * 1000L
+    } else null
+    val stoppedClock = if (!state.running && elapsed != null) {
+      "${elapsed / 60}:${(elapsed % 60).toString().padStart(2, '0')}"
+    } else null
     builder.setSmallIcon(context.applicationInfo.icon)
       .setColor(if (state.appRole == "parent") Color.rgb(0, 76, 140) else Color.BLACK)
-      .setContentTitle("${state.homeName} ${state.homeScore} - ${state.awayScore} ${state.awayName}")
-      .setContentText(statusText(state, "${state.phase}$shootout"))
+      .setContentTitle(title)
+      .setContentText(statusText(state, listOfNotNull(status.takeIf { it.isNotEmpty() }, stoppedClock).joinToString(" | ")))
       .setContentIntent(intent)
       .setOnlyAlertOnce(true)
       .setOngoing(!state.ended)
       .setVisibility(Notification.VISIBILITY_PUBLIC)
     builder.setLargeIcon(teamBadges(context, state))
     if (state.ended && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) builder.setTimeoutAfter(15 * 60 * 1000L)
-    if (state.running && state.elapsedSeconds != null) {
-      builder.setWhen(state.sampledAtMs - state.elapsedSeconds * 1000L).setShowWhen(true).setUsesChronometer(true)
-    } else {
-      builder.setShowWhen(false)
-      if (state.elapsedSeconds != null) {
-        val minutes = state.elapsedSeconds / 60
-        val seconds = state.elapsedSeconds % 60
-        builder.setContentText(statusText(state, "${state.phase}$shootout | $minutes:${seconds.toString().padStart(2, '0')}"))
-      }
+    builder.setShowWhen(false)
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+      val cards = statusText(state, "")
+      builder.setStyle(Notification.DecoratedCustomViewStyle())
+        .setCustomContentView(matchView(context, title, status, clockBase, stoppedClock))
+        .setCustomBigContentView(matchView(context, title, status, clockBase, stoppedClock, cards))
+    } else if (clockBase != null && elapsed != null) {
+      builder.setWhen(state.sampledAtMs - elapsed * 1000L).setShowWhen(true).setUsesChronometer(true)
     }
     return builder.build()
+  }
+
+  private fun matchView(
+    context: Context, title: String, status: String, clockBase: Long?, stoppedClock: String?, cards: CharSequence = "",
+  ): RemoteViews = RemoteViews(context.packageName, R.layout.live_match_notification).apply {
+    setTextViewText(R.id.live_match_title, title)
+    setTextViewText(R.id.live_match_status, status)
+    setViewVisibility(R.id.live_match_status, if (status.isEmpty()) View.GONE else View.VISIBLE)
+    setViewVisibility(R.id.live_match_clock, if (clockBase == null) View.GONE else View.VISIBLE)
+    if (clockBase != null) setChronometer(R.id.live_match_clock, clockBase, null, true)
+    setViewVisibility(R.id.live_match_stopped_clock, if (stoppedClock == null) View.GONE else View.VISIBLE)
+    if (stoppedClock != null) setTextViewText(R.id.live_match_stopped_clock, stoppedClock)
+    setViewVisibility(R.id.live_match_details, if (cards.isEmpty()) View.GONE else View.VISIBLE)
+    if (cards.isNotEmpty()) setTextViewText(R.id.live_match_details, cards)
   }
 
   private fun statusText(state: MatchNotificationState, prefix: String): SpannableStringBuilder {
     val text = SpannableStringBuilder(prefix)
     if (state.homeYellowCards + state.homeRedCards + state.awayYellowCards + state.awayRedCards == 0) return text
-    text.append(" | Home")
+    if (text.isNotEmpty()) text.append(" | ")
+    text.append("Home")
     appendCard(text, state.homeYellowCards, Color.YELLOW)
     appendCard(text, state.homeRedCards, Color.RED)
     text.append(" Away")
